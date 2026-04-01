@@ -168,8 +168,7 @@ pub fn label_dataset_input(
 
 /// Parses a JSON input line and returns the JSON output line for the dataset oracle.
 pub fn label_json_line(line: &str) -> Result<String, DatasetOracleError> {
-    let input =
-        serde_json::from_str::<DatasetOracleInput>(line).map_err(DatasetOracleError::Json)?;
+    let input = parse_oracle_input(line)?;
     let output = label_dataset_input(&input)?;
     serde_json::to_string(&output).map_err(DatasetOracleError::Json)
 }
@@ -177,6 +176,7 @@ pub fn label_json_line(line: &str) -> Result<String, DatasetOracleError> {
 /// Profile one newline-delimited oracle request stream without changing outputs.
 pub fn profile_json_lines(reader: impl BufRead, context: &str) -> io::Result<OracleProfileTotals> {
     let mut totals = OracleProfileTotals::default();
+    let mut sink = io::sink();
     for (line_number, line) in reader.lines().enumerate() {
         let line = line?;
         if line.trim().is_empty() {
@@ -184,8 +184,7 @@ pub fn profile_json_lines(reader: impl BufRead, context: &str) -> io::Result<Ora
         }
 
         let parse_started = Instant::now();
-        let input =
-            serde_json::from_str::<DatasetOracleInput>(&line).map_err(DatasetOracleError::Json);
+        let input = parse_oracle_input(&line);
         totals.json_parse += parse_started.elapsed();
         let input = input.map_err(|error| {
             io::Error::new(
@@ -205,14 +204,12 @@ pub fn profile_json_lines(reader: impl BufRead, context: &str) -> io::Result<Ora
         totals.record_label(&record_profile);
 
         let serialize_started = Instant::now();
-        serde_json::to_string(&output)
-            .map_err(DatasetOracleError::Json)
-            .map_err(|error| {
-                io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    format!("{context} line {}: {error}", line_number + 1),
-                )
-            })?;
+        write_output_json_line(&mut sink, &output).map_err(|error| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("{context} line {}: {error}", line_number + 1),
+            )
+        })?;
         totals.json_serialize += serialize_started.elapsed();
     }
 
@@ -231,13 +228,24 @@ pub fn process_json_lines(
             continue;
         }
 
-        let output = label_json_line(&line).map_err(|error| {
+        let input = parse_oracle_input(&line).map_err(|error| {
             io::Error::new(
                 io::ErrorKind::InvalidData,
                 format!("{context} line {}: {error}", line_number + 1),
             )
         })?;
-        writeln!(writer, "{output}")?;
+        let output = label_dataset_input(&input).map_err(|error| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("{context} line {}: {error}", line_number + 1),
+            )
+        })?;
+        write_output_json_line(&mut writer, &output).map_err(|error| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("{context} line {}: {error}", line_number + 1),
+            )
+        })?;
     }
 
     writer.flush()?;
@@ -247,6 +255,24 @@ pub fn process_json_lines(
 fn action_encoding_array(encoding: action_space::ActionEncoding) -> [u32; 3] {
     let [from, to, promotion] = encoding.as_indices();
     [from as u32, to as u32, promotion as u32]
+}
+
+fn parse_oracle_input(line: &str) -> Result<DatasetOracleInput, DatasetOracleError> {
+    serde_json::from_str::<DatasetOracleInput>(line).map_err(DatasetOracleError::Json)
+}
+
+fn write_output_json_line(
+    writer: &mut impl Write,
+    output: &DatasetOracleOutput,
+) -> Result<(), DatasetOracleError> {
+    serde_json::to_writer(&mut *writer, output).map_err(DatasetOracleError::Json)?;
+    writer.write_all(b"\n").map_err(|error| {
+        DatasetOracleError::Json(serde_json::Error::io(io::Error::new(
+            error.kind(),
+            error.to_string(),
+        )))
+    })?;
+    Ok(())
 }
 
 fn label_dataset_input_impl(

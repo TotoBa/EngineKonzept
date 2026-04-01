@@ -112,15 +112,23 @@ To keep the next optimization steps externally checkable, the tooling now also i
 
 - `cargo run --quiet -p tools --bin dataset-oracle-profile`
 
-It accepts the same newline-delimited request stream as `dataset-oracle` but reports aggregated phase timings instead of labels. The current reference profile is stored in [oracle_profile_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v1.json).
+It accepts the same newline-delimited request stream as `dataset-oracle` but reports aggregated phase timings instead of labels. The initial hotspot profile is stored in [oracle_profile_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v1.json), and the current post-serialization profile is stored in [oracle_profile_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v2.json).
 
-On the 2000-record reference corpus, the current measured split is:
+The first profile showed:
 
 - `legal_generation`: about `48.7%`
 - `json_serialize`: about `32.3%`
 - `legal_action_encoding`: about `4.5%`
 
-That profile is the current guide for further throughput work. In other words, the builder and daemon transport are no longer the main pressure; the dominant remaining work is now inside the exact Rust oracle itself.
+That directly motivated the next output-path change: the oracle now writes JSON responses straight into the stream instead of first materializing a `String` per record. On the same 2000-record daemon build, wall-clock time dropped from about `1.624s` to about `1.555s`, with byte-identical artifacts. That measurement is stored in [oracle_e2e_jsonopt_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_e2e_jsonopt_v1.json).
+
+After that step, the updated profile shifted to:
+
+- `legal_generation`: about `57.0%`
+- `json_serialize`: about `20.7%`
+- `legal_action_encoding`: about `5.2%`
+
+That is the current guide for further throughput work. In other words, the builder and daemon transport are no longer the main pressure, and even JSON serialization has been pushed down; the dominant remaining work is now exact legal move generation inside the Rust oracle.
 
 The summary reports:
 

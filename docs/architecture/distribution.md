@@ -85,9 +85,9 @@ The repository now also includes a profiling-only binary:
 
 - `cargo run --quiet -p tools --bin dataset-oracle-profile`
 
-It consumes the same newline-delimited oracle input as `dataset-oracle`, but instead of emitting labels it reports aggregated phase timings. The current reference profile is stored in [oracle_profile_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v1.json).
+It consumes the same newline-delimited oracle input as `dataset-oracle`, but instead of emitting labels it reports aggregated phase timings. The baseline profile is stored in [oracle_profile_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v1.json), and the current post-serialization-optimization profile is stored in [oracle_profile_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v2.json).
 
-On the same 2000-record reference input used for the end-to-end oracle benchmarks, the current measured split is:
+The first profile showed:
 
 - `legal_generation`: about `48.7%`
 - `json_serialize`: about `32.3%`
@@ -98,6 +98,16 @@ That matters because it narrows the remaining throughput pressure:
 - transport overhead is no longer the main cost center
 - move application is now cheap after the known-legal shortcut
 - the next meaningful wins are most likely inside exact legal move generation or in the volume and shape of JSON serialization
+
+That led to the next measured improvement: the oracle now writes JSON directly into the stream instead of allocating a temporary `String` for each response line. On the same 2000-record daemon build, wall-clock time dropped from about `1.624s` to about `1.555s`, with byte-identical artifacts. The corresponding measurement is stored in [oracle_e2e_jsonopt_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_e2e_jsonopt_v1.json).
+
+After that change, the updated profile shifted to:
+
+- `legal_generation`: about `57.0%`
+- `json_serialize`: about `20.7%`
+- `legal_action_encoding`: about `5.2%`
+
+At this point the optimization target is much narrower: exact legal move generation is now the clear dominant cost block.
 
 ## Deferred Options
 

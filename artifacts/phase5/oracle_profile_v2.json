@@ -1,0 +1,73 @@
+{
+  "benchmark_input": {
+    "input": "/srv/schach/tmp/oracle-e2e/train_raw_2k.jsonl",
+    "source": "artifacts/datasets/phase5_stockfish_pgn_raw_pi_10k_v1/train_raw.jsonl",
+    "record_count": 2000
+  },
+  "results": {
+    "records": 2000,
+    "total_measured_seconds": 0.712760842,
+    "phases": {
+      "json_parse": {
+        "seconds": 0.02526474,
+        "milliseconds_per_record": 0.01263237,
+        "share_of_measured": 0.035446307528774146
+      },
+      "fen_parse": {
+        "seconds": 0.021144533,
+        "milliseconds_per_record": 0.0105722665,
+        "share_of_measured": 0.02966567711642049
+      },
+      "legal_generation": {
+        "seconds": 0.40627894,
+        "milliseconds_per_record": 0.20313947,
+        "share_of_measured": 0.5700073798386359
+      },
+      "legal_move_uci": {
+        "seconds": 0.018613159,
+        "milliseconds_per_record": 0.0093065795,
+        "share_of_measured": 0.02611417168733857
+      },
+      "legal_action_encoding": {
+        "seconds": 0.037191861,
+        "milliseconds_per_record": 0.0185959305,
+        "share_of_measured": 0.052180000371008034
+      },
+      "selected_move_resolution": {
+        "seconds": 0.010383554,
+        "milliseconds_per_record": 0.005191777,
+        "share_of_measured": 0.014568075837140334
+      },
+      "selected_move_apply": {
+        "seconds": 0.001609995,
+        "milliseconds_per_record": 0.0008049975,
+        "share_of_measured": 0.002258815166504335
+      },
+      "selected_action_encoding": {
+        "seconds": 0.0004205,
+        "milliseconds_per_record": 0.00021025,
+        "share_of_measured": 0.0005899594579579892
+      },
+      "position_encoding": {
+        "seconds": 0.018822388,
+        "milliseconds_per_record": 0.009411194,
+        "share_of_measured": 0.026407718958275768
+      },
+      "annotations": {
+        "seconds": 0.025638309,
+        "milliseconds_per_record": 0.0128191545,
+        "share_of_measured": 0.035970423021639567
+      },
+      "json_serialize": {
+        "seconds": 0.147392863,
+        "milliseconds_per_record": 0.0736964315,
+        "share_of_measured": 0.20679147101630482
+      }
+    }
+  },
+  "notes": [
+    "This profile was captured after switching the oracle output path from String-based JSON emission to direct writer-based emission.",
+    "The direct writer path cut measured JSON serialization share from about 32.3% in oracle_profile_v1.json to about 20.7%.",
+    "Exact legal move generation is now the dominant remaining cost block by a wide margin."
+  ]
+}

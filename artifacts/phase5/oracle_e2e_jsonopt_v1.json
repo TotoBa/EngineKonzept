@@ -1,0 +1,27 @@
+{
+  "benchmark_input": {
+    "input": "/srv/schach/tmp/oracle-e2e/train_raw_2k.jsonl",
+    "source": "artifacts/datasets/phase5_stockfish_pgn_raw_pi_10k_v1/train_raw.jsonl",
+    "source_format": "jsonl",
+    "record_count": 2000,
+    "oracle_workers": 4,
+    "oracle_batch_size": 250
+  },
+  "results": {
+    "daemon_parallel_applyopt_seconds": 1.623636,
+    "daemon_parallel_jsonopt_seconds": 1.555312,
+    "jsonopt_vs_applyopt_speedup": 1.044,
+    "jsonopt_vs_subprocess_speedup": 1.619,
+    "saved_vs_applyopt": 0.068324,
+    "saved_vs_subprocess": 0.96288
+  },
+  "artifact_digests": {
+    "dataset_jsonl": "4c2af5e2ba5cd2009d5c4a59b361e600c4a98253e1b34a4f0c601129c6c0971f",
+    "summary_json": "e8be41f60ff8cd01bdb5c52bcebbfe3b0032fde588ea884cab7782491b069567"
+  },
+  "notes": [
+    "The optimization writes JSON lines directly to the output stream instead of first building a temporary String for each labeled record.",
+    "The optimized build produced byte-identical dataset and summary artifacts.",
+    "The gain is smaller than the legal-move and apply-path optimizations, but it directly targets the second-largest measured hotspot from oracle_profile_v1.json."
+  ]
+}
