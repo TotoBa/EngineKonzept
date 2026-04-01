@@ -8,7 +8,7 @@ use action_space::{encode_move, ActionEncodeError};
 use core_types::MoveKind;
 use encoder::encode_position;
 use position::Position;
-use rules::{apply_move, is_in_check, legal_moves, MoveError};
+use rules::{apply_known_legal_move, is_in_check, legal_moves, MoveError};
 use serde::{Deserialize, Serialize};
 
 /// JSON input accepted by the dataset oracle.
@@ -132,7 +132,7 @@ pub fn label_dataset_input(
 
     let next_position = selected_move
         .map(|candidate| {
-            apply_move(&position, candidate).map_err(DatasetOracleError::MoveApplication)
+            apply_known_legal_move(&position, candidate).map_err(DatasetOracleError::MoveApplication)
         })
         .transpose()?;
 
@@ -323,4 +323,5 @@ mod tests {
             .collect();
         assert_eq!(lines.len(), 2);
     }
+
 }

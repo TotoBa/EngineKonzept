@@ -163,6 +163,11 @@ pub fn apply_move(position: &Position, chess_move: Move) -> Result<Position, Mov
     if !legal_moves(position).contains(&chess_move) {
         return Err(MoveError::IllegalMove);
     }
+    apply_known_legal_move(position, chess_move)
+}
+
+/// Applies a move that is already known to be legal.
+pub fn apply_known_legal_move(position: &Position, chess_move: Move) -> Result<Position, MoveError> {
     try_apply_pseudo_move(position, chess_move)
 }
 

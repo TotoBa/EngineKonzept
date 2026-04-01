@@ -101,6 +101,13 @@ After removing a duplicate legal-move generation pass inside the Rust oracle, th
 
 That measurement is stored in [oracle_e2e_hotpath_opt_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_e2e_hotpath_opt_v1.json).
 
+After teaching the oracle to skip redundant re-validation when applying a move that is already known legal, the same 2000-record build dropped again to about `1.62s`, which is:
+
+- about `1.25x` faster than the previous hot-path result
+- about `1.55x` faster than the original subprocess baseline
+
+That measurement is stored in [oracle_e2e_applyopt_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_e2e_applyopt_v1.json).
+
 The summary reports:
 
 - split counts
