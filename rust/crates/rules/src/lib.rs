@@ -151,7 +151,7 @@ pub fn legal_moves(position: &Position) -> Vec<Move> {
     pseudo_legal_moves(position)
         .into_iter()
         .filter(|candidate| {
-            try_apply_pseudo_move(position, *candidate)
+            try_apply_pseudo_move_for_check(position, *candidate)
                 .map(|next| !is_in_check(&next, moving_side))
                 .unwrap_or(false)
         })
@@ -167,7 +167,10 @@ pub fn apply_move(position: &Position, chess_move: Move) -> Result<Position, Mov
 }
 
 /// Applies a move that is already known to be legal.
-pub fn apply_known_legal_move(position: &Position, chess_move: Move) -> Result<Position, MoveError> {
+pub fn apply_known_legal_move(
+    position: &Position,
+    chess_move: Move,
+) -> Result<Position, MoveError> {
     try_apply_pseudo_move(position, chess_move)
 }
 
@@ -616,6 +619,121 @@ fn try_apply_pseudo_move(position: &Position, chess_move: Move) -> Result<Positi
     );
     next.set_side_to_move(position.side_to_move().opposite());
     next.push_current_key();
+    Ok(next)
+}
+
+fn try_apply_pseudo_move_for_check(
+    position: &Position,
+    chess_move: Move,
+) -> Result<Position, MoveError> {
+    let moving_piece = position
+        .piece_at(chess_move.from)
+        .ok_or(MoveError::NoPieceAtSource(chess_move.from))?;
+    if moving_piece.color != position.side_to_move() {
+        return Err(MoveError::WrongSideToMove);
+    }
+
+    let mut next = position.clone();
+    next.set_piece_at(chess_move.from, None);
+
+    match chess_move.kind {
+        MoveKind::Quiet => {
+            if next.piece_at(chess_move.to).is_some() {
+                return Err(MoveError::OccupiedTargetSquare(chess_move.to));
+            }
+            next.set_piece_at(chess_move.to, Some(moving_piece));
+        }
+        MoveKind::DoublePawnPush => {
+            if moving_piece.kind != PieceKind::Pawn {
+                return Err(MoveError::InvalidMoveKind);
+            }
+            let intermediate = chess_move
+                .from
+                .offset(0, moving_piece.color.pawn_push_delta())
+                .ok_or(MoveError::InvalidMoveKind)?;
+            if next.piece_at(intermediate).is_some() || next.piece_at(chess_move.to).is_some() {
+                return Err(MoveError::OccupiedTargetSquare(chess_move.to));
+            }
+            next.set_piece_at(chess_move.to, Some(moving_piece));
+        }
+        MoveKind::Capture => {
+            let target_piece = next
+                .piece_at(chess_move.to)
+                .ok_or(MoveError::MissingCaptureTarget(chess_move.to))?;
+            if target_piece.color == moving_piece.color {
+                return Err(MoveError::CannotCaptureOwnPiece);
+            }
+            next.set_piece_at(chess_move.to, Some(moving_piece));
+        }
+        MoveKind::EnPassant => {
+            if moving_piece.kind != PieceKind::Pawn {
+                return Err(MoveError::InvalidMoveKind);
+            }
+            if position.en_passant() != Some(chess_move.to) {
+                return Err(MoveError::InvalidEnPassantSquare);
+            }
+            let victim_square = chess_move
+                .to
+                .offset(0, -moving_piece.color.pawn_push_delta())
+                .ok_or(MoveError::InvalidEnPassantSquare)?;
+            let victim = next
+                .piece_at(victim_square)
+                .ok_or(MoveError::MissingEnPassantPawn)?;
+            if victim != Piece::new(moving_piece.color.opposite(), PieceKind::Pawn) {
+                return Err(MoveError::MissingEnPassantPawn);
+            }
+            next.set_piece_at(victim_square, None);
+            next.set_piece_at(chess_move.to, Some(moving_piece));
+        }
+        MoveKind::CastleKingside | MoveKind::CastleQueenside => {
+            if moving_piece.kind != PieceKind::King {
+                return Err(MoveError::InvalidMoveKind);
+            }
+            let (rook_from, rook_to) = rook_squares_for_castle(moving_piece.color, chess_move.kind);
+            let rook = next
+                .piece_at(rook_from)
+                .ok_or(MoveError::MissingCastlingRook)?;
+            if rook != Piece::new(moving_piece.color, PieceKind::Rook) {
+                return Err(MoveError::MissingCastlingRook);
+            }
+            if next.piece_at(chess_move.to).is_some() || next.piece_at(rook_to).is_some() {
+                return Err(MoveError::OccupiedTargetSquare(chess_move.to));
+            }
+            next.set_piece_at(chess_move.to, Some(moving_piece));
+            next.set_piece_at(rook_from, None);
+            next.set_piece_at(rook_to, Some(rook));
+        }
+        MoveKind::Promotion(promotion) => {
+            validate_promotion_piece(promotion)?;
+            if moving_piece.kind != PieceKind::Pawn {
+                return Err(MoveError::InvalidMoveKind);
+            }
+            if next.piece_at(chess_move.to).is_some() {
+                return Err(MoveError::OccupiedTargetSquare(chess_move.to));
+            }
+            next.set_piece_at(
+                chess_move.to,
+                Some(Piece::new(moving_piece.color, promotion)),
+            );
+        }
+        MoveKind::PromotionCapture(promotion) => {
+            validate_promotion_piece(promotion)?;
+            if moving_piece.kind != PieceKind::Pawn {
+                return Err(MoveError::InvalidMoveKind);
+            }
+            let target_piece = next
+                .piece_at(chess_move.to)
+                .ok_or(MoveError::MissingCaptureTarget(chess_move.to))?;
+            if target_piece.color == moving_piece.color {
+                return Err(MoveError::CannotCaptureOwnPiece);
+            }
+            next.set_piece_at(
+                chess_move.to,
+                Some(Piece::new(moving_piece.color, promotion)),
+            );
+        }
+    }
+
     Ok(next)
 }
 

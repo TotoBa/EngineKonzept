@@ -1,0 +1,28 @@
+{
+  "benchmark_input": {
+    "input": "/srv/schach/tmp/oracle-e2e/train_raw_2k.jsonl",
+    "source": "artifacts/datasets/phase5_stockfish_pgn_raw_pi_10k_v1/train_raw.jsonl",
+    "source_format": "jsonl",
+    "record_count": 2000,
+    "oracle_workers": 4,
+    "oracle_batch_size": 250
+  },
+  "results": {
+    "daemon_parallel_jsonopt_seconds": 1.555312,
+    "daemon_parallel_checkpath_seconds": 1.546796,
+    "daemon_parallel_checkpath_repeat_seconds": 1.537533,
+    "checkpath_mean_seconds": 1.5421645,
+    "checkpath_vs_jsonopt_speedup": 1.0085,
+    "checkpath_repeat_vs_jsonopt_speedup": 1.0116,
+    "saved_vs_jsonopt_mean": 0.0131475
+  },
+  "artifact_digests": {
+    "dataset_jsonl": "4c2af5e2ba5cd2009d5c4a59b361e600c4a98253e1b34a4f0c601129c6c0971f",
+    "summary_json": "e8be41f60ff8cd01bdb5c52bcebbfe3b0032fde588ea884cab7782491b069567"
+  },
+  "notes": [
+    "The legal-move filter now uses a lighter apply path that updates only the board state needed for the self-check test.",
+    "Two consecutive 2k daemon builds stayed below the previous jsonopt baseline while preserving byte-identical artifacts.",
+    "The gain is modest but aligns with the updated oracle profile, which shows reduced legal_generation time."
+  ]
+}

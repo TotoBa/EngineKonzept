@@ -112,7 +112,7 @@ To keep the next optimization steps externally checkable, the tooling now also i
 
 - `cargo run --quiet -p tools --bin dataset-oracle-profile`
 
-It accepts the same newline-delimited request stream as `dataset-oracle` but reports aggregated phase timings instead of labels. The initial hotspot profile is stored in [oracle_profile_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v1.json), and the current post-serialization profile is stored in [oracle_profile_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v2.json).
+It accepts the same newline-delimited request stream as `dataset-oracle` but reports aggregated phase timings instead of labels. The initial hotspot profile is stored in [oracle_profile_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v1.json), the post-serialization profile is stored in [oracle_profile_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v2.json), and the current profile is stored in [oracle_profile_v3.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v3.json).
 
 The first profile showed:
 
@@ -128,7 +128,15 @@ After that step, the updated profile shifted to:
 - `json_serialize`: about `20.7%`
 - `legal_action_encoding`: about `5.2%`
 
-That is the current guide for further throughput work. In other words, the builder and daemon transport are no longer the main pressure, and even JSON serialization has been pushed down; the dominant remaining work is now exact legal move generation inside the Rust oracle.
+The next low-risk rules-kernel step trimmed the move-application path used only for the self-check filter in `legal_moves`. That path now updates only the board state needed for `is_in_check`, not the full metadata state used for committed next positions. On the same 2000-record daemon benchmark, two back-to-back runs landed at about `1.547s` and `1.538s`, both below the previous `1.555s` jsonopt baseline. That measurement is stored in [oracle_e2e_checkpath_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_e2e_checkpath_v1.json).
+
+After that step, the profile tightened again to roughly:
+
+- `legal_generation`: about `56.0%`
+- `json_serialize`: about `21.2%`
+- `legal_action_encoding`: about `5.3%`
+
+That is the current guide for further throughput work. In other words, the builder and daemon transport are no longer the main pressure, JSON serialization is no longer the obvious second target, and the dominant remaining work is still exact legal move generation inside the Rust oracle.
 
 The summary reports:
 

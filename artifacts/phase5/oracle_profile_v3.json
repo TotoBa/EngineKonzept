@@ -1,0 +1,73 @@
+{
+  "benchmark_input": {
+    "input": "/srv/schach/tmp/oracle-e2e/train_raw_2k.jsonl",
+    "source": "artifacts/datasets/phase5_stockfish_pgn_raw_pi_10k_v1/train_raw.jsonl",
+    "record_count": 2000
+  },
+  "results": {
+    "records": 2000,
+    "total_measured_seconds": 0.678302124,
+    "phases": {
+      "json_parse": {
+        "seconds": 0.024349692,
+        "milliseconds_per_record": 0.012174846,
+        "share_of_measured": 0.035898003468436725
+      },
+      "fen_parse": {
+        "seconds": 0.02062826,
+        "milliseconds_per_record": 0.01031413,
+        "share_of_measured": 0.03041161050529159
+      },
+      "legal_generation": {
+        "seconds": 0.379775457,
+        "milliseconds_per_record": 0.1898877285,
+        "share_of_measured": 0.5598912985270262
+      },
+      "legal_move_uci": {
+        "seconds": 0.017864197,
+        "milliseconds_per_record": 0.0089320985,
+        "share_of_measured": 0.026336637271093078
+      },
+      "legal_action_encoding": {
+        "seconds": 0.036004102,
+        "milliseconds_per_record": 0.018002051,
+        "share_of_measured": 0.05307974238335129
+      },
+      "selected_move_resolution": {
+        "seconds": 0.010058923,
+        "milliseconds_per_record": 0.0050294615,
+        "share_of_measured": 0.014829561406474382
+      },
+      "selected_move_apply": {
+        "seconds": 0.00219326,
+        "milliseconds_per_record": 0.00109663,
+        "share_of_measured": 0.00323345589287879
+      },
+      "selected_action_encoding": {
+        "seconds": 0.000391525,
+        "milliseconds_per_record": 0.0001957625,
+        "share_of_measured": 0.0005772132891036031
+      },
+      "position_encoding": {
+        "seconds": 0.018251431,
+        "milliseconds_per_record": 0.0091257155,
+        "share_of_measured": 0.026907524470614806
+      },
+      "annotations": {
+        "seconds": 0.024815049,
+        "milliseconds_per_record": 0.0124075245,
+        "share_of_measured": 0.03658406500876592
+      },
+      "json_serialize": {
+        "seconds": 0.143970228,
+        "milliseconds_per_record": 0.07198511399999999,
+        "share_of_measured": 0.21225088777696355
+      }
+    }
+  },
+  "notes": [
+    "This profile was captured after introducing a lighter move-application path for the legal-move self-check filter.",
+    "Measured legal_generation time fell from about 0.406s in oracle_profile_v2.json to about 0.380s on the same 2k corpus.",
+    "Exact legal generation still dominates the oracle cost profile, but the self-check filter now does slightly less non-essential state work."
+  ]
+}

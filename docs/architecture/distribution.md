@@ -85,7 +85,7 @@ The repository now also includes a profiling-only binary:
 
 - `cargo run --quiet -p tools --bin dataset-oracle-profile`
 
-It consumes the same newline-delimited oracle input as `dataset-oracle`, but instead of emitting labels it reports aggregated phase timings. The baseline profile is stored in [oracle_profile_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v1.json), and the current post-serialization-optimization profile is stored in [oracle_profile_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v2.json).
+It consumes the same newline-delimited oracle input as `dataset-oracle`, but instead of emitting labels it reports aggregated phase timings. The baseline profile is stored in [oracle_profile_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v1.json), the post-serialization-optimization profile is stored in [oracle_profile_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v2.json), and the current profile is stored in [oracle_profile_v3.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v3.json).
 
 The first profile showed:
 
@@ -108,6 +108,16 @@ After that change, the updated profile shifted to:
 - `legal_action_encoding`: about `5.2%`
 
 At this point the optimization target is much narrower: exact legal move generation is now the clear dominant cost block.
+
+The next small but externally repeatable step was to trim the self-check filter inside `legal_moves`: for that specific test, the rules kernel now applies moves through a lighter path that updates only the board state needed by `is_in_check`, not the full metadata path used for committed next states. On the same 2000-record daemon benchmark, two back-to-back runs landed at about `1.547s` and `1.538s`, both below the previous `1.555s` jsonopt baseline. The measurement is stored in [oracle_e2e_checkpath_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_e2e_checkpath_v1.json).
+
+The corresponding profile tightened again:
+
+- `legal_generation`: about `56.0%`
+- `json_serialize`: about `21.2%`
+- `legal_action_encoding`: about `5.3%`
+
+This is not a dramatic jump, but it confirms the direction: remaining wins are now incremental and concentrated almost entirely inside exact legality work.
 
 ## Deferred Options
 
