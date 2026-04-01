@@ -16,6 +16,10 @@ path = "src/bin/dataset_oracle.rs"
 name = "dataset-oracle-daemon"
 path = "src/bin/dataset_oracle_daemon.rs"
 
+[[bin]]
+name = "dataset-oracle-profile"
+path = "src/bin/dataset_oracle_profile.rs"
+
 [dependencies]
 action-space = { path = "../action-space" }
 core-types = { path = "../core-types" }

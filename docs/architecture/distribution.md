@@ -81,6 +81,24 @@ That expectation was confirmed by the next optimization step: once the Rust orac
 
 The next step confirmed the same pattern again: once the oracle also stopped re-validating a move that had already been proven legal in the current request, the same build dropped further to about `1.62s`. At that point the cumulative gain over the original subprocess baseline reached about `1.55x`.
 
+The repository now also includes a profiling-only binary:
+
+- `cargo run --quiet -p tools --bin dataset-oracle-profile`
+
+It consumes the same newline-delimited oracle input as `dataset-oracle`, but instead of emitting labels it reports aggregated phase timings. The current reference profile is stored in [oracle_profile_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v1.json).
+
+On the same 2000-record reference input used for the end-to-end oracle benchmarks, the current measured split is:
+
+- `legal_generation`: about `48.7%`
+- `json_serialize`: about `32.3%`
+- `legal_action_encoding`: about `4.5%`
+
+That matters because it narrows the remaining throughput pressure:
+
+- transport overhead is no longer the main cost center
+- move application is now cheap after the known-legal shortcut
+- the next meaningful wins are most likely inside exact legal move generation or in the volume and shape of JSON serialization
+
 ## Deferred Options
 
 The deep research report identifies two plausible later upgrades, but they are not implemented yet:

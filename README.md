@@ -116,6 +116,7 @@ TMPDIR=/srv/schach/tmp .venv/bin/python python/scripts/eval_suite.py --checkpoin
 cargo run --quiet -p tools --bin dataset-oracle-daemon --socket /tmp/enginekonzept-oracle.sock
 ENGINEKONZEPT_DATASET_ORACLE=unix:///tmp/enginekonzept-oracle.sock TMPDIR=/srv/schach/tmp .venv/bin/python python/scripts/build_stockfish_pgn_dataset.py --help
 TMPDIR=/srv/schach/tmp .venv/bin/python python/scripts/benchmark_dataset_oracle.py --input tests/positions/edge_cases.txt --source-format edge-cases --records 10000
+TMPDIR=/srv/schach/tmp cargo run --quiet -p tools --bin dataset-oracle-profile < /srv/schach/tmp/oracle-e2e/train_raw_2k.jsonl
 ```
 
 ## Guardrails

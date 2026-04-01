@@ -108,6 +108,20 @@ After teaching the oracle to skip redundant re-validation when applying a move t
 
 That measurement is stored in [oracle_e2e_applyopt_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_e2e_applyopt_v1.json).
 
+To keep the next optimization steps externally checkable, the tooling now also includes a profiling-only oracle binary:
+
+- `cargo run --quiet -p tools --bin dataset-oracle-profile`
+
+It accepts the same newline-delimited request stream as `dataset-oracle` but reports aggregated phase timings instead of labels. The current reference profile is stored in [oracle_profile_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v1.json).
+
+On the 2000-record reference corpus, the current measured split is:
+
+- `legal_generation`: about `48.7%`
+- `json_serialize`: about `32.3%`
+- `legal_action_encoding`: about `4.5%`
+
+That profile is the current guide for further throughput work. In other words, the builder and daemon transport are no longer the main pressure; the dominant remaining work is now inside the exact Rust oracle itself.
+
 The summary reports:
 
 - split counts

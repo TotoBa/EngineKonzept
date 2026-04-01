@@ -1,0 +1,73 @@
+{
+  "benchmark_input": {
+    "input": "/srv/schach/tmp/oracle-e2e/train_raw_2k.jsonl",
+    "source": "artifacts/datasets/phase5_stockfish_pgn_raw_pi_10k_v1/train_raw.jsonl",
+    "record_count": 2000
+  },
+  "results": {
+    "records": 2000,
+    "total_measured_seconds": 0.846804077,
+    "phases": {
+      "json_parse": {
+        "seconds": 0.024388107,
+        "milliseconds_per_record": 0.0121940535,
+        "share_of_measured": 0.028800176643457513
+      },
+      "fen_parse": {
+        "seconds": 0.021311557,
+        "milliseconds_per_record": 0.0106557785,
+        "share_of_measured": 0.025167045812416414
+      },
+      "legal_generation": {
+        "seconds": 0.412106431,
+        "milliseconds_per_record": 0.2060532155,
+        "share_of_measured": 0.48666089617799513
+      },
+      "legal_move_uci": {
+        "seconds": 0.018778006,
+        "milliseconds_per_record": 0.009389003,
+        "share_of_measured": 0.022175148313557304
+      },
+      "legal_action_encoding": {
+        "seconds": 0.038357309,
+        "milliseconds_per_record": 0.0191786545,
+        "share_of_measured": 0.04529655683270877
+      },
+      "selected_move_resolution": {
+        "seconds": 0.010781978,
+        "milliseconds_per_record": 0.005390989,
+        "share_of_measured": 0.012732553246788394
+      },
+      "selected_move_apply": {
+        "seconds": 0.001684264,
+        "milliseconds_per_record": 0.000842132,
+        "share_of_measured": 0.001988965388507453
+      },
+      "selected_action_encoding": {
+        "seconds": 0.00038155,
+        "milliseconds_per_record": 0.000190775,
+        "share_of_measured": 0.00045057647968787466
+      },
+      "position_encoding": {
+        "seconds": 0.019407295,
+        "milliseconds_per_record": 0.0097036475,
+        "share_of_measured": 0.02291828243051787
+      },
+      "annotations": {
+        "seconds": 0.02616287,
+        "milliseconds_per_record": 0.013081435,
+        "share_of_measured": 0.030896013269903044
+      },
+      "json_serialize": {
+        "seconds": 0.27344471,
+        "milliseconds_per_record": 0.136722355,
+        "share_of_measured": 0.3229137854044602
+      }
+    }
+  },
+  "notes": [
+    "The offline profiler measures the same per-record phases used by the dataset oracle without changing the output schema.",
+    "On the 2k reference input, legal move generation remains the largest measured cost block and JSON serialization is the second largest.",
+    "This profile is intended to guide the next end-to-end optimization step rather than to change runtime behavior."
+  ]
+}

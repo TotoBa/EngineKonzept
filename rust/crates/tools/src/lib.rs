@@ -3,6 +3,7 @@
 use std::error::Error;
 use std::fmt;
 use std::io::{self, BufRead, Write};
+use std::time::{Duration, Instant};
 
 use action_space::{encode_move, ActionEncodeError};
 use core_types::MoveKind;
@@ -99,14 +100,179 @@ impl Error for DatasetOracleError {
     }
 }
 
+/// Aggregated offline timings for one profiled oracle run.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct OracleProfileTotals {
+    pub records: u64,
+    pub json_parse: Duration,
+    pub fen_parse: Duration,
+    pub legal_generation: Duration,
+    pub legal_move_uci: Duration,
+    pub legal_action_encoding: Duration,
+    pub selected_move_resolution: Duration,
+    pub selected_move_apply: Duration,
+    pub selected_action_encoding: Duration,
+    pub position_encoding: Duration,
+    pub annotations: Duration,
+    pub json_serialize: Duration,
+}
+
+impl OracleProfileTotals {
+    pub fn total_measured(&self) -> Duration {
+        self.json_parse
+            + self.fen_parse
+            + self.legal_generation
+            + self.legal_move_uci
+            + self.legal_action_encoding
+            + self.selected_move_resolution
+            + self.selected_move_apply
+            + self.selected_action_encoding
+            + self.position_encoding
+            + self.annotations
+            + self.json_serialize
+    }
+
+    fn record_label(&mut self, profile: &OracleRecordProfile) {
+        self.records += 1;
+        self.fen_parse += profile.fen_parse;
+        self.legal_generation += profile.legal_generation;
+        self.legal_move_uci += profile.legal_move_uci;
+        self.legal_action_encoding += profile.legal_action_encoding;
+        self.selected_move_resolution += profile.selected_move_resolution;
+        self.selected_move_apply += profile.selected_move_apply;
+        self.selected_action_encoding += profile.selected_action_encoding;
+        self.position_encoding += profile.position_encoding;
+        self.annotations += profile.annotations;
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+struct OracleRecordProfile {
+    fen_parse: Duration,
+    legal_generation: Duration,
+    legal_move_uci: Duration,
+    legal_action_encoding: Duration,
+    selected_move_resolution: Duration,
+    selected_move_apply: Duration,
+    selected_action_encoding: Duration,
+    position_encoding: Duration,
+    annotations: Duration,
+}
+
 /// Labels a dataset input record via the exact rules kernel.
 pub fn label_dataset_input(
     input: &DatasetOracleInput,
 ) -> Result<DatasetOracleOutput, DatasetOracleError> {
+    label_dataset_input_impl(input, None)
+}
+
+/// Parses a JSON input line and returns the JSON output line for the dataset oracle.
+pub fn label_json_line(line: &str) -> Result<String, DatasetOracleError> {
+    let input =
+        serde_json::from_str::<DatasetOracleInput>(line).map_err(DatasetOracleError::Json)?;
+    let output = label_dataset_input(&input)?;
+    serde_json::to_string(&output).map_err(DatasetOracleError::Json)
+}
+
+/// Profile one newline-delimited oracle request stream without changing outputs.
+pub fn profile_json_lines(reader: impl BufRead, context: &str) -> io::Result<OracleProfileTotals> {
+    let mut totals = OracleProfileTotals::default();
+    for (line_number, line) in reader.lines().enumerate() {
+        let line = line?;
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        let parse_started = Instant::now();
+        let input =
+            serde_json::from_str::<DatasetOracleInput>(&line).map_err(DatasetOracleError::Json);
+        totals.json_parse += parse_started.elapsed();
+        let input = input.map_err(|error| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("{context} line {}: {error}", line_number + 1),
+            )
+        })?;
+
+        let mut record_profile = OracleRecordProfile::default();
+        let output =
+            label_dataset_input_impl(&input, Some(&mut record_profile)).map_err(|error| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("{context} line {}: {error}", line_number + 1),
+                )
+            })?;
+        totals.record_label(&record_profile);
+
+        let serialize_started = Instant::now();
+        serde_json::to_string(&output)
+            .map_err(DatasetOracleError::Json)
+            .map_err(|error| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("{context} line {}: {error}", line_number + 1),
+                )
+            })?;
+        totals.json_serialize += serialize_started.elapsed();
+    }
+
+    Ok(totals)
+}
+
+/// Process one newline-delimited oracle request stream into newline-delimited responses.
+pub fn process_json_lines(
+    reader: impl BufRead,
+    mut writer: impl Write,
+    context: &str,
+) -> io::Result<()> {
+    for (line_number, line) in reader.lines().enumerate() {
+        let line = line?;
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        let output = label_json_line(&line).map_err(|error| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("{context} line {}: {error}", line_number + 1),
+            )
+        })?;
+        writeln!(writer, "{output}")?;
+    }
+
+    writer.flush()?;
+    Ok(())
+}
+
+fn action_encoding_array(encoding: action_space::ActionEncoding) -> [u32; 3] {
+    let [from, to, promotion] = encoding.as_indices();
+    [from as u32, to as u32, promotion as u32]
+}
+
+fn label_dataset_input_impl(
+    input: &DatasetOracleInput,
+    mut profile: Option<&mut OracleRecordProfile>,
+) -> Result<DatasetOracleOutput, DatasetOracleError> {
+    let started = Instant::now();
     let position = Position::from_fen(&input.fen).map_err(DatasetOracleError::InvalidFen)?;
+    if let Some(profile) = profile.as_deref_mut() {
+        profile.fen_parse += started.elapsed();
+    }
+
+    let started = Instant::now();
     let legal = legal_moves(&position);
+    if let Some(profile) = profile.as_deref_mut() {
+        profile.legal_generation += started.elapsed();
+    }
+
+    let started = Instant::now();
     let legal_move_strings: Vec<String> =
         legal.iter().map(|candidate| candidate.to_uci()).collect();
+    if let Some(profile) = profile.as_deref_mut() {
+        profile.legal_move_uci += started.elapsed();
+    }
+
+    let started = Instant::now();
     let mut legal_action_encodings = legal
         .iter()
         .copied()
@@ -118,30 +284,53 @@ pub fn label_dataset_input(
         .into_iter()
         .map(action_encoding_array)
         .collect();
+    if let Some(profile) = profile.as_deref_mut() {
+        profile.legal_action_encoding += started.elapsed();
+    }
 
-    let selected_move = match &input.selected_move_uci {
-        Some(chess_move) => Some(
+    let started = Instant::now();
+    let selected_move = input
+        .selected_move_uci
+        .as_ref()
+        .map(|chess_move| {
             legal
                 .iter()
                 .copied()
                 .find(|candidate| candidate.to_uci() == *chess_move)
-                .ok_or_else(|| DatasetOracleError::InvalidSelectedMove(chess_move.clone()))?,
-        ),
-        None => None,
-    };
-
-    let next_position = selected_move
-        .map(|candidate| {
-            apply_known_legal_move(&position, candidate).map_err(DatasetOracleError::MoveApplication)
+                .ok_or_else(|| DatasetOracleError::InvalidSelectedMove(chess_move.clone()))
         })
         .transpose()?;
+    if let Some(profile) = profile.as_deref_mut() {
+        profile.selected_move_resolution += started.elapsed();
+    }
 
+    let started = Instant::now();
+    let next_position = selected_move
+        .map(|candidate| {
+            apply_known_legal_move(&position, candidate)
+                .map_err(DatasetOracleError::MoveApplication)
+        })
+        .transpose()?;
+    if let Some(profile) = profile.as_deref_mut() {
+        profile.selected_move_apply += started.elapsed();
+    }
+
+    let started = Instant::now();
     let selected_action_encoding = selected_move
         .map(|candidate| encode_move(candidate).map(action_encoding_array))
         .transpose()
         .map_err(DatasetOracleError::ActionEncoding)?;
+    if let Some(profile) = profile.as_deref_mut() {
+        profile.selected_action_encoding += started.elapsed();
+    }
 
+    let started = Instant::now();
     let position_encoding = encode_position(&position);
+    if let Some(profile) = profile.as_deref_mut() {
+        profile.position_encoding += started.elapsed();
+    }
+
+    let started = Instant::now();
     let in_check = is_in_check(&position, position.side_to_move());
     let legal_move_count = legal.len() as u32;
     let piece_count = position.iter_pieces().count() as u32;
@@ -183,6 +372,9 @@ pub fn label_dataset_input(
             .as_ref()
             .map(|next| is_in_check(next, next.side_to_move())),
     };
+    if let Some(profile) = profile.as_deref_mut() {
+        profile.annotations += started.elapsed();
+    }
 
     Ok(DatasetOracleOutput {
         fen: input.fen.clone(),
@@ -201,49 +393,12 @@ pub fn label_dataset_input(
     })
 }
 
-/// Parses a JSON input line and returns the JSON output line for the dataset oracle.
-pub fn label_json_line(line: &str) -> Result<String, DatasetOracleError> {
-    let input =
-        serde_json::from_str::<DatasetOracleInput>(line).map_err(DatasetOracleError::Json)?;
-    let output = label_dataset_input(&input)?;
-    serde_json::to_string(&output).map_err(DatasetOracleError::Json)
-}
-
-/// Process one newline-delimited oracle request stream into newline-delimited responses.
-pub fn process_json_lines(
-    reader: impl BufRead,
-    mut writer: impl Write,
-    context: &str,
-) -> io::Result<()> {
-    for (line_number, line) in reader.lines().enumerate() {
-        let line = line?;
-        if line.trim().is_empty() {
-            continue;
-        }
-
-        let output = label_json_line(&line).map_err(|error| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("{context} line {}: {error}", line_number + 1),
-            )
-        })?;
-        writeln!(writer, "{output}")?;
-    }
-
-    writer.flush()?;
-    Ok(())
-}
-
-fn action_encoding_array(encoding: action_space::ActionEncoding) -> [u32; 3] {
-    let [from, to, promotion] = encoding.as_indices();
-    [from as u32, to as u32, promotion as u32]
-}
-
 #[cfg(test)]
 mod tests {
     use std::io::Cursor;
+    use std::time::Duration;
 
-    use super::{label_dataset_input, process_json_lines, DatasetOracleInput};
+    use super::{label_dataset_input, process_json_lines, profile_json_lines, DatasetOracleInput};
 
     #[test]
     fn selected_move_yields_next_state_and_action_label() {
@@ -324,4 +479,17 @@ mod tests {
         assert_eq!(lines.len(), 2);
     }
 
+    #[test]
+    fn profile_json_lines_counts_records() {
+        let input = concat!(
+            "{\"fen\":\"4k3/8/8/8/8/8/8/4K3 w - - 0 1\",\"selected_move_uci\":null}\n",
+            "{\"fen\":\"7k/6Q1/6K1/8/8/8/8/8 b - - 0 1\",\"selected_move_uci\":null}\n"
+        );
+
+        let profile = profile_json_lines(Cursor::new(input), "dataset-oracle-profile")
+            .expect("profiling succeeds");
+
+        assert_eq!(profile.records, 2);
+        assert!(profile.total_measured() > Duration::ZERO);
+    }
 }
