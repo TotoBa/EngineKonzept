@@ -29,3 +29,8 @@ The purpose of the current tree is to lock the module boundaries and validation 
 
 The repository now also includes the exact symbolic rules core under `core-types`, `position`, and `rules`.
 That core is the correctness floor for later planner-oriented phases, not a conventional engine runtime.
+
+## Phase 2 Status
+
+The repository now additionally exposes a minimal UCI shell under `uci-protocol` and `engine-app`.
+That shell can reconstruct exact positions and emit deterministic legal stub moves, but it still contains no search, evaluation, or planner logic.

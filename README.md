@@ -9,19 +9,20 @@ The target runtime path is:
 
 ## Current Scope
 
-The repository now covers Phase 1:
+The repository now covers Phase 2:
 
 - root project rules and execution plans
 - Rust workspace boundaries and placeholder future crates
 - Python training-project boundaries and placeholder modules
 - exact symbolic chess primitives, position state, FEN support, legal move generation, move application, and perft coverage
+- a minimal UCI shell with deterministic legal stub move output
 - CI, lint, and test wiring
 - architecture and phase documentation
 
 It still does **not** implement:
 
-- UCI protocol handling
 - model training or inference
+- any search or evaluation runtime
 - any classical engine/search machinery
 
 ## Repository Layout
@@ -75,6 +76,7 @@ PYTHONPATH=python python3 -m pytest python/tests
 - No alpha-beta, negamax, PVS, quiescence, TT-search, null-move pruning, LMR, or heuristic fallback engine.
 - The symbolic chess core is allowed later only for exact rules, labels, tests, and final move safety checks.
 - The current exact rules core is intentionally isolated from any runtime search logic.
+- The current UCI shell is protocol-only and must not accrete classical engine behavior.
 - Runtime and protocol code belong in Rust.
 - Training, datasets, and experiment code belong in Python.
 - Every phase must leave the tree buildable, testable, and documented.

@@ -1,3 +1,6 @@
 fn main() {
-    let _ = engine_app::startup_message();
+    if let Err(error) = engine_app::run_stdio() {
+        eprintln!("engine-app failed: {error}");
+        std::process::exit(1);
+    }
 }

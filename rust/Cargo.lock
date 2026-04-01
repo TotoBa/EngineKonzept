@@ -17,6 +17,11 @@ version = "0.1.0"
 [[package]]
 name = "engine-app"
 version = "0.1.0"
+dependencies = [
+ "position",
+ "rules",
+ "uci-protocol",
+]
 
 [[package]]
 name = "eval-metrics"

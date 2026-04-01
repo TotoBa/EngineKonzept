@@ -12,3 +12,7 @@ path = "src/lib.rs"
 name = "engine-app"
 path = "src/main.rs"
 
+[dependencies]
+position = { path = "../position" }
+rules = { path = "../rules" }
+uci-protocol = { path = "../uci-protocol" }
