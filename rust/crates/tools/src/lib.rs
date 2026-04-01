@@ -2,6 +2,7 @@
 
 use std::error::Error;
 use std::fmt;
+use std::io::{self, BufRead, Write};
 
 use action_space::{encode_move, legal_action_encodings, ActionEncodeError};
 use core_types::MoveKind;
@@ -202,6 +203,31 @@ pub fn label_json_line(line: &str) -> Result<String, DatasetOracleError> {
     serde_json::to_string(&output).map_err(DatasetOracleError::Json)
 }
 
+/// Process one newline-delimited oracle request stream into newline-delimited responses.
+pub fn process_json_lines(
+    reader: impl BufRead,
+    mut writer: impl Write,
+    context: &str,
+) -> io::Result<()> {
+    for (line_number, line) in reader.lines().enumerate() {
+        let line = line?;
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        let output = label_json_line(&line).map_err(|error| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("{context} line {}: {error}", line_number + 1),
+            )
+        })?;
+        writeln!(writer, "{output}")?;
+    }
+
+    writer.flush()?;
+    Ok(())
+}
+
 fn action_encoding_array(encoding: action_space::ActionEncoding) -> [u32; 3] {
     let [from, to, promotion] = encoding.as_indices();
     [from as u32, to as u32, promotion as u32]
@@ -209,7 +235,9 @@ fn action_encoding_array(encoding: action_space::ActionEncoding) -> [u32; 3] {
 
 #[cfg(test)]
 mod tests {
-    use super::{label_dataset_input, DatasetOracleInput};
+    use std::io::Cursor;
+
+    use super::{label_dataset_input, process_json_lines, DatasetOracleInput};
 
     #[test]
     fn selected_move_yields_next_state_and_action_label() {
@@ -270,5 +298,23 @@ mod tests {
         .expect("oracle labels promotion position");
         assert!(promotion.annotations.has_legal_promotion);
         assert_eq!(promotion.annotations.selected_move_is_promotion, Some(true));
+    }
+
+    #[test]
+    fn process_json_lines_preserves_record_count() {
+        let input = concat!(
+            "{\"fen\":\"4k3/8/8/8/8/8/8/4K3 w - - 0 1\",\"selected_move_uci\":null}\n",
+            "{\"fen\":\"7k/6Q1/6K1/8/8/8/8/8 b - - 0 1\",\"selected_move_uci\":null}\n"
+        );
+        let mut output = Vec::new();
+
+        process_json_lines(Cursor::new(input), &mut output, "dataset-oracle")
+            .expect("stream processing succeeds");
+
+        let lines: Vec<&str> = std::str::from_utf8(&output)
+            .expect("utf8 output")
+            .lines()
+            .collect();
+        assert_eq!(lines.len(), 2);
     }
 }

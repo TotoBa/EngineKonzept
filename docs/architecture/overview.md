@@ -12,6 +12,7 @@ EngineKonzept is converging toward a latent-planning chess engine, not a classic
 - `python/` will hold datasets, training, model export, and experiment code.
 - `tests/` will hold shared fixtures and reference suites.
 - `models/` and `artifacts/` will store generated outputs, not source code.
+- local IPC and future distribution notes live in [distribution.md](/home/torsten/EngineKonzept/docs/architecture/distribution.md)
 
 ## Phase 0 Constraints
 

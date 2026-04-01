@@ -23,6 +23,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--train-ratio", type=float, default=0.8)
     parser.add_argument("--validation-ratio", type=float, default=0.1)
     parser.add_argument("--test-ratio", type=float, default=0.1)
+    parser.add_argument("--oracle-workers", type=int, default=1)
+    parser.add_argument("--oracle-batch-size", type=int, default=0)
     args = parser.parse_args(argv)
 
     records = load_raw_records(
@@ -39,6 +41,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         ),
         seed=args.seed,
         repo_root=_repo_root(),
+        oracle_workers=args.oracle_workers,
+        oracle_batch_size=args.oracle_batch_size,
     )
     write_dataset_artifacts(args.output_dir, dataset)
 

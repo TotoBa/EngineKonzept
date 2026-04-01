@@ -12,6 +12,10 @@ path = "src/lib.rs"
 name = "dataset-oracle"
 path = "src/bin/dataset_oracle.rs"
 
+[[bin]]
+name = "dataset-oracle-daemon"
+path = "src/bin/dataset_oracle_daemon.rs"
+
 [dependencies]
 action-space = { path = "../action-space" }
 core-types = { path = "../core-types" }

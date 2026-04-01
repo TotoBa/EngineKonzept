@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
@@ -34,13 +35,22 @@ def build_dataset(
     seed: str = "phase-4",
     repo_root: Path | None = None,
     oracle_command: Sequence[str] | None = None,
+    oracle_workers: int = 1,
+    oracle_batch_size: int = 0,
 ) -> BuiltDataset:
     """Build a reproducible labeled dataset from raw records."""
     resolved_ratios = ratios or SplitRatios()
-    oracle_outputs = label_records_with_oracle(
+    if oracle_workers <= 0:
+        raise ValueError("oracle_workers must be positive")
+    if oracle_batch_size < 0:
+        raise ValueError("oracle_batch_size must be non-negative")
+
+    oracle_outputs = _label_records(
         records,
         repo_root=repo_root,
-        command=oracle_command,
+        oracle_command=oracle_command,
+        oracle_workers=oracle_workers,
+        oracle_batch_size=oracle_batch_size,
     )
     splits = assign_splits(records, ratios=resolved_ratios, seed=seed)
 
@@ -80,6 +90,44 @@ def build_dataset(
         )
 
     return BuiltDataset(examples=examples, summary=build_summary(examples))
+
+
+def _label_records(
+    records: Sequence[RawPositionRecord],
+    *,
+    repo_root: Path | None,
+    oracle_command: Sequence[str] | None,
+    oracle_workers: int,
+    oracle_batch_size: int,
+) -> list[dict[str, object]]:
+    resolved_records = list(records)
+    if not resolved_records:
+        return []
+
+    batch_size = oracle_batch_size or len(resolved_records)
+    if oracle_workers == 1 or batch_size >= len(resolved_records):
+        return label_records_with_oracle(
+            resolved_records,
+            repo_root=repo_root,
+            command=oracle_command,
+        )
+
+    batches = [
+        resolved_records[index : index + batch_size]
+        for index in range(0, len(resolved_records), batch_size)
+    ]
+    with ThreadPoolExecutor(max_workers=oracle_workers) as executor:
+        batch_outputs = list(
+            executor.map(
+                lambda batch: label_records_with_oracle(
+                    batch,
+                    repo_root=repo_root,
+                    command=oracle_command,
+                ),
+                batches,
+            )
+        )
+    return [output for batch in batch_outputs for output in batch]
 
 
 def _derive_wdl_target(

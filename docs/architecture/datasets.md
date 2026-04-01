@@ -30,6 +30,8 @@ For policy-supervised experiments, Python may also derive `selected_move_uci` la
 
 The current larger reference corpus was produced by streaming PGNs on a separate Raspberry Pi host and labeling candidate positions there with `/usr/games/stockfish18` at a fixed `1500`-node budget per position. This keeps the label semantics reproducible across machines while moving the slowest offline work off the main development host.
 
+The Python oracle client now also supports a local Unix-domain-socket daemon in addition to the original subprocess mode. Both transports preserve the same newline-delimited JSON request/response contract and the same Rust labeling logic.
+
 ## Example Schema
 
 Each emitted example includes:
@@ -76,6 +78,21 @@ When using PGN/Stockfish labeling with `--raw-output-dir`, the builder also writ
 - `train_raw.jsonl`
 - `verify_raw.jsonl`
 - `selection_summary.json`
+
+The dataset build scripts now also expose offline throughput knobs for the Rust oracle path:
+
+- `--oracle-workers`: number of concurrent oracle calls
+- `--oracle-batch-size`: records per oracle call before splitting into multiple batches
+
+These affect only offline dataset generation. They do not change label semantics or any runtime engine path.
+
+Current end-to-end measurement on a 2000-record JSONL build:
+
+- serial daemon vs. subprocess: about `1.03x`
+- `4` oracle workers with batch size `250` vs. serial daemon: about `1.03x`
+- `4` oracle workers with batch size `250` vs. subprocess: about `1.06x`
+
+The corresponding artifact-backed measurement is stored in [oracle_e2e_parallel_bench_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_e2e_parallel_bench_v1.json).
 
 The summary reports:
 

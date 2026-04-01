@@ -33,6 +33,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--hash-mb", type=int, default=32)
     parser.add_argument("--threads", type=int, default=1)
     parser.add_argument("--split-seed", default="phase5-stockfish-pgn-v1")
+    parser.add_argument("--oracle-workers", type=int, default=1)
+    parser.add_argument("--oracle-batch-size", type=int, default=0)
     args = parser.parse_args(argv)
 
     selection = sample_policy_records_from_pgns(
@@ -56,12 +58,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         ratios=training_split_ratios(),
         seed=f"{args.split_seed}:train",
         repo_root=_repo_root(),
+        oracle_workers=args.oracle_workers,
+        oracle_batch_size=args.oracle_batch_size,
     )
     verify_dataset = build_dataset(
         selection.verify_records,
         ratios=verification_split_ratios(),
         seed=f"{args.split_seed}:verify",
         repo_root=_repo_root(),
+        oracle_workers=args.oracle_workers,
+        oracle_batch_size=args.oracle_batch_size,
     )
 
     write_dataset_artifacts(args.train_output_dir, train_dataset)

@@ -14,6 +14,7 @@ Train and export the first legality/policy proposer without introducing dynamics
 - offline PGN sampling plus bounded Stockfish 18 labeling for larger policy datasets
 - a `torch.export` + metadata export bundle
 - a Rust loader for the exported proposer bundle under `rust/crates/inference`
+- an optional local IPC dataset-oracle daemon for reproducible batch builds without repeated process spawn overhead
 
 ## Current externally checkable artifacts
 

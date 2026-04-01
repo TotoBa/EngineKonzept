@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import patch
+
+import pytest
 
 from train.datasets import (
     RawPositionRecord,
@@ -118,6 +121,85 @@ def test_build_dataset_uses_exact_rule_oracle_and_writes_artifacts(tmp_path: Pat
     assert (output_dir / "train.jsonl").exists()
     assert (output_dir / "validation.jsonl").exists()
     assert (output_dir / "test.jsonl").exists()
+
+
+def test_build_dataset_parallel_oracle_preserves_record_order() -> None:
+    records = [
+        RawPositionRecord(
+            sample_id=f"sample-{index}",
+            fen=f"fen-{index}",
+            source="synthetic",
+        )
+        for index in range(4)
+    ]
+
+    def fake_label_records(batch: list[RawPositionRecord], **_: object) -> list[dict[str, object]]:
+        return [
+            {
+                "side_to_move": "w",
+                "selected_action_encoding": None,
+                "next_fen": None,
+                "legal_moves": [record.sample_id],
+                "legal_action_encodings": [[0, 1, 0]],
+                "position_encoding": {
+                    "piece_tokens": [],
+                    "square_tokens": [[square, 0] for square in range(64)],
+                    "rule_token": [0, 0, 0, 0, 1, 0],
+                },
+                "annotations": {
+                    "in_check": False,
+                    "is_checkmate": False,
+                    "is_stalemate": False,
+                    "has_legal_en_passant": False,
+                    "has_legal_castle": False,
+                    "has_legal_promotion": False,
+                    "is_low_material_endgame": True,
+                    "legal_move_count": 1,
+                    "piece_count": 2,
+                    "selected_move_is_capture": None,
+                    "selected_move_is_promotion": None,
+                    "selected_move_is_castle": None,
+                    "selected_move_is_en_passant": None,
+                    "selected_move_gives_check": None,
+                },
+            }
+            for record in batch
+        ]
+
+    with patch("train.datasets.builder.label_records_with_oracle", side_effect=fake_label_records):
+        dataset = build_dataset(
+            records,
+            ratios=SplitRatios(1.0, 0.0, 0.0),
+            seed="parallel-order",
+            oracle_workers=2,
+            oracle_batch_size=2,
+        )
+
+    assert [example.sample_id for example in dataset.examples] == [
+        "sample-0",
+        "sample-1",
+        "sample-2",
+        "sample-3",
+    ]
+    assert [example.legal_moves[0] for example in dataset.examples] == [
+        "sample-0",
+        "sample-1",
+        "sample-2",
+        "sample-3",
+    ]
+
+
+def test_build_dataset_rejects_invalid_oracle_parallelism() -> None:
+    record = RawPositionRecord(
+        sample_id="sample-1",
+        fen="4k3/8/8/8/8/8/8/4K3 w - - 0 1",
+        source="synthetic",
+    )
+
+    with pytest.raises(ValueError, match="oracle_workers must be positive"):
+        build_dataset([record], oracle_workers=0)
+    with pytest.raises(ValueError, match="oracle_batch_size must be non-negative"):
+        build_dataset([record], oracle_batch_size=-1)
 
 
 def _repo_root() -> Path:

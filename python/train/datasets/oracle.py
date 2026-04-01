@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import shlex
+import socket
 import subprocess
 from pathlib import Path
 from typing import Any, Sequence
@@ -34,6 +35,9 @@ def label_records_with_oracle(
     payload = "\n".join(
         json.dumps(record.to_oracle_input(), sort_keys=True) for record in records
     )
+    if _is_unix_socket_command(resolved_command):
+        return _label_records_with_unix_socket(records, payload, resolved_command[0])
+
     completed = subprocess.run(
         resolved_command,
         cwd=resolved_repo_root / "rust",
@@ -57,6 +61,36 @@ def label_records_with_oracle(
     return outputs
 
 
+def _label_records_with_unix_socket(
+    records: Sequence[RawPositionRecord],
+    payload: str,
+    endpoint: str,
+) -> list[dict[str, Any]]:
+    socket_path = _parse_unix_socket_endpoint(endpoint)
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+            client.connect(str(socket_path))
+            client.sendall(f"{payload}\n".encode("utf-8"))
+            client.shutdown(socket.SHUT_WR)
+
+            chunks: list[bytes] = []
+            while True:
+                chunk = client.recv(65536)
+                if not chunk:
+                    break
+                chunks.append(chunk)
+    except OSError as error:
+        raise OracleError(f"dataset oracle socket failed: {error}") from error
+
+    response = b"".join(chunks).decode("utf-8")
+    outputs = [json.loads(line) for line in response.splitlines() if line.strip()]
+    if len(outputs) != len(records):
+        raise OracleError(
+            f"dataset oracle returned {len(outputs)} records for {len(records)} inputs"
+        )
+    return outputs
+
+
 def _default_oracle_command() -> list[str]:
     if env_command := os.environ.get(DATASET_ORACLE_ENV):
         return shlex.split(env_command)
@@ -65,3 +99,16 @@ def _default_oracle_command() -> list[str]:
 
 def _default_repo_root() -> Path:
     return Path(__file__).resolve().parents[3]
+
+
+def _is_unix_socket_command(command: Sequence[str]) -> bool:
+    return len(command) == 1 and command[0].startswith("unix://")
+
+
+def _parse_unix_socket_endpoint(endpoint: str) -> Path:
+    if not endpoint.startswith("unix://"):
+        raise OracleError(f"unsupported oracle endpoint: {endpoint}")
+    path = endpoint.removeprefix("unix://")
+    if not path:
+        raise OracleError("dataset oracle unix endpoint must include a socket path")
+    return Path(path)
