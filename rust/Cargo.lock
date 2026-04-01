@@ -33,10 +33,17 @@ version = "0.1.0"
 [[package]]
 name = "position"
 version = "0.1.0"
+dependencies = [
+ "core-types",
+]
 
 [[package]]
 name = "rules"
 version = "0.1.0"
+dependencies = [
+ "core-types",
+ "position",
+]
 
 [[package]]
 name = "selfplay"

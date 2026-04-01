@@ -7,19 +7,19 @@ The target runtime path is:
 
 `position -> encoder -> legality/policy proposer -> latent dynamics -> opponent module -> recurrent planner -> WDL + move selection -> UCI output`
 
-## Phase 0 Scope
+## Current Scope
 
-This repository currently contains only the project scaffold:
+The repository now covers Phase 1:
 
 - root project rules and execution plans
-- Rust workspace boundaries and placeholder crates
+- Rust workspace boundaries and placeholder future crates
 - Python training-project boundaries and placeholder modules
+- exact symbolic chess primitives, position state, FEN support, legal move generation, move application, and perft coverage
 - CI, lint, and test wiring
-- documentation scaffolding for architecture, phases, and experiments
+- architecture and phase documentation
 
-It does **not** yet implement:
+It still does **not** implement:
 
-- chess rules
 - UCI protocol handling
 - model training or inference
 - any classical engine/search machinery
@@ -74,6 +74,7 @@ PYTHONPATH=python python3 -m pytest python/tests
 
 - No alpha-beta, negamax, PVS, quiescence, TT-search, null-move pruning, LMR, or heuristic fallback engine.
 - The symbolic chess core is allowed later only for exact rules, labels, tests, and final move safety checks.
+- The current exact rules core is intentionally isolated from any runtime search logic.
 - Runtime and protocol code belong in Rust.
 - Training, datasets, and experiment code belong in Python.
 - Every phase must leave the tree buildable, testable, and documented.

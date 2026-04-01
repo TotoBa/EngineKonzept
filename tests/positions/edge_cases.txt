@@ -1,0 +1,15 @@
+# Format:
+# name|fen
+castle_open|r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1
+castle_kingside_attacked|r3k2r/8/8/8/8/5r2/8/R3K2R w KQkq - 0 1
+illegal_en_passant_pin|4r1k1/8/8/3pP3/8/8/8/4K3 w - d6 0 1
+promotion_lane|4k3/6P1/8/8/8/8/8/4K3 w - - 0 1
+promotion_capture|1r2k3/P7/8/8/8/8/8/4K3 w - - 0 1
+single_check|4k3/8/8/8/8/8/4r3/4K3 w - - 0 1
+double_check|4k3/8/8/8/1b6/8/4r3/4K3 w - - 0 1
+pawn_center|4k3/8/8/8/8/8/3P4/4K3 w - - 0 1
+knight_center|4k3/8/8/3N4/8/8/8/4K3 w - - 0 1
+bishop_center|4k3/8/8/3B4/8/8/8/4K3 w - - 0 1
+rook_center|4k3/8/8/3R4/8/8/8/4K3 w - - 0 1
+queen_center|4k3/8/8/3Q4/8/8/8/4K3 w - - 0 1
+king_center|7k/8/8/3K4/8/8/8/8 w - - 0 1
