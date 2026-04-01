@@ -4,7 +4,7 @@ use std::error::Error;
 use std::fmt;
 use std::io::{self, BufRead, Write};
 
-use action_space::{encode_move, legal_action_encodings, ActionEncodeError};
+use action_space::{encode_move, ActionEncodeError};
 use core_types::MoveKind;
 use encoder::encode_position;
 use position::Position;
@@ -107,8 +107,14 @@ pub fn label_dataset_input(
     let legal = legal_moves(&position);
     let legal_move_strings: Vec<String> =
         legal.iter().map(|candidate| candidate.to_uci()).collect();
-    let legal_action_encodings = legal_action_encodings(&position)
-        .map_err(DatasetOracleError::ActionEncoding)?
+    let mut legal_action_encodings = legal
+        .iter()
+        .copied()
+        .map(encode_move)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(DatasetOracleError::ActionEncoding)?;
+    legal_action_encodings.sort_unstable();
+    let legal_action_encodings = legal_action_encodings
         .into_iter()
         .map(action_encoding_array)
         .collect();

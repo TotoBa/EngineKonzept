@@ -77,6 +77,8 @@ That is the important operational result:
 - the daemon is a valid local optimization
 - but the next meaningful throughput gains are more likely to come from the Rust oracle work itself or from better batching/parallelization higher up the pipeline
 
+That expectation was confirmed by the next optimization step: once the Rust oracle hot path stopped recomputing legal moves twice per record, the same 2000-record build dropped further to about `2.03s`. In other words, the larger gain came from reducing core oracle work, not from transport alone.
+
 ## Deferred Options
 
 The deep research report identifies two plausible later upgrades, but they are not implemented yet:

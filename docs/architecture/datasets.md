@@ -94,6 +94,13 @@ Current end-to-end measurement on a 2000-record JSONL build:
 
 The corresponding artifact-backed measurement is stored in [oracle_e2e_parallel_bench_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_e2e_parallel_bench_v1.json).
 
+After removing a duplicate legal-move generation pass inside the Rust oracle, the same 2000-record build improved again to about `2.03s`, which is:
+
+- about `1.17x` faster than the previous parallel build
+- about `1.24x` faster than the original subprocess baseline
+
+That measurement is stored in [oracle_e2e_hotpath_opt_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_e2e_hotpath_opt_v1.json).
+
 The summary reports:
 
 - split counts
