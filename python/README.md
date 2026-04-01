@@ -1,12 +1,31 @@
 # EngineKonzept Python Project
 
-This directory hosts the future dataset, training, export, and experiment code for EngineKonzept.
+This directory hosts the dataset, training, export, and experiment code for EngineKonzept.
 
-The repository now includes the Phase-4 dataset pipeline:
+The repository now includes the Phase-5 proposer stack:
 
 - raw position ingestion from edge-case files, FEN line files, EPD suites, and JSONL
 - exact-rule labeling via the Rust dataset oracle
-- deterministic train/validation/test splitting
-- JSONL dataset artifact writing and summary reporting
+- deterministic train/validation/test splitting and JSONL dataset artifacts
+- fixed-width feature packing for proposer training
+- a first PyTorch legality/policy proposer
+- bounded PGN sampling with Stockfish 18 move labels for policy-supervised runs
+- config-driven training with held-out legal-set precision/recall reporting and examples/second
+- `torch.export` bundles plus Rust-loadable metadata
 
-Training, model definition, and planner learning still belong to later phases.
+The PGN utility entry point is `python/scripts/build_stockfish_pgn_dataset.py`. It streams selected PGNs, queries `/usr/games/stockfish18` for bounded move labels, then routes legality and next-state generation back through the Rust oracle.
+
+The proposer config also accepts a `runtime` object for CPU tuning:
+
+- `torch_threads` to cap PyTorch CPU threads
+- `dataloader_workers` to control `DataLoader` workers
+
+Reference configs in the repository currently cover:
+
+- small smoke and seed runs
+- Pi-labeled `10,240 / 2,048` PGN policy runs
+- a small comparison grid across batch size and hidden width
+
+The current larger comparison summary lives at [stockfish_pgn_pi_10k_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_pi_10k_compare_v1.json).
+
+Install the training dependency set with `pip install -e python[train,dev]` or equivalent before running the proposer training script.

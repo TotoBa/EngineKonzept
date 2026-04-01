@@ -1,0 +1,376 @@
+"""Tests for the Phase-5 legality/policy proposer pipeline."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from train.action_space import ACTION_SPACE_SIZE, flatten_action, unflatten_action
+from train.config import (
+    DEFAULT_PROPOSER_METADATA_NAME,
+    load_proposer_train_config,
+    resolve_repo_path,
+)
+from train.datasets import POSITION_FEATURE_SIZE, load_proposer_examples
+from train.export.proposer import build_export_metadata
+from train.trainers import train_proposer
+
+
+def test_action_flatten_roundtrip_is_stable() -> None:
+    action = [12, 28, 0]
+    flat_index = flatten_action(action)
+
+    assert 0 <= flat_index < ACTION_SPACE_SIZE
+    assert unflatten_action(flat_index) == action
+
+
+def test_proposer_examples_load_and_pack_fixed_width_features(tmp_path: Path) -> None:
+    dataset_dir = tmp_path / "dataset"
+    dataset_dir.mkdir()
+    (dataset_dir / "train.jsonl").write_text(
+        json.dumps(_dataset_example_dict(split="train")) + "\n",
+        encoding="utf-8",
+    )
+
+    examples = load_proposer_examples(dataset_dir, "train")
+
+    assert len(examples) == 1
+    assert len(examples[0].feature_vector) == POSITION_FEATURE_SIZE
+    assert examples[0].selected_action_index == flatten_action([12, 28, 0])
+    assert examples[0].legal_action_indices == sorted(examples[0].legal_action_indices)
+
+
+def test_config_loading_and_export_metadata_are_repo_relative(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "seed": 7,
+                "output_dir": "artifacts/phase5/test-run",
+                "data": {
+                    "dataset_path": "artifacts/datasets/phase4",
+                    "train_split": "train",
+                    "validation_split": "validation",
+                },
+                "model": {"hidden_dim": 64, "hidden_layers": 2, "dropout": 0.0},
+                "optimization": {
+                    "epochs": 1,
+                    "batch_size": 2,
+                    "learning_rate": 0.001,
+                    "weight_decay": 0.0,
+                    "legality_loss_weight": 1.0,
+                    "policy_loss_weight": 1.0,
+                },
+                "evaluation": {"legality_threshold": 0.4},
+                "export": {
+                    "bundle_dir": "models/proposer/test",
+                    "checkpoint_name": "checkpoint.pt",
+                    "exported_program_name": "proposer.pt2",
+                    "metadata_name": "metadata.json",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_proposer_train_config(config_path)
+    metadata = build_export_metadata(
+        config,
+        validation_metrics={"legal_set_precision": 0.5, "legal_set_recall": 0.25},
+    )
+
+    assert resolve_repo_path(tmp_path, config.output_dir) == tmp_path / "artifacts/phase5/test-run"
+    assert metadata["schema_version"] == 2
+    assert metadata["action_space"]["flat_size"] == ACTION_SPACE_SIZE
+    assert metadata["input"]["feature_dim"] == POSITION_FEATURE_SIZE
+    assert metadata["outputs"]["legality_threshold"] == 0.4
+    assert metadata["artifacts"]["exported_program_file"] == "proposer.pt2"
+    assert config.runtime.torch_threads == 0
+    assert config.runtime.dataloader_workers == 0
+
+
+def test_config_rejects_non_default_metadata_filename(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "seed": 7,
+                "output_dir": "artifacts/phase5/test-run",
+                "data": {
+                    "dataset_path": "artifacts/datasets/phase4",
+                    "train_split": "train",
+                    "validation_split": "validation",
+                },
+                "model": {"hidden_dim": 64, "hidden_layers": 2, "dropout": 0.0},
+                "optimization": {
+                    "epochs": 1,
+                    "batch_size": 2,
+                    "learning_rate": 0.001,
+                    "weight_decay": 0.0,
+                    "legality_loss_weight": 1.0,
+                    "policy_loss_weight": 1.0,
+                },
+                "evaluation": {"legality_threshold": 0.4},
+                "export": {
+                    "bundle_dir": "models/proposer/test",
+                    "checkpoint_name": "checkpoint.pt",
+                    "exported_program_name": "proposer.pt2",
+                    "metadata_name": "bundle-metadata.json",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=f"export.metadata_name must be '{DEFAULT_PROPOSER_METADATA_NAME}'",
+    ):
+        load_proposer_train_config(config_path)
+
+
+def test_train_proposer_exports_bundle_when_torch_is_available(tmp_path: Path) -> None:
+    pytest.importorskip("torch")
+
+    dataset_dir = tmp_path / "artifacts" / "datasets" / "phase4"
+    dataset_dir.mkdir(parents=True)
+    (dataset_dir / "train.jsonl").write_text(
+        "\n".join(
+            [
+                json.dumps(_dataset_example_dict(sample_id="train:1", split="train")),
+                json.dumps(_dataset_example_dict(sample_id="train:2", split="train")),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (dataset_dir / "validation.jsonl").write_text(
+        json.dumps(_dataset_example_dict(sample_id="validation:1", split="validation")) + "\n",
+        encoding="utf-8",
+    )
+
+    config_path = tmp_path / "python" / "configs" / "phase5_proposer_v1.json"
+    config_path.parent.mkdir(parents=True)
+    config_path.write_text(
+        json.dumps(
+            {
+                "seed": 3,
+                "output_dir": "artifacts/phase5/test-run",
+                "data": {
+                    "dataset_path": "artifacts/datasets/phase4",
+                    "train_split": "train",
+                    "validation_split": "validation",
+                },
+                "model": {"hidden_dim": 32, "hidden_layers": 1, "dropout": 0.0},
+                "optimization": {
+                    "epochs": 1,
+                    "batch_size": 2,
+                    "learning_rate": 0.001,
+                    "weight_decay": 0.0,
+                    "legality_loss_weight": 1.0,
+                    "policy_loss_weight": 1.0,
+                },
+                "evaluation": {"legality_threshold": 0.5},
+                "export": {
+                    "bundle_dir": "models/proposer/test",
+                    "checkpoint_name": "checkpoint.pt",
+                    "exported_program_name": "proposer.pt2",
+                    "metadata_name": "metadata.json",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    run = train_proposer(load_proposer_train_config(config_path), repo_root=tmp_path)
+
+    assert run.best_epoch == 1
+    assert run.model_parameter_count > 0
+    assert run.history[0]["examples_per_second"] > 0.0
+    assert (tmp_path / "models/proposer/test/checkpoint.pt").exists()
+    assert (tmp_path / "models/proposer/test/proposer.pt2").exists()
+    assert (tmp_path / "models/proposer/test/metadata.json").exists()
+    assert (tmp_path / "artifacts/phase5/test-run/summary.json").exists()
+
+
+def _dataset_example_dict(
+    *, sample_id: str = "sample:1", split: str = "train"
+) -> dict[str, object]:
+    return {
+        "sample_id": sample_id,
+        "split": split,
+        "source": "synthetic",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "side_to_move": "w",
+        "selected_move_uci": "e2e4",
+        "selected_action_encoding": [12, 28, 0],
+        "next_fen": "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
+        "legal_moves": [
+            "b1a3",
+            "b1c3",
+            "g1f3",
+            "g1h3",
+            "a2a3",
+            "a2a4",
+            "b2b3",
+            "b2b4",
+            "c2c3",
+            "c2c4",
+            "d2d3",
+            "d2d4",
+            "e2e3",
+            "e2e4",
+            "f2f3",
+            "f2f4",
+            "g2g3",
+            "g2g4",
+            "h2h3",
+            "h2h4",
+        ],
+        "legal_action_encodings": [
+            [1, 16, 0],
+            [1, 18, 0],
+            [6, 21, 0],
+            [6, 23, 0],
+            [8, 16, 0],
+            [8, 24, 0],
+            [9, 17, 0],
+            [9, 25, 0],
+            [10, 18, 0],
+            [10, 26, 0],
+            [11, 19, 0],
+            [11, 27, 0],
+            [12, 20, 0],
+            [12, 28, 0],
+            [13, 21, 0],
+            [13, 29, 0],
+            [14, 22, 0],
+            [14, 30, 0],
+            [15, 23, 0],
+            [15, 31, 0],
+        ],
+        "position_encoding": {
+            "piece_tokens": [
+                [0, 0, 3],
+                [1, 0, 1],
+                [2, 0, 2],
+                [3, 0, 4],
+                [4, 0, 5],
+                [5, 0, 2],
+                [6, 0, 1],
+                [7, 0, 3],
+                [8, 0, 0],
+                [9, 0, 0],
+                [10, 0, 0],
+                [11, 0, 0],
+                [12, 0, 0],
+                [13, 0, 0],
+                [14, 0, 0],
+                [15, 0, 0],
+                [48, 1, 0],
+                [49, 1, 0],
+                [50, 1, 0],
+                [51, 1, 0],
+                [52, 1, 0],
+                [53, 1, 0],
+                [54, 1, 0],
+                [55, 1, 0],
+                [56, 1, 3],
+                [57, 1, 1],
+                [58, 1, 2],
+                [59, 1, 4],
+                [60, 1, 5],
+                [61, 1, 2],
+                [62, 1, 1],
+                [63, 1, 3],
+            ],
+            "square_tokens": [
+                [0, 4],
+                [1, 2],
+                [2, 3],
+                [3, 5],
+                [4, 6],
+                [5, 3],
+                [6, 2],
+                [7, 4],
+                [8, 1],
+                [9, 1],
+                [10, 1],
+                [11, 1],
+                [12, 1],
+                [13, 1],
+                [14, 1],
+                [15, 1],
+                [16, 0],
+                [17, 0],
+                [18, 0],
+                [19, 0],
+                [20, 0],
+                [21, 0],
+                [22, 0],
+                [23, 0],
+                [24, 0],
+                [25, 0],
+                [26, 0],
+                [27, 0],
+                [28, 0],
+                [29, 0],
+                [30, 0],
+                [31, 0],
+                [32, 0],
+                [33, 0],
+                [34, 0],
+                [35, 0],
+                [36, 0],
+                [37, 0],
+                [38, 0],
+                [39, 0],
+                [40, 0],
+                [41, 0],
+                [42, 0],
+                [43, 0],
+                [44, 0],
+                [45, 0],
+                [46, 0],
+                [47, 0],
+                [48, 7],
+                [49, 7],
+                [50, 7],
+                [51, 7],
+                [52, 7],
+                [53, 7],
+                [54, 7],
+                [55, 7],
+                [56, 10],
+                [57, 8],
+                [58, 9],
+                [59, 11],
+                [60, 12],
+                [61, 9],
+                [62, 8],
+                [63, 10],
+            ],
+            "rule_token": [0, 15, 64, 0, 1, 1],
+        },
+        "wdl_target": {"win": 1, "draw": 0, "loss": 0},
+        "annotations": {
+            "in_check": False,
+            "is_checkmate": False,
+            "is_stalemate": False,
+            "has_legal_en_passant": False,
+            "has_legal_castle": False,
+            "has_legal_promotion": False,
+            "is_low_material_endgame": False,
+            "legal_move_count": 20,
+            "piece_count": 32,
+            "selected_move_is_capture": False,
+            "selected_move_is_promotion": False,
+            "selected_move_is_castle": False,
+            "selected_move_is_en_passant": False,
+            "selected_move_gives_check": False,
+        },
+        "result": "1-0",
+        "metadata": {},
+    }

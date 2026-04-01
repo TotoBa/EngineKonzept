@@ -21,4 +21,3 @@ def test_placeholder_packages_describe_their_scope() -> None:
         trainers_purpose(),
     ]
     assert all(purposes)
-

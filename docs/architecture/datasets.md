@@ -6,10 +6,12 @@ Phase 4 adds a reproducible dataset pipeline that keeps label generation anchore
 
 The Python builder currently accepts four source formats:
 
-- `edge-cases`: `name|fen` lines such as [edge_cases.txt](/home/persk/repos/EngineKonzept/tests/positions/edge_cases.txt)
+- `edge-cases`: `name|fen` lines such as [edge_cases.txt](/home/torsten/EngineKonzept/tests/positions/edge_cases.txt)
 - `fen-lines`: one FEN per line, optionally `name|fen`
 - `epd`: synthetic suites using the first four EPD fields, normalized to full FEN with `0 1`
 - `jsonl`: structured records with optional `selected_move_uci`, `result`, `source`, and `metadata`
+
+For small reproducible Phase-5 policy runs, the repository also carries a labeled JSONL seed set at [policy_seed.jsonl](/home/torsten/EngineKonzept/tests/positions/policy_seed.jsonl).
 
 ## Exact Oracle Boundary
 
@@ -23,6 +25,10 @@ Instead, Python sends raw records to the Rust `dataset-oracle` tool, which reuse
 - `encoder` for deterministic model-facing position tokens
 
 This keeps dataset labels aligned with the runtime legality authority.
+
+For policy-supervised experiments, Python may also derive `selected_move_uci` labels from external analysis engines during offline dataset generation. The current Phase-5 utility supports bounded PGN sampling with Stockfish 18 while still routing legality, action encoding, and next-state generation back through the exact Rust oracle.
+
+The current larger reference corpus was produced by streaming PGNs on a separate Raspberry Pi host and labeling candidate positions there with `/usr/games/stockfish18` at a fixed `1500`-node budget per position. This keeps the label semantics reproducible across machines while moving the slowest offline work off the main development host.
 
 ## Example Schema
 
@@ -65,6 +71,12 @@ The builder writes:
 - `test.jsonl`
 - `summary.json`
 
+When using PGN/Stockfish labeling with `--raw-output-dir`, the builder also writes:
+
+- `train_raw.jsonl`
+- `verify_raw.jsonl`
+- `selection_summary.json`
+
 The summary reports:
 
 - split counts
@@ -75,7 +87,7 @@ The summary reports:
 
 ## Current Limits
 
-- no PGN ingestion yet
+- PGN ingestion is bounded, offline-only, and intended for dataset generation rather than runtime support
 - no selfplay yet
 - no policy probabilities yet
 - no learned planner targets yet

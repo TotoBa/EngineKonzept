@@ -1,0 +1,12 @@
+{"sample_id":"policy-seed:startpos-e2e4","fen":"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1","source":"policy-seed","selected_move_uci":"e2e4","metadata":{"theme":"opening","note":"classical king-pawn start"}}
+{"sample_id":"policy-seed:white-castle-kingside","fen":"r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1","source":"policy-seed","selected_move_uci":"e1g1","metadata":{"theme":"castling","note":"direct kingside castle"}}
+{"sample_id":"policy-seed:black-castle-queenside","fen":"r3k2r/8/8/8/8/8/8/R3K2R b KQkq - 0 1","source":"policy-seed","selected_move_uci":"e8c8","metadata":{"theme":"castling","note":"direct queenside castle"}}
+{"sample_id":"policy-seed:promotion-lane","fen":"4k3/6P1/8/8/8/8/8/4K3 w - - 0 1","source":"policy-seed","selected_move_uci":"g7g8q","metadata":{"theme":"promotion","note":"quiet queen promotion"}}
+{"sample_id":"policy-seed:promotion-capture","fen":"1r2k3/P7/8/8/8/8/8/4K3 w - - 0 1","source":"policy-seed","selected_move_uci":"a7b8q","metadata":{"theme":"promotion","note":"capture promotion to queen"}}
+{"sample_id":"policy-seed:pawn-center","fen":"4k3/8/8/8/8/8/3P4/4K3 w - - 0 1","source":"policy-seed","selected_move_uci":"d2d4","metadata":{"theme":"development","note":"two-step pawn advance"}}
+{"sample_id":"policy-seed:knight-center","fen":"4k3/8/8/3N4/8/8/8/4K3 w - - 0 1","source":"policy-seed","selected_move_uci":"d5f6","metadata":{"theme":"development","note":"knight hop with check"}}
+{"sample_id":"policy-seed:bishop-center","fen":"4k3/8/8/3B4/8/8/8/4K3 w - - 0 1","source":"policy-seed","selected_move_uci":"d5e6","metadata":{"theme":"development","note":"bishop improves with tempo"}}
+{"sample_id":"policy-seed:rook-center","fen":"4k3/8/8/3R4/8/8/8/4K3 w - - 0 1","source":"policy-seed","selected_move_uci":"d5d8","metadata":{"theme":"forcing","note":"rook lift to the back rank"}}
+{"sample_id":"policy-seed:queen-center","fen":"4k3/8/8/3Q4/8/8/8/4K3 w - - 0 1","source":"policy-seed","selected_move_uci":"d5e5","metadata":{"theme":"forcing","note":"queen centralization"}}
+{"sample_id":"policy-seed:king-center","fen":"7k/8/8/3K4/8/8/8/8 w - - 0 1","source":"policy-seed","selected_move_uci":"d5e5","metadata":{"theme":"endgame","note":"king step toward the center"}}
+{"sample_id":"policy-seed:black-startpos-e7e5","fen":"rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1","source":"policy-seed","selected_move_uci":"e7e5","metadata":{"theme":"opening","note":"symmetrical reply"}}

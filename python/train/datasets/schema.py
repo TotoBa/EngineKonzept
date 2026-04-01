@@ -1,8 +1,9 @@
-"""Schema definitions for Phase-4 dataset examples."""
+"""Schema definitions for dataset examples and Phase-5 artifact loading."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import json
 from typing import Any
 
 SUPPORTED_RESULTS = {"1-0", "0-1", "1/2-1/2"}
@@ -72,6 +73,15 @@ class WdlTarget:
         """Return the JSON representation."""
         return {"win": self.win, "draw": self.draw, "loss": self.loss}
 
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "WdlTarget":
+        """Construct a WDL target from its JSON representation."""
+        return cls(
+            win=int(payload["win"]),
+            draw=int(payload["draw"]),
+            loss=int(payload["loss"]),
+        )
+
 
 @dataclass(frozen=True)
 class PositionEncoding:
@@ -96,6 +106,11 @@ class PositionEncoding:
     @classmethod
     def from_oracle_dict(cls, payload: dict[str, Any]) -> "PositionEncoding":
         """Construct the encoding from the Rust oracle JSON payload."""
+        return cls.from_dict(payload)
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "PositionEncoding":
+        """Construct the encoding from JSON."""
         return cls(
             piece_tokens=[[int(value) for value in token] for token in payload["piece_tokens"]],
             square_tokens=[[int(value) for value in token] for token in payload["square_tokens"]],
@@ -133,6 +148,11 @@ class TacticalAnnotations:
     @classmethod
     def from_oracle_dict(cls, payload: dict[str, Any]) -> "TacticalAnnotations":
         """Construct annotations from the Rust oracle JSON payload."""
+        return cls.from_dict(payload)
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "TacticalAnnotations":
+        """Construct annotations from JSON."""
         return cls(
             in_check=bool(payload["in_check"]),
             is_checkmate=bool(payload["is_checkmate"]),
@@ -195,16 +215,17 @@ class DatasetExample:
             raise ValueError(f"unsupported split name: {self.split}")
         if self.side_to_move not in {"w", "b"}:
             raise ValueError("side_to_move must be 'w' or 'b'")
+        if self.selected_action_encoding is not None and len(self.selected_action_encoding) != 3:
+            raise ValueError("selected_action_encoding must contain 3 indices")
+        for action in self.legal_action_encodings:
+            if len(action) != 3:
+                raise ValueError("legal_action_encodings entries must contain 3 indices")
         if self.selected_move_uci is None:
             if self.selected_action_encoding is not None or self.next_fen is not None:
-                raise ValueError(
-                    "selected_action_encoding and next_fen require selected_move_uci"
-                )
+                raise ValueError("selected_action_encoding and next_fen require selected_move_uci")
         else:
             if self.selected_action_encoding is None or self.next_fen is None:
-                raise ValueError(
-                    "selected_move_uci requires selected_action_encoding and next_fen"
-                )
+                raise ValueError("selected_move_uci requires selected_action_encoding and next_fen")
 
     def to_dict(self) -> dict[str, Any]:
         """Return the JSON representation."""
@@ -226,8 +247,57 @@ class DatasetExample:
             "metadata": self.metadata,
         }
 
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "DatasetExample":
+        """Construct an example from the serialized JSON form."""
+        return cls(
+            sample_id=str(payload["sample_id"]),
+            split=str(payload["split"]),
+            source=str(payload["source"]),
+            fen=str(payload["fen"]),
+            side_to_move=str(payload["side_to_move"]),
+            selected_move_uci=_optional_string(payload.get("selected_move_uci")),
+            selected_action_encoding=_optional_int_list(payload.get("selected_action_encoding")),
+            next_fen=_optional_string(payload.get("next_fen")),
+            legal_moves=[str(move) for move in payload["legal_moves"]],
+            legal_action_encodings=[
+                [int(value) for value in action] for action in payload["legal_action_encodings"]
+            ],
+            position_encoding=PositionEncoding.from_dict(dict(payload["position_encoding"])),
+            wdl_target=_optional_wdl_target(payload.get("wdl_target")),
+            annotations=TacticalAnnotations.from_dict(dict(payload["annotations"])),
+            result=_optional_string(payload.get("result")),
+            metadata=dict(payload.get("metadata") or {}),
+        )
+
+    @classmethod
+    def from_json(cls, line: str, *, source: str = "<jsonl>") -> "DatasetExample":
+        """Parse an example from a JSON line."""
+        payload = json.loads(line)
+        if not isinstance(payload, dict):
+            raise ValueError(f"{source}: dataset example must be a JSON object")
+        return cls.from_dict(payload)
+
 
 def _optional_bool(value: Any) -> bool | None:
     if value is None:
         return None
     return bool(value)
+
+
+def _optional_int_list(value: Any) -> list[int] | None:
+    if value is None:
+        return None
+    return [int(item) for item in value]
+
+
+def _optional_string(value: Any) -> str | None:
+    if value is None:
+        return None
+    return str(value)
+
+
+def _optional_wdl_target(value: Any) -> WdlTarget | None:
+    if value is None:
+        return None
+    return WdlTarget.from_dict(dict(value))

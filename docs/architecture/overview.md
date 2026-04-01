@@ -44,3 +44,10 @@ These layers make symbolic state consumable by later learned components without 
 
 The repository now additionally includes a Python dataset pipeline and a Rust dataset oracle backed by the exact rules kernel.
 This adds reproducible example schemas, labels, split generation, and summary reporting without introducing training, inference, or selfplay yet.
+
+## Phase 5 Status
+
+The repository now additionally includes the first learned legality/policy proposer in Python, held-out proposer metrics, a `torch.export` bundle, a Rust-side bundle loader, and an offline PGN-to-Stockfish labeling path for larger policy datasets.
+The runtime still does not execute learned inference yet, and no dynamics, opponent, planner, or classical search logic has been introduced.
+
+The current proposer remains a flat MLP over the deterministic encoder features. That is enough to establish the Phase-5 contracts, dataset paths, export schema, and regression harnesses, but it is not yet the likely long-term architecture for strong policy quality.

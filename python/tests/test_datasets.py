@@ -33,6 +33,30 @@ def test_load_raw_records_supports_edge_cases_and_epd(tmp_path: Path) -> None:
     assert epd_records[0].fen == "4k3/8/8/8/8/8/8/4K3 w - - 0 1"
 
 
+def test_load_raw_records_supports_jsonl_selected_move_labels(tmp_path: Path) -> None:
+    jsonl_path = tmp_path / "policy_seed.jsonl"
+    jsonl_path.write_text(
+        json.dumps(
+            {
+                "sample_id": "policy-seed:startpos-e2e4",
+                "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+                "source": "policy-seed",
+                "selected_move_uci": "e2e4",
+                "metadata": {"theme": "opening"},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    records = load_raw_records(jsonl_path, "jsonl")
+
+    assert len(records) == 1
+    assert records[0].sample_id == "policy-seed:startpos-e2e4"
+    assert records[0].selected_move_uci == "e2e4"
+    assert records[0].metadata["theme"] == "opening"
+
+
 def test_assign_splits_is_deterministic() -> None:
     records = [
         RawPositionRecord(
