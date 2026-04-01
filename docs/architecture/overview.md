@@ -39,3 +39,8 @@ That shell can reconstruct exact positions and emit deterministic legal stub mov
 
 The repository now additionally defines a factorized move vocabulary in `action-space` and a deterministic object-centric position encoder in `encoder`.
 These layers make symbolic state consumable by later learned components without introducing inference, policy models, or planner logic yet.
+
+## Phase 4 Status
+
+The repository now additionally includes a Python dataset pipeline and a Rust dataset oracle backed by the exact rules kernel.
+This adds reproducible example schemas, labels, split generation, and summary reporting without introducing training, inference, or selfplay yet.

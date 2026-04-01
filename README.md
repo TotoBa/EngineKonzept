@@ -9,7 +9,7 @@ The target runtime path is:
 
 ## Current Scope
 
-The repository now covers Phase 3:
+The repository now covers Phase 4:
 
 - root project rules and execution plans
 - Rust workspace boundaries and placeholder future crates
@@ -18,6 +18,7 @@ The repository now covers Phase 3:
 - a minimal UCI shell with deterministic legal stub move output
 - a factorized action space for model-facing move IO
 - a deterministic object-centric position encoder
+- a Python dataset pipeline with exact-rule labels, deterministic splits, and summary reporting
 - CI, lint, and test wiring
 - architecture and phase documentation
 
@@ -25,6 +26,7 @@ It still does **not** implement:
 
 - model training or inference
 - any search or evaluation runtime
+- any learned proposer, dynamics, or planner model
 - any classical engine/search machinery
 
 ## Repository Layout
