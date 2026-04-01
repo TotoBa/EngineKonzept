@@ -1,0 +1,17 @@
+[workspace]
+members = [
+    "crates/action-space",
+    "crates/core-types",
+    "crates/encoder",
+    "crates/engine-app",
+    "crates/eval-metrics",
+    "crates/inference",
+    "crates/planner",
+    "crates/position",
+    "crates/rules",
+    "crates/selfplay",
+    "crates/tools",
+    "crates/uci-protocol",
+]
+resolver = "2"
+

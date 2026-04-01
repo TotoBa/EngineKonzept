@@ -1,0 +1,19 @@
+# Rust
+/rust/target/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+
+# Local tooling
+.mypy_cache/
+
+# Project outputs
+/models/*
+!/models/.gitkeep
+/artifacts/*
+!/artifacts/.gitkeep
+
