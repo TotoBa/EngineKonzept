@@ -34,3 +34,8 @@ That core is the correctness floor for later planner-oriented phases, not a conv
 
 The repository now additionally exposes a minimal UCI shell under `uci-protocol` and `engine-app`.
 That shell can reconstruct exact positions and emit deterministic legal stub moves, but it still contains no search, evaluation, or planner logic.
+
+## Phase 3 Status
+
+The repository now additionally defines a factorized move vocabulary in `action-space` and a deterministic object-centric position encoder in `encoder`.
+These layers make symbolic state consumable by later learned components without introducing inference, policy models, or planner logic yet.

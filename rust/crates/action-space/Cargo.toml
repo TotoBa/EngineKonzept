@@ -8,3 +8,7 @@ publish = false
 [lib]
 path = "src/lib.rs"
 
+[dependencies]
+core-types = { path = "../core-types" }
+position = { path = "../position" }
+rules = { path = "../rules" }

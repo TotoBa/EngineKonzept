@@ -5,6 +5,11 @@ version = 4
 [[package]]
 name = "action-space"
 version = "0.1.0"
+dependencies = [
+ "core-types",
+ "position",
+ "rules",
+]
 
 [[package]]
 name = "core-types"
@@ -13,6 +18,10 @@ version = "0.1.0"
 [[package]]
 name = "encoder"
 version = "0.1.0"
+dependencies = [
+ "core-types",
+ "position",
+]
 
 [[package]]
 name = "engine-app"
