@@ -44,9 +44,10 @@ class ProposerModelConfig:
             "multistream_v2",
             "factorized_v3",
             "factorized_v4",
+            "factorized_v5",
         }:
             raise ValueError(
-                "model.architecture must be 'mlp_v1', 'multistream_v2', 'factorized_v3', or 'factorized_v4'"
+                "model.architecture must be 'mlp_v1', 'multistream_v2', 'factorized_v3', 'factorized_v4', or 'factorized_v5'"
             )
         if self.hidden_dim <= 0:
             raise ValueError("model.hidden_dim must be positive")

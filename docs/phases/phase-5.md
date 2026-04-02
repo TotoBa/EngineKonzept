@@ -29,6 +29,7 @@ Train and export the first legality/policy proposer without introducing dynamics
 - current four-way comparison with the structured multi-stream arm: [stockfish_pgn_10k_four_way_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_10k_four_way_compare_v1.json)
 - current five-way comparison with the first factorized decoder arm: [stockfish_pgn_10k_five_way_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_10k_five_way_compare_v1.json)
 - current six-way comparison with the conditional factorized decoder arm: [stockfish_pgn_10k_six_way_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_10k_six_way_compare_v1.json)
+- current seven-way comparison with the policy-stronger conditional decoder arm: [stockfish_pgn_10k_seven_way_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_10k_seven_way_compare_v1.json)
 - earlier small local baseline corpus: [phase5_stockfish_pgn_train_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_v1)
 - earlier small Pi baseline corpus: [phase5_stockfish_pgn_train_pi_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_pi_v1)
 - 10k comparison summary: [stockfish_pgn_pi_10k_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_pi_10k_compare_v1.json)
@@ -51,6 +52,7 @@ The same `current default` / `experimental variant` / `legacy baseline` split is
 - the first structured `multistream_v2` arm slightly improved validation legal-set F1 over the `current_default` MLP, but it did not beat `h256` on legality, regressed policy accuracy, and was materially slower
 - the first additive `factorized_v3` decoder drastically reduced parameter count, but collapsed held-out legality and policy quality, so the next decoder step must keep more coupling between move components
 - the first conditional `factorized_v4` decoder became the best legal-set-F1 arm so far on the `10k` corpus, but it still trails the current default on policy accuracy
+- the policy-stronger `factorized_v5` arm recovered a large part of the policy gap while still outperforming the old MLP baselines on legality, but it no longer beats `factorized_v4` on legal-set F1
 
 The current Phase-5 architecture decision is therefore:
 
@@ -59,7 +61,8 @@ The current Phase-5 architecture decision is therefore:
 - keep `multistream_v2` as the first structured baseline
 - keep `factorized_v3` as an explicit negative baseline
 - keep `factorized_v4` as the best current legality arm
-- prioritize a policy-stronger follow-up on top of the conditional factorized decoder line
+- keep `factorized_v5` as the best current factorized balance arm
+- prioritize checkpoint-selection and policy-coupling follow-up on top of the conditional factorized decoder line
 
 These findings suggest that raw capacity helps, but the current flat MLP is likely not sufficient by itself for strong policy learning.
 

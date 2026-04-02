@@ -77,6 +77,12 @@ if nn is not None:
                     hidden_layers=hidden_layers,
                     dropout=dropout,
                 )
+            elif architecture == "factorized_v5":
+                self._impl = _PolicyResidualFactorizedMlpProposer(
+                    hidden_dim=hidden_dim,
+                    hidden_layers=hidden_layers,
+                    dropout=dropout,
+                )
             else:
                 raise ValueError(f"unsupported proposer architecture: {architecture}")
 
@@ -236,6 +242,57 @@ if nn is not None:
             legality_hidden = self.legality_tower(hidden)
             policy_hidden = self.policy_tower(hidden)
             return self.legality_head(legality_hidden), self.policy_head(policy_hidden)
+
+
+    class _LowRankActionResidual(nn.Module):
+        def __init__(self, hidden_dim: int, residual_rank: int) -> None:
+            super().__init__()
+            self.down = nn.Linear(hidden_dim, residual_rank)
+            self.up = nn.Linear(residual_rank, ACTION_SPACE_SIZE)
+
+        def forward(self, hidden: torch.Tensor) -> torch.Tensor:
+            return self.up(self.down(hidden))
+
+
+    class _PolicyResidualFactorizedMlpProposer(nn.Module):
+        """Conditional factorized proposer with extra policy-specific flat residual capacity."""
+
+        def __init__(self, *, hidden_dim: int, hidden_layers: int, dropout: float) -> None:
+            super().__init__()
+            layers: list[nn.Module] = []
+            input_dim = POSITION_FEATURE_SIZE
+            for _ in range(hidden_layers):
+                layers.append(nn.Linear(input_dim, hidden_dim))
+                layers.append(nn.ReLU())
+                if dropout > 0.0:
+                    layers.append(nn.Dropout(dropout))
+                input_dim = hidden_dim
+
+            residual_rank = max(hidden_dim // 8, 16)
+            self.backbone = nn.Sequential(*layers)
+            self.legality_tower = nn.Sequential(
+                nn.Linear(input_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Dropout(dropout) if dropout > 0.0 else nn.Identity(),
+            )
+            self.policy_tower = nn.Sequential(
+                nn.Linear(input_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Dropout(dropout) if dropout > 0.0 else nn.Identity(),
+            )
+            self.legality_head = _ConditionalFactorizedActionHead(hidden_dim)
+            self.policy_factorized_head = _ConditionalFactorizedActionHead(hidden_dim)
+            self.policy_residual = _LowRankActionResidual(hidden_dim, residual_rank)
+
+        def forward(self, features: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+            hidden = self.backbone(features)
+            legality_hidden = self.legality_tower(hidden)
+            policy_hidden = self.policy_tower(hidden)
+            legality_logits = self.legality_head(legality_hidden)
+            policy_logits = self.policy_factorized_head(policy_hidden) + self.policy_residual(
+                policy_hidden
+            )
+            return legality_logits, policy_logits
 
 
     class _CrossAttentionBlock(nn.Module):

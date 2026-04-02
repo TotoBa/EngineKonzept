@@ -28,6 +28,8 @@ Use these when comparing architecture or optimization changes against the curren
   First additive factorized-decoder baseline; useful as a negative reference for the next conditional decoder arm.
 - [phase5_stockfish_pgn_factorized_v4_v1.json](/home/torsten/EngineKonzept/python/configs/phase5_stockfish_pgn_factorized_v4_v1.json)
   Conditional factorized-decoder arm; current best legal-set-F1 result on the `10k` corpus.
+- [phase5_stockfish_pgn_factorized_v5_v1.json](/home/torsten/EngineKonzept/python/configs/phase5_stockfish_pgn_factorized_v5_v1.json)
+  Policy-stronger conditional factorized-decoder arm; current best balance among the factorized variants.
 - [phase5_stockfish_pgn_pi_10k_h192_v1.json](/home/torsten/EngineKonzept/python/configs/phase5_stockfish_pgn_pi_10k_h192_v1.json)
   Wider hidden layer variant.
 - [phase5_stockfish_pgn_pi_10k_h256_v1.json](/home/torsten/EngineKonzept/python/configs/phase5_stockfish_pgn_pi_10k_h256_v1.json)

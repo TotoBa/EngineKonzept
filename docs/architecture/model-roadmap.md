@@ -35,7 +35,7 @@ That implies the following near-term sequence:
 
 ## What The Current Results Say
 
-The current `10,240 / 2,048` Pi-labeled Phase-5 corpus has six externally checkable proposer arms:
+The current `10,240 / 2,048` Pi-labeled Phase-5 corpus has seven externally checkable proposer arms:
 
 - `current_default`
 - `h256`
@@ -43,8 +43,9 @@ The current `10,240 / 2,048` Pi-labeled Phase-5 corpus has six externally checka
 - `multistream_v2`
 - `factorized_v3`
 - `factorized_v4`
+- `factorized_v5`
 
-See [stockfish_pgn_10k_six_way_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_10k_six_way_compare_v1.json).
+See [stockfish_pgn_10k_seven_way_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_10k_seven_way_compare_v1.json).
 
 The important findings are:
 
@@ -54,6 +55,7 @@ The important findings are:
 - the first structured multi-stream proposer slightly improved validation legality over the default MLP, but it did not beat `h256`, did not improve policy, and was slower
 - the first additive factorized decoder cut parameters drastically, but collapsed both legality and policy quality
 - the first conditional factorized decoder became the best legal-set-F1 arm so far, but still did not take the policy lead from `current_default`
+- the next policy-stronger conditional decoder regained much of the policy gap while still beating the older MLP baselines on legality
 
 That means:
 
@@ -93,12 +95,17 @@ The next best repo-local step is therefore:
 - not "more routing"
 - but "decode the existing move structure in a way that matches the action space"
 
-The factorized decoder line now has two concrete lessons:
+The factorized decoder line now has three concrete lessons:
 
 - additive factorization threw away too much coupling
 - conditional factorization recovered that coupling and improved legality substantially
+- policy-specific residual capacity recovered much of the lost policy signal while keeping the factorized structure
 
-The remaining gap is now mainly policy quality, not whether move-structured decoding is viable at all.
+The remaining gap is now:
+
+- best policy still belongs to `current_default`
+- best legality still belongs to `factorized_v4`
+- best legality/policy balance among the factorized arms currently belongs to `factorized_v5`
 
 ## Phase 6
 
@@ -175,10 +182,11 @@ These ideas are interesting for later phases, but they are not the current bottl
 
 The next model experiments should be ordered like this:
 
-1. conditional factorized proposer decoder with stronger policy coupling
-2. stronger relational proposer variant if the improved conditional decoder still does not close the policy gap
-3. Phase-6 local latent dynamics prototype
-4. explicit opponent-head design before recurrent planner work
+1. improve checkpoint selection for mixed legality/policy objectives
+2. conditional factorized proposer decoder with stronger policy coupling
+3. stronger relational proposer variant if the improved conditional decoder still does not close the policy gap
+4. Phase-6 local latent dynamics prototype
+5. explicit opponent-head design before recurrent planner work
 
 ## Success Criteria For The Next Step
 
