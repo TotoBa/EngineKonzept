@@ -1,0 +1,83 @@
+{
+  "benchmark_input": {
+    "input": "/srv/schach/tmp/oracle-e2e/train_raw_2k.jsonl",
+    "source": "artifacts/datasets/phase5_stockfish_pgn_raw_pi_10k_v1/train_raw.jsonl",
+    "record_count": 2000
+  },
+  "results": {
+    "records": 2000,
+    "total_measured_seconds": 0.451111837,
+    "phases": {
+      "json_parse": {
+        "seconds": 0.024091885,
+        "milliseconds_per_record": 0.0120459425,
+        "share_of_measured": 0.053405570468327127
+      },
+      "fen_parse": {
+        "seconds": 0.020331479,
+        "milliseconds_per_record": 0.0101657395,
+        "share_of_measured": 0.04506970851221534
+      },
+      "legal_generation": {
+        "seconds": 0.21624216,
+        "milliseconds_per_record": 0.10812108,
+        "share_of_measured": 0.4793537705373933
+      },
+      "pseudo_legal_generation": {
+        "seconds": 0.038151494,
+        "milliseconds_per_record": 0.019075747,
+        "share_of_measured": 0.08457214125374414
+      },
+      "self_check_filter": {
+        "seconds": 0.173031482,
+        "milliseconds_per_record": 0.086515741,
+        "share_of_measured": 0.3835667074282513
+      },
+      "legal_move_uci": {
+        "seconds": 0.018099764,
+        "milliseconds_per_record": 0.009049882,
+        "share_of_measured": 0.04012256499489726
+      },
+      "legal_action_encoding": {
+        "seconds": 0.036447192,
+        "milliseconds_per_record": 0.018223596,
+        "share_of_measured": 0.08079413797337355
+      },
+      "selected_move_resolution": {
+        "seconds": 0.010238259,
+        "milliseconds_per_record": 0.0051191295,
+        "share_of_measured": 0.022695611509746305
+      },
+      "selected_move_apply": {
+        "seconds": 0.002726682,
+        "milliseconds_per_record": 0.001363341,
+        "share_of_measured": 0.006044359239458396
+      },
+      "selected_action_encoding": {
+        "seconds": 0.000381898,
+        "milliseconds_per_record": 0.000190949,
+        "share_of_measured": 0.0008465705589543197
+      },
+      "position_encoding": {
+        "seconds": 0.018494613,
+        "milliseconds_per_record": 0.0092473065,
+        "share_of_measured": 0.04099784462095593
+      },
+      "annotations": {
+        "seconds": 0.019927745,
+        "milliseconds_per_record": 0.0099638725,
+        "share_of_measured": 0.04417473310504153
+      },
+      "json_serialize": {
+        "seconds": 0.089189344,
+        "milliseconds_per_record": 0.044594672,
+        "share_of_measured": 0.19771005033503478
+      }
+    }
+  },
+  "notes": [
+    "This profile was captured after replacing generic serde_json output for DatasetOracleOutput with a specialized schema-identical writer.",
+    "Measured json_serialize time fell from about 0.144s in oracle_profile_v6.json to about 0.089s on the same 2k corpus.",
+    "The legality path is again the dominant cost center, but output serialization is now materially smaller."
+  ]
+}

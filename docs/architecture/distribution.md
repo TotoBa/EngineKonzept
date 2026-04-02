@@ -85,7 +85,7 @@ The repository now also includes a profiling-only binary:
 
 - `cargo run --quiet -p tools --bin dataset-oracle-profile`
 
-It consumes the same newline-delimited oracle input as `dataset-oracle`, but instead of emitting labels it reports aggregated phase timings. The baseline profile is stored in [oracle_profile_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v1.json), the post-serialization-optimization profile is stored in [oracle_profile_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v2.json), the post-check-path profile is stored in [oracle_profile_v3.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v3.json), the first fine-grained split is stored in [oracle_profile_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v4.json), the board-snapshot profile is stored in [oracle_profile_v5.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v5.json), and the current profile is stored in [oracle_profile_v6.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v6.json).
+It consumes the same newline-delimited oracle input as `dataset-oracle`, but instead of emitting labels it reports aggregated phase timings. The baseline profile is stored in [oracle_profile_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v1.json), the post-serialization-optimization profile is stored in [oracle_profile_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v2.json), the post-check-path profile is stored in [oracle_profile_v3.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v3.json), the first fine-grained split is stored in [oracle_profile_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v4.json), the board-snapshot profile is stored in [oracle_profile_v5.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v5.json), the king-square profile is stored in [oracle_profile_v6.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v6.json), and the current profile is stored in [oracle_profile_v7.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v7.json).
 
 The first profile showed:
 
@@ -143,6 +143,16 @@ After that change, [oracle_profile_v6.json](/home/torsten/EngineKonzept/artifact
 - `json_serialize`: about `28.4%`
 
 At this point the Oracle fast path is substantially leaner than the start of this optimization series, and the remaining cost centers are much closer together.
+
+The next and likely last low-risk improvement in this series was to specialize the JSON output path for `DatasetOracleOutput`. The writer now emits the same schema and the same byte layout as `serde_json` for this struct, but avoids the generic per-field serialization overhead. A dedicated unit test checks byte equality on a representative labeled record. On the same 2000-record daemon benchmark, wall-clock time dropped from about `1.375s` to about `1.358s` on average across two runs. The measurement is stored in [oracle_e2e_customjson_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_e2e_customjson_v1.json).
+
+After that change, [oracle_profile_v7.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v7.json) shifted to:
+
+- `legal_generation`: about `47.9%`
+- `self_check_filter`: about `38.4%`
+- `json_serialize`: about `19.8%`
+
+That is the current best end-to-end balance in this series: the legality path is clearly dominant again, and the generic output overhead has been pushed down substantially.
 
 ## Deferred Options
 

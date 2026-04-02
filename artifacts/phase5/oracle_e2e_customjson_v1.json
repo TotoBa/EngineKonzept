@@ -1,0 +1,28 @@
+{
+  "benchmark_input": {
+    "input": "/srv/schach/tmp/oracle-e2e/train_raw_2k.jsonl",
+    "source": "artifacts/datasets/phase5_stockfish_pgn_raw_pi_10k_v1/train_raw.jsonl",
+    "source_format": "jsonl",
+    "record_count": 2000,
+    "oracle_workers": 4,
+    "oracle_batch_size": 250
+  },
+  "results": {
+    "daemon_parallel_kingsquare_seconds": 1.3750965,
+    "daemon_parallel_customjson_seconds": 1.340695,
+    "daemon_parallel_customjson_repeat_seconds": 1.374568,
+    "customjson_mean_seconds": 1.3576315,
+    "customjson_vs_kingsquare_speedup": 1.0129,
+    "customjson_repeat_vs_kingsquare_speedup": 1.0004,
+    "saved_vs_kingsquare_mean": 0.017465
+  },
+  "artifact_digests": {
+    "dataset_jsonl": "4c2af5e2ba5cd2009d5c4a59b361e600c4a98253e1b34a4f0c601129c6c0971f",
+    "summary_json": "e8be41f60ff8cd01bdb5c52bcebbfe3b0032fde588ea884cab7782491b069567"
+  },
+  "notes": [
+    "The oracle output now uses a specialized schema-identical JSON writer for DatasetOracleOutput.",
+    "A focused unit test verifies byte-identical output against serde_json for a representative labeled record.",
+    "The end-to-end win is modest but real on average, and it materially reduces the measured json_serialize phase."
+  ]
+}

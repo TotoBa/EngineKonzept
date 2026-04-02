@@ -280,7 +280,7 @@ fn write_output_json_line(
     writer: &mut impl Write,
     output: &DatasetOracleOutput,
 ) -> Result<(), DatasetOracleError> {
-    serde_json::to_writer(&mut *writer, output).map_err(DatasetOracleError::Json)?;
+    write_oracle_output_json(&mut *writer, output)?;
     writer.write_all(b"\n").map_err(|error| {
         DatasetOracleError::Json(serde_json::Error::io(io::Error::new(
             error.kind(),
@@ -288,6 +288,217 @@ fn write_output_json_line(
         )))
     })?;
     Ok(())
+}
+
+fn write_oracle_output_json(
+    writer: &mut impl Write,
+    output: &DatasetOracleOutput,
+) -> Result<(), DatasetOracleError> {
+    writer.write_all(b"{").map_err(json_io_error)?;
+    write_json_field_name(writer, "fen")?;
+    write_json_string(writer, &output.fen)?;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "side_to_move")?;
+    write_json_string(writer, &output.side_to_move)?;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "legal_moves")?;
+    write_string_array(writer, &output.legal_moves)?;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "legal_action_encodings")?;
+    write_u32_triplet_array(writer, &output.legal_action_encodings)?;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "selected_move_uci")?;
+    write_optional_string(writer, output.selected_move_uci.as_deref())?;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "selected_action_encoding")?;
+    write_optional_u32_triplet(writer, output.selected_action_encoding)?;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "next_fen")?;
+    write_optional_string(writer, output.next_fen.as_deref())?;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "position_encoding")?;
+    write_position_encoding(writer, &output.position_encoding)?;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "annotations")?;
+    write_annotations(writer, &output.annotations)?;
+    writer.write_all(b"}").map_err(json_io_error)?;
+    Ok(())
+}
+
+fn write_position_encoding(
+    writer: &mut impl Write,
+    encoding: &PositionEncodingOutput,
+) -> Result<(), DatasetOracleError> {
+    writer.write_all(b"{").map_err(json_io_error)?;
+    write_json_field_name(writer, "piece_tokens")?;
+    write_u32_triplet_array(writer, &encoding.piece_tokens)?;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "square_tokens")?;
+    write_u32_pair_array(writer, &encoding.square_tokens)?;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "rule_token")?;
+    write_u32_six(writer, encoding.rule_token)?;
+    writer.write_all(b"}").map_err(json_io_error)?;
+    Ok(())
+}
+
+fn write_annotations(
+    writer: &mut impl Write,
+    annotations: &TacticalAnnotationsOutput,
+) -> Result<(), DatasetOracleError> {
+    writer.write_all(b"{").map_err(json_io_error)?;
+    write_json_field_name(writer, "in_check")?;
+    write_bool(writer, annotations.in_check)?;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "is_checkmate")?;
+    write_bool(writer, annotations.is_checkmate)?;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "is_stalemate")?;
+    write_bool(writer, annotations.is_stalemate)?;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "has_legal_en_passant")?;
+    write_bool(writer, annotations.has_legal_en_passant)?;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "has_legal_castle")?;
+    write_bool(writer, annotations.has_legal_castle)?;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "has_legal_promotion")?;
+    write_bool(writer, annotations.has_legal_promotion)?;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "is_low_material_endgame")?;
+    write_bool(writer, annotations.is_low_material_endgame)?;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "legal_move_count")?;
+    write_u32(writer, annotations.legal_move_count)?;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "piece_count")?;
+    write_u32(writer, annotations.piece_count)?;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "selected_move_is_capture")?;
+    write_optional_bool(writer, annotations.selected_move_is_capture)?;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "selected_move_is_promotion")?;
+    write_optional_bool(writer, annotations.selected_move_is_promotion)?;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "selected_move_is_castle")?;
+    write_optional_bool(writer, annotations.selected_move_is_castle)?;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "selected_move_is_en_passant")?;
+    write_optional_bool(writer, annotations.selected_move_is_en_passant)?;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "selected_move_gives_check")?;
+    write_optional_bool(writer, annotations.selected_move_gives_check)?;
+    writer.write_all(b"}").map_err(json_io_error)?;
+    Ok(())
+}
+
+fn write_json_field_name(writer: &mut impl Write, name: &str) -> Result<(), DatasetOracleError> {
+    write_json_string(writer, name)?;
+    writer.write_all(b":").map_err(json_io_error)?;
+    Ok(())
+}
+
+fn write_json_string(writer: &mut impl Write, value: &str) -> Result<(), DatasetOracleError> {
+    serde_json::to_writer(&mut *writer, value).map_err(DatasetOracleError::Json)
+}
+
+fn write_optional_string(
+    writer: &mut impl Write,
+    value: Option<&str>,
+) -> Result<(), DatasetOracleError> {
+    match value {
+        Some(value) => write_json_string(writer, value),
+        None => writer.write_all(b"null").map_err(json_io_error),
+    }
+}
+
+fn write_bool(writer: &mut impl Write, value: bool) -> Result<(), DatasetOracleError> {
+    if value {
+        writer.write_all(b"true").map_err(json_io_error)
+    } else {
+        writer.write_all(b"false").map_err(json_io_error)
+    }
+}
+
+fn write_optional_bool(
+    writer: &mut impl Write,
+    value: Option<bool>,
+) -> Result<(), DatasetOracleError> {
+    match value {
+        Some(value) => write_bool(writer, value),
+        None => writer.write_all(b"null").map_err(json_io_error),
+    }
+}
+
+fn write_u32(writer: &mut impl Write, value: u32) -> Result<(), DatasetOracleError> {
+    write!(writer, "{value}").map_err(json_io_error)
+}
+
+fn write_u32_triplet_array(
+    writer: &mut impl Write,
+    values: &[[u32; 3]],
+) -> Result<(), DatasetOracleError> {
+    writer.write_all(b"[").map_err(json_io_error)?;
+    for (index, [a, b, c]) in values.iter().enumerate() {
+        if index > 0 {
+            writer.write_all(b",").map_err(json_io_error)?;
+        }
+        write!(writer, "[{a},{b},{c}]").map_err(json_io_error)?;
+    }
+    writer.write_all(b"]").map_err(json_io_error)?;
+    Ok(())
+}
+
+fn write_u32_pair_array(
+    writer: &mut impl Write,
+    values: &[[u32; 2]],
+) -> Result<(), DatasetOracleError> {
+    writer.write_all(b"[").map_err(json_io_error)?;
+    for (index, [a, b]) in values.iter().enumerate() {
+        if index > 0 {
+            writer.write_all(b",").map_err(json_io_error)?;
+        }
+        write!(writer, "[{a},{b}]").map_err(json_io_error)?;
+    }
+    writer.write_all(b"]").map_err(json_io_error)?;
+    Ok(())
+}
+
+fn write_u32_six(writer: &mut impl Write, values: [u32; 6]) -> Result<(), DatasetOracleError> {
+    let [a, b, c, d, e, f] = values;
+    write!(writer, "[{a},{b},{c},{d},{e},{f}]").map_err(json_io_error)
+}
+
+fn write_string_array(
+    writer: &mut impl Write,
+    values: &[String],
+) -> Result<(), DatasetOracleError> {
+    writer.write_all(b"[").map_err(json_io_error)?;
+    for (index, value) in values.iter().enumerate() {
+        if index > 0 {
+            writer.write_all(b",").map_err(json_io_error)?;
+        }
+        write_json_string(writer, value)?;
+    }
+    writer.write_all(b"]").map_err(json_io_error)?;
+    Ok(())
+}
+
+fn write_optional_u32_triplet(
+    writer: &mut impl Write,
+    value: Option<[u32; 3]>,
+) -> Result<(), DatasetOracleError> {
+    match value {
+        Some([a, b, c]) => write!(writer, "[{a},{b},{c}]").map_err(json_io_error),
+        None => writer.write_all(b"null").map_err(json_io_error),
+    }
+}
+
+fn json_io_error(error: io::Error) -> DatasetOracleError {
+    DatasetOracleError::Json(serde_json::Error::io(io::Error::new(
+        error.kind(),
+        error.to_string(),
+    )))
 }
 
 fn label_dataset_input_impl(
@@ -438,10 +649,14 @@ fn label_dataset_input_impl(
 
 #[cfg(test)]
 mod tests {
+    use serde_json::to_string;
     use std::io::Cursor;
     use std::time::Duration;
 
-    use super::{label_dataset_input, process_json_lines, profile_json_lines, DatasetOracleInput};
+    use super::{
+        label_dataset_input, process_json_lines, profile_json_lines, write_output_json_line,
+        DatasetOracleInput,
+    };
 
     #[test]
     fn selected_move_yields_next_state_and_action_label() {
@@ -534,5 +749,20 @@ mod tests {
 
         assert_eq!(profile.records, 2);
         assert!(profile.total_measured() > Duration::ZERO);
+    }
+
+    #[test]
+    fn specialized_writer_matches_serde_output() {
+        let output = label_dataset_input(&DatasetOracleInput {
+            fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1".to_string(),
+            selected_move_uci: Some("e2e4".to_string()),
+        })
+        .expect("oracle labels position");
+
+        let expected = format!("{}\n", to_string(&output).expect("serde json"));
+        let mut actual = Vec::new();
+        write_output_json_line(&mut actual, &output).expect("specialized writer succeeds");
+
+        assert_eq!(String::from_utf8(actual).expect("utf8 output"), expected);
     }
 }
