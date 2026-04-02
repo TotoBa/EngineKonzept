@@ -65,6 +65,8 @@ def build_dynamics_export_metadata(
             "rule_loss_weight": config.optimization.rule_loss_weight,
             "delta_loss_weight": config.optimization.delta_loss_weight,
             "latent_consistency_loss_weight": config.optimization.latent_consistency_loss_weight,
+            "drift_supervision_loss_weight": config.optimization.drift_supervision_loss_weight,
+            "drift_supervision_horizon": config.optimization.drift_supervision_horizon,
             "drift_horizon": config.evaluation.drift_horizon,
             "drift_dataset_path": config.evaluation.drift_dataset_path,
             "drift_split": config.evaluation.drift_split,

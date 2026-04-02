@@ -13,6 +13,8 @@ This directory contains exported latent-dynamics bundles.
 
 - [structured_v3_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v3_v1)
   Latent-stable structured follow-up with auxiliary delta heads. Better one-step soft metrics than the current default, but slightly worse drift.
+- [structured_v4_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v4_v1)
+  Explicit short-horizon drift-supervision follow-up. It does not beat the current default on held-out drift.
 - [edit_v1](/home/torsten/EngineKonzept/models/dynamics/edit_v1)
   Experimental local edit-target dynamics bundle. It is useful as a one-step-strong counterexample, but not acceptable as the current default because drift is much worse.
 - [structured_v2_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v2_v1)

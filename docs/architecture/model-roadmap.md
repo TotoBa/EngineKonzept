@@ -167,6 +167,10 @@ The next `structured_v3_v1` follow-up refined that picture:
 - auxiliary delta supervision can improve one-step soft reconstruction without moving all the way to the unstable `edit_v1` contract
 - but the current formulation still gives back some drift quality, so it remains experimental
 
+The explicit drift-supervision `structured_v4_v1` follow-up clarified one more point:
+
+- simply adding a short rollout loss on top of the current contract is not enough; this formulation is worse than `structured_v2_latent_v1` and `structured_v3_v1`
+
 ### Why
 
 This fits the exactness constraints and the planned Phase-6 measurements better than a diffuse global reconstructor.

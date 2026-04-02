@@ -145,6 +145,18 @@ It improves one-step verify reconstruction again, but gives back a little drift 
 - verify `feature_l1_error`: `1.425074 -> 1.353977`
 - verify `drift_feature_l1_error`: `1.429654 -> 1.47778`
 
+The next `structured_v4_v1` follow-up keeps the same `structured_v4` decoder family but adds explicit short-horizon drift supervision during training:
+
+- config: [phase6_dynamics_structured_v4_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v4_v1.json)
+- bundle: [structured_v4_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v4_v1)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v4_v1/summary.json)
+- verify: [dynamics_structured_v4_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v4_v1_verify.json)
+
+It does not beat the current default or `structured_v3_v1`:
+
+- verify `feature_l1_error`: `1.425074 -> 1.611914`
+- verify `drift_feature_l1_error`: `1.429654 -> 1.49735`
+
 The parallel `edit_v1` arm is also materialized as an experimental counterexample:
 
 - config: [phase6_dynamics_edit_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_edit_v1.json)

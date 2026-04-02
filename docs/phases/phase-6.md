@@ -50,6 +50,13 @@ The next structured-delta-auxiliary experimental run is:
 - summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v3_v1/summary.json)
 - verify: [dynamics_structured_v3_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v3_v1_verify.json)
 
+The next drift-supervised experimental run is:
+
+- config: [phase6_dynamics_structured_v4_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v4_v1.json)
+- bundle: [structured_v4_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v4_v1)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v4_v1/summary.json)
+- verify: [dynamics_structured_v4_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v4_v1_verify.json)
+
 The parallel local edit-target experimental run is:
 
 - config: [phase6_dynamics_edit_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_edit_v1.json)
@@ -100,6 +107,11 @@ The next `structured_v3_v1` arm improves one-step reconstruction again, but not 
 
 - verify `feature_l1_error`: `1.425074 -> 1.353977`
 - verify `drift_feature_l1_error`: `1.429654 -> 1.47778`
+
+The explicit drift-supervision `structured_v4_v1` arm also fails to replace the default:
+
+- verify `feature_l1_error`: `1.425074 -> 1.611914`
+- verify `drift_feature_l1_error`: `1.429654 -> 1.49735`
 
 The parallel `edit_v1` arm is informative but remains experimental:
 

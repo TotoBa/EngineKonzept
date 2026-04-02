@@ -30,6 +30,8 @@ Materialized bundles:
   Same drift-aware structured decoder, but with an auxiliary latent-consistency loss.
 - [structured_v3_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v3_v1)
   Same latent-stable main path, plus auxiliary delta decoders trained only as a side target.
+- [structured_v4_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v4_v1)
+  Drift-supervised follow-up that keeps the latent-stable path but adds explicit short-horizon rollout supervision during training.
 - [edit_v1](/home/torsten/EngineKonzept/models/dynamics/edit_v1)
   Experimental local edit-target arm that reconstructs delta sections relative to the current state.
 
@@ -72,10 +74,13 @@ The current materialized runs are:
 - verify: [dynamics_structured_v2_latent_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_latent_v1_verify.json)
 - summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v3_v1/summary.json)
 - verify: [dynamics_structured_v3_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v3_v1_verify.json)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v4_v1/summary.json)
+- verify: [dynamics_structured_v4_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v4_v1_verify.json)
 - summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_edit_v1/summary.json)
 - verify: [dynamics_edit_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_edit_v1_verify.json)
 - comparison: [dynamics_phase6_parallel_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_phase6_parallel_compare_v1.json)
 - comparison: [dynamics_phase6_compare_v2.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_phase6_compare_v2.json)
+- comparison: [dynamics_phase6_compare_v3.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_phase6_compare_v3.json)
 
 ## Current Reading Of The Results
 
@@ -110,6 +115,13 @@ The `structured_v3_v1` follow-up then tests whether delta supervision can be add
 
 So `structured_v3_v1` is promising as a one-step improvement, but it is not the new default because drift gets slightly worse than `structured_v2_latent_v1`.
 
+The explicit drift-supervision `structured_v4_v1` follow-up does not rescue that tradeoff:
+
+- verify `feature_l1_error`: `1.425074 -> 1.611914`
+- verify `drift_feature_l1_error`: `1.429654 -> 1.49735`
+
+That makes it useful as a checked negative result, but not as a new baseline.
+
 The parallel local edit-target arm `edit_v1` shows the opposite tradeoff:
 
 - verify `feature_l1_error`: `1.425823 -> 0.349443`
@@ -129,6 +141,7 @@ This is enough to establish the Phase-6 dataset, training, export, and Rust-boun
 The obvious next pressures are now:
 
 - a better local-transition target that keeps `structured_v3_v1`'s one-step gains without giving back drift
+- a better way to use multi-step supervision than the current `structured_v4_v1` rollout-loss formulation
 - potentially partial-state or tokenized reconstruction instead of one flat feature regression target
 - stronger multi-step drift supervision beyond the current short held-out slice
 

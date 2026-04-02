@@ -118,7 +118,7 @@ if torch is not None and nn is not None:
                 self.piece_delta_decoder = None
                 self.square_delta_decoder = None
                 self.rule_delta_decoder = None
-            elif architecture == "structured_v3":
+            elif architecture in {"structured_v3", "structured_v4"}:
                 self.decoder = None
                 self.piece_decoder = _build_mlp(
                     input_dim=latent_dim,
@@ -230,7 +230,7 @@ if torch is not None and nn is not None:
             piece_delta_features = None
             square_delta_features = None
             rule_delta_features = None
-            if self.architecture in {"structured_v3", "edit_v1"}:
+            if self.architecture in {"structured_v3", "structured_v4", "edit_v1"}:
                 piece_delta_features = self.piece_delta_decoder(transition_input)
                 square_delta_features = self.square_delta_decoder(transition_input)
                 rule_delta_features = self.rule_delta_decoder(transition_input)

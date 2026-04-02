@@ -39,6 +39,7 @@ class DynamicsMetrics:
     rule_loss: float
     delta_loss: float
     latent_consistency_loss: float
+    drift_supervision_loss: float
     feature_l1_error: float
     piece_feature_l1_error: float
     square_feature_l1_error: float
@@ -75,6 +76,7 @@ class DynamicsMetrics:
             "rule_loss": round(self.rule_loss, 6),
             "delta_loss": round(self.delta_loss, 6),
             "latent_consistency_loss": round(self.latent_consistency_loss, 6),
+            "drift_supervision_loss": round(self.drift_supervision_loss, 6),
             "feature_l1_error": round(self.feature_l1_error, 6),
             "piece_feature_l1_error": round(self.piece_feature_l1_error, 6),
             "square_feature_l1_error": round(self.square_feature_l1_error, 6),
@@ -212,6 +214,15 @@ def train_dynamics(config: DynamicsTrainConfig, *, repo_root: Path) -> DynamicsT
         num_workers=config.runtime.dataloader_workers,
     )
 
+    train_drift_chains = _build_drift_chains(
+        train_examples,
+        horizon=config.optimization.drift_supervision_horizon,
+    )
+    validation_drift_chains = _build_drift_chains(
+        validation_examples,
+        horizon=config.optimization.drift_supervision_horizon,
+    )
+
     history: list[dict[str, Any]] = []
     best_epoch = 1
     best_validation: DynamicsMetrics | None = None
@@ -231,6 +242,8 @@ def train_dynamics(config: DynamicsTrainConfig, *, repo_root: Path) -> DynamicsT
             rule_weight=config.optimization.rule_loss_weight,
             delta_loss_weight=config.optimization.delta_loss_weight,
             latent_consistency_weight=config.optimization.latent_consistency_loss_weight,
+            drift_supervision_weight=config.optimization.drift_supervision_loss_weight,
+            drift_supervision_chains=train_drift_chains,
             drift_horizon=config.evaluation.drift_horizon,
         )
         validation_metrics = _run_epoch(
@@ -245,6 +258,8 @@ def train_dynamics(config: DynamicsTrainConfig, *, repo_root: Path) -> DynamicsT
             rule_weight=config.optimization.rule_loss_weight,
             delta_loss_weight=config.optimization.delta_loss_weight,
             latent_consistency_weight=config.optimization.latent_consistency_loss_weight,
+            drift_supervision_weight=config.optimization.drift_supervision_loss_weight,
+            drift_supervision_chains=validation_drift_chains,
             drift_horizon=config.evaluation.drift_horizon,
         )
         drift_validation_metrics = _evaluate_multistep_slice(
@@ -345,6 +360,10 @@ def evaluate_dynamics_checkpoint(
         seed=config.seed,
         num_workers=config.runtime.dataloader_workers,
     )
+    drift_supervision_chains = _build_drift_chains(
+        examples,
+        horizon=config.optimization.drift_supervision_horizon,
+    )
     return _run_epoch(
         model,
         loader,
@@ -357,6 +376,8 @@ def evaluate_dynamics_checkpoint(
         rule_weight=config.optimization.rule_loss_weight,
         delta_loss_weight=config.optimization.delta_loss_weight,
         latent_consistency_weight=config.optimization.latent_consistency_loss_weight,
+        drift_supervision_weight=config.optimization.drift_supervision_loss_weight,
+        drift_supervision_chains=drift_supervision_chains,
         drift_horizon=drift_horizon,
     )
 
@@ -393,6 +414,8 @@ def _run_epoch(
     rule_weight: float,
     delta_loss_weight: float,
     latent_consistency_weight: float,
+    drift_supervision_weight: float,
+    drift_supervision_chains: list[list[DynamicsTrainingExample]],
     drift_horizon: int,
 ) -> DynamicsMetrics:
     if training:
@@ -539,6 +562,14 @@ def _run_epoch(
         gives_check_examples += int(batch["gives_check"].sum().item())
         gives_check_exact += int(exact_mask[batch["gives_check"]].sum().item())
 
+    drift_supervision_loss = _run_drift_supervision(
+        model,
+        drift_supervision_chains,
+        optimizer=optimizer,
+        training=training,
+        weight=drift_supervision_weight,
+    )
+
     drift_metrics = (
         _evaluate_multistep_drift(model, examples, horizon=drift_horizon) if not training else None
     )
@@ -561,6 +592,7 @@ def _run_epoch(
         rule_delta_l1_error=_ratio(rule_delta_l1_total, total_examples),
         exact_next_feature_accuracy=_ratio(exact_next_total, total_examples),
         latent_l1_error=_ratio(latent_l1_total, total_examples),
+        drift_supervision_loss=float(drift_supervision_loss["raw_loss"]),
         capture_examples=capture_examples,
         capture_exact_next_feature_accuracy=_ratio(capture_exact, capture_examples),
         promotion_examples=promotion_examples,
@@ -622,6 +654,48 @@ def _evaluate_multistep_drift(
         "feature_l1_error": _ratio(total_l1, len(chains)),
         "exact_next_feature_accuracy": _ratio(exact_total, len(chains)),
         "latent_l1_error": _ratio(total_latent_l1, len(chains)),
+    }
+
+
+def _run_drift_supervision(
+    model: Any,
+    chains: list[list[DynamicsTrainingExample]],
+    *,
+    optimizer: Any,
+    training: bool,
+    weight: float,
+) -> dict[str, float | int]:
+    if weight <= 0.0 or not chains:
+        return {"count": 0, "raw_loss": 0.0}
+
+    if training:
+        model.train()
+    else:
+        model.eval()
+
+    total_loss = 0.0
+    context = torch.enable_grad() if training else torch.no_grad()
+    with context:
+        for chain in chains:
+            latent = model.encode(torch.tensor([chain[0].feature_vector], dtype=torch.float32))
+            for example in chain:
+                latent = model.step(
+                    latent,
+                    torch.tensor([example.action_index], dtype=torch.long),
+                )
+            predicted = model.decode(latent).next_features
+            target = torch.tensor([chain[-1].next_feature_vector], dtype=torch.float32)
+            chain_loss = torch.nn.functional.mse_loss(predicted, target)
+            total_loss = chain_loss if total_loss == 0.0 else total_loss + chain_loss
+
+    if training:
+        optimizer.zero_grad(set_to_none=True)
+        (total_loss * weight / max(1, len(chains))).backward()
+        optimizer.step()
+
+    return {
+        "count": len(chains),
+        "raw_loss": float(total_loss.item() / max(1, len(chains))),
     }
 
 

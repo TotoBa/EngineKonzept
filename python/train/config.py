@@ -210,9 +210,15 @@ class DynamicsModelConfig:
     dropout: float = 0.0
 
     def __post_init__(self) -> None:
-        if self.architecture not in {"mlp_v1", "structured_v2", "structured_v3", "edit_v1"}:
+        if self.architecture not in {
+            "mlp_v1",
+            "structured_v2",
+            "structured_v3",
+            "structured_v4",
+            "edit_v1",
+        }:
             raise ValueError(
-                "model.architecture must be 'mlp_v1', 'structured_v2', 'structured_v3', or 'edit_v1'"
+                "model.architecture must be 'mlp_v1', 'structured_v2', 'structured_v3', 'structured_v4', or 'edit_v1'"
             )
         if self.latent_dim <= 0:
             raise ValueError("model.latent_dim must be positive")
@@ -240,6 +246,8 @@ class DynamicsOptimizationConfig:
     rule_loss_weight: float = 1.0
     delta_loss_weight: float = 0.0
     latent_consistency_loss_weight: float = 0.0
+    drift_supervision_loss_weight: float = 0.0
+    drift_supervision_horizon: int = 2
     def __post_init__(self) -> None:
         if self.epochs <= 0:
             raise ValueError("optimization.epochs must be positive")
@@ -261,6 +269,10 @@ class DynamicsOptimizationConfig:
             raise ValueError("optimization.delta_loss_weight must be non-negative")
         if self.latent_consistency_loss_weight < 0.0:
             raise ValueError("optimization.latent_consistency_loss_weight must be non-negative")
+        if self.drift_supervision_loss_weight < 0.0:
+            raise ValueError("optimization.drift_supervision_loss_weight must be non-negative")
+        if self.drift_supervision_horizon < 2:
+            raise ValueError("optimization.drift_supervision_horizon must be at least 2")
 
 
 @dataclass(frozen=True)

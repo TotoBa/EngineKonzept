@@ -16,12 +16,18 @@ This directory stores materialized latent-dynamics runs and held-out evaluation 
   Direct comparison between the previous drift-aware default, the new latent-consistency default, and the experimental `edit_v1` arm.
 - [dynamics_phase6_compare_v2.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_phase6_compare_v2.json)
   Direct comparison that adds `structured_v3_v1` on top of the previous Phase-6 arms.
+- [dynamics_phase6_compare_v3.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_phase6_compare_v3.json)
+  Direct comparison that adds `structured_v4_v1` on top of the earlier Phase-6 arms.
 
 ## Experimental Variants
 
 - [dynamics_structured_v3_v1](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v3_v1)
   Training summary for the latent-stable plus delta-auxiliary follow-up.
 - [dynamics_structured_v3_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v3_v1_verify.json)
+  Held-out verify evaluation for the same arm.
+- [dynamics_structured_v4_v1](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v4_v1)
+  Training summary for the explicit drift-supervision follow-up.
+- [dynamics_structured_v4_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v4_v1_verify.json)
   Held-out verify evaluation for the same arm.
 - [dynamics_edit_v1](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_edit_v1)
   Training summary for the experimental local edit-target arm.
