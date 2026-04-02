@@ -73,6 +73,7 @@ The next workflow layer should be built in this order:
 Status now:
 
 - the first `search_teacher_<split>.jsonl` workflow is implemented
+- the second `search_traces_<split>.jsonl` workflow is implemented
 - it is explicitly an offline UCI-teacher workflow
 - it uses the exact legal candidate set plus `CandidateContextV2`
 - it does not modify the runtime move-selection path
@@ -122,6 +123,19 @@ Suggested first dataset family:
 - `search_traces_train.jsonl`
 - `search_traces_validation.jsonl`
 - `search_traces_test.jsonl`
+
+The current repo implementation builds these with:
+
+- [build_search_trace_dataset.py](/home/torsten/EngineKonzept/python/scripts/build_search_trace_dataset.py)
+- [search_traces.py](/home/torsten/EngineKonzept/python/train/datasets/search_traces.py)
+
+The first implementation deliberately keeps traces root-centric:
+
+- exact root candidate set
+- root teacher ranking and scores
+- principal variation as UCI plus flat action indices
+- best reply from the first PV
+- simple instability metadata via top-1 minus top-2 score gap
 
 ### Disagreement Mining
 

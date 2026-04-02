@@ -201,3 +201,5 @@ The first concrete workflow attachment is now implemented:
 - `search_teacher_<split>.jsonl` root-label datasets over exact legal candidates
 - built from `CandidateContextV2`
 - explicitly offline and teacher-only
+- `search_traces_<split>.jsonl` root-plus-PV trace datasets over the same exact legal candidate set
+- explicitly offline and suitable for later opponent/planner supervision

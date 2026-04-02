@@ -130,6 +130,11 @@ Recommended first dataset family:
 
 - `search_traces_<split>.jsonl`
 
+Status now:
+
+- `search_teacher_<split>.jsonl` is implemented
+- `search_traces_<split>.jsonl` is implemented as the next offline workflow layer
+
 ### Disagreement Mining
 
 Mine positions where:
