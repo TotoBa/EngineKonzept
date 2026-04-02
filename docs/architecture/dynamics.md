@@ -59,6 +59,64 @@ Optional lean artifacts are now supported:
 
 These files are backfilled with [materialize_dynamics_artifacts.py](/home/torsten/EngineKonzept/python/scripts/materialize_dynamics_artifacts.py).
 
+## Contract Pressure
+
+The current preferred large-corpus `structured_v5` result changes the next design pressure.
+
+The main bottleneck is no longer “find another generic model family.” It is:
+
+- formalize the proposer-to-dynamics candidate contract
+- formalize a richer selected-action transition contract
+- formalize a planner-facing dual-channel state contract before Phase 7 grows
+
+The current state already has the ingredients:
+
+- exact legal candidates from the symbolic proposer path
+- symbolic candidate features with named order in bundle metadata
+- a dynamics model that benefits from those selected-move symbolic features at scale
+
+The next step should therefore be contract refinement rather than a blind architecture reset.
+
+### CandidateContextV2
+
+Candidate scoring and later planner roots should continue to use exact legal candidates, but with a more explicit versioned schema than the current implicit “18-dim row reused everywhere.”
+
+The recommended next additions are:
+
+- promotion piece identity
+- castle side identity
+- full captured-piece type
+- normalized move geometry such as from/to file-rank and deltas
+- explicit naming of existing attack-map features as pre-move features
+
+### TransitionContextV1
+
+The selected-action dynamics path should not be forced to reuse the proposer row forever.
+
+The recommended next selected-action contract is:
+
+- `CandidateContextV2`
+- plus exact post-move tags from symbolic apply, for example:
+  - `opponent_in_check_after_move`
+  - `destination_attacked_after_move`
+  - `destination_defended_after_move`
+  - `halfmove_reset`
+  - castling-rights delta bits
+  - en-passant created/cleared
+
+This keeps the repo on the symbolic-contract path while making the dynamics input more transition-specific.
+
+### LatentStateV1
+
+For Phase 7 and Phase 8, the most plausible repo-local state contract is dual-channel:
+
+- `s_exact`: exact symbolic shadow state or exact encoded state
+- `g_exact`: compact exact global-summary features
+- `z`: learned latent state
+- `u`: uncertainty/confidence summary
+
+That keeps legality and exact move application symbolic while letting opponent/planner modules operate on learned latent consequences.
+
 ## Current Metrics
 
 The current baseline tracks:
@@ -68,6 +126,12 @@ The current baseline tracks:
 - exact next-feature-vector accuracy after integer rounding
 - separate exact-accuracy slices for capture, promotion, castle, en-passant, and check-giving moves
 - multi-step drift over contiguous in-split action chains
+
+The next metrics that should be added are more granular exactness slices, not just one global all-or-nothing exactness number:
+
+- rule-token exactness
+- occupancy exactness
+- special-move exactness buckets
 
 The current materialized runs are:
 

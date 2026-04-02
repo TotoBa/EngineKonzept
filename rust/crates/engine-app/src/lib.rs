@@ -1,4 +1,4 @@
-//! Minimal UCI engine loop for Phase 2.
+//! UCI engine loop with exact legality and symbolic proposer scoring.
 
 use std::collections::BTreeSet;
 use std::env;

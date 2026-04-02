@@ -60,6 +60,65 @@ Concretely, the highest-leverage workflow ideas are:
 - search-guided curriculum buckets, for example tactical, quiet, defensive, or forced-line positions
 - dynamics stress suites built from lines where the search teacher is sensitive to exact tactical consequences
 
+## Immediate Workflow Plan
+
+The next workflow layer should be built in this order:
+
+1. alpha-beta teacher labels over exact legal candidates
+2. search-trace datasets for future opponent and planner supervision
+3. disagreement mining between learned ranking and search ranking
+4. curriculum buckets driven by those disagreements and traces
+5. only later, offline MCTS distillation over the learned stack
+
+### Alpha-Beta Teacher Labels
+
+For each root position, the most useful initial outputs are:
+
+- soft teacher policy over exact legal candidates
+- root value or WDL target
+- per-candidate reply value after best reply
+- top-k candidate set
+- optional short PV prefix
+
+These targets fit the current symbolic proposer contract directly.
+
+### Search Traces
+
+The next dataset family should contain short offline traces, not runtime search code.
+
+Recommended fields:
+
+- root exact candidate set
+- candidate symbolic features
+- teacher top-k ranking
+- best reply or top-m replies
+- short PV line
+- depth/nodes/instability metadata
+
+That makes the trace useful later for opponent-head supervision and bounded planner supervision.
+
+### Disagreement Mining
+
+The repo should explicitly mine positions where:
+
+- proposer top-1 and teacher top-1 disagree sharply
+- best reply is highly forced
+- tactical punishment is under-modeled by the learned stack
+- special-move or mobility edge cases cause large ranking errors
+
+These positions should become regression fixtures and curriculum buckets, not one-off analysis files.
+
+### MCTS Later
+
+MCTS is more useful later than now.
+
+The best future use here is:
+
+- offline policy-improvement distillation over the learned candidate/value stack
+- difficulty and instability targets for later planner compute allocation
+
+That is acceptable only as an offline workflow, not as the shipped runtime move selector.
+
 ## Current Preferred Boundary
 
 If a future experiment uses alpha-beta or MCTS in this repo, it should satisfy all of these:

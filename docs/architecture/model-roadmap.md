@@ -252,6 +252,19 @@ The next model experiments should be ordered like this:
 4. explore richer symbolic proposer candidate features only if downstream modules need them
 5. only then resume broader proposer exploration if Phase-6/7 pressure points point back at representation quality
 
+## Current Contract Work
+
+The next concrete contract definitions should be:
+
+1. `CandidateContextV2`
+   Exact legal candidate key plus richer, versioned symbolic candidate features.
+2. `TransitionContextV1`
+   Selected-action features for dynamics and opponent modules, including post-move exact tags.
+3. `LatentStateV1`
+   Dual-channel planner-facing state made of exact symbolic shadow state plus learned latent state and uncertainty.
+4. `OpponentHeadV1`
+   Explicit reply distribution, pressure/threat, and uncertainty outputs over exact legal replies.
+
 ## Success Criteria For The Next Step
 
 The next proposer experiment should count as successful only if it improves at least one of these without breaking the current symbolic contracts:
@@ -259,5 +272,11 @@ The next proposer experiment should count as successful only if it improves at l
 - verify `policy_top1_accuracy`
 - verify `legal_set_f1`
 - training or inference throughput enough to justify the added structure
+
+The next dynamics/opponent preparation step should count as successful only if it does at least one of these without breaking the symbolic runtime path:
+
+- improves verify drift on top of large-corpus `structured_v5`
+- clarifies the selected-action contract for later imagined rollouts
+- introduces opponent/planner supervision targets without embedding runtime search
 
 If a new arm is slower and does not materially improve held-out policy or legality, it should remain experimental rather than become the default.
