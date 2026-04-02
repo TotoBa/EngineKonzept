@@ -14,7 +14,9 @@ Use this first for the current standard Phase-5 proposer path:
 
 - [phase5_stockfish_pgn_current_default_v1.json](/home/torsten/EngineKonzept/python/configs/phase5_stockfish_pgn_current_default_v1.json)
 
-That config writes its bundle to `models/proposer/stockfish_pgn_current_default_v1`.
+Materialized current-default bundle:
+
+- [stockfish_pgn_current_default_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_current_default_v1)
 
 ## Experimental Variants
 

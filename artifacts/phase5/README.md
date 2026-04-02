@@ -13,7 +13,7 @@ Use these first when reviewing the current standard proposer path:
 
 The current default config writes its training summary to:
 
-- `artifacts/phase5/stockfish_pgn_current_default_v1/summary.json`
+- [stockfish_pgn_current_default_v1/summary.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_current_default_v1/summary.json)
 
 ## Experimental Variants
 
