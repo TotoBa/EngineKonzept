@@ -1,0 +1,148 @@
+{
+  "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1",
+  "full": {
+    "test": {
+      "example_count": 0,
+      "examples_per_second": 0.0,
+      "repeat_seconds": [
+        0.003511,
+        0.000101,
+        7.2e-05,
+        6.6e-05,
+        6.4e-05
+      ],
+      "seconds": 0.000763
+    },
+    "train": {
+      "example_count": 9216,
+      "examples_per_second": 3760.017,
+      "repeat_seconds": [
+        2.391042,
+        2.452717,
+        2.374996,
+        2.492069,
+        2.544439
+      ],
+      "seconds": 2.451053
+    },
+    "validation": {
+      "example_count": 1024,
+      "examples_per_second": 4868.37,
+      "repeat_seconds": [
+        0.251279,
+        0.171704,
+        0.226942,
+        0.172551,
+        0.22921
+      ],
+      "seconds": 0.210337
+    }
+  },
+  "lean": {
+    "test": {
+      "example_count": 0,
+      "examples_per_second": 0.0,
+      "repeat_seconds": [
+        0.005059,
+        8e-05,
+        7.8e-05,
+        6.4e-05,
+        4.7e-05
+      ],
+      "seconds": 0.001065
+    },
+    "train": {
+      "example_count": 9216,
+      "examples_per_second": 18273.392,
+      "repeat_seconds": [
+        0.573393,
+        0.492976,
+        0.508506,
+        0.475364,
+        0.471461
+      ],
+      "seconds": 0.50434
+    },
+    "validation": {
+      "example_count": 1024,
+      "examples_per_second": 18183.901,
+      "repeat_seconds": [
+        0.093666,
+        0.047337,
+        0.046876,
+        0.046687,
+        0.047001
+      ],
+      "seconds": 0.056314
+    }
+  },
+  "repeats": 5,
+  "runtime": {
+    "cpu_count": 7,
+    "hostname": "chesstrainer",
+    "platform": "Linux-6.12.73+deb13-amd64-x86_64-with-glibc2.41",
+    "python_version": "3.13.5"
+  },
+  "size_bytes": {
+    "full": {
+      "test": 0,
+      "train": 26566828,
+      "validation": 2951289
+    },
+    "lean": {
+      "test": 0,
+      "train": 15010111,
+      "validation": 1673508
+    }
+  },
+  "speedup": {
+    "test": 0.716,
+    "train": 4.86,
+    "validation": 3.735
+  },
+  "training": {
+    "full": {
+      "best_validation": {
+        "examples_per_second": 2432.527,
+        "labeled_policy_examples": 1024,
+        "legal_set_f1": 0.0,
+        "legal_set_precision": 0.0,
+        "legal_set_recall": 0.0,
+        "legality_loss": 0.030633,
+        "policy_loss": 7.063135,
+        "policy_top1_accuracy": 0.006836,
+        "total_examples": 1024,
+        "total_loss": 7.093768
+      },
+      "seconds": 14.674734,
+      "train_examples_per_second": 961.161,
+      "validation_examples_per_second": 2432.527
+    },
+    "lean": {
+      "best_validation": {
+        "examples_per_second": 2507.288,
+        "labeled_policy_examples": 1024,
+        "legal_set_f1": 0.0,
+        "legal_set_precision": 0.0,
+        "legal_set_recall": 0.0,
+        "legality_loss": 0.030633,
+        "policy_loss": 7.063135,
+        "policy_top1_accuracy": 0.006836,
+        "total_examples": 1024,
+        "total_loss": 7.093768
+      },
+      "seconds": 10.685487,
+      "train_examples_per_second": 1072.066,
+      "validation_examples_per_second": 2507.288
+    },
+    "speedup": {
+      "seconds": 1.373,
+      "train_examples_per_second": 1.115
+    }
+  },
+  "written_counts": {
+    "test": 0,
+    "train": 9216,
+    "validation": 1024
+  }
+}

@@ -104,6 +104,24 @@ These affect only offline dataset generation. They do not change label semantics
 
 The proposer trainer now prefers `proposer_<split>.jsonl` when those files are present in a dataset directory. If they are absent, it falls back to the existing full split artifacts and packs features on load, so older datasets remain valid.
 
+For existing datasets that were built before this optional path existed, the repository now also includes:
+
+- `python/scripts/materialize_proposer_artifacts.py`
+
+It backfills `proposer_<split>.jsonl` next to the existing full split files without changing the canonical `dataset.jsonl` / `train.jsonl` / `validation.jsonl` / `test.jsonl` artifacts.
+
+To compare both paths directly, use:
+
+- `python/scripts/benchmark_proposer_artifacts.py`
+
+The current `10k` reference run on the Pi-labeled training dataset is stored in [proposer_artifact_bench_10k_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/proposer_artifact_bench_10k_v2.json). On that run:
+
+- proposer load time improves by about `4.86x` on the `train` split and about `3.74x` on `validation`
+- lean proposer artifacts are smaller: about `15.0 MB` vs. `26.6 MB` for `train`, and about `1.67 MB` vs. `2.95 MB` for `validation`
+- a matched `1`-epoch proposer training run improves end-to-end wall time from about `14.67s` to about `10.69s`, or about `1.37x`
+- the same `1`-epoch run improves reported training throughput from about `961 ex/s` to about `1072 ex/s`
+- held-out validation metrics remain identical, which is the important constraint for this optimization
+
 When `oracle_workers > 1` and `oracle_batch_size == 0`, the builder now auto-splits the workload into roughly one batch per worker instead of falling back to a single giant batch. On a 2000-record build with `4` workers, that reduced wall-clock time from about `1.394s` to about `1.046s`, or about `1.33x` faster, with identical output digests. That measurement is stored in [oracle_auto_batch_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_auto_batch_v1.json).
 
 For larger offline builds, the repository now also includes a reproducible sweep runner:

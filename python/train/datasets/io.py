@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from train.datasets.artifacts import proposer_artifact_name, to_proposer_example
 from train.datasets.builder import BuiltDataset
 
 
@@ -22,15 +21,16 @@ def write_dataset_artifacts(
     for split_name in ("train", "validation", "test"):
         split_examples = [example for example in dataset.examples if example.split == split_name]
         _write_jsonl(output_dir / f"{split_name}.jsonl", split_examples)
-        if write_proposer_artifacts:
-            proposer_examples = [to_proposer_example(example) for example in split_examples]
-            _write_jsonl(output_dir / proposer_artifact_name(split_name), proposer_examples)
 
     summary_path = output_dir / "summary.json"
     summary_path.write_text(
         json.dumps(dataset.summary, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    if write_proposer_artifacts:
+        from train.datasets.artifacts import materialize_proposer_artifacts
+
+        materialize_proposer_artifacts(output_dir)
 
 
 def _write_jsonl(path: Path, examples: list[object]) -> None:

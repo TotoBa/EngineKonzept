@@ -51,6 +51,15 @@ These knobs are intended for throughput tuning during dataset generation only. C
 
 For Phase-5 proposer training, the dataset builders now also support `--write-proposer-artifacts`. That emits optional `proposer_train.jsonl`, `proposer_validation.jsonl`, and `proposer_test.jsonl` files alongside the full dataset artifacts. Each line already contains the packed fixed-width feature vector plus flattened legality/policy supervision, so the proposer trainer can skip reparsing the larger `DatasetExample` payloads. If those files are absent, training still falls back to the existing `train.jsonl` / `validation.jsonl` split artifacts.
 
+For older datasets, use [materialize_proposer_artifacts.py](/home/torsten/EngineKonzept/python/scripts/materialize_proposer_artifacts.py) to backfill those lean split files in place. To benchmark the effect on proposer loading and a short real training run, use [benchmark_proposer_artifacts.py](/home/torsten/EngineKonzept/python/scripts/benchmark_proposer_artifacts.py).
+
+The current `10k` reference benchmark is [proposer_artifact_bench_10k_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/proposer_artifact_bench_10k_v2.json). On the Pi-labeled `10,240` dataset, that run shows:
+
+- `train` proposer loading about `4.86x` faster
+- `validation` proposer loading about `3.74x` faster
+- lean split files materially smaller than the full split JSONL
+- a matched `1`-epoch proposer run about `1.37x` faster end-to-end, with identical validation metrics
+
 If `rust/target/debug/dataset-oracle` already exists, the Python wrapper now uses that binary directly for one-shot oracle calls instead of spawning `cargo run` each time. The warmed reference measurement for that path is stored in [oracle_one_shot_binary_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_one_shot_binary_v1.json).
 
 If `oracle_workers > 1` and no explicit `oracle_batch_size` is provided, the dataset builder now auto-splits the workload into roughly one batch per worker. The current reference measurement for that path is stored in [oracle_auto_batch_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_auto_batch_v1.json).

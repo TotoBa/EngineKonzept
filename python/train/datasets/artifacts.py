@@ -101,6 +101,20 @@ def load_proposer_examples(dataset_path: Path, split: str) -> list[ProposerTrain
     return [to_proposer_example(example) for example in load_split_examples(dataset_path, split)]
 
 
+def materialize_proposer_artifacts(dataset_path: Path) -> dict[str, int]:
+    """Write proposer_<split>.jsonl files next to full dataset split artifacts."""
+    if not dataset_path.is_dir():
+        raise ValueError("dataset_path must be a directory")
+
+    written_counts: dict[str, int] = {}
+    for split in sorted(SUPPORTED_SPLITS):
+        split_examples = load_split_examples(dataset_path, split)
+        proposer_examples = [to_proposer_example(example) for example in split_examples]
+        _write_jsonl(path=dataset_path / proposer_artifact_name(split), records=proposer_examples)
+        written_counts[split] = len(proposer_examples)
+    return written_counts
+
+
 def to_proposer_example(example: DatasetExample) -> ProposerTrainingExample:
     """Convert a dataset example into proposer-ready supervision tensors."""
     legal_action_indices = flatten_legal_actions(example.legal_action_encodings)
@@ -195,6 +209,11 @@ def _load_proposer_examples_from_jsonl(path: Path) -> list[ProposerTrainingExamp
             continue
         examples.append(ProposerTrainingExample.from_json(line, source=f"{path}:{line_number}"))
     return examples
+
+
+def _write_jsonl(path: Path, records: Sequence[object]) -> None:
+    lines = [json.dumps(record.to_dict(), sort_keys=True) for record in records]
+    path.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
 
 
 def _pad_piece_tokens(piece_tokens: Sequence[Sequence[int]]) -> list[float]:
