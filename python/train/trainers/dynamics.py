@@ -457,7 +457,7 @@ def _run_epoch(
         action_indices = batch["action_indices"]
         next_features = batch["next_features"]
 
-        context = torch.enable_grad() if training else torch.no_grad()
+        context = torch.enable_grad() if training else torch.inference_mode()
         with context:
             prediction = model.predict(features, action_indices)
             predicted_next = prediction.next_features
@@ -632,22 +632,29 @@ def _evaluate_multistep_drift(
     total_l1 = 0.0
     total_latent_l1 = 0.0
     exact_total = 0
-    with torch.no_grad():
-        for chain in chains:
-            latent = model.encode(
-                torch.tensor([chain[0].feature_vector], dtype=torch.float32)
-            )
-            for example in chain:
-                latent = model.step(
-                    latent,
-                    torch.tensor([example.action_index], dtype=torch.long),
-                )
-            predicted = model.decode(latent).next_features
-            target = torch.tensor([chain[-1].next_feature_vector], dtype=torch.float32)
-            target_latent = model.encode(target)
-            total_l1 += float(torch.abs(predicted - target).mean().item())
-            total_latent_l1 += float(torch.abs(latent - target_latent).mean().item())
-            exact_total += int(_exact_feature_match_mask(predicted, target).sum().item())
+    with torch.inference_mode():
+        start_features = torch.tensor(
+            [chain[0].feature_vector for chain in chains],
+            dtype=torch.float32,
+        )
+        action_indices = torch.tensor(
+            [[example.action_index for example in chain] for chain in chains],
+            dtype=torch.long,
+        )
+        targets = torch.tensor(
+            [chain[-1].next_feature_vector for chain in chains],
+            dtype=torch.float32,
+        )
+
+        latent = model.encode(start_features)
+        for step_index in range(int(action_indices.shape[1])):
+            latent = model.step(latent, action_indices[:, step_index])
+
+        predicted = model.decode(latent).next_features
+        target_latent = model.encode(targets)
+        total_l1 += float(torch.abs(predicted - targets).mean(dim=1).sum().item())
+        total_latent_l1 += float(torch.abs(latent - target_latent).mean(dim=1).sum().item())
+        exact_total += int(_exact_feature_match_mask(predicted, targets).sum().item())
 
     return {
         "count": len(chains),
@@ -674,19 +681,27 @@ def _run_drift_supervision(
         model.eval()
 
     total_loss = 0.0
-    context = torch.enable_grad() if training else torch.no_grad()
+    context = torch.enable_grad() if training else torch.inference_mode()
     with context:
-        for chain in chains:
-            latent = model.encode(torch.tensor([chain[0].feature_vector], dtype=torch.float32))
-            for example in chain:
-                latent = model.step(
-                    latent,
-                    torch.tensor([example.action_index], dtype=torch.long),
-                )
-            predicted = model.decode(latent).next_features
-            target = torch.tensor([chain[-1].next_feature_vector], dtype=torch.float32)
-            chain_loss = torch.nn.functional.mse_loss(predicted, target)
-            total_loss = chain_loss if total_loss == 0.0 else total_loss + chain_loss
+        start_features = torch.tensor(
+            [chain[0].feature_vector for chain in chains],
+            dtype=torch.float32,
+        )
+        action_indices = torch.tensor(
+            [[example.action_index for example in chain] for chain in chains],
+            dtype=torch.long,
+        )
+        targets = torch.tensor(
+            [chain[-1].next_feature_vector for chain in chains],
+            dtype=torch.float32,
+        )
+
+        latent = model.encode(start_features)
+        for step_index in range(int(action_indices.shape[1])):
+            latent = model.step(latent, action_indices[:, step_index])
+
+        predicted = model.decode(latent).next_features
+        total_loss = torch.nn.functional.mse_loss(predicted, targets)
 
     if training:
         optimizer.zero_grad(set_to_none=True)
@@ -695,7 +710,7 @@ def _run_drift_supervision(
 
     return {
         "count": len(chains),
-        "raw_loss": float(total_loss.item() / max(1, len(chains))),
+        "raw_loss": float(total_loss.item()),
     }
 
 

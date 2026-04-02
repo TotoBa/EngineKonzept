@@ -9,10 +9,13 @@ import pytest
 
 from train.config import load_dynamics_train_config
 from train.datasets.artifacts import (
+    DynamicsTrainingExample,
     POSITION_FEATURE_SIZE,
     dynamics_artifact_name,
     load_dynamics_examples,
 )
+from train.models.dynamics import LatentDynamicsModel
+from train.trainers import dynamics as dynamics_trainer
 from train.trainers import evaluate_dynamics_checkpoint, train_dynamics
 
 
@@ -446,6 +449,80 @@ def test_train_and_evaluate_dynamics_checkpoint(tmp_path: Path) -> None:
 
     assert metrics.total_examples == 2
     assert metrics.drift_examples == 1
+
+
+def test_latent_dynamics_step_from_transition_input_matches_step() -> None:
+    torch = pytest.importorskip("torch")
+    model = LatentDynamicsModel(
+        architecture="structured_v2",
+        latent_dim=16,
+        hidden_dim=32,
+        hidden_layers=2,
+        action_embedding_dim=8,
+        dropout=0.0,
+    )
+    features = torch.tensor([_feature_vector(0), _feature_vector(1)], dtype=torch.float32)
+    action_indices = torch.tensor([3, 7], dtype=torch.long)
+
+    latent = model.encode(features)
+    action_embedding = model.action_embedding(action_indices)
+    transition_input = torch.cat((latent, action_embedding), dim=1)
+
+    via_step = model.step(latent, action_indices)
+    via_transition_input = model.step_from_transition_input(latent, transition_input)
+
+    assert torch.allclose(via_step, via_transition_input)
+
+
+def test_run_drift_supervision_matches_manual_chain_average() -> None:
+    torch = pytest.importorskip("torch")
+    model = LatentDynamicsModel(
+        architecture="structured_v4",
+        latent_dim=16,
+        hidden_dim=32,
+        hidden_layers=2,
+        action_embedding_dim=8,
+        dropout=0.0,
+    )
+    chains = [
+        [
+            DynamicsTrainingExample(
+                **_dynamics_example_payload("a-1", "train", action_index=3, offset=0, ply=1)
+            ),
+            DynamicsTrainingExample(
+                **_dynamics_example_payload("a-2", "train", action_index=4, offset=1, ply=2)
+            ),
+        ],
+        [
+            DynamicsTrainingExample(
+                **_dynamics_example_payload("b-1", "train", action_index=5, offset=10, ply=1)
+            ),
+            DynamicsTrainingExample(
+                **_dynamics_example_payload("b-2", "train", action_index=6, offset=11, ply=2)
+            ),
+        ],
+    ]
+
+    result = dynamics_trainer._run_drift_supervision(  # type: ignore[attr-defined]
+        model,
+        chains,
+        optimizer=None,
+        training=False,
+        weight=0.1,
+    )
+
+    manual_total = 0.0
+    with torch.inference_mode():
+        for chain in chains:
+            latent = model.encode(torch.tensor([chain[0].feature_vector], dtype=torch.float32))
+            for example in chain:
+                latent = model.step(latent, torch.tensor([example.action_index], dtype=torch.long))
+            predicted = model.decode(latent).next_features
+            target = torch.tensor([chain[-1].next_feature_vector], dtype=torch.float32)
+            manual_total += float(torch.nn.functional.mse_loss(predicted, target).item())
+
+    assert result["count"] == len(chains)
+    assert result["raw_loss"] == pytest.approx(manual_total / len(chains))
 
 
 def _dataset_jsonl(records: list[dict[str, object]]) -> str:

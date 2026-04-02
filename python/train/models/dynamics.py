@@ -216,7 +216,15 @@ if torch is not None and nn is not None:
         def step(self, latent: Any, action_indices: Any) -> Any:
             """Apply one residual action-conditioned latent transition."""
             action_embedding = self.action_embedding(action_indices)
+            return self.step_from_action_embedding(latent, action_embedding)
+
+        def step_from_action_embedding(self, latent: Any, action_embedding: Any) -> Any:
+            """Apply one residual action-conditioned latent transition from a precomputed embedding."""
             transition_input = torch.cat((latent, action_embedding), dim=1)
+            return self.step_from_transition_input(latent, transition_input)
+
+        def step_from_transition_input(self, latent: Any, transition_input: Any) -> Any:
+            """Apply one residual action-conditioned latent transition from a prebuilt transition input."""
             delta = self.transition(transition_input)
             return latent + delta
 
@@ -225,7 +233,7 @@ if torch is not None and nn is not None:
             latent = self.encode(features)
             action_embedding = self.action_embedding(action_indices)
             transition_input = torch.cat((latent, action_embedding), dim=1)
-            next_latent = self.step(latent, action_indices)
+            next_latent = self.step_from_transition_input(latent, transition_input)
             decoded = self.decode(next_latent)
             piece_delta_features = None
             square_delta_features = None

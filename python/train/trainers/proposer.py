@@ -301,7 +301,7 @@ def _run_epoch(
         legal_targets = batch["legal_targets"]
         selected_action_indices = batch["selected_action_indices"]
 
-        context = torch.enable_grad() if training else torch.no_grad()
+        context = torch.enable_grad() if training else torch.inference_mode()
         with context:
             legality_logits, policy_logits = model(features)
             losses = compute_proposer_losses(
