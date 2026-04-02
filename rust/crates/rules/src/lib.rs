@@ -172,12 +172,23 @@ pub fn legal_moves_profiled(position: &Position) -> (Vec<Move>, LegalMoveProfile
     let pseudo_legal_generation = pseudo_started.elapsed();
 
     let moving_side = position.side_to_move();
+    let king_square = position
+        .king_square(moving_side)
+        .expect("valid position must contain a king for the side to move");
     let filter_started = Instant::now();
     let legal = pseudo
         .into_iter()
         .filter(|candidate| {
             try_apply_pseudo_move_for_check(position, *candidate)
-                .map(|next_board| !is_in_check_on_board(&next_board, moving_side))
+                .map(|next_board| {
+                    let checked_king_square =
+                        king_square_after_move(king_square, position, *candidate);
+                    !is_square_attacked_on_board(
+                        &next_board,
+                        checked_king_square,
+                        moving_side.opposite(),
+                    )
+                })
                 .unwrap_or(false)
         })
         .collect();
@@ -290,6 +301,16 @@ fn board_piece_at(board: &[Option<Piece>; 64], square: Square) -> Option<Piece> 
 
 fn set_board_piece_at(board: &mut [Option<Piece>; 64], square: Square, piece: Option<Piece>) {
     board[usize::from(square.index())] = piece;
+}
+
+fn king_square_after_move(king_square: Square, position: &Position, chess_move: Move) -> Square {
+    match position.piece_at(chess_move.from) {
+        Some(Piece {
+            color,
+            kind: PieceKind::King,
+        }) if color == position.side_to_move() => chess_move.to,
+        _ => king_square,
+    }
 }
 
 fn generate_pawn_moves(position: &Position, square: Square, piece: Piece, moves: &mut Vec<Move>) {

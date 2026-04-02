@@ -1,0 +1,83 @@
+{
+  "benchmark_input": {
+    "input": "/srv/schach/tmp/oracle-e2e/train_raw_2k.jsonl",
+    "source": "artifacts/datasets/phase5_stockfish_pgn_raw_pi_10k_v1/train_raw.jsonl",
+    "record_count": 2000
+  },
+  "results": {
+    "records": 2000,
+    "total_measured_seconds": 0.506439806,
+    "phases": {
+      "json_parse": {
+        "seconds": 0.024603877,
+        "milliseconds_per_record": 0.0123019385,
+        "share_of_measured": 0.048582036223274276
+      },
+      "fen_parse": {
+        "seconds": 0.02058922,
+        "milliseconds_per_record": 0.01029461,
+        "share_of_measured": 0.04065482167094898
+      },
+      "legal_generation": {
+        "seconds": 0.216200698,
+        "milliseconds_per_record": 0.108100349,
+        "share_of_measured": 0.4269030503498771
+      },
+      "pseudo_legal_generation": {
+        "seconds": 0.038186606,
+        "milliseconds_per_record": 0.019093303,
+        "share_of_measured": 0.07540206268857151
+      },
+      "self_check_filter": {
+        "seconds": 0.172788877,
+        "milliseconds_per_record": 0.0863944385,
+        "share_of_measured": 0.34118344362528247
+      },
+      "legal_move_uci": {
+        "seconds": 0.018460636,
+        "milliseconds_per_record": 0.009230318,
+        "share_of_measured": 0.03645178712512183
+      },
+      "legal_action_encoding": {
+        "seconds": 0.036564901,
+        "milliseconds_per_record": 0.0182824505,
+        "share_of_measured": 0.07219989536130576
+      },
+      "selected_move_resolution": {
+        "seconds": 0.010154302,
+        "milliseconds_per_record": 0.005077151,
+        "share_of_measured": 0.020050363102777115
+      },
+      "selected_move_apply": {
+        "seconds": 0.002533427,
+        "milliseconds_per_record": 0.0012667135,
+        "share_of_measured": 0.005002424710667391
+      },
+      "selected_action_encoding": {
+        "seconds": 0.000390688,
+        "milliseconds_per_record": 0.000195344,
+        "share_of_measured": 0.0007714401501844031
+      },
+      "position_encoding": {
+        "seconds": 0.018314756,
+        "milliseconds_per_record": 0.009157378,
+        "share_of_measured": 0.03616373709771147
+      },
+      "annotations": {
+        "seconds": 0.019897711,
+        "milliseconds_per_record": 0.0099488555,
+        "share_of_measured": 0.03928938990234112
+      },
+      "json_serialize": {
+        "seconds": 0.143954805,
+        "milliseconds_per_record": 0.0719774025,
+        "share_of_measured": 0.28424859834181354
+      }
+    }
+  },
+  "notes": [
+    "This profile was captured after teaching the self-check filter to reuse the known king square for attack validation.",
+    "Measured legal_generation time fell from about 0.270s in oracle_profile_v5.json to about 0.216s on the same 2k corpus.",
+    "The self_check_filter remains the main legality cost, but it is now much smaller than in the earlier profiling snapshots."
+  ]
+}

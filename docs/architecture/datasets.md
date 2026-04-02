@@ -112,7 +112,7 @@ To keep the next optimization steps externally checkable, the tooling now also i
 
 - `cargo run --quiet -p tools --bin dataset-oracle-profile`
 
-It accepts the same newline-delimited request stream as `dataset-oracle` but reports aggregated phase timings instead of labels. The initial hotspot profile is stored in [oracle_profile_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v1.json), the post-serialization profile is stored in [oracle_profile_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v2.json), the post-check-path profile is stored in [oracle_profile_v3.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v3.json), the first fine-grained split is stored in [oracle_profile_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v4.json), and the current profile is stored in [oracle_profile_v5.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v5.json).
+It accepts the same newline-delimited request stream as `dataset-oracle` but reports aggregated phase timings instead of labels. The initial hotspot profile is stored in [oracle_profile_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v1.json), the post-serialization profile is stored in [oracle_profile_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v2.json), the post-check-path profile is stored in [oracle_profile_v3.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v3.json), the first fine-grained split is stored in [oracle_profile_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v4.json), the board-snapshot profile is stored in [oracle_profile_v5.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v5.json), and the current profile is stored in [oracle_profile_v6.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v6.json).
 
 The first profile showed:
 
@@ -152,6 +152,16 @@ After that change, [oracle_profile_v5.json](/home/torsten/EngineKonzept/artifact
 - `json_serialize`: about `25.5%`
 
 So the current picture is better balanced: legality remains the largest block, but the dominant part of it has already been materially reduced.
+
+The next refinement reused the already known king square inside the self-check filter instead of re-scanning the board after each candidate move. On the same 2000-record daemon benchmark, wall-clock time dropped again from about `1.443s` to about `1.375s` on average across two runs. That measurement is stored in [oracle_e2e_kingsquare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_e2e_kingsquare_v1.json).
+
+After that change, [oracle_profile_v6.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v6.json) shifted to roughly:
+
+- `legal_generation`: about `42.7%`
+- `self_check_filter`: about `34.1%`
+- `json_serialize`: about `28.4%`
+
+So the current picture is tighter still: the legality path has been reduced enough that output serialization is again a comparatively important secondary cost.
 
 The summary reports:
 
