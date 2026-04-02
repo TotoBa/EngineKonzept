@@ -21,6 +21,8 @@ To compare both transports directly, use [benchmark_dataset_oracle.py](/home/tor
 
 Both benchmark helpers now embed basic runtime metadata in their JSON output, including host name, platform string, Python version, and visible CPU count. That makes cross-host comparisons easier to review without hand-written side notes.
 
+For reproducible hotspot analysis on a raw dataset slice, use [profile_dataset_oracle.py](/home/torsten/EngineKonzept/python/scripts/profile_dataset_oracle.py). The current large reference run is [oracle_profile_50k_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_50k_v1.json).
+
 The dataset builders also support offline oracle parallelism:
 
 - `--oracle-workers`

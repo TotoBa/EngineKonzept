@@ -186,6 +186,22 @@ The first profile showed:
 
 That directly motivated the next output-path change: the oracle now writes JSON responses straight into the stream instead of first materializing a `String` per record. On the same 2000-record daemon build, wall-clock time dropped from about `1.624s` to about `1.555s`, with byte-identical artifacts. That measurement is stored in [oracle_e2e_jsonopt_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_e2e_jsonopt_v1.json).
 
+For larger reproducible profiling runs, the repository now also includes:
+
+- `python/scripts/profile_dataset_oracle.py`
+
+It runs `dataset-oracle-profile` on a deterministic raw-record slice, records the command and host metadata used for the run, and writes the full JSON report plus a ranked `top_phases` summary. The current large reference run is stored in [oracle_profile_50k_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_50k_v1.json).
+
+That 50k profile keeps the same overall picture, but with a useful large-run nuance:
+
+- `legal_generation`: about `49.4%`
+- `self_check_filter`: about `38.6%`
+- `json_serialize`: about `23.4%`
+- `attack_check_local`: about `18.2%`
+- `attack_check_slider`: about `15.2%`
+
+So on larger offline builds, legality remains the primary target, but JSON serialization is still large enough that it cannot be ignored once the obvious rules-kernel wins have been taken.
+
 After that step, the updated profile shifted to:
 
 - `legal_generation`: about `57.0%`
