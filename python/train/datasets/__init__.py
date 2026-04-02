@@ -9,6 +9,9 @@ from train.datasets.contracts import (
     global_context_feature_dim,
     global_context_feature_order,
     global_context_spec,
+    transition_context_feature_dim,
+    transition_context_feature_order,
+    transition_context_spec,
 )
 from train.datasets.artifacts import (
     DynamicsTrainingExample,
@@ -33,6 +36,7 @@ from train.datasets.artifacts import (
     symbolic_candidate_context_v2_feature_spec,
     symbolic_proposer_artifact_name,
     symbolic_proposer_feature_spec,
+    transition_context_feature_spec,
 )
 from train.datasets.builder import BuiltDataset, build_dataset
 from train.datasets.io import write_dataset_artifacts
@@ -94,6 +98,10 @@ __all__ = [
     "symbolic_proposer_artifact_name",
     "symbolic_proposer_feature_spec",
     "training_split_ratios",
+    "transition_context_feature_spec",
+    "transition_context_feature_dim",
+    "transition_context_feature_order",
+    "transition_context_spec",
     "verification_split_ratios",
     "write_dataset_artifacts",
 ]

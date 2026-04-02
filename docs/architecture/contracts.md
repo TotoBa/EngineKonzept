@@ -92,6 +92,14 @@ The current implemented `V2` fields are:
 
 This is the next selected-action contract for dynamics and later opponent modeling.
 
+Status now:
+
+- implemented as a versioned Python-side transition artifact contract
+- materialized in `DynamicsTrainingExample` rows as optional `transition_features`
+- still not consumed by the current default Phase-6 bundle
+
+That split is intentional. The repo now has an explicit transition contract to build datasets and workflows against before the next dynamics or opponent arm commits to it as a runtime-facing input.
+
 It should contain:
 
 - `CandidateContextV2`
@@ -107,6 +115,16 @@ Recommended first post-move tags:
 - en-passant created or cleared
 
 The important point is that dynamics should not be forced forever to reuse the proposer row unchanged.
+
+The current implemented `V1` post-move tags are:
+
+- `opponent_in_check_after_move`
+- `destination_attacked_after_move`
+- `destination_defended_after_move`
+- `halfmove_reset`
+- four castling-rights-cleared bits
+- `en_passant_created`
+- `en_passant_cleared`
 
 ## LatentStateV1
 

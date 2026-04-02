@@ -78,6 +78,18 @@ _GLOBAL_CONTEXT_V1_FEATURE_ORDER = (
     "self_attack_square_ratio",
     "opponent_attack_square_ratio",
 )
+_TRANSITION_CONTEXT_V1_POST_MOVE_FEATURE_ORDER = (
+    "opponent_in_check_after_move",
+    "destination_attacked_after_move",
+    "destination_defended_after_move",
+    "halfmove_reset",
+    "white_kingside_castling_cleared",
+    "white_queenside_castling_cleared",
+    "black_kingside_castling_cleared",
+    "black_queenside_castling_cleared",
+    "en_passant_created",
+    "en_passant_cleared",
+)
 
 
 @dataclass(frozen=True)
@@ -143,6 +155,34 @@ def global_context_feature_order(
 def global_context_feature_dim(version: int = DEFAULT_GLOBAL_CONTEXT_VERSION) -> int:
     """Return the feature width for one global-context version."""
     return len(_global_context_feature_order(version))
+
+
+def transition_context_spec(version: int = 1) -> dict[str, object]:
+    """Return the selected-action transition contract."""
+    if version != 1:
+        raise ValueError(f"unsupported TransitionContext version: {version}")
+    candidate = candidate_context_spec(2)
+    feature_order = transition_context_feature_order(version)
+    return {
+        "contract_name": "TransitionContext",
+        "version": version,
+        "candidate_context_version": candidate.version,
+        "feature_dim": len(feature_order),
+        "feature_order": list(feature_order),
+        "post_move_feature_order": list(_TRANSITION_CONTEXT_V1_POST_MOVE_FEATURE_ORDER),
+    }
+
+
+def transition_context_feature_order(version: int = 1) -> tuple[str, ...]:
+    """Return the feature order for one transition-context version."""
+    if version != 1:
+        raise ValueError(f"unsupported TransitionContext version: {version}")
+    return _candidate_context_feature_order(2) + _TRANSITION_CONTEXT_V1_POST_MOVE_FEATURE_ORDER
+
+
+def transition_context_feature_dim(version: int = 1) -> int:
+    """Return the feature width for one transition-context version."""
+    return len(transition_context_feature_order(version))
 
 
 def symbolic_candidate_context_spec(

@@ -272,8 +272,10 @@ The next implementation hygiene requirement should be:
 Current status:
 
 - `CandidateContextV2` now exists as a versioned Python-side dataset/workflow contract
+- `TransitionContextV1` now exists as a versioned Python-side transition artifact contract
 - shipped Rust runtime bundles still validate and execute only the current `CandidateContextV1` scorer path
-- that split is intentional until a matching runtime-trained proposer or dynamics arm adopts the richer contract
+- current default dynamics bundles still do not consume `TransitionContextV1`
+- that split is intentional until a matching runtime-trained proposer or dynamics/opponent arm adopts the richer contracts
 
 ## Success Criteria For The Next Step
 

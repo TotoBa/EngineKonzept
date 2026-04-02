@@ -108,6 +108,13 @@ The recommended next selected-action contract is:
 
 This keeps the repo on the symbolic-contract path while making the dynamics input more transition-specific.
 
+That contract now also exists in code on the dataset side:
+
+- `DynamicsTrainingExample` rows can carry `transition_context_version`
+- `transition_features` now materialize `CandidateContextV2` plus exact post-move tags
+
+The current default large-corpus `structured_v5` bundle still uses only the existing selected-move symbolic row. `TransitionContextV1` is the next explicit bridge for future dynamics and opponent heads, not a hidden runtime input change.
+
 ### LatentStateV1
 
 For Phase 7 and Phase 8, the most plausible repo-local state contract is dual-channel:

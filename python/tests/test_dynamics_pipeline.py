@@ -13,7 +13,13 @@ from train.datasets.artifacts import (
     POSITION_FEATURE_SIZE,
     SYMBOLIC_PROPOSER_CANDIDATE_FEATURE_SIZE,
     dynamics_artifact_name,
+    build_transition_context_features,
     load_dynamics_examples,
+)
+from train.datasets import (
+    DatasetExample,
+    transition_context_feature_dim,
+    transition_context_feature_spec,
 )
 from train.models.dynamics import LatentDynamicsModel
 from train.trainers import dynamics as dynamics_trainer
@@ -411,7 +417,30 @@ def test_load_dynamics_examples_builds_from_full_dataset(
     assert examples[1].ply_index == 2
     assert examples[0].action_features is not None
     assert len(examples[0].action_features or []) == SYMBOLIC_PROPOSER_CANDIDATE_FEATURE_SIZE
+    assert examples[0].transition_context_version == 1
+    assert examples[0].transition_features is not None
+    assert len(examples[0].transition_features or []) == transition_context_feature_dim(1)
     assert len(examples[0].next_feature_vector) == POSITION_FEATURE_SIZE
+
+
+def test_transition_context_v1_features_capture_exact_post_move_tags() -> None:
+    pytest.importorskip("chess")
+
+    example = DatasetExample.from_dict(
+        _dataset_example_payload("sample-a", "train", next_fen="fen-a", ply=1)
+    )
+    spec = transition_context_feature_spec()
+    features = build_transition_context_features(example, version=1)
+    index_by_name = {
+        name: index for index, name in enumerate(list(spec["feature_order"]))
+    }
+
+    assert spec["version"] == 1
+    assert spec["candidate_context_version"] == 2
+    assert len(features) == transition_context_feature_dim(1)
+    assert features[index_by_name["halfmove_reset"]] == 1.0
+    assert features[index_by_name["en_passant_created"]] == 1.0
+    assert features[index_by_name["opponent_in_check_after_move"]] == 0.0
 
 
 def test_train_and_evaluate_dynamics_checkpoint(tmp_path: Path) -> None:

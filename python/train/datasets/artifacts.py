@@ -15,6 +15,8 @@ from train.datasets.contracts import (
     candidate_context_feature_dim,
     global_context_feature_dim,
     symbolic_candidate_context_spec,
+    transition_context_feature_dim,
+    transition_context_spec,
 )
 from train.datasets.oracle import label_records_with_oracle
 from train.datasets.schema import DatasetExample, PositionEncoding, RawPositionRecord, SUPPORTED_SPLITS
@@ -197,6 +199,8 @@ class DynamicsTrainingExample:
     gives_check: bool
     trajectory_id: str | None
     ply_index: int | None
+    transition_context_version: int | None = None
+    transition_features: list[float] | None = None
 
     def to_dict(self) -> dict[str, object]:
         """Return the JSON representation."""
@@ -215,6 +219,8 @@ class DynamicsTrainingExample:
             "gives_check": self.gives_check,
             "trajectory_id": self.trajectory_id,
             "ply_index": self.ply_index,
+            "transition_context_version": self.transition_context_version,
+            "transition_features": self.transition_features,
         }
 
     @classmethod
@@ -243,6 +249,20 @@ class DynamicsTrainingExample:
             action_candidate_context_version = None
         elif action_candidate_context_version is None:
             action_candidate_context_version = DEFAULT_CANDIDATE_CONTEXT_VERSION
+        transition_context_version = _optional_int(payload.get("transition_context_version"))
+        transition_features = _optional_float_list(payload.get("transition_features"))
+        if transition_features is not None:
+            version = 1 if transition_context_version is None else transition_context_version
+            expected_width = transition_context_feature_dim(version)
+            if len(transition_features) != expected_width:
+                raise ValueError(
+                    "transition_features must have width "
+                    f"{expected_width}"
+                )
+        if transition_features is None:
+            transition_context_version = None
+        elif transition_context_version is None:
+            transition_context_version = 1
         return cls(
             sample_id=str(payload["sample_id"]),
             split=split,
@@ -260,6 +280,8 @@ class DynamicsTrainingExample:
             gives_check=bool(payload["gives_check"]),
             trajectory_id=_optional_str(payload.get("trajectory_id")),
             ply_index=_optional_int(payload.get("ply_index")),
+            transition_context_version=transition_context_version,
+            transition_features=transition_features,
         )
 
     @classmethod
@@ -592,6 +614,11 @@ def dynamics_symbolic_action_feature_spec() -> dict[str, object]:
     }
 
 
+def transition_context_feature_spec() -> dict[str, object]:
+    """Describe the richer selected-action transition contract for future dynamics/opponent work."""
+    return transition_context_spec()
+
+
 def split_position_features(feature_vector: Sequence[float]) -> dict[str, list[float]]:
     """Split one packed feature vector into deterministic piece/square/rule sections."""
     values = [float(value) for value in feature_vector]
@@ -872,6 +899,8 @@ def _build_dynamics_examples(
                 gives_check=bool(example.annotations.selected_move_gives_check),
                 trajectory_id=_trajectory_id(example),
                 ply_index=_trajectory_ply(example),
+                transition_context_version=1,
+                transition_features=build_transition_context_features(example, version=1),
             )
         )
     return dynamics_examples
@@ -925,3 +954,62 @@ def build_selected_move_action_features(
         opp_attacks,
         version=candidate_context_version,
     )
+
+
+def build_transition_context_features(
+    example: DatasetExample,
+    *,
+    version: int,
+) -> list[float]:
+    """Build a selected-action transition feature vector from exact pre/post-move state."""
+    if version != 1:
+        raise ValueError(f"unsupported TransitionContext version: {version}")
+    if chess is None:  # pragma: no cover - exercised when chess is absent
+        raise RuntimeError(
+            "python-chess is required for transition context features. Install the 'train' extra."
+        )
+    if example.selected_move_uci is None:
+        raise ValueError(f"{example.sample_id}: selected_move_uci is required for dynamics")
+
+    board = chess.Board(example.fen)
+    move = chess.Move.from_uci(example.selected_move_uci)
+    if move not in board.legal_moves:
+        raise ValueError(f"{example.sample_id}: selected move {example.selected_move_uci} is illegal")
+
+    own_attacks = _attack_map(board, board.turn)
+    opp_attacks = _attack_map(board, not board.turn)
+    candidate_features = _candidate_feature_row(
+        board,
+        move,
+        own_attacks,
+        opp_attacks,
+        version=2,
+    )
+
+    next_board = board.copy(stack=False)
+    next_board.push(move)
+    mover_color = not next_board.turn
+    return candidate_features + [
+        float(next_board.is_check()),
+        float(next_board.is_attacked_by(next_board.turn, move.to_square)),
+        float(next_board.is_attacked_by(mover_color, move.to_square)),
+        float(next_board.halfmove_clock == 0),
+        float(
+            board.has_kingside_castling_rights(chess.WHITE)
+            and not next_board.has_kingside_castling_rights(chess.WHITE)
+        ),
+        float(
+            board.has_queenside_castling_rights(chess.WHITE)
+            and not next_board.has_queenside_castling_rights(chess.WHITE)
+        ),
+        float(
+            board.has_kingside_castling_rights(chess.BLACK)
+            and not next_board.has_kingside_castling_rights(chess.BLACK)
+        ),
+        float(
+            board.has_queenside_castling_rights(chess.BLACK)
+            and not next_board.has_queenside_castling_rights(chess.BLACK)
+        ),
+        float(next_board.ep_square is not None),
+        float(board.ep_square is not None and next_board.ep_square != board.ep_square),
+    ]
