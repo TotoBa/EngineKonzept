@@ -30,6 +30,8 @@ If `rust/target/debug/dataset-oracle` already exists, the Python wrapper now use
 
 If `oracle_workers > 1` and no explicit `oracle_batch_size` is provided, the dataset builder now auto-splits the workload into roughly one batch per worker. The current reference measurement for that path is stored in [oracle_auto_batch_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_auto_batch_v1.json).
 
+The emitted `summary.json` now also records the effective offline oracle schedule under `oracle_schedule`, so external reviewers can see the resolved worker count, requested batch size, effective batch size, and resulting batch count directly from the artifact.
+
 The proposer config also accepts a `runtime` object for CPU tuning:
 
 - `torch_threads` to cap PyTorch CPU threads

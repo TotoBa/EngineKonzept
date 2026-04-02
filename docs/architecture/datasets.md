@@ -203,6 +203,7 @@ The summary reports:
 - available WDL counts
 - annotation coverage for checks, mate, stalemate, castling, en passant, promotion, and low-material endgames
 - legal-move-count and piece-count statistics
+- the effective offline oracle schedule in `oracle_schedule`, including worker count, requested batch size, effective batch size, and batch count
 
 ## Current Limits
 

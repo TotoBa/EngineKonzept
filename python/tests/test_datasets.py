@@ -111,6 +111,13 @@ def test_build_dataset_uses_exact_rule_oracle_and_writes_artifacts(tmp_path: Pat
     assert second.annotations.is_checkmate
     assert second.wdl_target is not None and second.wdl_target.loss == 1
     assert dataset.summary["annotation_counts"]["checkmate"] == 1
+    assert dataset.summary["oracle_schedule"] == {
+        "record_count": 2,
+        "oracle_workers": 1,
+        "requested_batch_size": 0,
+        "effective_batch_size": 2,
+        "batch_count": 1,
+    }
 
     output_dir = tmp_path / "dataset"
     write_dataset_artifacts(output_dir, dataset)
@@ -235,7 +242,7 @@ def test_build_dataset_auto_batches_when_parallel_workers_are_requested() -> Non
         ]
 
     with patch("train.datasets.builder.label_records_with_oracle", side_effect=fake_label_records):
-        build_dataset(
+        dataset = build_dataset(
             records,
             ratios=SplitRatios(1.0, 0.0, 0.0),
             seed="parallel-auto-batch",
@@ -243,6 +250,13 @@ def test_build_dataset_auto_batches_when_parallel_workers_are_requested() -> Non
         )
 
     assert seen_batch_sizes == [2, 2]
+    assert dataset.summary["oracle_schedule"] == {
+        "record_count": 4,
+        "oracle_workers": 2,
+        "requested_batch_size": 0,
+        "effective_batch_size": 2,
+        "batch_count": 2,
+    }
 
 
 def test_build_dataset_rejects_invalid_oracle_parallelism() -> None:

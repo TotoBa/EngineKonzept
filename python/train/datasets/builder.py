@@ -46,12 +46,17 @@ def build_dataset(
     if oracle_batch_size < 0:
         raise ValueError("oracle_batch_size must be non-negative")
 
+    oracle_schedule = _oracle_schedule(
+        len(records),
+        oracle_workers=oracle_workers,
+        oracle_batch_size=oracle_batch_size,
+    )
     oracle_outputs = _label_records(
         records,
         repo_root=repo_root,
         oracle_command=oracle_command,
         oracle_workers=oracle_workers,
-        oracle_batch_size=oracle_batch_size,
+        oracle_batch_size=oracle_schedule["effective_batch_size"],
     )
     splits = assign_splits(records, ratios=resolved_ratios, seed=seed)
 
@@ -90,7 +95,9 @@ def build_dataset(
             )
         )
 
-    return BuiltDataset(examples=examples, summary=build_summary(examples))
+    summary = build_summary(examples)
+    summary["oracle_schedule"] = oracle_schedule
+    return BuiltDataset(examples=examples, summary=summary)
 
 
 def _label_records(
@@ -105,10 +112,7 @@ def _label_records(
     if not resolved_records:
         return []
 
-    batch_size = oracle_batch_size or _default_oracle_batch_size(
-        len(resolved_records),
-        oracle_workers=oracle_workers,
-    )
+    batch_size = oracle_batch_size
     if oracle_workers == 1 or batch_size >= len(resolved_records):
         return label_records_with_oracle(
             resolved_records,
@@ -140,6 +144,28 @@ def _default_oracle_batch_size(record_count: int, *, oracle_workers: int) -> int
     if oracle_workers <= 1:
         return record_count
     return max(1, math.ceil(record_count / oracle_workers))
+
+
+def _oracle_schedule(
+    record_count: int,
+    *,
+    oracle_workers: int,
+    oracle_batch_size: int,
+) -> dict[str, int]:
+    effective_batch_size = oracle_batch_size or _default_oracle_batch_size(
+        record_count,
+        oracle_workers=oracle_workers,
+    )
+    batch_count = 0 if record_count == 0 or effective_batch_size == 0 else math.ceil(
+        record_count / effective_batch_size
+    )
+    return {
+        "record_count": record_count,
+        "oracle_workers": oracle_workers,
+        "requested_batch_size": oracle_batch_size,
+        "effective_batch_size": effective_batch_size,
+        "batch_count": batch_count,
+    }
 
 
 def _derive_wdl_target(
