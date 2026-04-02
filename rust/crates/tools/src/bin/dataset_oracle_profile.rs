@@ -12,10 +12,18 @@ struct ProfilePhaseReport {
 }
 
 #[derive(Serialize)]
+struct JsonSectionReport {
+    bytes: u64,
+    bytes_per_record: f64,
+    share_of_json_bytes: f64,
+}
+
+#[derive(Serialize)]
 struct ProfileReport {
     records: u64,
     total_measured_seconds: f64,
     phases: Vec<(&'static str, ProfilePhaseReport)>,
+    json_sections: Vec<(&'static str, JsonSectionReport)>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -152,7 +160,51 @@ fn to_report(profile: &OracleProfileTotals) -> ProfileReport {
                 records,
             ),
         ],
+        json_sections: json_sections(profile, records),
     }
+}
+
+fn json_sections(
+    profile: &OracleProfileTotals,
+    records: u64,
+) -> Vec<(&'static str, JsonSectionReport)> {
+    let total_json_bytes = profile.json_serialize_top_level_bytes
+        + profile.json_serialize_legal_moves_bytes
+        + profile.json_serialize_legal_action_encodings_bytes
+        + profile.json_serialize_position_encoding_bytes
+        + profile.json_serialize_annotations_bytes;
+    vec![
+        json_section(
+            "top_level",
+            profile.json_serialize_top_level_bytes,
+            total_json_bytes,
+            records,
+        ),
+        json_section(
+            "legal_moves",
+            profile.json_serialize_legal_moves_bytes,
+            total_json_bytes,
+            records,
+        ),
+        json_section(
+            "legal_action_encodings",
+            profile.json_serialize_legal_action_encodings_bytes,
+            total_json_bytes,
+            records,
+        ),
+        json_section(
+            "position_encoding",
+            profile.json_serialize_position_encoding_bytes,
+            total_json_bytes,
+            records,
+        ),
+        json_section(
+            "annotations",
+            profile.json_serialize_annotations_bytes,
+            total_json_bytes,
+            records,
+        ),
+    ]
 }
 
 fn phase(
@@ -176,6 +228,30 @@ fn phase(
                 0.0
             } else {
                 phase_seconds / total_seconds
+            },
+        },
+    )
+}
+
+fn json_section(
+    name: &'static str,
+    bytes: u64,
+    total_json_bytes: u64,
+    records: u64,
+) -> (&'static str, JsonSectionReport) {
+    (
+        name,
+        JsonSectionReport {
+            bytes,
+            bytes_per_record: if records == 0 {
+                0.0
+            } else {
+                bytes as f64 / records as f64
+            },
+            share_of_json_bytes: if total_json_bytes == 0 {
+                0.0
+            } else {
+                bytes as f64 / total_json_bytes as f64
             },
         },
     )

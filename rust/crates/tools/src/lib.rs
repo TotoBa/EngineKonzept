@@ -126,6 +126,11 @@ pub struct OracleProfileTotals {
     pub position_encoding: Duration,
     pub annotations: Duration,
     pub json_serialize: Duration,
+    pub json_serialize_top_level_bytes: u64,
+    pub json_serialize_legal_moves_bytes: u64,
+    pub json_serialize_legal_action_encodings_bytes: u64,
+    pub json_serialize_position_encoding_bytes: u64,
+    pub json_serialize_annotations_bytes: u64,
 }
 
 impl OracleProfileTotals {
@@ -176,6 +181,13 @@ impl OracleProfileTotals {
         self.selected_action_encoding += profile.selected_action_encoding;
         self.position_encoding += profile.position_encoding;
         self.annotations += profile.annotations;
+        self.json_serialize_top_level_bytes += profile.json_serialize_top_level_bytes;
+        self.json_serialize_legal_moves_bytes += profile.json_serialize_legal_moves_bytes;
+        self.json_serialize_legal_action_encodings_bytes +=
+            profile.json_serialize_legal_action_encodings_bytes;
+        self.json_serialize_position_encoding_bytes +=
+            profile.json_serialize_position_encoding_bytes;
+        self.json_serialize_annotations_bytes += profile.json_serialize_annotations_bytes;
     }
 }
 
@@ -201,6 +213,11 @@ struct OracleRecordProfile {
     selected_action_encoding: Duration,
     position_encoding: Duration,
     annotations: Duration,
+    json_serialize_top_level_bytes: u64,
+    json_serialize_legal_moves_bytes: u64,
+    json_serialize_legal_action_encodings_bytes: u64,
+    json_serialize_position_encoding_bytes: u64,
+    json_serialize_annotations_bytes: u64,
 }
 
 /// Labels a dataset input record via the exact rules kernel.
@@ -245,16 +262,18 @@ pub fn profile_json_lines(reader: impl BufRead, context: &str) -> io::Result<Ora
                     format!("{context} line {}: {error}", line_number + 1),
                 )
             })?;
-        totals.record_label(&record_profile);
 
         let serialize_started = Instant::now();
-        write_output_json_line(&mut sink, &output).map_err(|error| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("{context} line {}: {error}", line_number + 1),
-            )
-        })?;
+        write_output_json_line_profiled(&mut sink, &output, &mut record_profile).map_err(
+            |error| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("{context} line {}: {error}", line_number + 1),
+                )
+            },
+        )?;
         totals.json_serialize += serialize_started.elapsed();
+        totals.record_label(&record_profile);
     }
 
     Ok(totals)
@@ -319,6 +338,22 @@ fn write_output_json_line(
     Ok(())
 }
 
+fn write_output_json_line_profiled(
+    writer: &mut impl Write,
+    output: &DatasetOracleOutput,
+    profile: &mut OracleRecordProfile,
+) -> Result<(), DatasetOracleError> {
+    let mut counting_writer = CountingWriter::new(writer);
+    write_oracle_output_json_profiled(&mut counting_writer, output, profile)?;
+    counting_writer.write_all(b"\n").map_err(|error| {
+        DatasetOracleError::Json(serde_json::Error::io(io::Error::new(
+            error.kind(),
+            error.to_string(),
+        )))
+    })?;
+    Ok(())
+}
+
 fn write_oracle_output_json(
     writer: &mut impl Write,
     output: &DatasetOracleOutput,
@@ -352,6 +387,91 @@ fn write_oracle_output_json(
     write_annotations(writer, &output.annotations)?;
     writer.write_all(b"}").map_err(json_io_error)?;
     Ok(())
+}
+
+fn write_oracle_output_json_profiled<W: Write>(
+    writer: &mut CountingWriter<W>,
+    output: &DatasetOracleOutput,
+    profile: &mut OracleRecordProfile,
+) -> Result<(), DatasetOracleError> {
+    let started_bytes = writer.bytes_written();
+    writer.write_all(b"{").map_err(json_io_error)?;
+    write_json_field_name(writer, "fen")?;
+    write_json_string(writer, &output.fen)?;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "side_to_move")?;
+    write_json_string(writer, &output.side_to_move)?;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "legal_moves")?;
+    let legal_moves_started_bytes = writer.bytes_written();
+    write_string_array(writer, &output.legal_moves)?;
+    let legal_moves_bytes = writer.bytes_written() - legal_moves_started_bytes;
+    profile.json_serialize_legal_moves_bytes += legal_moves_bytes;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "legal_action_encodings")?;
+    let legal_actions_started_bytes = writer.bytes_written();
+    write_u32_triplet_array(writer, &output.legal_action_encodings)?;
+    let legal_action_encodings_bytes = writer.bytes_written() - legal_actions_started_bytes;
+    profile.json_serialize_legal_action_encodings_bytes += legal_action_encodings_bytes;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "selected_move_uci")?;
+    write_optional_string(writer, output.selected_move_uci.as_deref())?;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "selected_action_encoding")?;
+    write_optional_u32_triplet(writer, output.selected_action_encoding)?;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "next_fen")?;
+    write_optional_string(writer, output.next_fen.as_deref())?;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "position_encoding")?;
+    let position_encoding_started_bytes = writer.bytes_written();
+    write_position_encoding(writer, &output.position_encoding)?;
+    let position_encoding_bytes = writer.bytes_written() - position_encoding_started_bytes;
+    profile.json_serialize_position_encoding_bytes += position_encoding_bytes;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "annotations")?;
+    let annotations_started_bytes = writer.bytes_written();
+    write_annotations(writer, &output.annotations)?;
+    let annotations_bytes = writer.bytes_written() - annotations_started_bytes;
+    profile.json_serialize_annotations_bytes += annotations_bytes;
+    writer.write_all(b"}").map_err(json_io_error)?;
+    let total_bytes = writer.bytes_written() - started_bytes;
+    let profiled_bytes = legal_moves_bytes
+        + legal_action_encodings_bytes
+        + position_encoding_bytes
+        + annotations_bytes;
+    profile.json_serialize_top_level_bytes += total_bytes.saturating_sub(profiled_bytes);
+    Ok(())
+}
+
+struct CountingWriter<W> {
+    inner: W,
+    bytes_written: u64,
+}
+
+impl<W> CountingWriter<W> {
+    fn new(inner: W) -> Self {
+        Self {
+            inner,
+            bytes_written: 0,
+        }
+    }
+
+    fn bytes_written(&self) -> u64 {
+        self.bytes_written
+    }
+}
+
+impl<W: Write> Write for CountingWriter<W> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        let written = self.inner.write(buf)?;
+        self.bytes_written += written as u64;
+        Ok(written)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.inner.flush()
+    }
 }
 
 fn write_position_encoding(

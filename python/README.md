@@ -36,6 +36,8 @@ That `v4` 50k result was also rerun on `raspberrypi` and fetched back as [oracle
 
 The matching Pi hotspot profile is [oracle_profile_50k_pi_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_50k_pi_v4.json). It keeps the same ordering as the local profile: `legal_generation` first, `self_check_filter` inside it second, and `json_serialize` still large enough to remain a real secondary optimization target.
 
+The newer local profile [oracle_profile_50k_v10.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_50k_v10.json) also records JSON subsection byte shares. On the current `50k` run, `position_encoding` is the largest JSON payload block, ahead of `annotations`, `legal_action_encodings`, and `legal_moves`.
+
 The dataset builders also support offline oracle parallelism:
 
 - `--oracle-workers`

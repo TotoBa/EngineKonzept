@@ -315,6 +315,16 @@ The same profiled `50k` run was then mirrored on `raspberrypi` and fetched back 
 
 So the next optimization choice is now host-stable as well: legality generation remains the first target, but JSON serialization is still large enough on the slower ARM host to justify another serializer pass before deeper rules-kernel work.
 
+To make the serializer itself more directly inspectable, the large local profile now also records JSON subsection byte shares in [oracle_profile_50k_v10.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_50k_v10.json). On that run, the emitted bytes break down as:
+
+- `position_encoding`: about `36.3%`
+- `annotations`: about `19.2%`
+- `legal_action_encodings`: about `16.9%`
+- `top_level`: about `15.3%`
+- `legal_moves`: about `12.2%`
+
+That does not replace the time-based profile, but it does answer a previously ambiguous question: the largest JSON payload pressure is not the legal-move list, it is the encoded feature payload.
+
 The next profiling refinement split the remaining self-check attack cost into local attackers and slider attackers. The current result in [oracle_profile_v8.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v8.json) is:
 
 - `attack_check_local`: about `23.0%`
