@@ -25,6 +25,7 @@ struct ProfileReport {
     phases: Vec<(&'static str, ProfilePhaseReport)>,
     json_sections: Vec<(&'static str, JsonSectionReport)>,
     position_encoding_sections: Vec<(&'static str, JsonSectionReport)>,
+    annotation_sections: Vec<(&'static str, JsonSectionReport)>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -163,6 +164,7 @@ fn to_report(profile: &OracleProfileTotals) -> ProfileReport {
         ],
         json_sections: json_sections(profile, records),
         position_encoding_sections: position_encoding_sections(profile, records),
+        annotation_sections: annotation_sections(profile, records),
     }
 }
 
@@ -259,6 +261,35 @@ fn position_encoding_sections(
             "rule_token",
             profile.json_serialize_rule_token_bytes,
             total_position_encoding_bytes,
+            records,
+        ),
+    ]
+}
+
+fn annotation_sections(
+    profile: &OracleProfileTotals,
+    records: u64,
+) -> Vec<(&'static str, JsonSectionReport)> {
+    let total_annotation_bytes = profile.json_serialize_annotations_core_bytes
+        + profile.json_serialize_annotations_counts_bytes
+        + profile.json_serialize_annotations_selected_bytes;
+    vec![
+        json_section(
+            "core_flags",
+            profile.json_serialize_annotations_core_bytes,
+            total_annotation_bytes,
+            records,
+        ),
+        json_section(
+            "count_fields",
+            profile.json_serialize_annotations_counts_bytes,
+            total_annotation_bytes,
+            records,
+        ),
+        json_section(
+            "selected_move_fields",
+            profile.json_serialize_annotations_selected_bytes,
+            total_annotation_bytes,
             records,
         ),
     ]

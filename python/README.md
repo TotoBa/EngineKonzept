@@ -40,6 +40,8 @@ The newer local profile [oracle_profile_50k_v10.json](/home/torsten/EngineKonzep
 
 The follow-up profile [oracle_profile_50k_v12.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_50k_v12.json) splits `position_encoding` further and shows that `square_tokens` is the dominant payload inside that block. A first focused `square_tokens` writer experiment is recorded in [oracle_pair_50k_squaretokens_v13.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_50k_squaretokens_v13.json); it did not improve the real `50k` build and was therefore not kept.
 
+The next profile [oracle_profile_50k_v15.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_50k_v15.json) does the same for `annotations`. There, `core_flags` and `selected_move_fields` dominate the section, while the numeric count fields are small. A first section-buffered experiment is recorded in [oracle_pair_50k_annotations_v16.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_50k_annotations_v16.json); it also failed to beat the real `50k` baseline and was not kept.
+
 The dataset builders also support offline oracle parallelism:
 
 - `--oracle-workers`

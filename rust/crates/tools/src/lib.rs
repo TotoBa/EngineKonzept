@@ -134,6 +134,9 @@ pub struct OracleProfileTotals {
     pub json_serialize_square_tokens_bytes: u64,
     pub json_serialize_rule_token_bytes: u64,
     pub json_serialize_annotations_bytes: u64,
+    pub json_serialize_annotations_core_bytes: u64,
+    pub json_serialize_annotations_counts_bytes: u64,
+    pub json_serialize_annotations_selected_bytes: u64,
 }
 
 impl OracleProfileTotals {
@@ -194,6 +197,11 @@ impl OracleProfileTotals {
         self.json_serialize_square_tokens_bytes += profile.json_serialize_square_tokens_bytes;
         self.json_serialize_rule_token_bytes += profile.json_serialize_rule_token_bytes;
         self.json_serialize_annotations_bytes += profile.json_serialize_annotations_bytes;
+        self.json_serialize_annotations_core_bytes += profile.json_serialize_annotations_core_bytes;
+        self.json_serialize_annotations_counts_bytes +=
+            profile.json_serialize_annotations_counts_bytes;
+        self.json_serialize_annotations_selected_bytes +=
+            profile.json_serialize_annotations_selected_bytes;
     }
 }
 
@@ -227,6 +235,9 @@ struct OracleRecordProfile {
     json_serialize_square_tokens_bytes: u64,
     json_serialize_rule_token_bytes: u64,
     json_serialize_annotations_bytes: u64,
+    json_serialize_annotations_core_bytes: u64,
+    json_serialize_annotations_counts_bytes: u64,
+    json_serialize_annotations_selected_bytes: u64,
 }
 
 /// Labels a dataset input record via the exact rules kernel.
@@ -440,7 +451,7 @@ fn write_oracle_output_json_profiled<W: Write>(
     writer.write_all(b",").map_err(json_io_error)?;
     write_json_field_name(writer, "annotations")?;
     let annotations_started_bytes = writer.bytes_written();
-    write_annotations(writer, &output.annotations)?;
+    write_annotations_profiled(writer, &output.annotations, profile)?;
     let annotations_bytes = writer.bytes_written() - annotations_started_bytes;
     profile.json_serialize_annotations_bytes += annotations_bytes;
     writer.write_all(b"}").map_err(json_io_error)?;
@@ -576,6 +587,74 @@ fn write_annotations(
     Ok(())
 }
 
+fn write_annotations_profiled<W: Write>(
+    writer: &mut CountingWriter<W>,
+    annotations: &TacticalAnnotationsOutput,
+    profile: &mut OracleRecordProfile,
+) -> Result<(), DatasetOracleError> {
+    let mut buffer = Vec::with_capacity(384);
+    append_annotations_json_profiled(&mut buffer, annotations, profile);
+    writer.write_all(&buffer).map_err(json_io_error)?;
+    Ok(())
+}
+
+fn append_annotations_json_profiled(
+    buffer: &mut Vec<u8>,
+    annotations: &TacticalAnnotationsOutput,
+    profile: &mut OracleRecordProfile,
+) {
+    let core_started = buffer.len() as u64;
+    append_annotations_core(buffer, annotations);
+    profile.json_serialize_annotations_core_bytes += buffer.len() as u64 - core_started;
+
+    let counts_started = buffer.len() as u64;
+    append_annotations_counts(buffer, annotations);
+    profile.json_serialize_annotations_counts_bytes += buffer.len() as u64 - counts_started;
+
+    let selected_started = buffer.len() as u64;
+    append_annotations_selected(buffer, annotations);
+    profile.json_serialize_annotations_selected_bytes += buffer.len() as u64 - selected_started;
+
+    buffer.push(b'}');
+}
+
+fn append_annotations_core(buffer: &mut Vec<u8>, annotations: &TacticalAnnotationsOutput) {
+    buffer.extend_from_slice(b"{\"in_check\":");
+    append_bool_json(buffer, annotations.in_check);
+    buffer.extend_from_slice(b",\"is_checkmate\":");
+    append_bool_json(buffer, annotations.is_checkmate);
+    buffer.extend_from_slice(b",\"is_stalemate\":");
+    append_bool_json(buffer, annotations.is_stalemate);
+    buffer.extend_from_slice(b",\"has_legal_en_passant\":");
+    append_bool_json(buffer, annotations.has_legal_en_passant);
+    buffer.extend_from_slice(b",\"has_legal_castle\":");
+    append_bool_json(buffer, annotations.has_legal_castle);
+    buffer.extend_from_slice(b",\"has_legal_promotion\":");
+    append_bool_json(buffer, annotations.has_legal_promotion);
+    buffer.extend_from_slice(b",\"is_low_material_endgame\":");
+    append_bool_json(buffer, annotations.is_low_material_endgame);
+}
+
+fn append_annotations_counts(buffer: &mut Vec<u8>, annotations: &TacticalAnnotationsOutput) {
+    buffer.extend_from_slice(b",\"legal_move_count\":");
+    append_u32_decimal_vec(buffer, annotations.legal_move_count);
+    buffer.extend_from_slice(b",\"piece_count\":");
+    append_u32_decimal_vec(buffer, annotations.piece_count);
+}
+
+fn append_annotations_selected(buffer: &mut Vec<u8>, annotations: &TacticalAnnotationsOutput) {
+    buffer.extend_from_slice(b",\"selected_move_is_capture\":");
+    append_optional_bool_json(buffer, annotations.selected_move_is_capture);
+    buffer.extend_from_slice(b",\"selected_move_is_promotion\":");
+    append_optional_bool_json(buffer, annotations.selected_move_is_promotion);
+    buffer.extend_from_slice(b",\"selected_move_is_castle\":");
+    append_optional_bool_json(buffer, annotations.selected_move_is_castle);
+    buffer.extend_from_slice(b",\"selected_move_is_en_passant\":");
+    append_optional_bool_json(buffer, annotations.selected_move_is_en_passant);
+    buffer.extend_from_slice(b",\"selected_move_gives_check\":");
+    append_optional_bool_json(buffer, annotations.selected_move_gives_check);
+}
+
 fn write_json_field_name(writer: &mut impl Write, name: &str) -> Result<(), DatasetOracleError> {
     write_json_string(writer, name)?;
     writer.write_all(b":").map_err(json_io_error)?;
@@ -658,6 +737,38 @@ fn write_u32_pair_array(
 fn write_u32_six(writer: &mut impl Write, values: [u32; 6]) -> Result<(), DatasetOracleError> {
     let [a, b, c, d, e, f] = values;
     write!(writer, "[{a},{b},{c},{d},{e},{f}]").map_err(json_io_error)
+}
+
+fn append_bool_json(buffer: &mut Vec<u8>, value: bool) {
+    if value {
+        buffer.extend_from_slice(b"true");
+    } else {
+        buffer.extend_from_slice(b"false");
+    }
+}
+
+fn append_optional_bool_json(buffer: &mut Vec<u8>, value: Option<bool>) {
+    match value {
+        Some(value) => append_bool_json(buffer, value),
+        None => buffer.extend_from_slice(b"null"),
+    }
+}
+
+fn append_u32_decimal_vec(buffer: &mut Vec<u8>, value: u32) {
+    let mut value = value;
+    let mut digits = [0_u8; 10];
+    let mut index = digits.len();
+
+    loop {
+        index -= 1;
+        digits[index] = b'0' + (value % 10) as u8;
+        value /= 10;
+        if value == 0 {
+            break;
+        }
+    }
+
+    buffer.extend_from_slice(&digits[index..]);
 }
 
 fn write_string_array(

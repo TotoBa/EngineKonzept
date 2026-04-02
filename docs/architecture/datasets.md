@@ -327,6 +327,14 @@ That does not replace the time-based profile, but it does answer a previously am
 
 The next split in [oracle_profile_50k_v12.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_50k_v12.json) breaks `position_encoding` down one level further. Within that payload, `square_tokens` clearly dominates by bytes, with `piece_tokens` and `rule_token` far behind. A first focused writer variant for `square_tokens` was benchmarked in [oracle_pair_50k_squaretokens_v13.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_50k_squaretokens_v13.json), but it regressed the real `50k` build, so it was discarded. The takeaway is narrower now: `square_tokens` is the biggest payload block, but not every attempt to buffer it more aggressively improves end-to-end throughput.
 
+The next local profile [oracle_profile_50k_v15.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_50k_v15.json) splits `annotations` into three payload groups:
+
+- `core_flags`
+- `count_fields`
+- `selected_move_fields`
+
+On the current `50k` run, `core_flags` and `selected_move_fields` are very close in byte share, while the numeric count fields are much smaller. A first annotations-specific buffered writer was benchmarked in [oracle_pair_50k_annotations_v16.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_50k_annotations_v16.json), but it also regressed the real `50k` build and was discarded. That keeps the current conclusion consistent: the remaining serializer work is measurable, but the obvious "buffer the whole section" variants are not producing real throughput wins.
+
 The next profiling refinement split the remaining self-check attack cost into local attackers and slider attackers. The current result in [oracle_profile_v8.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v8.json) is:
 
 - `attack_check_local`: about `23.0%`
