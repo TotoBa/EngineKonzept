@@ -9,7 +9,7 @@ use action_space::{encode_move, ActionEncodeError};
 use core_types::MoveKind;
 use encoder::encode_position;
 use position::Position;
-use rules::{apply_known_legal_move, is_in_check, legal_moves, MoveError};
+use rules::{apply_known_legal_move, is_in_check, legal_moves_profiled, MoveError};
 use serde::{Deserialize, Serialize};
 
 /// JSON input accepted by the dataset oracle.
@@ -107,6 +107,8 @@ pub struct OracleProfileTotals {
     pub json_parse: Duration,
     pub fen_parse: Duration,
     pub legal_generation: Duration,
+    pub pseudo_legal_generation: Duration,
+    pub self_check_filter: Duration,
     pub legal_move_uci: Duration,
     pub legal_action_encoding: Duration,
     pub selected_move_resolution: Duration,
@@ -121,7 +123,7 @@ impl OracleProfileTotals {
     pub fn total_measured(&self) -> Duration {
         self.json_parse
             + self.fen_parse
-            + self.legal_generation
+            + self.effective_legal_generation()
             + self.legal_move_uci
             + self.legal_action_encoding
             + self.selected_move_resolution
@@ -132,10 +134,21 @@ impl OracleProfileTotals {
             + self.json_serialize
     }
 
+    fn effective_legal_generation(&self) -> Duration {
+        if self.pseudo_legal_generation > Duration::ZERO || self.self_check_filter > Duration::ZERO
+        {
+            self.pseudo_legal_generation + self.self_check_filter
+        } else {
+            self.legal_generation
+        }
+    }
+
     fn record_label(&mut self, profile: &OracleRecordProfile) {
         self.records += 1;
         self.fen_parse += profile.fen_parse;
         self.legal_generation += profile.legal_generation;
+        self.pseudo_legal_generation += profile.pseudo_legal_generation;
+        self.self_check_filter += profile.self_check_filter;
         self.legal_move_uci += profile.legal_move_uci;
         self.legal_action_encoding += profile.legal_action_encoding;
         self.selected_move_resolution += profile.selected_move_resolution;
@@ -150,6 +163,8 @@ impl OracleProfileTotals {
 struct OracleRecordProfile {
     fen_parse: Duration,
     legal_generation: Duration,
+    pseudo_legal_generation: Duration,
+    self_check_filter: Duration,
     legal_move_uci: Duration,
     legal_action_encoding: Duration,
     selected_move_resolution: Duration,
@@ -286,9 +301,11 @@ fn label_dataset_input_impl(
     }
 
     let started = Instant::now();
-    let legal = legal_moves(&position);
+    let (legal, legal_profile) = legal_moves_profiled(&position);
     if let Some(profile) = profile.as_deref_mut() {
         profile.legal_generation += started.elapsed();
+        profile.pseudo_legal_generation += legal_profile.pseudo_legal_generation;
+        profile.self_check_filter += legal_profile.self_check_filter;
     }
 
     let started = Instant::now();

@@ -1,0 +1,83 @@
+{
+  "benchmark_input": {
+    "input": "/srv/schach/tmp/oracle-e2e/train_raw_2k.jsonl",
+    "source": "artifacts/datasets/phase5_stockfish_pgn_raw_pi_10k_v1/train_raw.jsonl",
+    "record_count": 2000
+  },
+  "results": {
+    "records": 2000,
+    "total_measured_seconds": 0.698429896,
+    "phases": {
+      "json_parse": {
+        "seconds": 0.024768947,
+        "milliseconds_per_record": 0.0123844735,
+        "share_of_measured": 0.03546375540602574
+      },
+      "fen_parse": {
+        "seconds": 0.021177264,
+        "milliseconds_per_record": 0.010588632,
+        "share_of_measured": 0.030321245011539426
+      },
+      "legal_generation": {
+        "seconds": 0.389844502,
+        "milliseconds_per_record": 0.194922251,
+        "share_of_measured": 0.5581727017023337
+      },
+      "pseudo_legal_generation": {
+        "seconds": 0.041661174,
+        "milliseconds_per_record": 0.020830587,
+        "share_of_measured": 0.05964975760430507
+      },
+      "self_check_filter": {
+        "seconds": 0.347888485,
+        "milliseconds_per_record": 0.1739442425,
+        "share_of_measured": 0.4981007929248206
+      },
+      "legal_move_uci": {
+        "seconds": 0.018914089,
+        "milliseconds_per_record": 0.0094570445,
+        "share_of_measured": 0.02708086968831586
+      },
+      "legal_action_encoding": {
+        "seconds": 0.036970464,
+        "milliseconds_per_record": 0.018485232,
+        "share_of_measured": 0.05293367911616429
+      },
+      "selected_move_resolution": {
+        "seconds": 0.010729889,
+        "milliseconds_per_record": 0.0053649445,
+        "share_of_measured": 0.015362871866527315
+      },
+      "selected_move_apply": {
+        "seconds": 0.002290022,
+        "milliseconds_per_record": 0.001145011,
+        "share_of_measured": 0.0032788143994340125
+      },
+      "selected_action_encoding": {
+        "seconds": 0.000401287,
+        "milliseconds_per_record": 0.0002006435,
+        "share_of_measured": 0.0005745558749678722
+      },
+      "position_encoding": {
+        "seconds": 0.01900422,
+        "milliseconds_per_record": 0.00950211,
+        "share_of_measured": 0.027209917715206162
+      },
+      "annotations": {
+        "seconds": 0.02574343,
+        "milliseconds_per_record": 0.012871715,
+        "share_of_measured": 0.036859003526962426
+      },
+      "json_serialize": {
+        "seconds": 0.148880625,
+        "milliseconds_per_record": 0.0744403125,
+        "share_of_measured": 0.21316473686573115
+      }
+    }
+  },
+  "notes": [
+    "This profile splits legal_generation into pseudo_legal_generation and self_check_filter.",
+    "On the 2k reference corpus, self_check_filter dominates the entire oracle runtime by itself, while pseudo-legal generation is comparatively small.",
+    "This narrows the next optimization target to king-safety validation after a candidate move, not to piece move generation."
+  ]
+}

@@ -112,7 +112,7 @@ To keep the next optimization steps externally checkable, the tooling now also i
 
 - `cargo run --quiet -p tools --bin dataset-oracle-profile`
 
-It accepts the same newline-delimited request stream as `dataset-oracle` but reports aggregated phase timings instead of labels. The initial hotspot profile is stored in [oracle_profile_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v1.json), the post-serialization profile is stored in [oracle_profile_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v2.json), and the current profile is stored in [oracle_profile_v3.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v3.json).
+It accepts the same newline-delimited request stream as `dataset-oracle` but reports aggregated phase timings instead of labels. The initial hotspot profile is stored in [oracle_profile_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v1.json), the post-serialization profile is stored in [oracle_profile_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v2.json), the post-check-path profile is stored in [oracle_profile_v3.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v3.json), and the current fine-grained split is stored in [oracle_profile_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v4.json).
 
 The first profile showed:
 
@@ -137,6 +137,13 @@ After that step, the profile tightened again to roughly:
 - `legal_action_encoding`: about `5.3%`
 
 That is the current guide for further throughput work. In other words, the builder and daemon transport are no longer the main pressure, JSON serialization is no longer the obvious second target, and the dominant remaining work is still exact legal move generation inside the Rust oracle.
+
+The finer split in [oracle_profile_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v4.json) makes that more concrete:
+
+- `pseudo_legal_generation`: about `6.0%`
+- `self_check_filter`: about `49.8%`
+
+So the next meaningful optimization target is not piece move generation itself, but the king-safety filter that validates each pseudo-legal candidate.
 
 The summary reports:
 

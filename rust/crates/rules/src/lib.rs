@@ -2,6 +2,7 @@
 
 use std::error::Error;
 use std::fmt;
+use std::time::{Duration, Instant};
 
 use core_types::{Color, Move, MoveKind, Piece, PieceKind, Square};
 use position::{CastlingRights, Position};
@@ -72,6 +73,13 @@ impl fmt::Display for MoveError {
 }
 
 impl Error for MoveError {}
+
+/// Aggregated timings for one legal-move generation pass.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct LegalMoveProfile {
+    pub pseudo_legal_generation: Duration,
+    pub self_check_filter: Duration,
+}
 
 /// Returns whether `square` is attacked by `attacker`.
 #[must_use]
@@ -147,15 +155,35 @@ pub fn pseudo_legal_moves(position: &Position) -> Vec<Move> {
 /// Generates fully legal moves for the side to move.
 #[must_use]
 pub fn legal_moves(position: &Position) -> Vec<Move> {
+    legal_moves_profiled(position).0
+}
+
+/// Generates fully legal moves and returns an optional timing split for the two main phases.
+#[must_use]
+pub fn legal_moves_profiled(position: &Position) -> (Vec<Move>, LegalMoveProfile) {
+    let pseudo_started = Instant::now();
+    let pseudo = pseudo_legal_moves(position);
+    let pseudo_legal_generation = pseudo_started.elapsed();
+
     let moving_side = position.side_to_move();
-    pseudo_legal_moves(position)
+    let filter_started = Instant::now();
+    let legal = pseudo
         .into_iter()
         .filter(|candidate| {
             try_apply_pseudo_move_for_check(position, *candidate)
                 .map(|next| !is_in_check(&next, moving_side))
                 .unwrap_or(false)
         })
-        .collect()
+        .collect();
+    let self_check_filter = filter_started.elapsed();
+
+    (
+        legal,
+        LegalMoveProfile {
+            pseudo_legal_generation,
+            self_check_filter,
+        },
+    )
 }
 
 /// Applies a legal move and returns the next exact position.

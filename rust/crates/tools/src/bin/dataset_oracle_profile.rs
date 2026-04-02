@@ -43,6 +43,18 @@ fn to_report(profile: &OracleProfileTotals) -> ProfileReport {
                 records,
             ),
             phase(
+                "pseudo_legal_generation",
+                profile.pseudo_legal_generation,
+                total_measured,
+                records,
+            ),
+            phase(
+                "self_check_filter",
+                profile.self_check_filter,
+                total_measured,
+                records,
+            ),
+            phase(
                 "legal_move_uci",
                 profile.legal_move_uci,
                 total_measured,

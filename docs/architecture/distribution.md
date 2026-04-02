@@ -85,7 +85,7 @@ The repository now also includes a profiling-only binary:
 
 - `cargo run --quiet -p tools --bin dataset-oracle-profile`
 
-It consumes the same newline-delimited oracle input as `dataset-oracle`, but instead of emitting labels it reports aggregated phase timings. The baseline profile is stored in [oracle_profile_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v1.json), the post-serialization-optimization profile is stored in [oracle_profile_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v2.json), and the current profile is stored in [oracle_profile_v3.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v3.json).
+It consumes the same newline-delimited oracle input as `dataset-oracle`, but instead of emitting labels it reports aggregated phase timings. The baseline profile is stored in [oracle_profile_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v1.json), the post-serialization-optimization profile is stored in [oracle_profile_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v2.json), the post-check-path profile is stored in [oracle_profile_v3.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v3.json), and the current fine-grained split is stored in [oracle_profile_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v4.json).
 
 The first profile showed:
 
@@ -118,6 +118,13 @@ The corresponding profile tightened again:
 - `legal_action_encoding`: about `5.3%`
 
 This is not a dramatic jump, but it confirms the direction: remaining wins are now incremental and concentrated almost entirely inside exact legality work.
+
+The next profiling refinement makes that even narrower. `legal_generation` is now split into:
+
+- `pseudo_legal_generation`: about `6.0%`
+- `self_check_filter`: about `49.8%`
+
+That is the current key result from [oracle_profile_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v4.json): the remaining pressure is not raw move generation, but the king-safety validation pass that filters pseudo-legal moves down to legal moves.
 
 ## Deferred Options
 
