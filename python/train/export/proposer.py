@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import struct
 from typing import Any, Mapping
 
 from train.action_space import ACTION_SPACE_SIZE, action_space_metadata
@@ -11,7 +12,9 @@ from train.config import ProposerTrainConfig
 from train.datasets.artifacts import position_feature_spec, symbolic_proposer_feature_spec
 from train.models.proposer import MODEL_NAME, torch_is_available
 
-PROPOSER_EXPORT_SCHEMA_VERSION = 3
+PROPOSER_EXPORT_SCHEMA_VERSION = 4
+SYMBOLIC_RUNTIME_MAGIC = b"EKSPRT1\n"
+SYMBOLIC_RUNTIME_VERSION = 1
 
 
 def build_export_metadata(
@@ -26,6 +29,11 @@ def build_export_metadata(
         "artifacts": {
             "checkpoint_file": config.export.checkpoint_name,
             "exported_program_file": config.export.exported_program_name,
+            "runtime_weights_file": (
+                config.export.runtime_weights_name
+                if config.model.architecture == "symbolic_v1"
+                else None
+            ),
         },
         "input": {
             **position_feature_spec(),
@@ -86,6 +94,7 @@ def export_proposer_bundle(
 
     checkpoint_path = bundle_dir / config.export.checkpoint_name
     exported_program_path = bundle_dir / config.export.exported_program_name
+    runtime_weights_path = bundle_dir / config.export.runtime_weights_name
     metadata_path = bundle_dir / config.export.metadata_name
 
     model.eval()
@@ -145,6 +154,12 @@ def export_proposer_bundle(
             dynamic_shapes=({0: torch.export.Dim.DYNAMIC},),
         )
     torch.export.save(exported_program, exported_program_path)
+    if config.model.architecture == "symbolic_v1":
+        _export_symbolic_runtime_weights(
+            model,
+            config=config,
+            output_path=runtime_weights_path,
+        )
 
     metadata = build_export_metadata(config, validation_metrics=validation_metrics)
     metadata_path.write_text(
@@ -154,5 +169,52 @@ def export_proposer_bundle(
     return {
         "checkpoint": str(checkpoint_path),
         "exported_program": str(exported_program_path),
+        "runtime_weights": (
+            str(runtime_weights_path) if config.model.architecture == "symbolic_v1" else ""
+        ),
         "metadata": str(metadata_path),
     }
+
+
+def _export_symbolic_runtime_weights(
+    model: Any,
+    *,
+    config: ProposerTrainConfig,
+    output_path: Path,
+) -> None:
+    if config.model.architecture != "symbolic_v1":
+        raise ValueError("symbolic runtime weights require architecture='symbolic_v1'")
+
+    state_dict = model.state_dict()
+    hidden_dim = config.model.hidden_dim
+    hidden_layers = config.model.hidden_layers
+    action_embedding_dim = max(hidden_dim // 2, 32)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("wb") as handle:
+        handle.write(SYMBOLIC_RUNTIME_MAGIC)
+        handle.write(struct.pack("<III", SYMBOLIC_RUNTIME_VERSION, hidden_dim, hidden_layers))
+        handle.write(struct.pack("<I", action_embedding_dim))
+        for layer_index in range(hidden_layers):
+            _write_tensor_bytes(
+                handle,
+                state_dict[f"_impl.state_backbone.{layer_index * 3}.weight"],
+            )
+            _write_tensor_bytes(
+                handle,
+                state_dict[f"_impl.state_backbone.{layer_index * 3}.bias"],
+            )
+        _write_tensor_bytes(handle, state_dict["_impl.global_projection.0.weight"])
+        _write_tensor_bytes(handle, state_dict["_impl.global_projection.0.bias"])
+        _write_tensor_bytes(handle, state_dict["_impl.action_embedding.weight"])
+        _write_tensor_bytes(handle, state_dict["_impl.candidate_mlp.0.weight"])
+        _write_tensor_bytes(handle, state_dict["_impl.candidate_mlp.0.bias"])
+        _write_tensor_bytes(handle, state_dict["_impl.candidate_mlp.3.weight"])
+        _write_tensor_bytes(handle, state_dict["_impl.candidate_mlp.3.bias"])
+        _write_tensor_bytes(handle, state_dict["_impl.candidate_mlp.5.weight"])
+        _write_tensor_bytes(handle, state_dict["_impl.candidate_mlp.5.bias"])
+
+
+def _write_tensor_bytes(handle: Any, tensor: Any) -> None:
+    array = tensor.detach().cpu().contiguous().numpy().astype("<f4", copy=False)
+    handle.write(array.tobytes())

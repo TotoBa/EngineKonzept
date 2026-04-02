@@ -15,7 +15,7 @@ The repository now covers Phase 6 foundations:
 - Rust workspace boundaries and placeholder future crates
 - Python training-project boundaries and placeholder modules
 - exact symbolic chess primitives, position state, FEN support, legal move generation, move application, and perft coverage
-- a minimal UCI shell with deterministic legal stub move output
+- a minimal UCI shell with exact legal move generation and symbolic proposer scoring
 - a factorized action space for model-facing move IO
 - a deterministic object-centric position encoder
 - a Python dataset pipeline with exact-rule labels, deterministic splits, and summary reporting
@@ -29,7 +29,7 @@ The repository now covers Phase 6 foundations:
 
 It still does **not** implement:
 
-- learned runtime inference
+- full planner-driven runtime inference
 - any search or evaluation runtime
 - any opponent or planner model
 - any classical engine/search machinery
@@ -42,6 +42,7 @@ The current Phase-5 stack is intentionally narrow but externally checkable:
 - legality, action encoding, and next-state generation still go through the Rust rules oracle
 - policy labels for larger runs are generated offline with `/usr/games/stockfish18`
 - the current 10k reference corpus was labeled on a Raspberry Pi host and evaluated locally
+- the current default symbolic bundle now also carries a native Rust runtime weight file for candidate scoring
 
 Current proposer shape:
 
@@ -92,6 +93,8 @@ For the same categorization on configs, model bundles, and Phase-5 summaries, se
 The first architecture-extension notes beyond the flat MLP live in [docs/arch.ideas.md](/home/torsten/EngineKonzept/docs/arch.ideas.md). The current implementation applies only the low-risk part of that direction so far: typed multi-stream fusion before considering any heavier routing or expert machinery.
 
 The newer proposer comparison now extends beyond the first three factorized decoder baselines. `factorized_v6` is the current best learned-legality arm on the `10k` corpus by a clear margin, while `relational_v1` improves policy over the earlier factorized runs without taking the policy lead from the old learned-legality default. There is also an explicit checkpoint-selection comparison for `factorized_v5`, showing the expected tradeoff between legality-first and balanced selection. The `symbolic_v1` arm goes one step further and removes learned legality entirely in favor of exact legal-candidate generation; on the current `10k` corpus it is the strongest proposer result so far, and it now carries the official proposer export/runtime contract.
+
+The current `engine-app` binary will use that symbolic proposer bundle automatically when it can find [stockfish_pgn_symbolic_v1_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1). Override the bundle location with `ENGINEKONZEPT_PROPOSER_BUNDLE=/path/to/bundle` when needed.
 
 ## Phase 6 Snapshot
 

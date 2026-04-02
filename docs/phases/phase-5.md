@@ -15,6 +15,7 @@ Train and export the first legality/policy proposer without introducing dynamics
 - lean proposer split artifacts for larger policy datasets, with loader fallback to the canonical full dataset JSONL
 - a `torch.export` + metadata export bundle
 - a Rust loader for the exported proposer bundle under `rust/crates/inference`
+- a native Rust symbolic proposer scorer over exact legal candidates for the current `symbolic_v1` path
 - an optional local IPC dataset-oracle daemon for reproducible batch builds without repeated process spawn overhead
 
 ## Current externally checkable artifacts
@@ -80,5 +81,5 @@ These findings suggest that raw capacity helps, but the current flat MLP is like
 - no latent dynamics model
 - no opponent module
 - no recurrent planner
-- no UCI runtime integration of the learned proposer yet
+- no planner-driven runtime integration beyond single-step symbolic proposer scoring
 - no classical search or evaluation fallback

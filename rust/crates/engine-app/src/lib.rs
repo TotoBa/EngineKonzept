@@ -1,11 +1,16 @@
 //! Minimal UCI engine loop for Phase 2.
 
 use std::collections::BTreeSet;
+use std::env;
 use std::error::Error;
 use std::fmt;
 use std::io::{self, BufRead, Write};
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
-use inference::build_symbolic_proposer_inputs;
+use inference::{
+    build_symbolic_proposer_inputs, load_symbolic_proposer_runtime, SymbolicProposerRuntime,
+};
 use position::Position;
 use rules::{apply_move, legal_moves, MoveError};
 use uci_protocol::{parse_command, ParseError, PositionSpec, UciCommand, UciResponse};
@@ -40,6 +45,7 @@ pub struct SessionOutcome {
 pub struct EngineSession {
     current_position: Position,
     debug_enabled: bool,
+    proposer_runtime: Option<Arc<SymbolicProposerRuntime>>,
 }
 
 impl Default for EngineSession {
@@ -54,6 +60,16 @@ impl EngineSession {
         Self {
             current_position: Position::startpos(),
             debug_enabled: false,
+            proposer_runtime: default_proposer_runtime().map(Arc::new),
+        }
+    }
+
+    #[must_use]
+    pub fn with_proposer_runtime(proposer_runtime: Option<Arc<SymbolicProposerRuntime>>) -> Self {
+        Self {
+            current_position: Position::startpos(),
+            debug_enabled: false,
+            proposer_runtime,
         }
     }
 
@@ -125,6 +141,29 @@ impl EngineSession {
 
     fn stub_bestmove(&self, go_args: &[String]) -> String {
         let searchmoves = searchmoves_from_args(go_args);
+        if let Some(runtime) = &self.proposer_runtime {
+            if let Ok(scored) = runtime.score_position(&self.current_position) {
+                if let Some(best) = scored
+                    .into_iter()
+                    .filter(|candidate| match &searchmoves {
+                        Some(searchmoves) => searchmoves.contains(&candidate.candidate.move_uci),
+                        None => true,
+                    })
+                    .max_by(|left, right| {
+                        left.policy_score
+                            .total_cmp(&right.policy_score)
+                            .then_with(|| {
+                                right
+                                    .candidate
+                                    .action_index
+                                    .cmp(&left.candidate.action_index)
+                            })
+                    })
+                {
+                    return best.candidate.move_uci;
+                }
+            }
+        }
         build_symbolic_proposer_inputs(&self.current_position)
             .map(|inputs| inputs.candidates)
             .unwrap_or_else(|_| {
@@ -233,6 +272,32 @@ fn searchmoves_from_args(go_args: &[String]) -> Option<BTreeSet<String>> {
 
 fn is_go_option_keyword(token: &str) -> bool {
     GO_OPTION_KEYWORDS.contains(&token)
+}
+
+fn default_proposer_runtime() -> Option<SymbolicProposerRuntime> {
+    proposer_bundle_candidates()
+        .into_iter()
+        .find(|path| path.is_dir())
+        .and_then(|path| load_symbolic_proposer_runtime(path).ok())
+}
+
+fn proposer_bundle_candidates() -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+    if let Ok(bundle_dir) = env::var("ENGINEKONZEPT_PROPOSER_BUNDLE") {
+        candidates.push(PathBuf::from(bundle_dir));
+    }
+    candidates.push(PathBuf::from(
+        "models/proposer/stockfish_pgn_symbolic_v1_v1",
+    ));
+    candidates.push(repo_root_from_manifest().join("models/proposer/stockfish_pgn_symbolic_v1_v1"));
+    candidates
+}
+
+fn repo_root_from_manifest() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap_or_else(|_| Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."))
 }
 
 /// Recoverable session error surfaced only through debug logging.

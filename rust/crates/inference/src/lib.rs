@@ -13,12 +13,14 @@ use position::Position;
 use rules::{apply_move, is_in_check, is_square_attacked, legal_moves};
 use serde::{Deserialize, Serialize};
 
-pub const PROPOSER_SCHEMA_VERSION: u32 = 3;
+pub const PROPOSER_SCHEMA_VERSION: u32 = 4;
 pub const DYNAMICS_SCHEMA_VERSION: u32 = 1;
 pub const PROPOSER_METADATA_FILE: &str = "metadata.json";
 pub const SYMBOLIC_MAX_LEGAL_CANDIDATES: usize = 256;
 pub const SYMBOLIC_CANDIDATE_FEATURE_DIM: usize = 18;
 pub const SYMBOLIC_GLOBAL_FEATURE_DIM: usize = 9;
+const SYMBOLIC_RUNTIME_MAGIC: &[u8; 8] = b"EKSPRT1\n";
+const SYMBOLIC_RUNTIME_VERSION: u32 = 1;
 
 /// Returns the current purpose of this crate.
 pub fn crate_purpose() -> &'static str {
@@ -51,6 +53,8 @@ pub struct ProposerMetadata {
 pub struct ProposerArtifacts {
     pub checkpoint_file: String,
     pub exported_program_file: String,
+    #[serde(default)]
+    pub runtime_weights_file: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -253,6 +257,38 @@ pub struct SymbolicProposerInputs {
     pub candidates: Vec<SymbolicProposerCandidate>,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct SymbolicScoredCandidate {
+    pub candidate: SymbolicProposerCandidate,
+    pub policy_score: f32,
+}
+
+#[derive(Clone, Debug)]
+pub struct SymbolicProposerRuntime {
+    pub bundle: ProposerBundle,
+    state_layers: Vec<LinearLayer>,
+    global_projection: LinearLayer,
+    action_embedding: EmbeddingLayer,
+    candidate_linear_1: LinearLayer,
+    candidate_linear_2: LinearLayer,
+    candidate_linear_3: LinearLayer,
+}
+
+#[derive(Clone, Debug)]
+struct LinearLayer {
+    input_dim: usize,
+    output_dim: usize,
+    weight: Vec<f32>,
+    bias: Vec<f32>,
+}
+
+#[derive(Clone, Debug)]
+struct EmbeddingLayer {
+    rows: usize,
+    cols: usize,
+    values: Vec<f32>,
+}
+
 /// Errors returned when loading an exported proposer bundle.
 #[derive(Debug)]
 pub enum ProposerLoadError {
@@ -278,6 +314,8 @@ pub enum ProposerLoadError {
     InvalidSymbolicCandidateFeatureDim(u32),
     InvalidSymbolicGlobalFeatureDim(u32),
     InvalidLegalitySource(String),
+    MissingRuntimeWeights(PathBuf),
+    InvalidRuntimeWeights(String),
 }
 
 /// Errors returned when loading an exported dynamics bundle.
@@ -335,6 +373,12 @@ impl fmt::Display for ProposerLoadError {
             Self::InvalidLegalitySource(source) => {
                 write!(f, "invalid proposer legality_source: {source}")
             }
+            Self::MissingRuntimeWeights(path) => {
+                write!(f, "required proposer runtime weights are missing: {path:?}")
+            }
+            Self::InvalidRuntimeWeights(message) => {
+                write!(f, "invalid proposer runtime weights: {message}")
+            }
         }
     }
 }
@@ -353,7 +397,9 @@ impl Error for ProposerLoadError {
             | Self::InvalidSymbolicMaxLegalCandidates(_)
             | Self::InvalidSymbolicCandidateFeatureDim(_)
             | Self::InvalidSymbolicGlobalFeatureDim(_)
-            | Self::InvalidLegalitySource(_) => None,
+            | Self::InvalidLegalitySource(_)
+            | Self::MissingRuntimeWeights(_)
+            | Self::InvalidRuntimeWeights(_) => None,
         }
     }
 }
@@ -423,12 +469,22 @@ pub fn load_proposer_bundle(
 
     let checkpoint_path = bundle_dir.join(&metadata.artifacts.checkpoint_file);
     let exported_program_path = bundle_dir.join(&metadata.artifacts.exported_program_file);
+    let runtime_weights_path = metadata
+        .artifacts
+        .runtime_weights_file
+        .as_ref()
+        .map(|file_name| bundle_dir.join(file_name));
 
     if !checkpoint_path.is_file() {
         return Err(ProposerLoadError::MissingArtifact(checkpoint_path));
     }
     if !exported_program_path.is_file() {
         return Err(ProposerLoadError::MissingArtifact(exported_program_path));
+    }
+    if let Some(path) = runtime_weights_path {
+        if !path.is_file() {
+            return Err(ProposerLoadError::MissingRuntimeWeights(path));
+        }
     }
 
     Ok(ProposerBundle {
@@ -563,6 +619,35 @@ pub fn validate_proposer_metadata(metadata: &ProposerMetadata) -> Result<(), Pro
     Ok(())
 }
 
+pub fn load_symbolic_proposer_runtime(
+    bundle_dir: impl AsRef<Path>,
+) -> Result<SymbolicProposerRuntime, ProposerLoadError> {
+    let bundle = load_proposer_bundle(bundle_dir)?;
+    if bundle.metadata.outputs.legality_source.as_deref() != Some("symbolic_generator") {
+        return Err(ProposerLoadError::InvalidLegalitySource(
+            bundle
+                .metadata
+                .outputs
+                .legality_source
+                .clone()
+                .unwrap_or_else(|| "learned_head".to_string()),
+        ));
+    }
+    let runtime_weights_file = bundle
+        .metadata
+        .artifacts
+        .runtime_weights_file
+        .as_ref()
+        .ok_or_else(|| {
+            ProposerLoadError::InvalidRuntimeWeights(
+                "symbolic bundle metadata is missing runtime_weights_file".to_string(),
+            )
+        })?;
+    let runtime_path = bundle.bundle_dir.join(runtime_weights_file);
+    let weights = fs::read(runtime_path).map_err(ProposerLoadError::Io)?;
+    parse_symbolic_runtime_weights(&bundle, &weights)
+}
+
 /// Validate dynamics metadata without touching the referenced artifact files.
 pub fn validate_dynamics_metadata(metadata: &DynamicsMetadata) -> Result<(), DynamicsLoadError> {
     if metadata.schema_version != DYNAMICS_SCHEMA_VERSION {
@@ -628,6 +713,234 @@ fn validate_output_shape(
         });
     }
     Ok(())
+}
+
+impl SymbolicProposerRuntime {
+    pub fn score_position(
+        &self,
+        position: &Position,
+    ) -> Result<Vec<SymbolicScoredCandidate>, action_space::ActionEncodeError> {
+        let inputs = build_symbolic_proposer_inputs(position)?;
+        Ok(self.score_inputs(inputs))
+    }
+
+    pub fn score_inputs(&self, inputs: SymbolicProposerInputs) -> Vec<SymbolicScoredCandidate> {
+        let hidden = run_mlp_layers(&self.state_layers, &inputs.state_features);
+        let mut global_input = Vec::with_capacity(hidden.len() + inputs.global_features.len());
+        global_input.extend_from_slice(&hidden);
+        global_input.extend_from_slice(&inputs.global_features);
+        let global_hidden = relu(self.global_projection.forward(&global_input));
+
+        let mut scored = Vec::with_capacity(inputs.candidates.len());
+        for candidate in inputs.candidates {
+            let action_embedding = self.action_embedding.row(candidate.action_index as usize);
+            let mut candidate_input = Vec::with_capacity(
+                global_hidden.len() + action_embedding.len() + candidate.features.len(),
+            );
+            candidate_input.extend_from_slice(&global_hidden);
+            candidate_input.extend_from_slice(action_embedding);
+            candidate_input.extend_from_slice(&candidate.features);
+            let hidden_1 = relu(self.candidate_linear_1.forward(&candidate_input));
+            let hidden_2 = relu(self.candidate_linear_2.forward(&hidden_1));
+            let policy_score = self.candidate_linear_3.forward(&hidden_2)[0];
+            scored.push(SymbolicScoredCandidate {
+                candidate,
+                policy_score,
+            });
+        }
+
+        scored
+    }
+}
+
+impl LinearLayer {
+    fn forward(&self, input: &[f32]) -> Vec<f32> {
+        debug_assert_eq!(input.len(), self.input_dim);
+        let mut output = self.bias.clone();
+        debug_assert_eq!(output.len(), self.output_dim);
+        for (row_index, row) in self.weight.chunks_exact(self.input_dim).enumerate() {
+            output[row_index] += dot(row, input);
+        }
+        output
+    }
+}
+
+impl EmbeddingLayer {
+    fn row(&self, index: usize) -> &[f32] {
+        debug_assert!(index < self.rows);
+        let start = index * self.cols;
+        &self.values[start..start + self.cols]
+    }
+}
+
+fn parse_symbolic_runtime_weights(
+    bundle: &ProposerBundle,
+    bytes: &[u8],
+) -> Result<SymbolicProposerRuntime, ProposerLoadError> {
+    let hidden_dim = bundle.metadata.training.hidden_dim as usize;
+    let hidden_layers = bundle.metadata.training.hidden_layers as usize;
+    let half_hidden_dim = hidden_dim / 2;
+    let mut cursor = 0;
+
+    let magic = take_bytes(bytes, &mut cursor, SYMBOLIC_RUNTIME_MAGIC.len())?;
+    if magic != SYMBOLIC_RUNTIME_MAGIC {
+        return Err(ProposerLoadError::InvalidRuntimeWeights(
+            "unexpected symbolic runtime magic".to_string(),
+        ));
+    }
+
+    let runtime_version = take_u32(bytes, &mut cursor)?;
+    if runtime_version != SYMBOLIC_RUNTIME_VERSION {
+        return Err(ProposerLoadError::InvalidRuntimeWeights(format!(
+            "unsupported symbolic runtime version: {runtime_version}"
+        )));
+    }
+
+    let file_hidden_dim = take_u32(bytes, &mut cursor)? as usize;
+    let file_hidden_layers = take_u32(bytes, &mut cursor)? as usize;
+    let action_embedding_dim = take_u32(bytes, &mut cursor)? as usize;
+    if file_hidden_dim != hidden_dim {
+        return Err(ProposerLoadError::InvalidRuntimeWeights(format!(
+            "runtime hidden_dim mismatch: expected {hidden_dim}, found {file_hidden_dim}"
+        )));
+    }
+    if file_hidden_layers != hidden_layers {
+        return Err(ProposerLoadError::InvalidRuntimeWeights(format!(
+            "runtime hidden_layers mismatch: expected {hidden_layers}, found {file_hidden_layers}"
+        )));
+    }
+
+    let mut state_layers = Vec::with_capacity(hidden_layers);
+    let mut input_dim = bundle.metadata.input.feature_dim as usize;
+    for _ in 0..hidden_layers {
+        state_layers.push(LinearLayer {
+            input_dim,
+            output_dim: hidden_dim,
+            weight: take_f32s(bytes, &mut cursor, hidden_dim * input_dim)?,
+            bias: take_f32s(bytes, &mut cursor, hidden_dim)?,
+        });
+        input_dim = hidden_dim;
+    }
+
+    let global_projection = LinearLayer {
+        input_dim: hidden_dim + SYMBOLIC_GLOBAL_FEATURE_DIM,
+        output_dim: hidden_dim,
+        weight: take_f32s(
+            bytes,
+            &mut cursor,
+            hidden_dim * (hidden_dim + SYMBOLIC_GLOBAL_FEATURE_DIM),
+        )?,
+        bias: take_f32s(bytes, &mut cursor, hidden_dim)?,
+    };
+    let action_embedding = EmbeddingLayer {
+        rows: bundle.metadata.action_space.flat_size as usize,
+        cols: action_embedding_dim,
+        values: take_f32s(
+            bytes,
+            &mut cursor,
+            bundle.metadata.action_space.flat_size as usize * action_embedding_dim,
+        )?,
+    };
+    let candidate_linear_1 = LinearLayer {
+        input_dim: hidden_dim + action_embedding_dim + SYMBOLIC_CANDIDATE_FEATURE_DIM,
+        output_dim: hidden_dim,
+        weight: take_f32s(
+            bytes,
+            &mut cursor,
+            hidden_dim * (hidden_dim + action_embedding_dim + SYMBOLIC_CANDIDATE_FEATURE_DIM),
+        )?,
+        bias: take_f32s(bytes, &mut cursor, hidden_dim)?,
+    };
+    let candidate_linear_2 = LinearLayer {
+        input_dim: hidden_dim,
+        output_dim: half_hidden_dim,
+        weight: take_f32s(bytes, &mut cursor, hidden_dim * half_hidden_dim)?,
+        bias: take_f32s(bytes, &mut cursor, half_hidden_dim)?,
+    };
+    let candidate_linear_3 = LinearLayer {
+        input_dim: half_hidden_dim,
+        output_dim: 1,
+        weight: take_f32s(bytes, &mut cursor, half_hidden_dim)?,
+        bias: take_f32s(bytes, &mut cursor, 1)?,
+    };
+
+    if cursor != bytes.len() {
+        return Err(ProposerLoadError::InvalidRuntimeWeights(
+            "runtime weights have trailing bytes".to_string(),
+        ));
+    }
+
+    Ok(SymbolicProposerRuntime {
+        bundle: bundle.clone(),
+        state_layers,
+        global_projection,
+        action_embedding,
+        candidate_linear_1,
+        candidate_linear_2,
+        candidate_linear_3,
+    })
+}
+
+fn run_mlp_layers(layers: &[LinearLayer], input: &[f32]) -> Vec<f32> {
+    let mut hidden = input.to_vec();
+    for layer in layers {
+        hidden = relu(layer.forward(&hidden));
+    }
+    hidden
+}
+
+fn relu(mut values: Vec<f32>) -> Vec<f32> {
+    for value in &mut values {
+        if *value < 0.0 {
+            *value = 0.0;
+        }
+    }
+    values
+}
+
+fn dot(left: &[f32], right: &[f32]) -> f32 {
+    left.iter()
+        .zip(right)
+        .map(|(lhs, rhs)| lhs * rhs)
+        .sum::<f32>()
+}
+
+fn take_bytes<'a>(
+    bytes: &'a [u8],
+    cursor: &mut usize,
+    count: usize,
+) -> Result<&'a [u8], ProposerLoadError> {
+    let end = cursor.saturating_add(count);
+    if end > bytes.len() {
+        return Err(ProposerLoadError::InvalidRuntimeWeights(
+            "runtime weights truncated".to_string(),
+        ));
+    }
+    let slice = &bytes[*cursor..end];
+    *cursor = end;
+    Ok(slice)
+}
+
+fn take_u32(bytes: &[u8], cursor: &mut usize) -> Result<u32, ProposerLoadError> {
+    let raw = take_bytes(bytes, cursor, std::mem::size_of::<u32>())?;
+    let mut array = [0_u8; std::mem::size_of::<u32>()];
+    array.copy_from_slice(raw);
+    Ok(u32::from_le_bytes(array))
+}
+
+fn take_f32s(
+    bytes: &[u8],
+    cursor: &mut usize,
+    count: usize,
+) -> Result<Vec<f32>, ProposerLoadError> {
+    let raw = take_bytes(bytes, cursor, count * std::mem::size_of::<f32>())?;
+    let mut values = Vec::with_capacity(count);
+    for chunk in raw.chunks_exact(std::mem::size_of::<f32>()) {
+        let mut array = [0_u8; std::mem::size_of::<f32>()];
+        array.copy_from_slice(chunk);
+        values.push(f32::from_le_bytes(array));
+    }
+    Ok(values)
 }
 
 /// Build the official symbolic proposer input contract for one exact position.
@@ -831,16 +1144,19 @@ mod tests {
     use std::fs;
     use std::path::Path;
 
+    use action_space::encode_move;
     use serde_json::json;
     use tempfile::tempdir;
 
     use super::{
-        build_symbolic_proposer_inputs, crate_purpose, load_dynamics_bundle, load_proposer_bundle,
-        validate_dynamics_metadata, validate_proposer_metadata, DynamicsLoadError,
-        ProposerLoadError, SYMBOLIC_CANDIDATE_FEATURE_DIM, SYMBOLIC_GLOBAL_FEATURE_DIM,
-        SYMBOLIC_MAX_LEGAL_CANDIDATES,
+        build_symbolic_proposer_inputs, crate_purpose, flatten_action_index, load_dynamics_bundle,
+        load_proposer_bundle, load_symbolic_proposer_runtime, validate_dynamics_metadata,
+        validate_proposer_metadata, DynamicsLoadError, ProposerLoadError,
+        SYMBOLIC_CANDIDATE_FEATURE_DIM, SYMBOLIC_GLOBAL_FEATURE_DIM, SYMBOLIC_MAX_LEGAL_CANDIDATES,
+        SYMBOLIC_RUNTIME_MAGIC, SYMBOLIC_RUNTIME_VERSION,
     };
     use position::Position;
+    use rules::legal_moves;
 
     #[test]
     fn purpose_is_non_empty() {
@@ -854,7 +1170,7 @@ mod tests {
 
         let bundle = load_proposer_bundle(bundle_dir.path()).expect("bundle loads");
 
-        assert_eq!(bundle.metadata.schema_version, 3);
+        assert_eq!(bundle.metadata.schema_version, 4);
         assert_eq!(bundle.metadata.input.feature_dim, 230);
         assert_eq!(bundle.metadata.action_space.flat_size, 20_480);
         assert!(bundle.checkpoint_path.ends_with("checkpoint.pt"));
@@ -899,6 +1215,23 @@ mod tests {
             SYMBOLIC_CANDIDATE_FEATURE_DIM
         );
         assert!(inputs.candidate_mask.iter().filter(|value| **value).count() == 20);
+    }
+
+    #[test]
+    fn symbolic_runtime_scores_preferred_legal_move() {
+        let bundle_dir = tempdir().expect("temp dir");
+        write_valid_symbolic_runtime_bundle(bundle_dir.path(), "e2e4");
+
+        let runtime = load_symbolic_proposer_runtime(bundle_dir.path()).expect("runtime loads");
+        let scored = runtime
+            .score_position(&Position::startpos())
+            .expect("position scores");
+        let best = scored
+            .iter()
+            .max_by(|left, right| left.policy_score.total_cmp(&right.policy_score))
+            .expect("non-empty scores");
+
+        assert_eq!(best.candidate.move_uci, "e2e4");
     }
 
     #[test]
@@ -949,6 +1282,34 @@ mod tests {
             .expect("write exported program");
     }
 
+    fn write_valid_symbolic_runtime_bundle(bundle_dir: &Path, preferred_move_uci: &str) {
+        let mut metadata = valid_metadata();
+        metadata["input"]["symbolic"] = json!({
+            "max_legal_candidates": SYMBOLIC_MAX_LEGAL_CANDIDATES,
+            "candidate_feature_dim": SYMBOLIC_CANDIDATE_FEATURE_DIM,
+            "global_feature_dim": SYMBOLIC_GLOBAL_FEATURE_DIM,
+            "candidate_feature_order": [],
+            "global_feature_order": []
+        });
+        metadata["outputs"]["legality_source"] = json!("symbolic_generator");
+        metadata["artifacts"]["runtime_weights_file"] = json!("symbolic_runtime.bin");
+        metadata["training"]["hidden_dim"] = json!(32);
+        metadata["training"]["hidden_layers"] = json!(1);
+        fs::write(
+            bundle_dir.join("metadata.json"),
+            serde_json::to_vec_pretty(&metadata).expect("serialize metadata"),
+        )
+        .expect("write metadata");
+        fs::write(bundle_dir.join("checkpoint.pt"), b"checkpoint").expect("write checkpoint");
+        fs::write(bundle_dir.join("proposer.pt2"), b"exported program")
+            .expect("write exported program");
+        fs::write(
+            bundle_dir.join("symbolic_runtime.bin"),
+            build_test_symbolic_runtime_weights(preferred_move_uci),
+        )
+        .expect("write symbolic runtime");
+    }
+
     fn write_valid_dynamics_bundle(bundle_dir: &Path) {
         fs::write(
             bundle_dir.join("metadata.json"),
@@ -962,11 +1323,12 @@ mod tests {
 
     fn valid_metadata() -> serde_json::Value {
         json!({
-            "schema_version": 3,
+            "schema_version": 4,
             "model_name": "legality_policy_proposer_v1",
             "artifacts": {
                 "checkpoint_file": "checkpoint.pt",
-                "exported_program_file": "proposer.pt2"
+                "exported_program_file": "proposer.pt2",
+                "runtime_weights_file": null
             },
             "input": {
                 "feature_dim": 230,
@@ -1116,5 +1478,65 @@ mod tests {
                 "drift_exact_next_feature_accuracy": 0.0
             }
         })
+    }
+
+    fn build_test_symbolic_runtime_weights(preferred_move_uci: &str) -> Vec<u8> {
+        let hidden_dim = 32_u32;
+        let hidden_layers = 1_u32;
+        let action_embedding_dim = 32_u32;
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(SYMBOLIC_RUNTIME_MAGIC);
+        bytes.extend_from_slice(&SYMBOLIC_RUNTIME_VERSION.to_le_bytes());
+        bytes.extend_from_slice(&hidden_dim.to_le_bytes());
+        bytes.extend_from_slice(&hidden_layers.to_le_bytes());
+        bytes.extend_from_slice(&action_embedding_dim.to_le_bytes());
+
+        push_zeros(&mut bytes, (hidden_dim as usize) * 230);
+        push_zeros(&mut bytes, hidden_dim as usize);
+        push_zeros(
+            &mut bytes,
+            (hidden_dim as usize) * (hidden_dim as usize + SYMBOLIC_GLOBAL_FEATURE_DIM),
+        );
+        push_zeros(&mut bytes, hidden_dim as usize);
+
+        let mut embedding = vec![0.0_f32; 20_480 * action_embedding_dim as usize];
+        let preferred_move = legal_moves(&Position::startpos())
+            .into_iter()
+            .find(|candidate| candidate.to_uci() == preferred_move_uci)
+            .expect("preferred move is legal in startpos");
+        let preferred_index =
+            flatten_action_index(encode_move(preferred_move).expect("move encodes"));
+        embedding[preferred_index as usize * action_embedding_dim as usize] = 2.0;
+        push_f32s(&mut bytes, &embedding);
+
+        let candidate_input_dim =
+            hidden_dim as usize + action_embedding_dim as usize + SYMBOLIC_CANDIDATE_FEATURE_DIM;
+        let mut linear_1 = vec![0.0_f32; hidden_dim as usize * candidate_input_dim];
+        linear_1[hidden_dim as usize] = 1.0;
+        push_f32s(&mut bytes, &linear_1);
+        push_zeros(&mut bytes, hidden_dim as usize);
+
+        let mut linear_2 = vec![0.0_f32; (hidden_dim as usize / 2) * hidden_dim as usize];
+        linear_2[0] = 1.0;
+        push_f32s(&mut bytes, &linear_2);
+        push_zeros(&mut bytes, hidden_dim as usize / 2);
+
+        let mut linear_3 = vec![0.0_f32; hidden_dim as usize / 2];
+        linear_3[0] = 1.0;
+        push_f32s(&mut bytes, &linear_3);
+        push_f32s(&mut bytes, &[0.0]);
+        bytes
+    }
+
+    fn push_zeros(bytes: &mut Vec<u8>, count: usize) {
+        for _ in 0..count {
+            bytes.extend_from_slice(&0.0_f32.to_le_bytes());
+        }
+    }
+
+    fn push_f32s(bytes: &mut Vec<u8>, values: &[f32]) {
+        for value in values {
+            bytes.extend_from_slice(&value.to_le_bytes());
+        }
     }
 }

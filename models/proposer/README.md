@@ -8,6 +8,10 @@ Most model bundles contain:
 - `proposer.pt2`
 - `metadata.json`
 
+The current symbolic default additionally contains:
+
+- `symbolic_runtime.bin`
+
 ## Current Default
 
 Use this first for the current standard Phase-5 proposer path:

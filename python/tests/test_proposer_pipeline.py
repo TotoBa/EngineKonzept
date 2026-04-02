@@ -256,7 +256,7 @@ def test_config_loading_and_export_metadata_are_repo_relative(tmp_path: Path) ->
     )
 
     assert resolve_repo_path(tmp_path, config.output_dir) == tmp_path / "artifacts/phase5/test-run"
-    assert metadata["schema_version"] == 3
+    assert metadata["schema_version"] == 4
     assert metadata["training"]["architecture"] == "mlp_v1"
     assert metadata["action_space"]["flat_size"] == ACTION_SPACE_SIZE
     assert metadata["input"]["feature_dim"] == POSITION_FEATURE_SIZE

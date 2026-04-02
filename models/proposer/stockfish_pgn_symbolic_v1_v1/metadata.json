@@ -8,7 +8,8 @@
   },
   "artifacts": {
     "checkpoint_file": "checkpoint.pt",
-    "exported_program_file": "proposer.pt2"
+    "exported_program_file": "proposer.pt2",
+    "runtime_weights_file": "symbolic_runtime.bin"
   },
   "input": {
     "feature_dim": 230,
@@ -89,7 +90,7 @@
       "batch": "dynamic"
     }
   },
-  "schema_version": 3,
+  "schema_version": 4,
   "training": {
     "architecture": "symbolic_v1",
     "batch_size": 256,

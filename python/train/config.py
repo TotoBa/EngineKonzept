@@ -128,6 +128,7 @@ class ProposerExportConfig:
     enabled: bool = True
     checkpoint_name: str = "checkpoint.pt"
     exported_program_name: str = "proposer.pt2"
+    runtime_weights_name: str = "symbolic_runtime.bin"
     metadata_name: str = DEFAULT_PROPOSER_METADATA_NAME
 
     def __post_init__(self) -> None:
@@ -137,6 +138,8 @@ class ProposerExportConfig:
             raise ValueError("export.checkpoint_name must be non-empty")
         if not self.exported_program_name:
             raise ValueError("export.exported_program_name must be non-empty")
+        if not self.runtime_weights_name:
+            raise ValueError("export.runtime_weights_name must be non-empty")
         if not self.metadata_name:
             raise ValueError("export.metadata_name must be non-empty")
         if self.metadata_name != DEFAULT_PROPOSER_METADATA_NAME:

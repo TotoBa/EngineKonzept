@@ -292,10 +292,11 @@ The proposer export bundle currently contains:
 - `checkpoint.pt`: PyTorch checkpoint with model weights and training config
 - `proposer.pt2`: `torch.export` program for later runtime integration
 - `metadata.json`: fixed metadata filename containing schema, input layout, action-space sizes, legality source, optional symbolic-input spec, and validation metrics
+- `symbolic_runtime.bin`: native Rust runtime weights for `symbolic_v1`
 
 ## Rust Boundary
 
-The `inference` crate does not execute proposer inference yet, but it now also defines the official symbolic proposer input contract.
+The `inference` crate now defines and executes the official symbolic proposer input contract for the current `symbolic_v1` path.
 
 In Phase 5 it is responsible for:
 
@@ -303,5 +304,6 @@ In Phase 5 it is responsible for:
 - validating that the schema and dimensions are self-consistent
 - verifying that the referenced exported-program and checkpoint files exist
 - building exact legal candidates plus symbolic per-move/global features for the symbolic proposer path
+- loading the native symbolic runtime weights and scoring legal candidates in Rust
 
-That keeps the export contract explicit before later runtime integration work.
+This is still intentionally narrow runtime integration: the proposer can score exact legal candidates, but there is still no dynamics-, opponent-, or planner-driven runtime path.
