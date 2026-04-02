@@ -65,4 +65,9 @@ The measured result so far is that structured inputs are promising but not yet e
 
 The repository now additionally includes the first action-conditioned latent-dynamics baseline in Python, lean dynamics split artifacts, held-out reconstruction and drift metrics, and a Rust-side bundle loader for exported dynamics metadata.
 
-That baseline is enough to make Phase-6 transitions externally checkable, but not enough yet to count as a strong exact next-state model. Exact packed next-state accuracy is still `0.0`, so the next pressure is model quality rather than more plumbing.
+The larger merged-unique reruns now show a clearer direction inside the same Phase-6 contract:
+
+- the large-corpus `structured_v3` rerun beats the old large `structured_v2_latent` baseline on both one-step and drift
+- the large-corpus symbolic-action `structured_v5` rerun is now the best measured Phase-6 path so far
+
+Exact packed next-state accuracy is still `0.0`, so the next pressure is still model quality rather than more plumbing, but the action-conditioned symbolic move-side contract now looks materially more promising than it did on the earlier `10k` corpus alone.

@@ -1,0 +1,145 @@
+{
+  "artifacts": {
+    "checkpoint_file": "checkpoint.pt",
+    "exported_program_file": "dynamics.pt2"
+  },
+  "input": {
+    "action": {
+      "dtype": "int64",
+      "flat_size": 20480,
+      "flatten_formula": "((from_index * 64) + to_index) * 5 + promotion_index",
+      "from_head_size": 64,
+      "promotion_head_size": 5,
+      "shape": {
+        "batch": "dynamic"
+      },
+      "symbolic": {
+        "feature_dim": 18,
+        "feature_order": [
+          "is_capture",
+          "is_promotion",
+          "is_castle",
+          "is_en_passant",
+          "gives_check",
+          "from_attacked_by_opponent",
+          "to_attacked_by_opponent",
+          "from_defended_by_self",
+          "to_attacked_by_self",
+          "moving_piece_pawn",
+          "moving_piece_knight",
+          "moving_piece_bishop",
+          "moving_piece_rook",
+          "moving_piece_queen",
+          "moving_piece_king",
+          "captured_piece_present",
+          "captured_piece_pawn",
+          "captured_piece_minor_or_major"
+        ]
+      },
+      "to_head_size": 64
+    },
+    "state": {
+      "feature_dim": 230,
+      "layout": {
+        "flatten_order": [
+          "piece_tokens padded to 32 rows with [-1, -1, -1]",
+          "square_tokens[64][square_index, occupant_code]",
+          "rule_token[side_to_move, castling_bits, en_passant_square, halfmove_clock, fullmove_number, repetition_count]"
+        ],
+        "piece_padding_value": -1,
+        "piece_token_capacity": 32,
+        "piece_token_width": 3,
+        "rule_token_width": 6,
+        "square_token_count": 64,
+        "square_token_width": 2
+      },
+      "sections": {
+        "piece": {
+          "offset": 0,
+          "size": 96
+        },
+        "rule": {
+          "offset": 224,
+          "size": 6
+        },
+        "square": {
+          "offset": 96,
+          "size": 128
+        }
+      }
+    }
+  },
+  "latent": {
+    "action_embedding_dim": 64,
+    "latent_dim": 128
+  },
+  "model_name": "latent_dynamics_v1",
+  "outputs": {
+    "next_state_shape": {
+      "batch": "dynamic",
+      "features": 230
+    }
+  },
+  "schema_version": 1,
+  "training": {
+    "action_embedding_dim": 64,
+    "architecture": "structured_v5",
+    "batch_size": 128,
+    "delta_loss_weight": 0.0,
+    "drift_dataset_path": "artifacts/datasets/phase5_stockfish_merged_unique_verify_v1",
+    "drift_horizon": 2,
+    "drift_split": "test",
+    "drift_supervision_horizon": 2,
+    "drift_supervision_loss_weight": 0.0,
+    "dropout": 0.1,
+    "epochs": 10,
+    "hidden_dim": 256,
+    "hidden_layers": 2,
+    "latent_consistency_loss_weight": 0.1,
+    "latent_dim": 128,
+    "learning_rate": 0.001,
+    "piece_loss_weight": 1.0,
+    "reconstruction_loss_weight": 1.0,
+    "rule_loss_weight": 2.0,
+    "seed": 5,
+    "square_loss_weight": 1.0,
+    "train_split": "train",
+    "validation_split": "validation",
+    "weight_decay": 0.0001
+  },
+  "validation_metrics": {
+    "capture_exact_next_feature_accuracy": 0.0,
+    "capture_examples": 2894,
+    "castle_exact_next_feature_accuracy": 0.0,
+    "castle_examples": 164,
+    "delta_loss": 0.0,
+    "drift_exact_next_feature_accuracy": 0.0,
+    "drift_examples": 2,
+    "drift_feature_l1_error": 1.446076,
+    "drift_latent_l1_error": 0.852257,
+    "drift_supervision_loss": 0.0,
+    "en_passant_exact_next_feature_accuracy": 0.0,
+    "en_passant_examples": 6,
+    "exact_next_feature_accuracy": 0.0,
+    "examples_per_second": 25568.817,
+    "feature_l1_error": 0.910633,
+    "gives_check_exact_next_feature_accuracy": 0.0,
+    "gives_check_examples": 444,
+    "latent_consistency_loss": 0.49606,
+    "latent_l1_error": 0.529862,
+    "piece_delta_l1_error": 0.0,
+    "piece_feature_l1_error": 0.730168,
+    "piece_loss": 1.634428,
+    "promotion_exact_next_feature_accuracy": 0.0,
+    "promotion_examples": 0,
+    "reconstruction_loss": 2.703987,
+    "rule_delta_l1_error": 0.0,
+    "rule_feature_l1_error": 0.316662,
+    "rule_loss": 0.270325,
+    "square_delta_l1_error": 0.0,
+    "square_feature_l1_error": 1.073825,
+    "square_loss": 3.620235,
+    "total_examples": 12286,
+    "total_loss": 5.844918
+  }
+}

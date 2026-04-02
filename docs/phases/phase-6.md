@@ -65,6 +65,14 @@ The next symbolic-action experimental run is:
 - summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v5_v1/summary.json)
 - verify: [dynamics_structured_v5_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v5_v1_verify.json)
 
+The larger-corpus reruns now provide the preferred Phase-6 reference:
+
+- config: [phase6_dynamics_merged_unique_structured_v5_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_merged_unique_structured_v5_v1.json)
+- bundle: [dynamics_merged_unique_structured_v5_v1](/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v5_v1)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v5_v1/summary.json)
+- verify: [dynamics_merged_unique_structured_v5_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v5_v1_verify.json)
+- direct comparison: [dynamics_merged_unique_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_compare_v1.json)
+
 The parallel local edit-target experimental run is:
 
 - config: [phase6_dynamics_edit_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_edit_v1.json)
@@ -129,6 +137,14 @@ The `structured_v5_v1` arm binds Phase 6 to the symbolic proposer-side move cont
 - verify `drift_feature_l1_error`: `1.429654 -> 1.556962`
 
 That makes it a useful new experimental arm, but not the new default: the symbolic move-side features clearly help local one-step reconstruction, yet drift remains worse than `structured_v2_latent_v1`.
+
+The larger `merged_unique` reruns overturn that smaller-corpus conclusion:
+
+- `structured_v2_latent_v1` on `110,570 / 12,286 / 2,169`: verify `feature_l1_error=1.067843`, `drift_feature_l1_error=6.305117`
+- `structured_v3_v1` on the same corpus: verify `feature_l1_error=1.02784`, `drift_feature_l1_error=6.18409`
+- `structured_v5_v1` on the same corpus: verify `feature_l1_error=0.924808`, `drift_feature_l1_error=1.548861`
+
+So the current preferred Phase-6 reference is now the large-corpus symbolic-action run [dynamics_merged_unique_structured_v5_v1](/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v5_v1), not the earlier `10k`-corpus `structured_v2_latent_v1`.
 
 The parallel `edit_v1` arm is informative but remains experimental:
 

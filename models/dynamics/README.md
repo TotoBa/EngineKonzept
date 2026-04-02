@@ -4,13 +4,17 @@ This directory contains exported latent-dynamics bundles.
 
 ## Current Default
 
+- [dynamics_merged_unique_structured_v5_v1](/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v5_v1)
+  Current preferred Phase-6 bundle exported from [phase6_dynamics_merged_unique_structured_v5_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_merged_unique_structured_v5_v1.json). It runs the symbolic-action dynamics arm on the merged unique `110,570 / 12,286 / 2,169` corpus and is the best measured dynamics bundle so far.
 - [structured_v2_latent_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v2_latent_v1)
-  Current preferred Phase-6 bundle exported from [phase6_dynamics_structured_v2_latent_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v2_latent_v1.json). It keeps the structured decoder and drift-aware selection, then adds auxiliary latent-consistency supervision.
+  Previous smaller-corpus preferred Phase-6 bundle exported from [phase6_dynamics_structured_v2_latent_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v2_latent_v1.json). It keeps the structured decoder and drift-aware selection, then adds auxiliary latent-consistency supervision.
 - [structured_v2_drift_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v2_drift_v1)
   Previous preferred Phase-6 bundle exported from [phase6_dynamics_structured_v2_drift_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v2_drift_v1.json). It keeps the structured decoder and selects checkpoints against an explicit held-out drift slice.
 
 ## Experimental Variants
 
+- [dynamics_merged_unique_structured_v3_v1](/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v3_v1)
+  Large-corpus rerun of the delta-auxiliary structured arm. It beats the old large `structured_v2_latent` baseline on both verify feature error and verify drift, but remains behind the large symbolic-action default.
 - [structured_v3_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v3_v1)
   Latent-stable structured follow-up with auxiliary delta heads. Better one-step soft metrics than the current default, but slightly worse drift.
 - [structured_v4_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v4_v1)

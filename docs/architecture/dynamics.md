@@ -35,6 +35,10 @@ Materialized bundles:
   Drift-supervised follow-up that keeps the latent-stable path but adds explicit short-horizon rollout supervision during training.
 - [structured_v5_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v5_v1)
   Symbolic-action follow-up that keeps the latent-consistency baseline but augments the action pathway with the selected move's exact symbolic candidate features.
+- [dynamics_merged_unique_structured_v3_v1](/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v3_v1)
+  Large-corpus rerun of the delta-auxiliary structured arm over the merged unique `110,570 / 12,286 / 2,169` dataset.
+- [dynamics_merged_unique_structured_v5_v1](/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v5_v1)
+  Large-corpus symbolic-action rerun over the same merged unique dataset. This is now the preferred Phase-6 bundle.
 - [edit_v1](/home/torsten/EngineKonzept/models/dynamics/edit_v1)
   Experimental local edit-target arm that reconstructs delta sections relative to the current state.
 
@@ -82,6 +86,11 @@ The current materialized runs are:
 - verify: [dynamics_structured_v4_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v4_v1_verify.json)
 - summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v5_v1/summary.json)
 - verify: [dynamics_structured_v5_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v5_v1_verify.json)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v3_v1/summary.json)
+- verify: [dynamics_merged_unique_structured_v3_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v3_v1_verify.json)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v5_v1/summary.json)
+- verify: [dynamics_merged_unique_structured_v5_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v5_v1_verify.json)
+- comparison: [dynamics_merged_unique_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_compare_v1.json)
 - summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_edit_v1/summary.json)
 - verify: [dynamics_edit_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_edit_v1_verify.json)
 - comparison: [dynamics_phase6_parallel_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_phase6_parallel_compare_v1.json)
@@ -136,6 +145,19 @@ The `structured_v5_v1` follow-up then aligns Phase 6 with the symbolic proposer 
 - verify `drift_feature_l1_error`: `1.429654 -> 1.556962`
 
 So the symbolic action side input helps one-step local reconstruction, but it still gives back too much drift quality to replace `structured_v2_latent_v1` as the default.
+
+The large merged-unique reruns change that reading substantially:
+
+- `structured_v2_latent_v1` on the merged unique corpus: verify `feature_l1_error=1.067843`, `drift_feature_l1_error=6.305117`
+- `structured_v3_v1` on the same corpus: verify `feature_l1_error=1.02784`, `drift_feature_l1_error=6.18409`
+- `structured_v5_v1` on the same corpus: verify `feature_l1_error=0.924808`, `drift_feature_l1_error=1.548861`
+
+That means two things are now externally checked:
+
+- the larger corpus helps the delta-auxiliary `structured_v3` line enough to beat the old large `structured_v2_latent` baseline on both main soft metrics
+- the symbolic action side input is not merely a one-step helper at scale; on the large merged unique corpus it also becomes the best measured drift path so far
+
+So the current preferred Phase-6 reference is now [dynamics_merged_unique_structured_v5_v1](/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v5_v1).
 
 The parallel local edit-target arm `edit_v1` shows the opposite tradeoff:
 

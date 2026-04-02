@@ -98,13 +98,13 @@ The current `engine-app` binary will use that symbolic proposer bundle automatic
 
 ## Phase 6 Snapshot
 
-The proposer is now accepted as a temporary frontier, and the repository includes a checkable latent-dynamics baseline plus parallel Phase-6 follow-ups:
+The proposer is now accepted as a temporary frontier, and the repository includes a checkable latent-dynamics baseline plus larger-corpus Phase-6 follow-ups:
 
-- current Phase-6 config: [phase6_dynamics_structured_v2_latent_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v2_latent_v1.json)
-- current Phase-6 bundle: [structured_v2_latent_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v2_latent_v1)
-- current Phase-6 summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_latent_v1/summary.json)
-- current Phase-6 verify eval: [dynamics_structured_v2_latent_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_latent_v1_verify.json)
-- direct comparison: [dynamics_phase6_parallel_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_phase6_parallel_compare_v1.json)
+- current Phase-6 config: [phase6_dynamics_merged_unique_structured_v5_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_merged_unique_structured_v5_v1.json)
+- current Phase-6 bundle: [dynamics_merged_unique_structured_v5_v1](/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v5_v1)
+- current Phase-6 summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v5_v1/summary.json)
+- current Phase-6 verify eval: [dynamics_merged_unique_structured_v5_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v5_v1_verify.json)
+- direct large-corpus comparison: [dynamics_merged_unique_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_compare_v1.json)
 - architecture note: [dynamics.md](/home/torsten/EngineKonzept/docs/architecture/dynamics.md)
 - phase note: [phase-6.md](/home/torsten/EngineKonzept/docs/phases/phase-6.md)
 
@@ -133,7 +133,7 @@ The explicit drift-selection follow-up established the first useful Phase-6 refe
 - verify `feature_l1_error`: `1.433716 -> 1.425823`
 - verify `drift_feature_l1_error`: `1.595053 -> 1.557198`
 
-The latest parallel follow-up keeps that drift-aware structure and adds latent-consistency supervision. It is now the preferred Phase-6 reference because it improves both main verify soft metrics again:
+The smaller-corpus latent-consistency follow-up kept that drift-aware structure and improved both main verify soft metrics again:
 
 - verify `feature_l1_error`: `1.425823 -> 1.425074`
 - verify `drift_feature_l1_error`: `1.557198 -> 1.429654`
@@ -145,7 +145,7 @@ The next `structured_v3_v1` follow-up adds a delta auxiliary head on top of the 
 - summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v3_v1/summary.json)
 - verify: [dynamics_structured_v3_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v3_v1_verify.json)
 
-It improves one-step verify reconstruction again, but gives back a little drift quality:
+On the smaller `10k` corpus it improves one-step verify reconstruction again, but gives back a little drift quality:
 
 - verify `feature_l1_error`: `1.425074 -> 1.353977`
 - verify `drift_feature_l1_error`: `1.429654 -> 1.47778`
@@ -178,12 +178,18 @@ The next `structured_v5_v1` arm connects Phase 6 directly to the symbolic propos
 - summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v5_v1/summary.json)
 - verify: [dynamics_structured_v5_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v5_v1_verify.json)
 
-It improves one-step held-out reconstruction over the current default, but not drift:
+On the smaller `10k` corpus it improves one-step held-out reconstruction over the current default, but not drift:
 
 - verify `feature_l1_error`: `1.425074 -> 1.404499`
 - verify `drift_feature_l1_error`: `1.429654 -> 1.556962`
 
-So it is kept as the new symbolic-action experimental arm, while `structured_v2_latent_v1` remains the current default.
+The large `merged_unique` reruns change that decision on the `110,570 / 12,286 / 2,169` corpus:
+
+- large `structured_v2_latent_v1`: verify `feature_l1_error=1.067843`, `drift_feature_l1_error=6.305117`
+- large `structured_v3_v1`: verify `feature_l1_error=1.02784`, `drift_feature_l1_error=6.18409`
+- large `structured_v5_v1`: verify `feature_l1_error=0.924808`, `drift_feature_l1_error=1.548861`
+
+That makes `dynamics_merged_unique_structured_v5_v1` the new preferred Phase-6 reference. The symbolic selected-move features do not just help one-step reconstruction at this scale; on the larger corpus they also become the best measured drift path so far.
 
 Exact next-state accuracy still remains `0.0`.
 

@@ -179,6 +179,13 @@ The next `structured_v5_v1` follow-up clarified the first direct proposer-to-dyn
 - feeding exact symbolic move-side features from the symbolic proposer contract helps one-step reconstruction
 - but that alone is not enough to protect multi-step drift, so it remains experimental
 
+The larger merged-unique reruns refine that again:
+
+- the large `structured_v3` rerun beats the old large `structured_v2_latent` baseline on both verify feature error and verify drift
+- the large symbolic-action `structured_v5` rerun becomes the best measured Phase-6 arm overall on the merged unique corpus
+
+So the current preferred Phase-6 path is now the symbolic-action dynamics line on the larger corpus, not the earlier smaller-corpus `structured_v2_latent` reference.
+
 ### Why
 
 This fits the exactness constraints and the planned Phase-6 measurements better than a diffuse global reconstructor.

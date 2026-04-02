@@ -1,0 +1,38 @@
+{
+  "dataset": {
+    "train_dataset_path": "artifacts/datasets/phase5_stockfish_merged_unique_train_v1",
+    "verify_dataset_path": "artifacts/datasets/phase5_stockfish_merged_unique_verify_v1",
+    "train_examples": 110570,
+    "validation_examples": 12286,
+    "verify_examples": 2169
+  },
+  "runs": {
+    "structured_v2_latent_large": {
+      "feature_l1_error": 1.067843,
+      "piece_feature_l1_error": 0.986331,
+      "square_feature_l1_error": 1.150167,
+      "rule_feature_l1_error": 0.615778,
+      "drift_feature_l1_error": 6.305117,
+      "drift_latent_l1_error": 1.172909,
+      "exact_next_feature_accuracy": 0.0
+    },
+    "structured_v3_large": {
+      "feature_l1_error": 1.02784,
+      "piece_feature_l1_error": 0.980203,
+      "square_feature_l1_error": 1.084231,
+      "rule_feature_l1_error": 0.587012,
+      "drift_feature_l1_error": 6.18409,
+      "drift_latent_l1_error": 1.061012,
+      "exact_next_feature_accuracy": 0.0
+    },
+    "structured_v5_large": {
+      "feature_l1_error": 0.924808,
+      "piece_feature_l1_error": 0.749682,
+      "square_feature_l1_error": 1.081263,
+      "rule_feature_l1_error": 0.389114,
+      "drift_feature_l1_error": 1.548861,
+      "drift_latent_l1_error": 0.700271,
+      "exact_next_feature_accuracy": 0.0
+    }
+  }
+}
