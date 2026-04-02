@@ -38,6 +38,8 @@ For larger real builds, use [benchmark_dataset_build.py](/home/torsten/EngineKon
 
 The same pair runner was also executed on `raspberrypi`; the fetched artifacts are [oracle_pair_10k_pi_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_10k_pi_v1.json), [oracle_pair_20k_pi_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_20k_pi_v1.json), and the local roll-up is [oracle_host_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_host_compare_v1.json).
 
+To regenerate that host roll-up from raw pair artifacts, use [compare_dataset_build_benchmarks.py](/home/torsten/EngineKonzept/python/scripts/compare_dataset_build_benchmarks.py).
+
 The proposer config also accepts a `runtime` object for CPU tuning:
 
 - `torch_threads` to cap PyTorch CPU threads
