@@ -35,7 +35,7 @@ That implies the following near-term sequence:
 
 ## What The Current Results Say
 
-The current `10,240 / 2,048` Pi-labeled Phase-5 corpus has seven externally checkable proposer arms:
+The current `10,240 / 2,048` Pi-labeled Phase-5 corpus has nine externally checkable proposer arms:
 
 - `current_default`
 - `h256`
@@ -44,6 +44,8 @@ The current `10,240 / 2,048` Pi-labeled Phase-5 corpus has seven externally chec
 - `factorized_v3`
 - `factorized_v4`
 - `factorized_v5`
+- `factorized_v6`
+- `relational_v1`
 
 See [stockfish_pgn_10k_seven_way_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_10k_seven_way_compare_v1.json).
 
@@ -56,6 +58,8 @@ The important findings are:
 - the first additive factorized decoder cut parameters drastically, but collapsed both legality and policy quality
 - the first conditional factorized decoder became the best legal-set-F1 arm so far, but still did not take the policy lead from `current_default`
 - the next policy-stronger conditional decoder regained much of the policy gap while still beating the older MLP baselines on legality
+- the next pairwise-coupled decoder `factorized_v6` became the strongest legality arm so far by a clear margin
+- the first relational typed-backbone plus stronger-decoder hybrid improved policy over the older factorized arms, but still did not take the policy lead from `current_default`
 - explicit checkpoint selection now shows a real legality-vs-policy tradeoff inside `factorized_v5`
 
 That means:
@@ -105,8 +109,9 @@ The factorized decoder line now has three concrete lessons:
 The remaining gap is now:
 
 - best policy still belongs to `current_default`
-- best legality still belongs to `factorized_v4`
-- best legality/policy balance among the factorized arms currently belongs to `factorized_v5`
+- best legality now belongs to `factorized_v6`
+- best legality/policy balance among the newer factorized arms still does not beat `current_default` on policy
+- the typed-backbone `relational_v1` run is now the better policy result among the newer structured arms
 
 And there is now a separate method choice as well:
 
@@ -193,6 +198,11 @@ The next model experiments should be ordered like this:
 3. stronger relational proposer variant if the improved conditional decoder still does not close the policy gap
 4. Phase-6 local latent dynamics prototype
 5. explicit opponent-head design before recurrent planner work
+
+The first three steps above are now complete enough to change the next decision:
+
+1. either keep iterating proposer policy quality until it actually beats `current_default`
+2. or accept the current proposer frontier and move on to Phase 6 latent dynamics
 
 ## Success Criteria For The Next Step
 

@@ -55,6 +55,8 @@ The same `current default` / `experimental variant` / `legacy baseline` split is
 - the first conditional `factorized_v4` decoder became the best legal-set-F1 arm so far on the `10k` corpus, but it still trails the current default on policy accuracy
 - the policy-stronger `factorized_v5` arm recovered a large part of the policy gap while still outperforming the old MLP baselines on legality, but it no longer beats `factorized_v4` on legal-set F1
 - explicit balanced checkpoint selection for `factorized_v5` further improved policy on the held-out verify split (`0.015137` vs `0.014648`), but it reduced legal-set F1 sharply (`0.029989` vs `0.06438`)
+- `factorized_v6` is now the strongest legality arm on the `10k` corpus with verify `legal_set_f1=0.123078`, but it still trails the current default on policy
+- `relational_v1` keeps the stronger typed backbone and reaches verify `policy_top1_accuracy=0.01416`, which is better than the earlier factorized arms except `factorized_v5`, but still below `current_default`
 
 The current Phase-5 architecture decision is therefore:
 
@@ -62,10 +64,11 @@ The current Phase-5 architecture decision is therefore:
 - keep `h256` as the best legal-F1 reference
 - keep `multistream_v2` as the first structured baseline
 - keep `factorized_v3` as an explicit negative baseline
-- keep `factorized_v4` as the best current legality arm
-- keep `factorized_v5` as the best current factorized balance arm
+- keep `factorized_v6` as the best current legality arm
+- keep `factorized_v5` as the clearest checkpoint-selection tradeoff example inside the factorized line
+- keep `relational_v1` as the current typed-backbone policy-path reference
 - keep checkpoint selection explicit rather than implicit
-- prioritize the default decision between legality-first and balanced selection before another decoder rewrite
+- prioritize the next decision between another policy-focused proposer arm and starting Phase 6 latent dynamics
 
 These findings suggest that raw capacity helps, but the current flat MLP is likely not sufficient by itself for strong policy learning.
 

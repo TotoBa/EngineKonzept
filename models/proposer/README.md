@@ -36,6 +36,10 @@ These bundles correspond to the main `10k` comparison grid:
   Conditional factorized-decoder proposer; current best legality-focused Phase-5 arm.
 - [stockfish_pgn_factorized_v5_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_factorized_v5_v1)
   Policy-stronger conditional factorized-decoder proposer; current best balance within the factorized line.
+- [stockfish_pgn_factorized_v6_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_factorized_v6_v1)
+  Pairwise-coupled conditional factorized proposer; current best legality-focused Phase-5 arm.
+- [stockfish_pgn_relational_v1_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_relational_v1_v1)
+  Typed relational backbone plus stronger factorized heads; current relational policy-path baseline.
 - [stockfish_pgn_pi_10k_h192_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_pi_10k_h192_v1)
   Wider hidden-layer experimental variant.
 - [stockfish_pgn_pi_10k_h256_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_pi_10k_h256_v1)

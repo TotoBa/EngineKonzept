@@ -32,6 +32,10 @@ Use these when comparing architecture or optimization changes against the curren
   Policy-stronger conditional factorized-decoder arm; current best balance among the factorized variants.
 - [phase5_stockfish_pgn_factorized_v5_balanced_v1.json](/home/torsten/EngineKonzept/python/configs/phase5_stockfish_pgn_factorized_v5_balanced_v1.json)
   Same `factorized_v5` architecture, but with `balanced` checkpoint selection and higher policy weight in epoch choice.
+- [phase5_stockfish_pgn_factorized_v6_v1.json](/home/torsten/EngineKonzept/python/configs/phase5_stockfish_pgn_factorized_v6_v1.json)
+  Pairwise-coupled conditional factorized decoder; current best legality arm on the `10k` corpus.
+- [phase5_stockfish_pgn_relational_v1_v1.json](/home/torsten/EngineKonzept/python/configs/phase5_stockfish_pgn_relational_v1_v1.json)
+  Typed multi-stream backbone plus stronger factorized heads; current relational policy-path baseline.
 - [phase5_stockfish_pgn_pi_10k_h192_v1.json](/home/torsten/EngineKonzept/python/configs/phase5_stockfish_pgn_pi_10k_h192_v1.json)
   Wider hidden layer variant.
 - [phase5_stockfish_pgn_pi_10k_h256_v1.json](/home/torsten/EngineKonzept/python/configs/phase5_stockfish_pgn_pi_10k_h256_v1.json)

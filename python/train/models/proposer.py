@@ -83,6 +83,18 @@ if nn is not None:
                     hidden_layers=hidden_layers,
                     dropout=dropout,
                 )
+            elif architecture == "factorized_v6":
+                self._impl = _PolicyPairwiseFactorizedMlpProposer(
+                    hidden_dim=hidden_dim,
+                    hidden_layers=hidden_layers,
+                    dropout=dropout,
+                )
+            elif architecture == "relational_v1":
+                self._impl = _RelationalPolicyProposer(
+                    hidden_dim=hidden_dim,
+                    hidden_layers=hidden_layers,
+                    dropout=dropout,
+                )
             else:
                 raise ValueError(f"unsupported proposer architecture: {architecture}")
 
@@ -254,6 +266,35 @@ if nn is not None:
             return self.up(self.down(hidden))
 
 
+    class _PolicyPairwiseFactorizedActionHead(nn.Module):
+        """Factorized policy head with extra learned from-to coupling."""
+
+        def __init__(self, hidden_dim: int, *, residual_rank: int) -> None:
+            super().__init__()
+            self.factorized = _ConditionalFactorizedActionHead(hidden_dim)
+            self.from_pair = nn.Parameter(torch.empty(FROM_HEAD_SIZE, hidden_dim))
+            self.to_pair = nn.Parameter(torch.empty(TO_HEAD_SIZE, hidden_dim))
+            self.pair_context = nn.Sequential(
+                nn.Linear(hidden_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Linear(hidden_dim, hidden_dim),
+            )
+            self.pair_scale = nn.Parameter(torch.tensor(1.0))
+            self.residual = _LowRankActionResidual(hidden_dim, residual_rank)
+            nn.init.xavier_uniform_(self.from_pair)
+            nn.init.xavier_uniform_(self.to_pair)
+
+        def forward(self, hidden: torch.Tensor) -> torch.Tensor:
+            factorized_logits = self.factorized(hidden).reshape(
+                hidden.shape[0], FROM_HEAD_SIZE, TO_HEAD_SIZE, PROMOTION_HEAD_SIZE
+            )
+            pair_context = self.pair_context(hidden)
+            modulated_from = self.from_pair.unsqueeze(0) * pair_context.unsqueeze(1)
+            pair_logits = torch.einsum("bfd,td->bft", modulated_from, self.to_pair)
+            policy_logits = factorized_logits + (self.pair_scale * pair_logits).unsqueeze(-1)
+            return policy_logits.reshape(hidden.shape[0], ACTION_SPACE_SIZE) + self.residual(hidden)
+
+
     class _PolicyResidualFactorizedMlpProposer(nn.Module):
         """Conditional factorized proposer with extra policy-specific flat residual capacity."""
 
@@ -293,6 +334,45 @@ if nn is not None:
                 policy_hidden
             )
             return legality_logits, policy_logits
+
+
+    class _PolicyPairwiseFactorizedMlpProposer(nn.Module):
+        """Conditional factorized proposer with explicit policy-side from-to coupling."""
+
+        def __init__(self, *, hidden_dim: int, hidden_layers: int, dropout: float) -> None:
+            super().__init__()
+            layers: list[nn.Module] = []
+            input_dim = POSITION_FEATURE_SIZE
+            for _ in range(hidden_layers):
+                layers.append(nn.Linear(input_dim, hidden_dim))
+                layers.append(nn.ReLU())
+                if dropout > 0.0:
+                    layers.append(nn.Dropout(dropout))
+                input_dim = hidden_dim
+
+            residual_rank = max(hidden_dim // 6, 24)
+            self.backbone = nn.Sequential(*layers)
+            self.legality_tower = nn.Sequential(
+                nn.Linear(input_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Dropout(dropout) if dropout > 0.0 else nn.Identity(),
+            )
+            self.policy_tower = nn.Sequential(
+                nn.Linear(input_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Dropout(dropout) if dropout > 0.0 else nn.Identity(),
+            )
+            self.legality_head = _ConditionalFactorizedActionHead(hidden_dim)
+            self.policy_head = _PolicyPairwiseFactorizedActionHead(
+                hidden_dim,
+                residual_rank=residual_rank,
+            )
+
+        def forward(self, features: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+            hidden = self.backbone(features)
+            legality_hidden = self.legality_tower(hidden)
+            policy_hidden = self.policy_tower(hidden)
+            return self.legality_head(legality_hidden), self.policy_head(policy_hidden)
 
 
     class _CrossAttentionBlock(nn.Module):
@@ -380,6 +460,94 @@ if nn is not None:
             )
             self.legality_head = nn.Linear(hidden_dim, ACTION_SPACE_SIZE)
             self.policy_head = nn.Linear(hidden_dim, ACTION_SPACE_SIZE)
+
+        def forward(self, features: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+            piece_features, square_features, rule_features = _unpack_feature_streams(features)
+            piece_padding_mask = piece_features[:, :, 0] == float(PIECE_TOKEN_PADDING_VALUE)
+            piece_hidden = self.piece_projection(piece_features)
+            square_hidden = self.square_projection(square_features)
+            rule_hidden = self.rule_projection(rule_features)
+
+            piece_hidden = self.piece_reads_square(
+                piece_hidden,
+                query_padding_mask=piece_padding_mask,
+                key_value=square_hidden,
+                key_padding_mask=None,
+            )
+            square_hidden = self.square_reads_piece(
+                square_hidden,
+                query_padding_mask=None,
+                key_value=piece_hidden,
+                key_padding_mask=piece_padding_mask,
+            )
+
+            piece_pooled = _masked_mean(piece_hidden, piece_padding_mask)
+            square_pooled = square_hidden.mean(dim=1)
+            square_max = square_hidden.amax(dim=1)
+            fused = torch.cat(
+                [
+                    piece_pooled,
+                    square_pooled,
+                    square_max,
+                    rule_hidden,
+                    piece_pooled * rule_hidden,
+                ],
+                dim=1,
+            )
+            hidden = self.fusion(fused)
+            legality_hidden = self.legality_tower(hidden)
+            policy_hidden = self.policy_tower(hidden)
+            return self.legality_head(legality_hidden), self.policy_head(policy_hidden)
+
+
+    class _RelationalPolicyProposer(nn.Module):
+        """Typed multi-stream backbone with stronger factorized legality/policy heads."""
+
+        def __init__(self, *, hidden_dim: int, hidden_layers: int, dropout: float) -> None:
+            super().__init__()
+            self.piece_projection = nn.Sequential(
+                nn.Linear(PIECE_TOKEN_WIDTH, hidden_dim),
+                nn.ReLU(),
+            )
+            self.square_projection = nn.Sequential(
+                nn.Linear(SQUARE_TOKEN_WIDTH, hidden_dim),
+                nn.ReLU(),
+            )
+            self.rule_projection = nn.Sequential(
+                nn.Linear(RULE_TOKEN_WIDTH, hidden_dim),
+                nn.ReLU(),
+                nn.Linear(hidden_dim, hidden_dim),
+                nn.ReLU(),
+            )
+            self.piece_reads_square = _CrossAttentionBlock(hidden_dim, dropout)
+            self.square_reads_piece = _CrossAttentionBlock(hidden_dim, dropout)
+
+            fusion_layers: list[nn.Module] = []
+            fusion_input_dim = hidden_dim * 5
+            for _ in range(hidden_layers):
+                fusion_layers.append(nn.Linear(fusion_input_dim, hidden_dim))
+                fusion_layers.append(nn.ReLU())
+                if dropout > 0.0:
+                    fusion_layers.append(nn.Dropout(dropout))
+                fusion_input_dim = hidden_dim
+            self.fusion = nn.Sequential(*fusion_layers)
+
+            residual_rank = max(hidden_dim // 6, 24)
+            self.legality_tower = nn.Sequential(
+                nn.Linear(hidden_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Dropout(dropout) if dropout > 0.0 else nn.Identity(),
+            )
+            self.policy_tower = nn.Sequential(
+                nn.Linear(hidden_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Dropout(dropout) if dropout > 0.0 else nn.Identity(),
+            )
+            self.legality_head = _ConditionalFactorizedActionHead(hidden_dim)
+            self.policy_head = _PolicyPairwiseFactorizedActionHead(
+                hidden_dim,
+                residual_rank=residual_rank,
+            )
 
         def forward(self, features: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
             piece_features, square_features, rule_features = _unpack_feature_streams(features)

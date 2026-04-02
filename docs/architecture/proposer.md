@@ -35,7 +35,7 @@ The `multistream_v2` arm is the first repo-local application of the broader arch
 
 ## Model Shape
 
-Phase 5 now carries five proposer architectures behind the same dataset and export contract.
+Phase 5 now carries seven proposer architectures behind the same dataset and export contract.
 
 ### `mlp_v1`
 
@@ -139,6 +139,46 @@ Measured outcome on the `10k` Pi-labeled corpus:
 
 That makes `factorized_v5` a better legality/policy balance than `factorized_v4`, but it still does not beat the current default on policy accuracy and no longer holds the best legal-F1 spot.
 
+### `factorized_v6`
+
+This arm keeps the legality side from `factorized_v4`, but strengthens the policy decoder again without returning to a full flat head.
+
+The policy side now combines:
+
+- the conditional factorized policy decoder from `factorized_v5`
+- an explicit learned `from-to` interaction term
+- a low-rank flat residual
+
+Measured outcome on the `10k` Pi-labeled corpus:
+
+- parameter count: `4,923,939`
+- validation `legal_set_f1`: `0.10281`
+- verify `legal_set_f1`: `0.123078`
+- verify `policy_top1_accuracy`: `0.010742`
+
+This makes `factorized_v6` the current strongest legality arm by a clear margin, but it still trails `current_default` on policy.
+
+### `relational_v1`
+
+This arm combines the typed multi-stream backbone direction from `multistream_v2` with the stronger factorized heads from the newer decoder line.
+
+It keeps:
+
+- piece/square/rule stream separation
+- light cross-attention between piece and square streams
+- factorized legality decoding
+- the stronger policy-side pairwise coupling used in `factorized_v6`
+
+Measured outcome on the `10k` Pi-labeled corpus:
+
+- parameter count: `5,193,891`
+- validation `legal_set_f1`: `0.065213`
+- validation `policy_top1_accuracy`: `0.012695`
+- verify `legal_set_f1`: `0.074294`
+- verify `policy_top1_accuracy`: `0.01416`
+
+That does not beat `current_default` on policy and does not beat `factorized_v6` on legality, but it does improve policy over the earlier factorized arms while keeping clearly stronger legality than the old flat MLP baseline.
+
 ## Current Decision
 
 For this repository state, the next preferred proposer direction is still a factorized decoder over the existing move schema, not early mixture-of-experts routing.
@@ -155,6 +195,8 @@ The new results narrow that further:
 - `factorized_v3` showed that purely additive factorization is too weak
 - `factorized_v4` showed that conditional factorization can recover and substantially improve legality
 - `factorized_v5` showed that extra policy-specific capacity can recover much of the lost policy signal without falling back to a full flat head
+- `factorized_v6` showed that explicit policy-side `from-to` coupling can push legality further still, but not enough to win policy
+- `relational_v1` showed that the typed backbone remains useful when paired with the stronger newer decoder heads
 
 So the next decoder question is no longer "factorized or not", but how to improve policy while keeping the stronger legality structure and how to select checkpoints when legality and policy peak at different epochs.
 
@@ -169,7 +211,7 @@ The flat action index matches the Phase-3 factorization:
 
 `((from_index * 64) + to_index) * 5 + promotion_index`
 
-The output contract remains identical across `mlp_v1`, `multistream_v2`, `factorized_v3`, `factorized_v4`, and `factorized_v5`, so existing datasets, metrics, export tooling, and Rust-side metadata validation remain compatible.
+The output contract remains identical across `mlp_v1`, `multistream_v2`, `factorized_v3`, `factorized_v4`, `factorized_v5`, `factorized_v6`, and `relational_v1`, so existing datasets, metrics, export tooling, and Rust-side metadata validation remain compatible.
 
 ## Training Objective
 

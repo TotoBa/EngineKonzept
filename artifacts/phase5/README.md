@@ -20,6 +20,8 @@ Use these first when reviewing the current standard proposer path:
   Six-way comparison that adds the first conditional factorized decoder arm.
 - [stockfish_pgn_10k_seven_way_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_10k_seven_way_compare_v1.json)
   Seven-way comparison that adds the policy-stronger conditional factorized decoder arm.
+- [stockfish_pgn_10k_nine_way_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_10k_nine_way_compare_v1.json)
+  Nine-way comparison that adds `factorized_v6` and `relational_v1`.
 - [stockfish_pgn_factorized_v5_selection_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_factorized_v5_selection_compare_v1.json)
   Direct legality-first vs. balanced checkpoint-selection comparison for the same `factorized_v5` architecture.
 
@@ -49,6 +51,10 @@ These summaries correspond to the main `10k` proposer comparison runs:
 - [stockfish_pgn_factorized_v5_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_factorized_v5_v1_verify.json)
 - [stockfish_pgn_factorized_v5_balanced_v1/summary.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_factorized_v5_balanced_v1/summary.json)
 - [stockfish_pgn_factorized_v5_balanced_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_factorized_v5_balanced_v1_verify.json)
+- [stockfish_pgn_factorized_v6_v1/summary.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_factorized_v6_v1/summary.json)
+- [stockfish_pgn_factorized_v6_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_factorized_v6_v1_verify.json)
+- [stockfish_pgn_relational_v1_v1/summary.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_relational_v1_v1/summary.json)
+- [stockfish_pgn_relational_v1_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_relational_v1_v1_verify.json)
 
 ## Legacy Baselines
 

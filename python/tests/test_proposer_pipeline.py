@@ -367,6 +367,92 @@ def test_config_accepts_factorized_v5_architecture(tmp_path: Path) -> None:
     assert config.model.architecture == "factorized_v5"
 
 
+def test_config_accepts_factorized_v6_architecture(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "seed": 7,
+                "output_dir": "artifacts/phase5/test-run",
+                "data": {
+                    "dataset_path": "artifacts/datasets/phase4",
+                    "train_split": "train",
+                    "validation_split": "validation",
+                },
+                "model": {
+                    "architecture": "factorized_v6",
+                    "hidden_dim": 64,
+                    "hidden_layers": 2,
+                    "dropout": 0.0,
+                },
+                "optimization": {
+                    "epochs": 1,
+                    "batch_size": 2,
+                    "learning_rate": 0.001,
+                    "weight_decay": 0.0,
+                    "legality_loss_weight": 1.0,
+                    "policy_loss_weight": 1.0,
+                },
+                "evaluation": {"legality_threshold": 0.4},
+                "export": {
+                    "bundle_dir": "models/proposer/test",
+                    "checkpoint_name": "checkpoint.pt",
+                    "exported_program_name": "proposer.pt2",
+                    "metadata_name": "metadata.json",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_proposer_train_config(config_path)
+
+    assert config.model.architecture == "factorized_v6"
+
+
+def test_config_accepts_relational_v1_architecture(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "seed": 7,
+                "output_dir": "artifacts/phase5/test-run",
+                "data": {
+                    "dataset_path": "artifacts/datasets/phase4",
+                    "train_split": "train",
+                    "validation_split": "validation",
+                },
+                "model": {
+                    "architecture": "relational_v1",
+                    "hidden_dim": 64,
+                    "hidden_layers": 2,
+                    "dropout": 0.0,
+                },
+                "optimization": {
+                    "epochs": 1,
+                    "batch_size": 2,
+                    "learning_rate": 0.001,
+                    "weight_decay": 0.0,
+                    "legality_loss_weight": 1.0,
+                    "policy_loss_weight": 1.0,
+                },
+                "evaluation": {"legality_threshold": 0.4},
+                "export": {
+                    "bundle_dir": "models/proposer/test",
+                    "checkpoint_name": "checkpoint.pt",
+                    "exported_program_name": "proposer.pt2",
+                    "metadata_name": "metadata.json",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_proposer_train_config(config_path)
+
+    assert config.model.architecture == "relational_v1"
+
+
 def test_multistream_v2_forward_matches_action_space_shape() -> None:
     torch = pytest.importorskip("torch")
     model = LegalityPolicyProposer(
@@ -419,6 +505,38 @@ def test_factorized_v5_forward_matches_action_space_shape() -> None:
     torch = pytest.importorskip("torch")
     model = LegalityPolicyProposer(
         architecture="factorized_v5",
+        hidden_dim=32,
+        hidden_layers=2,
+        dropout=0.0,
+    )
+    features = torch.zeros((3, POSITION_FEATURE_SIZE), dtype=torch.float32)
+
+    legality_logits, policy_logits = model(features)
+
+    assert tuple(legality_logits.shape) == (3, ACTION_SPACE_SIZE)
+    assert tuple(policy_logits.shape) == (3, ACTION_SPACE_SIZE)
+
+
+def test_factorized_v6_forward_matches_action_space_shape() -> None:
+    torch = pytest.importorskip("torch")
+    model = LegalityPolicyProposer(
+        architecture="factorized_v6",
+        hidden_dim=32,
+        hidden_layers=2,
+        dropout=0.0,
+    )
+    features = torch.zeros((3, POSITION_FEATURE_SIZE), dtype=torch.float32)
+
+    legality_logits, policy_logits = model(features)
+
+    assert tuple(legality_logits.shape) == (3, ACTION_SPACE_SIZE)
+    assert tuple(policy_logits.shape) == (3, ACTION_SPACE_SIZE)
+
+
+def test_relational_v1_forward_matches_action_space_shape() -> None:
+    torch = pytest.importorskip("torch")
+    model = LegalityPolicyProposer(
+        architecture="relational_v1",
         hidden_dim=32,
         hidden_layers=2,
         dropout=0.0,
@@ -502,6 +620,52 @@ def test_factorized_v5_has_more_capacity_than_factorized_v4() -> None:
     )
 
     assert factorized_v5_param_count > factorized_v4_param_count
+
+
+def test_factorized_v6_has_more_capacity_than_factorized_v5() -> None:
+    pytest.importorskip("torch")
+    factorized_v5_model = LegalityPolicyProposer(
+        architecture="factorized_v5",
+        hidden_dim=128,
+        hidden_layers=2,
+        dropout=0.0,
+    )
+    factorized_v6_model = LegalityPolicyProposer(
+        architecture="factorized_v6",
+        hidden_dim=128,
+        hidden_layers=2,
+        dropout=0.0,
+    )
+
+    factorized_v5_param_count = sum(
+        parameter.numel() for parameter in factorized_v5_model.parameters()
+    )
+    factorized_v6_param_count = sum(
+        parameter.numel() for parameter in factorized_v6_model.parameters()
+    )
+
+    assert factorized_v6_param_count > factorized_v5_param_count
+
+
+def test_relational_v1_uses_less_capacity_than_multistream_v2() -> None:
+    pytest.importorskip("torch")
+    multistream_model = LegalityPolicyProposer(
+        architecture="multistream_v2",
+        hidden_dim=128,
+        hidden_layers=2,
+        dropout=0.0,
+    )
+    relational_model = LegalityPolicyProposer(
+        architecture="relational_v1",
+        hidden_dim=128,
+        hidden_layers=2,
+        dropout=0.0,
+    )
+
+    multistream_param_count = sum(parameter.numel() for parameter in multistream_model.parameters())
+    relational_param_count = sum(parameter.numel() for parameter in relational_model.parameters())
+
+    assert relational_param_count < multistream_param_count
 
 
 def test_balanced_checkpoint_selection_can_prefer_policy_better_epoch() -> None:
@@ -904,6 +1068,138 @@ def test_train_proposer_supports_factorized_v5(tmp_path: Path) -> None:
     assert run.model_parameter_count > 0
     assert (tmp_path / "models/proposer/test-v5/checkpoint.pt").exists()
     assert (tmp_path / "models/proposer/test-v5/proposer.pt2").exists()
+
+
+def test_train_proposer_supports_factorized_v6(tmp_path: Path) -> None:
+    pytest.importorskip("torch")
+
+    dataset_dir = tmp_path / "artifacts" / "datasets" / "phase4"
+    dataset_dir.mkdir(parents=True)
+    (dataset_dir / "train.jsonl").write_text(
+        "\n".join(
+            [
+                json.dumps(_dataset_example_dict(sample_id="train:1", split="train")),
+                json.dumps(_dataset_example_dict(sample_id="train:2", split="train")),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (dataset_dir / "validation.jsonl").write_text(
+        json.dumps(_dataset_example_dict(sample_id="validation:1", split="validation")) + "\n",
+        encoding="utf-8",
+    )
+
+    config_path = tmp_path / "python" / "configs" / "phase5_proposer_v6.json"
+    config_path.parent.mkdir(parents=True)
+    config_path.write_text(
+        json.dumps(
+            {
+                "seed": 3,
+                "output_dir": "artifacts/phase5/test-run-v6",
+                "data": {
+                    "dataset_path": "artifacts/datasets/phase4",
+                    "train_split": "train",
+                    "validation_split": "validation",
+                },
+                "model": {
+                    "architecture": "factorized_v6",
+                    "hidden_dim": 32,
+                    "hidden_layers": 1,
+                    "dropout": 0.0,
+                },
+                "optimization": {
+                    "epochs": 1,
+                    "batch_size": 2,
+                    "learning_rate": 0.001,
+                    "weight_decay": 0.0,
+                    "legality_loss_weight": 1.0,
+                    "policy_loss_weight": 1.0,
+                },
+                "evaluation": {"legality_threshold": 0.5},
+                "export": {
+                    "bundle_dir": "models/proposer/test-v6",
+                    "checkpoint_name": "checkpoint.pt",
+                    "exported_program_name": "proposer.pt2",
+                    "metadata_name": "metadata.json",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    run = train_proposer(load_proposer_train_config(config_path), repo_root=tmp_path)
+
+    assert run.best_epoch == 1
+    assert run.model_parameter_count > 0
+    assert (tmp_path / "models/proposer/test-v6/checkpoint.pt").exists()
+    assert (tmp_path / "models/proposer/test-v6/proposer.pt2").exists()
+
+
+def test_train_proposer_supports_relational_v1(tmp_path: Path) -> None:
+    pytest.importorskip("torch")
+
+    dataset_dir = tmp_path / "artifacts" / "datasets" / "phase4"
+    dataset_dir.mkdir(parents=True)
+    (dataset_dir / "train.jsonl").write_text(
+        "\n".join(
+            [
+                json.dumps(_dataset_example_dict(sample_id="train:1", split="train")),
+                json.dumps(_dataset_example_dict(sample_id="train:2", split="train")),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (dataset_dir / "validation.jsonl").write_text(
+        json.dumps(_dataset_example_dict(sample_id="validation:1", split="validation")) + "\n",
+        encoding="utf-8",
+    )
+
+    config_path = tmp_path / "python" / "configs" / "phase5_proposer_relational_v1.json"
+    config_path.parent.mkdir(parents=True)
+    config_path.write_text(
+        json.dumps(
+            {
+                "seed": 3,
+                "output_dir": "artifacts/phase5/test-run-relational-v1",
+                "data": {
+                    "dataset_path": "artifacts/datasets/phase4",
+                    "train_split": "train",
+                    "validation_split": "validation",
+                },
+                "model": {
+                    "architecture": "relational_v1",
+                    "hidden_dim": 32,
+                    "hidden_layers": 1,
+                    "dropout": 0.0,
+                },
+                "optimization": {
+                    "epochs": 1,
+                    "batch_size": 2,
+                    "learning_rate": 0.001,
+                    "weight_decay": 0.0,
+                    "legality_loss_weight": 1.0,
+                    "policy_loss_weight": 1.0,
+                },
+                "evaluation": {"legality_threshold": 0.5},
+                "export": {
+                    "bundle_dir": "models/proposer/test-relational-v1",
+                    "checkpoint_name": "checkpoint.pt",
+                    "exported_program_name": "proposer.pt2",
+                    "metadata_name": "metadata.json",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    run = train_proposer(load_proposer_train_config(config_path), repo_root=tmp_path)
+
+    assert run.best_epoch == 1
+    assert run.model_parameter_count > 0
+    assert (tmp_path / "models/proposer/test-relational-v1/checkpoint.pt").exists()
+    assert (tmp_path / "models/proposer/test-relational-v1/proposer.pt2").exists()
 
 
 def _dataset_example_dict(
