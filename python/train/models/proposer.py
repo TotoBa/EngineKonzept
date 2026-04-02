@@ -19,6 +19,8 @@ from train.datasets.artifacts import (
     RULE_TOKEN_WIDTH,
     SQUARE_TOKEN_COUNT,
     SQUARE_TOKEN_WIDTH,
+    SYMBOLIC_PROPOSER_CANDIDATE_FEATURE_SIZE,
+    SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE,
 )
 
 try:
@@ -95,11 +97,32 @@ if nn is not None:
                     hidden_layers=hidden_layers,
                     dropout=dropout,
                 )
+            elif architecture == "symbolic_v1":
+                self._impl = _SymbolicCandidateProposer(
+                    hidden_dim=hidden_dim,
+                    hidden_layers=hidden_layers,
+                    dropout=dropout,
+                )
             else:
                 raise ValueError(f"unsupported proposer architecture: {architecture}")
 
-        def forward(self, features: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        def forward(
+            self,
+            features: torch.Tensor,
+            candidate_action_indices: torch.Tensor | None = None,
+            candidate_features: torch.Tensor | None = None,
+            candidate_mask: torch.Tensor | None = None,
+            global_features: torch.Tensor | None = None,
+        ) -> tuple[torch.Tensor, torch.Tensor]:
             """Return legality logits and policy logits for the flat action space."""
+            if isinstance(self._impl, _SymbolicCandidateProposer):
+                return self._impl(
+                    features,
+                    candidate_action_indices=candidate_action_indices,
+                    candidate_features=candidate_features,
+                    candidate_mask=candidate_mask,
+                    global_features=global_features,
+                )
             return self._impl(features)
 
 
@@ -498,6 +521,82 @@ if nn is not None:
             legality_hidden = self.legality_tower(hidden)
             policy_hidden = self.policy_tower(hidden)
             return self.legality_head(legality_hidden), self.policy_head(policy_hidden)
+
+
+    class _SymbolicCandidateProposer(nn.Module):
+        """Policy scorer over exact symbolic legal candidates with deterministic legality."""
+
+        def __init__(self, *, hidden_dim: int, hidden_layers: int, dropout: float) -> None:
+            super().__init__()
+            layers: list[nn.Module] = []
+            input_dim = POSITION_FEATURE_SIZE
+            for _ in range(hidden_layers):
+                layers.append(nn.Linear(input_dim, hidden_dim))
+                layers.append(nn.ReLU())
+                if dropout > 0.0:
+                    layers.append(nn.Dropout(dropout))
+                input_dim = hidden_dim
+            self.state_backbone = nn.Sequential(*layers)
+            self.global_projection = nn.Sequential(
+                nn.Linear(hidden_dim + SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE, hidden_dim),
+                nn.ReLU(),
+                nn.Dropout(dropout) if dropout > 0.0 else nn.Identity(),
+            )
+            action_embedding_dim = max(hidden_dim // 2, 32)
+            self.action_embedding = nn.Embedding(ACTION_SPACE_SIZE, action_embedding_dim)
+            self.candidate_mlp = nn.Sequential(
+                nn.Linear(
+                    hidden_dim
+                    + action_embedding_dim
+                    + SYMBOLIC_PROPOSER_CANDIDATE_FEATURE_SIZE,
+                    hidden_dim,
+                ),
+                nn.ReLU(),
+                nn.Dropout(dropout) if dropout > 0.0 else nn.Identity(),
+                nn.Linear(hidden_dim, hidden_dim // 2),
+                nn.ReLU(),
+                nn.Linear(hidden_dim // 2, 1),
+            )
+
+        def forward(
+            self,
+            features: torch.Tensor,
+            candidate_action_indices: torch.Tensor | None = None,
+            candidate_features: torch.Tensor | None = None,
+            candidate_mask: torch.Tensor | None = None,
+            global_features: torch.Tensor | None = None,
+        ) -> tuple[torch.Tensor, torch.Tensor]:
+            if (
+                candidate_action_indices is None
+                or candidate_features is None
+                or candidate_mask is None
+                or global_features is None
+            ):
+                raise ValueError("symbolic_v1 requires candidate and global symbolic features")
+
+            hidden = self.state_backbone(features)
+            global_hidden = self.global_projection(torch.cat([hidden, global_features], dim=1))
+            safe_candidate_indices = candidate_action_indices.clamp_min(0)
+            action_hidden = self.action_embedding(safe_candidate_indices)
+            repeated_hidden = global_hidden.unsqueeze(1).expand(
+                -1, safe_candidate_indices.shape[1], -1
+            )
+            candidate_hidden = torch.cat(
+                [repeated_hidden, action_hidden, candidate_features],
+                dim=2,
+            )
+            candidate_scores = self.candidate_mlp(candidate_hidden).squeeze(-1)
+            candidate_scores = candidate_scores.masked_fill(~candidate_mask, -20.0)
+
+            legality_logits = features.new_full((features.shape[0], ACTION_SPACE_SIZE), -20.0)
+            policy_logits = features.new_full((features.shape[0], ACTION_SPACE_SIZE), -20.0)
+            batch_indices = torch.arange(features.shape[0], device=features.device).unsqueeze(1)
+            batch_indices = batch_indices.expand_as(safe_candidate_indices)
+            legality_logits[batch_indices[candidate_mask], safe_candidate_indices[candidate_mask]] = 20.0
+            policy_logits[batch_indices[candidate_mask], safe_candidate_indices[candidate_mask]] = (
+                candidate_scores[candidate_mask]
+            )
+            return legality_logits, policy_logits
 
 
     class _RelationalPolicyProposer(nn.Module):

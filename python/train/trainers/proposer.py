@@ -11,7 +11,12 @@ from typing import Any
 
 from train.action_space import ACTION_SPACE_SIZE
 from train.config import ProposerTrainConfig, resolve_repo_path
-from train.datasets.artifacts import ProposerTrainingExample, load_proposer_examples
+from train.datasets.artifacts import (
+    ProposerTrainingExample,
+    SYMBOLIC_MAX_LEGAL_CANDIDATES,
+    SymbolicProposerTrainingExample,
+    load_proposer_examples,
+)
 from train.export.proposer import export_proposer_bundle
 from train.losses.proposer import compute_proposer_losses
 from train.models.proposer import LegalityPolicyProposer, torch_is_available
@@ -93,8 +98,17 @@ def train_proposer(config: ProposerTrainConfig, *, repo_root: Path) -> ProposerT
     _set_seed(config.seed)
     _configure_torch_runtime(config.runtime.torch_threads)
 
-    train_examples = load_proposer_examples(dataset_path, config.data.train_split)
-    validation_examples = load_proposer_examples(dataset_path, config.data.validation_split)
+    artifact_variant = "symbolic" if config.model.architecture == "symbolic_v1" else "standard"
+    train_examples = load_proposer_examples(
+        dataset_path,
+        config.data.train_split,
+        variant=artifact_variant,
+    )
+    validation_examples = load_proposer_examples(
+        dataset_path,
+        config.data.validation_split,
+        variant=artifact_variant,
+    )
     if not train_examples:
         raise ValueError("training split is empty")
     if not validation_examples:
@@ -176,12 +190,25 @@ def train_proposer(config: ProposerTrainConfig, *, repo_root: Path) -> ProposerT
 
     assert best_validation is not None
     model.load_state_dict(best_state)
-    export_paths = export_proposer_bundle(
-        model,
-        config=config,
-        bundle_dir=bundle_dir,
-        validation_metrics=best_validation.to_dict(),
+    checkpoint_path = bundle_dir / config.export.checkpoint_name
+    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(
+        {
+            "model_state_dict": model.state_dict(),
+            "training_config": config.to_dict(),
+            "validation_metrics": best_validation.to_dict(),
+        },
+        checkpoint_path,
     )
+    if config.export.enabled:
+        export_paths = export_proposer_bundle(
+            model,
+            config=config,
+            bundle_dir=bundle_dir,
+            validation_metrics=best_validation.to_dict(),
+        )
+    else:
+        export_paths = {"checkpoint": str(checkpoint_path)}
 
     summary = {
         "config": config.to_dict(),
@@ -229,7 +256,8 @@ def evaluate_proposer_checkpoint(
     )
     model.load_state_dict(dict(payload["model_state_dict"]))
 
-    examples = load_proposer_examples(dataset_path, split)
+    artifact_variant = "symbolic" if config.model.architecture == "symbolic_v1" else "standard"
+    examples = load_proposer_examples(dataset_path, split, variant=artifact_variant)
     if not examples:
         raise ValueError(f"evaluation split is empty: {split}")
 
@@ -252,7 +280,7 @@ def evaluate_proposer_checkpoint(
 
 
 def _build_loader(
-    examples: list[ProposerTrainingExample],
+    examples: list[ProposerTrainingExample] | list[SymbolicProposerTrainingExample],
     *,
     batch_size: int,
     shuffle: bool,
@@ -260,8 +288,13 @@ def _build_loader(
     num_workers: int,
 ) -> Any:
     generator = torch.Generator().manual_seed(seed)
+    dataset = (
+        _SymbolicTensorDataset.from_examples(examples)
+        if examples and isinstance(examples[0], SymbolicProposerTrainingExample)
+        else _TensorDataset.from_examples(examples)
+    )
     return torch.utils.data.DataLoader(
-        _TensorDataset.from_examples(examples),
+        dataset,
         batch_size=batch_size,
         shuffle=shuffle,
         generator=generator if shuffle else None,
@@ -298,20 +331,54 @@ def _run_epoch(
 
     for batch in loader:
         features = batch["features"]
-        legal_targets = batch["legal_targets"]
         selected_action_indices = batch["selected_action_indices"]
+        candidate_action_indices = batch.get("candidate_action_indices")
+        candidate_features = batch.get("candidate_features")
+        candidate_mask = batch.get("candidate_mask")
+        global_features = batch.get("global_features")
 
         context = torch.enable_grad() if training else torch.inference_mode()
         with context:
-            legality_logits, policy_logits = model(features)
-            losses = compute_proposer_losses(
-                legality_logits,
-                policy_logits,
-                legal_targets,
-                selected_action_indices,
-                legality_weight=legality_loss_weight,
-                policy_weight=policy_loss_weight,
+            legality_logits, policy_logits = model(
+                features,
+                candidate_action_indices=candidate_action_indices,
+                candidate_features=candidate_features,
+                candidate_mask=candidate_mask,
+                global_features=global_features,
             )
+            if candidate_mask is not None:
+                policy_mask = selected_action_indices != -100
+                if bool(policy_mask.any()):
+                    policy_loss = torch.nn.functional.cross_entropy(
+                        policy_logits[policy_mask],
+                        selected_action_indices[policy_mask],
+                    )
+                else:
+                    policy_loss = policy_logits.sum() * 0.0
+                legality_loss = policy_logits.sum() * 0.0
+                combined_loss = (
+                    legality_loss_weight * legality_loss
+                    + policy_loss_weight * policy_loss
+                )
+                losses = type(
+                    "_SymbolicLossBreakdown",
+                    (),
+                    {
+                        "total": combined_loss,
+                        "legality": legality_loss,
+                        "policy": policy_loss,
+                    },
+                )()
+            else:
+                legal_targets = batch["legal_targets"]
+                losses = compute_proposer_losses(
+                    legality_logits,
+                    policy_logits,
+                    legal_targets,
+                    selected_action_indices,
+                    legality_weight=legality_loss_weight,
+                    policy_weight=policy_loss_weight,
+                )
 
         if training:
             optimizer.zero_grad(set_to_none=True)
@@ -324,11 +391,15 @@ def _run_epoch(
         legality_loss_total += float(losses.legality.item()) * batch_size
         policy_loss_total += float(losses.policy.item()) * batch_size
 
-        predicted_legal = torch.sigmoid(legality_logits) >= legality_threshold
-        true_legal = legal_targets.bool()
-        true_positive += int((predicted_legal & true_legal).sum().item())
-        false_positive += int((predicted_legal & ~true_legal).sum().item())
-        false_negative += int((~predicted_legal & true_legal).sum().item())
+        if candidate_mask is not None:
+            legal_count = int(candidate_mask.sum().item())
+            true_positive += legal_count
+        else:
+            predicted_legal = torch.sigmoid(legality_logits) >= legality_threshold
+            true_legal = batch["legal_targets"].bool()
+            true_positive += int((predicted_legal & true_legal).sum().item())
+            false_positive += int((predicted_legal & ~true_legal).sum().item())
+            false_negative += int((~predicted_legal & true_legal).sum().item())
 
         labeled_policy = selected_action_indices != -100
         if bool(labeled_policy.any()):
@@ -446,6 +517,100 @@ if torch is not None:
                 "selected_action_indices": self._selected_action_indices[index],
             }
 
+
+    class _SymbolicTensorDataset(torch.utils.data.Dataset):
+        """Tensor-backed dataset for candidate-scoring symbolic proposer arms."""
+
+        def __init__(
+            self,
+            features: Any,
+            selected_action_indices: Any,
+            global_features: Any,
+            candidate_action_indices: Any,
+            candidate_features: Any,
+            candidate_mask: Any,
+        ) -> None:
+            self._features = features
+            self._selected_action_indices = selected_action_indices
+            self._global_features = global_features
+            self._candidate_action_indices = candidate_action_indices
+            self._candidate_features = candidate_features
+            self._candidate_mask = candidate_mask
+
+        @classmethod
+        def from_examples(
+            cls,
+            examples: list[SymbolicProposerTrainingExample],
+        ) -> "_SymbolicTensorDataset":
+            features = torch.tensor(
+                [example.feature_vector for example in examples],
+                dtype=torch.float32,
+            )
+            selected_action_indices = torch.full((len(examples),), -100, dtype=torch.long)
+            global_features = torch.tensor(
+                [example.global_features for example in examples],
+                dtype=torch.float32,
+            )
+            candidate_action_indices = torch.full(
+                (len(examples), SYMBOLIC_MAX_LEGAL_CANDIDATES),
+                -1,
+                dtype=torch.long,
+            )
+            candidate_features = torch.zeros(
+                (
+                    len(examples),
+                    SYMBOLIC_MAX_LEGAL_CANDIDATES,
+                    len(examples[0].candidate_features[0]) if examples and examples[0].candidate_features else 0,
+                ),
+                dtype=torch.float32,
+            )
+            candidate_mask = torch.zeros(
+                (len(examples), SYMBOLIC_MAX_LEGAL_CANDIDATES),
+                dtype=torch.bool,
+            )
+
+            for row_index, example in enumerate(examples):
+                if len(example.candidate_action_indices) > SYMBOLIC_MAX_LEGAL_CANDIDATES:
+                    raise ValueError(
+                        "symbolic proposer example exceeds max legal candidate capacity: "
+                        f"{len(example.candidate_action_indices)}"
+                    )
+                if example.selected_action_index is not None:
+                    selected_action_indices[row_index] = example.selected_action_index
+                candidate_count = len(example.candidate_action_indices)
+                if candidate_count:
+                    candidate_action_indices[row_index, :candidate_count] = torch.tensor(
+                        example.candidate_action_indices,
+                        dtype=torch.long,
+                    )
+                    candidate_features[row_index, :candidate_count] = torch.tensor(
+                        example.candidate_features,
+                        dtype=torch.float32,
+                    )
+                    candidate_mask[row_index, :candidate_count] = True
+
+            return cls(
+                features,
+                selected_action_indices,
+                global_features,
+                candidate_action_indices,
+                candidate_features,
+                candidate_mask,
+            )
+
+        def __len__(self) -> int:
+            return int(self._features.shape[0])
+
+        def __getitem__(self, index: int) -> dict[str, Any]:
+            return {
+                "features": self._features[index],
+                "selected_action_indices": self._selected_action_indices[index],
+                "global_features": self._global_features[index],
+                "candidate_action_indices": self._candidate_action_indices[index],
+                "candidate_features": self._candidate_features[index],
+                "candidate_mask": self._candidate_mask[index],
+            }
+
 else:
 
     class _TensorDataset:  # pragma: no cover - exercised when torch is absent
@@ -455,3 +620,7 @@ else:
             raise RuntimeError(
                 "PyTorch is required for proposer training. Install the 'train' extra or torch."
             )
+
+
+    class _SymbolicTensorDataset(_TensorDataset):  # pragma: no cover - exercised when torch is absent
+        pass

@@ -61,12 +61,13 @@ The important findings are:
 - the next pairwise-coupled decoder `factorized_v6` became the strongest legality arm so far by a clear margin
 - the first relational typed-backbone plus stronger-decoder hybrid improved policy over the older factorized arms, but still did not take the policy lead from `current_default`
 - explicit checkpoint selection now shows a real legality-vs-policy tradeoff inside `factorized_v5`
+- the first symbolic-candidate proposer arm replaced learned legality with exact legal-move generation and decisively beat every learned-legality arm on the current `10k` corpus
 
 That means:
 
 - raw width is still usable
 - structure helps somewhat
-- but the next likely win is not just "more of the same MLP"
+- but the strongest new signal is no longer "more of the same MLP"; it is "score exact legal candidates instead of learning legality"
 
 ## Architecture Decisions
 
@@ -83,6 +84,7 @@ That means:
 
 - conditional factorized proposer decoding over the existing move schema
 - more structured proposer backbones where they preserve the same export and evaluation contract
+- symbolic-candidate proposer arms that use exact legal move generation as a side input
 
 ### Do not add yet
 
@@ -112,6 +114,7 @@ The remaining gap is now:
 - best legality now belongs to `factorized_v6`
 - best legality/policy balance among the newer factorized arms still does not beat `current_default` on policy
 - the typed-backbone `relational_v1` run is now the better policy result among the newer structured arms
+- the new symbolic-candidate `symbolic_v1` arm beats all of them on the `10k` corpus, but has not yet been integrated into the runtime/export contract
 
 And there is now a separate method choice as well:
 

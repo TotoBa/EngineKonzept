@@ -1,0 +1,12 @@
+{
+  "examples_per_second": 2574.457,
+  "labeled_policy_examples": 2048,
+  "legal_set_f1": 1.0,
+  "legal_set_precision": 1.0,
+  "legal_set_recall": 1.0,
+  "legality_loss": 0.0,
+  "policy_loss": 3.257404,
+  "policy_top1_accuracy": 0.127441,
+  "total_examples": 2048,
+  "total_loss": 3.257404
+}

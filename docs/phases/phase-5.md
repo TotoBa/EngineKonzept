@@ -57,6 +57,7 @@ The same `current default` / `experimental variant` / `legacy baseline` split is
 - explicit balanced checkpoint selection for `factorized_v5` further improved policy on the held-out verify split (`0.015137` vs `0.014648`), but it reduced legal-set F1 sharply (`0.029989` vs `0.06438`)
 - `factorized_v6` is now the strongest legality arm on the `10k` corpus with verify `legal_set_f1=0.123078`, but it still trails the current default on policy
 - `relational_v1` keeps the stronger typed backbone and reaches verify `policy_top1_accuracy=0.01416`, which is better than the earlier factorized arms except `factorized_v5`, but still below `current_default`
+- `symbolic_v1` replaces learned legality with exact legal-candidate generation plus a learned scorer and reaches verify `policy_top1_accuracy=0.127441` with exact legality on the same `10k` corpus
 
 The current Phase-5 architecture decision is therefore:
 
@@ -67,8 +68,9 @@ The current Phase-5 architecture decision is therefore:
 - keep `factorized_v6` as the best current legality arm
 - keep `factorized_v5` as the clearest checkpoint-selection tradeoff example inside the factorized line
 - keep `relational_v1` as the current typed-backbone policy-path reference
+- keep `symbolic_v1` as the first serious replacement arm for learned legality
 - keep checkpoint selection explicit rather than implicit
-- accept the current proposer frontier as provisionally sufficient and move on to Phase 6 latent dynamics
+- accept the current learned-legality frontier as provisionally sufficient, but treat the symbolic-candidate proposer line as the strongest Phase-5 follow-up to integrate later if the runtime path is updated
 
 These findings suggest that raw capacity helps, but the current flat MLP is likely not sufficient by itself for strong policy learning.
 

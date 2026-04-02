@@ -1,0 +1,36 @@
+{
+  "seed": 17,
+  "output_dir": "artifacts/phase5/stockfish_merged_unique_relational_v1_v1",
+  "data": {
+    "dataset_path": "artifacts/datasets/phase5_stockfish_merged_unique_train_v1",
+    "train_split": "train",
+    "validation_split": "validation"
+  },
+  "model": {
+    "architecture": "relational_v1",
+    "hidden_dim": 128,
+    "hidden_layers": 2,
+    "dropout": 0.1
+  },
+  "optimization": {
+    "epochs": 10,
+    "batch_size": 128,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "legality_loss_weight": 1.0,
+    "policy_loss_weight": 1.0
+  },
+  "evaluation": {
+    "legality_threshold": 0.5
+  },
+  "runtime": {
+    "torch_threads": 6,
+    "dataloader_workers": 0
+  },
+  "export": {
+    "bundle_dir": "models/proposer/stockfish_merged_unique_relational_v1_v1",
+    "checkpoint_name": "checkpoint.pt",
+    "exported_program_name": "proposer.pt2",
+    "metadata_name": "metadata.json"
+  }
+}

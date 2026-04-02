@@ -1,0 +1,112 @@
+{
+  "best_by_metric": {
+    "validation_legal_set_f1": "symbolic_v1",
+    "validation_policy_top1_accuracy": "symbolic_v1",
+    "verify_legal_set_f1": "symbolic_v1",
+    "verify_policy_top1_accuracy": "symbolic_v1"
+  },
+  "runs": [
+    {
+      "config": {
+        "architecture": "symbolic_v1",
+        "batch_size": 256,
+        "dataset_path": "artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1",
+        "hidden_dim": 128,
+        "hidden_layers": 2,
+        "learning_rate": 0.001,
+        "legality_loss_weight": 1.0,
+        "policy_loss_weight": 1.0,
+        "torch_threads": 6
+      },
+      "name": "symbolic_v1",
+      "paths": {
+        "summary": "artifacts/phase5/stockfish_pgn_symbolic_v1_v1/summary.json",
+        "verify": "artifacts/phase5/stockfish_pgn_symbolic_v1_v1_verify.json"
+      },
+      "validation": {
+        "examples_per_second": 3114.803,
+        "legal_set_f1": 1.0,
+        "legal_set_precision": 1.0,
+        "legal_set_recall": 1.0,
+        "policy_loss": 3.191331,
+        "policy_top1_accuracy": 0.158203
+      },
+      "verify": {
+        "examples_per_second": 2574.457,
+        "legal_set_f1": 1.0,
+        "legal_set_precision": 1.0,
+        "legal_set_recall": 1.0,
+        "policy_loss": 3.257404,
+        "policy_top1_accuracy": 0.127441
+      }
+    },
+    {
+      "config": {
+        "architecture": "mlp_v1",
+        "batch_size": 128,
+        "dataset_path": "artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1",
+        "hidden_dim": 128,
+        "hidden_layers": 2,
+        "learning_rate": 0.001,
+        "legality_loss_weight": 1.0,
+        "policy_loss_weight": 1.0,
+        "torch_threads": 4
+      },
+      "name": "current_default",
+      "paths": {
+        "summary": "artifacts/phase5/stockfish_pgn_current_default_v1/summary.json",
+        "verify": "artifacts/phase5/stockfish_pgn_current_default_v1_verify.json"
+      },
+      "validation": {
+        "examples_per_second": 2534.669,
+        "legal_set_f1": 0.019028,
+        "legal_set_precision": 0.510386,
+        "legal_set_recall": 0.009695,
+        "policy_loss": 7.066227,
+        "policy_top1_accuracy": 0.018555
+      },
+      "verify": {
+        "examples_per_second": 2287.629,
+        "legal_set_f1": 0.021512,
+        "legal_set_precision": 0.484346,
+        "legal_set_recall": 0.011,
+        "policy_loss": 7.042499,
+        "policy_top1_accuracy": 0.018555
+      }
+    },
+    {
+      "config": {
+        "architecture": "factorized_v6",
+        "batch_size": 128,
+        "dataset_path": "artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1",
+        "hidden_dim": 128,
+        "hidden_layers": 2,
+        "learning_rate": 0.001,
+        "legality_loss_weight": 1.0,
+        "policy_loss_weight": 1.0,
+        "torch_threads": 4
+      },
+      "name": "factorized_v6",
+      "paths": {
+        "summary": "artifacts/phase5/stockfish_pgn_factorized_v6_v1/summary.json",
+        "verify": "artifacts/phase5/stockfish_pgn_factorized_v6_v1_verify.json"
+      },
+      "validation": {
+        "examples_per_second": 1685.034,
+        "legal_set_f1": 0.10281,
+        "legal_set_precision": 0.325567,
+        "legal_set_recall": 0.061043,
+        "policy_loss": 6.782511,
+        "policy_top1_accuracy": 0.009766
+      },
+      "verify": {
+        "examples_per_second": 399.1,
+        "legal_set_f1": 0.123078,
+        "legal_set_precision": 0.337586,
+        "legal_set_recall": 0.075258,
+        "policy_loss": 6.747333,
+        "policy_top1_accuracy": 0.010742
+      }
+    }
+  ]
+}

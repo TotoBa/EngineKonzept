@@ -11,6 +11,11 @@ from train.action_space import flatten_action, flatten_legal_actions
 from train.datasets.oracle import label_records_with_oracle
 from train.datasets.schema import DatasetExample, PositionEncoding, RawPositionRecord, SUPPORTED_SPLITS
 
+try:
+    import chess
+except ModuleNotFoundError:  # pragma: no cover - exercised when chess is absent
+    chess = None
+
 PIECE_TOKEN_CAPACITY = 32
 PIECE_TOKEN_WIDTH = 3
 PIECE_TOKEN_PADDING_VALUE = -1
@@ -29,7 +34,11 @@ PIECE_FEATURE_SLICE = slice(0, PIECE_FEATURE_SIZE)
 SQUARE_FEATURE_SLICE = slice(PIECE_FEATURE_SIZE, PIECE_FEATURE_SIZE + SQUARE_FEATURE_SIZE)
 RULE_FEATURE_SLICE = slice(PIECE_FEATURE_SIZE + SQUARE_FEATURE_SIZE, POSITION_FEATURE_SIZE)
 PROPOSER_ARTIFACT_PREFIX = "proposer_"
+SYMBOLIC_PROPOSER_ARTIFACT_PREFIX = "proposer_symbolic_"
 DYNAMICS_ARTIFACT_PREFIX = "dynamics_"
+SYMBOLIC_PROPOSER_CANDIDATE_FEATURE_SIZE = 18
+SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE = 9
+SYMBOLIC_MAX_LEGAL_CANDIDATES = 256
 
 
 @dataclass(frozen=True)
@@ -74,6 +83,75 @@ class ProposerTrainingExample:
         payload = json.loads(line)
         if not isinstance(payload, dict):
             raise ValueError(f"{source}: proposer training example must be a JSON object")
+        return cls.from_dict(payload)
+
+
+@dataclass(frozen=True)
+class SymbolicProposerTrainingExample:
+    """Training-ready proposer example with exact symbolic candidate features."""
+
+    sample_id: str
+    split: str
+    feature_vector: list[float]
+    global_features: list[float]
+    legal_action_indices: list[int]
+    candidate_action_indices: list[int]
+    candidate_features: list[list[float]]
+    selected_action_index: int | None
+
+    def to_dict(self) -> dict[str, object]:
+        """Return the JSON representation."""
+        return {
+            "sample_id": self.sample_id,
+            "split": self.split,
+            "feature_vector": self.feature_vector,
+            "global_features": self.global_features,
+            "legal_action_indices": self.legal_action_indices,
+            "candidate_action_indices": self.candidate_action_indices,
+            "candidate_features": self.candidate_features,
+            "selected_action_index": self.selected_action_index,
+        }
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, object]) -> "SymbolicProposerTrainingExample":
+        """Construct the symbolic training example from JSON."""
+        split = str(payload["split"])
+        if split not in SUPPORTED_SPLITS:
+            raise ValueError(f"unsupported split: {split}")
+        global_features = [float(value) for value in list(payload["global_features"])]
+        if len(global_features) != SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE:
+            raise ValueError(
+                "global_features must have width "
+                f"{SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE}"
+            )
+        candidate_features = [
+            [float(value) for value in row] for row in list(payload["candidate_features"])
+        ]
+        for row in candidate_features:
+            if len(row) != SYMBOLIC_PROPOSER_CANDIDATE_FEATURE_SIZE:
+                raise ValueError(
+                    "candidate_features rows must have width "
+                    f"{SYMBOLIC_PROPOSER_CANDIDATE_FEATURE_SIZE}"
+                )
+        return cls(
+            sample_id=str(payload["sample_id"]),
+            split=split,
+            feature_vector=[float(value) for value in list(payload["feature_vector"])],
+            global_features=global_features,
+            legal_action_indices=sorted(int(value) for value in list(payload["legal_action_indices"])),
+            candidate_action_indices=[
+                int(value) for value in list(payload["candidate_action_indices"])
+            ],
+            candidate_features=candidate_features,
+            selected_action_index=_optional_int(payload.get("selected_action_index")),
+        )
+
+    @classmethod
+    def from_json(cls, line: str, *, source: str = "<jsonl>") -> "SymbolicProposerTrainingExample":
+        """Parse the symbolic training example from one JSON line."""
+        payload = json.loads(line)
+        if not isinstance(payload, dict):
+            raise ValueError(f"{source}: symbolic proposer training example must be a JSON object")
         return cls.from_dict(payload)
 
 
@@ -162,10 +240,25 @@ def load_split_examples(dataset_path: Path, split: str) -> list[DatasetExample]:
     return [example for example in load_dataset_examples(dataset_path) if example.split == split]
 
 
-def load_proposer_examples(dataset_path: Path, split: str) -> list[ProposerTrainingExample]:
+def load_proposer_examples(
+    dataset_path: Path,
+    split: str,
+    *,
+    variant: str = "standard",
+) -> list[ProposerTrainingExample] | list[SymbolicProposerTrainingExample]:
     """Load split examples and convert them into proposer-ready features."""
     if split not in SUPPORTED_SPLITS:
         raise ValueError(f"unsupported split: {split}")
+
+    if variant == "symbolic":
+        if dataset_path.is_dir():
+            symbolic_path = dataset_path / symbolic_proposer_artifact_name(split)
+            if symbolic_path.exists():
+                return _load_symbolic_proposer_examples_from_jsonl(symbolic_path)
+        return [to_symbolic_proposer_example(example) for example in load_split_examples(dataset_path, split)]
+
+    if variant != "standard":
+        raise ValueError(f"unsupported proposer artifact variant: {variant}")
 
     if dataset_path.is_dir():
         proposer_path = dataset_path / proposer_artifact_name(split)
@@ -212,6 +305,23 @@ def materialize_proposer_artifacts(dataset_path: Path) -> dict[str, int]:
     return written_counts
 
 
+def materialize_symbolic_proposer_artifacts(dataset_path: Path) -> dict[str, int]:
+    """Write proposer_symbolic_<split>.jsonl files next to full dataset split artifacts."""
+    if not dataset_path.is_dir():
+        raise ValueError("dataset_path must be a directory")
+
+    written_counts: dict[str, int] = {}
+    for split in sorted(SUPPORTED_SPLITS):
+        split_examples = load_split_examples(dataset_path, split)
+        symbolic_examples = [to_symbolic_proposer_example(example) for example in split_examples]
+        _write_jsonl(
+            path=dataset_path / symbolic_proposer_artifact_name(split),
+            records=symbolic_examples,
+        )
+        written_counts[split] = len(symbolic_examples)
+    return written_counts
+
+
 def materialize_dynamics_artifacts(
     dataset_path: Path,
     *,
@@ -253,6 +363,53 @@ def to_proposer_example(example: DatasetExample) -> ProposerTrainingExample:
         split=example.split,
         feature_vector=pack_position_features(example.position_encoding),
         legal_action_indices=legal_action_indices,
+        selected_action_index=selected_action_index,
+    )
+
+
+def to_symbolic_proposer_example(example: DatasetExample) -> SymbolicProposerTrainingExample:
+    """Convert a dataset example into symbolic candidate-scoring supervision."""
+    if chess is None:  # pragma: no cover - exercised when chess is absent
+        raise RuntimeError(
+            "python-chess is required for symbolic proposer artifacts. Install the 'train' extra."
+        )
+
+    board = chess.Board(example.fen)
+    own_attacks = _attack_map(board, board.turn)
+    opp_attacks = _attack_map(board, not board.turn)
+    legal_action_indices = flatten_legal_actions(example.legal_action_encodings)
+    legal_moves_by_action = {
+        flatten_action(action): move
+        for move, action in zip(example.legal_moves, example.legal_action_encodings, strict=True)
+    }
+    candidate_action_indices = list(legal_action_indices)
+    candidate_features = [
+        _candidate_feature_row(
+            board,
+            chess.Move.from_uci(legal_moves_by_action[action_index]),
+            own_attacks,
+            opp_attacks,
+        )
+        for action_index in candidate_action_indices
+    ]
+    selected_action_index = (
+        None
+        if example.selected_action_encoding is None
+        else flatten_action(example.selected_action_encoding)
+    )
+    if selected_action_index is not None and selected_action_index not in legal_action_indices:
+        raise ValueError(
+            f"{example.sample_id}: selected action is not part of the legal action set"
+        )
+
+    return SymbolicProposerTrainingExample(
+        sample_id=example.sample_id,
+        split=example.split,
+        feature_vector=pack_position_features(example.position_encoding),
+        global_features=_symbolic_global_features(example, own_attacks, opp_attacks),
+        legal_action_indices=legal_action_indices,
+        candidate_action_indices=candidate_action_indices,
+        candidate_features=candidate_features,
         selected_action_index=selected_action_index,
     )
 
@@ -310,11 +467,58 @@ def proposer_artifact_name(split: str) -> str:
     return f"{PROPOSER_ARTIFACT_PREFIX}{split}.jsonl"
 
 
+def symbolic_proposer_artifact_name(split: str) -> str:
+    """Return the canonical symbolic proposer artifact filename for one split."""
+    if split not in SUPPORTED_SPLITS:
+        raise ValueError(f"unsupported split: {split}")
+    return f"{SYMBOLIC_PROPOSER_ARTIFACT_PREFIX}{split}.jsonl"
+
+
 def dynamics_artifact_name(split: str) -> str:
     """Return the canonical dynamics artifact filename for one split."""
     if split not in SUPPORTED_SPLITS:
         raise ValueError(f"unsupported split: {split}")
     return f"{DYNAMICS_ARTIFACT_PREFIX}{split}.jsonl"
+
+
+def symbolic_proposer_feature_spec() -> dict[str, object]:
+    """Describe the symbolic proposer side inputs."""
+    return {
+        "max_legal_candidates": SYMBOLIC_MAX_LEGAL_CANDIDATES,
+        "candidate_feature_dim": SYMBOLIC_PROPOSER_CANDIDATE_FEATURE_SIZE,
+        "global_feature_dim": SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE,
+        "candidate_feature_order": [
+            "is_capture",
+            "is_promotion",
+            "is_castle",
+            "is_en_passant",
+            "gives_check",
+            "from_attacked_by_opponent",
+            "to_attacked_by_opponent",
+            "from_defended_by_self",
+            "to_attacked_by_self",
+            "moving_piece_pawn",
+            "moving_piece_knight",
+            "moving_piece_bishop",
+            "moving_piece_rook",
+            "moving_piece_queen",
+            "moving_piece_king",
+            "captured_piece_present",
+            "captured_piece_pawn",
+            "captured_piece_minor_or_major",
+        ],
+        "global_feature_order": [
+            "in_check",
+            "has_legal_castle",
+            "has_legal_en_passant",
+            "has_legal_promotion",
+            "is_low_material_endgame",
+            "legal_move_count_normalized",
+            "piece_count_normalized",
+            "self_attack_square_ratio",
+            "opponent_attack_square_ratio",
+        ],
+    }
 
 
 def split_position_features(feature_vector: Sequence[float]) -> dict[str, list[float]]:
@@ -357,6 +561,21 @@ def _load_proposer_examples_from_jsonl(path: Path) -> list[ProposerTrainingExamp
     return examples
 
 
+def _load_symbolic_proposer_examples_from_jsonl(path: Path) -> list[SymbolicProposerTrainingExample]:
+    if not path.exists():
+        raise FileNotFoundError(f"dataset artifact not found: {path}")
+
+    examples: list[SymbolicProposerTrainingExample] = []
+    for line_number, raw_line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        line = raw_line.strip()
+        if not line:
+            continue
+        examples.append(
+            SymbolicProposerTrainingExample.from_json(line, source=f"{path}:{line_number}")
+        )
+    return examples
+
+
 def _load_dynamics_examples_from_jsonl(path: Path) -> list[DynamicsTrainingExample]:
     if not path.exists():
         raise FileNotFoundError(f"dataset artifact not found: {path}")
@@ -373,6 +592,75 @@ def _load_dynamics_examples_from_jsonl(path: Path) -> list[DynamicsTrainingExamp
 def _write_jsonl(path: Path, records: Sequence[object]) -> None:
     lines = [json.dumps(record.to_dict(), sort_keys=True) for record in records]
     path.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
+
+
+def _symbolic_global_features(
+    example: DatasetExample,
+    own_attacks: list[bool],
+    opp_attacks: list[bool],
+) -> list[float]:
+    annotations = example.annotations
+    return [
+        float(annotations.in_check),
+        float(annotations.has_legal_castle),
+        float(annotations.has_legal_en_passant),
+        float(annotations.has_legal_promotion),
+        float(annotations.is_low_material_endgame),
+        float(annotations.legal_move_count) / 256.0,
+        float(annotations.piece_count) / 32.0,
+        sum(1.0 for attacked in own_attacks if attacked) / 64.0,
+        sum(1.0 for attacked in opp_attacks if attacked) / 64.0,
+    ]
+
+
+def _candidate_feature_row(
+    board: "chess.Board",
+    move: "chess.Move",
+    own_attacks: list[bool],
+    opp_attacks: list[bool],
+) -> list[float]:
+    moving_piece = board.piece_at(move.from_square)
+    if moving_piece is None:
+        raise ValueError(f"missing moving piece on {move.uci()}")
+    captured_piece = (
+        board.piece_at(move.to_square)
+        if not board.is_en_passant(move)
+        else board.piece_at(move.to_square + (-8 if board.turn else 8))
+    )
+    piece_one_hot = [0.0] * 6
+    piece_one_hot[moving_piece.piece_type - 1] = 1.0
+    captured_minor_or_major = (
+        1.0
+        if captured_piece is not None
+        and captured_piece.piece_type
+        in {chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN}
+        else 0.0
+    )
+    return [
+        float(board.is_capture(move)),
+        float(move.promotion is not None),
+        float(board.is_castling(move)),
+        float(board.is_en_passant(move)),
+        float(board.gives_check(move)),
+        float(opp_attacks[move.from_square]),
+        float(opp_attacks[move.to_square]),
+        float(own_attacks[move.from_square]),
+        float(own_attacks[move.to_square]),
+        *piece_one_hot,
+        float(captured_piece is not None),
+        float(captured_piece is not None and captured_piece.piece_type == chess.PAWN),
+        captured_minor_or_major,
+    ]
+
+
+def _attack_map(board: "chess.Board", color: "chess.Color") -> list[bool]:
+    attacked = [False] * 64
+    for square, piece in board.piece_map().items():
+        if piece.color != color:
+            continue
+        for target in board.attacks(square):
+            attacked[target] = True
+    return attacked
 
 
 def _pad_piece_tokens(piece_tokens: Sequence[Sequence[int]]) -> list[float]:

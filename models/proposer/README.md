@@ -2,11 +2,13 @@
 
 This directory stores exported Phase-5 proposer bundles.
 
-Each model bundle contains:
+Most model bundles contain:
 
 - `checkpoint.pt`
 - `proposer.pt2`
 - `metadata.json`
+
+The current `symbolic_v1` arm is the explicit exception: it is checkpoint-only while the symbolic-candidate runtime contract is still experimental.
 
 ## Current Default
 
@@ -40,6 +42,8 @@ These bundles correspond to the main `10k` comparison grid:
   Pairwise-coupled conditional factorized proposer; current best legality-focused Phase-5 arm.
 - [stockfish_pgn_relational_v1_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_relational_v1_v1)
   Typed relational backbone plus stronger factorized heads; current relational policy-path baseline.
+- [stockfish_pgn_symbolic_v1_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1)
+  Checkpoint-only symbolic-candidate proposer arm. Exact legal move generation plus learned policy scoring over legal candidates; not yet exported through the old Rust bundle path.
 - [stockfish_pgn_pi_10k_h192_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_pi_10k_h192_v1)
   Wider hidden-layer experimental variant.
 - [stockfish_pgn_pi_10k_h256_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_pi_10k_h256_v1)

@@ -1,4 +1,4 @@
-"""Backfill optional proposer_<split>.jsonl files for an existing dataset directory."""
+"""Backfill proposer artifact variants for an existing dataset directory."""
 
 from __future__ import annotations
 
@@ -7,15 +7,31 @@ import json
 from pathlib import Path
 from typing import Sequence
 
-from train.datasets import materialize_proposer_artifacts
+from train.datasets import (
+    materialize_proposer_artifacts,
+    materialize_symbolic_proposer_artifacts,
+)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset-dir", type=Path, required=True)
+    parser.add_argument(
+        "--variant",
+        choices=("standard", "symbolic", "both"),
+        default="standard",
+    )
     args = parser.parse_args(argv)
 
-    written_counts = materialize_proposer_artifacts(args.dataset_dir)
+    if args.variant == "standard":
+        written_counts = {"standard": materialize_proposer_artifacts(args.dataset_dir)}
+    elif args.variant == "symbolic":
+        written_counts = {"symbolic": materialize_symbolic_proposer_artifacts(args.dataset_dir)}
+    else:
+        written_counts = {
+            "standard": materialize_proposer_artifacts(args.dataset_dir),
+            "symbolic": materialize_symbolic_proposer_artifacts(args.dataset_dir),
+        }
     print(
         json.dumps(
             {

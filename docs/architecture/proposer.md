@@ -35,7 +35,7 @@ The `multistream_v2` arm is the first repo-local application of the broader arch
 
 ## Model Shape
 
-Phase 5 now carries seven proposer architectures behind the same dataset and export contract.
+Phase 5 now carries eight proposer architectures. Seven stay on the old flat-action export contract; one new arm intentionally steps outside that export boundary as an offline-only experiment.
 
 ### `mlp_v1`
 
@@ -179,6 +179,38 @@ Measured outcome on the `10k` Pi-labeled corpus:
 
 That does not beat `current_default` on policy and does not beat `factorized_v6` on legality, but it does improve policy over the earlier factorized arms while keeping clearly stronger legality than the old flat MLP baseline.
 
+### `symbolic_v1`
+
+This arm replaces the learned legality head with exact symbolic legal-move generation and trains only a scorer over legal candidates.
+
+It keeps:
+
+- the same packed `230`-feature state input
+- the same exact Rust legality authority
+- the same action-space indices for supervision and evaluation
+
+But it adds a separate symbolic side input per legal candidate:
+
+- exact legal candidate list
+- compact per-move flags such as capture, promotion, castle, en passant, and gives-check
+- compact attack-context features derived from exact attacked-square maps
+- small global tactical flags such as `in_check` and legal-move count
+
+The current implementation is intentionally an experimental offline arm:
+
+- legality is no longer learned
+- Rust/runtime export has not been switched yet
+- the trained artifact is currently a checkpoint-only scorer, not a Rust-loadable bundle
+
+Measured outcome on the `10k` Pi-labeled corpus:
+
+- validation `legal_set_f1`: `1.0`
+- validation `policy_top1_accuracy`: `0.158203`
+- verify `legal_set_f1`: `1.0`
+- verify `policy_top1_accuracy`: `0.127441`
+
+That is the strongest `10k` proposer result in the repository so far, but it is still an experimental arm because the runtime/export path has not been reworked around symbolic candidate generation yet.
+
 ## Current Decision
 
 For this repository state, the next preferred proposer direction is still a factorized decoder over the existing move schema, not early mixture-of-experts routing.
@@ -197,6 +229,7 @@ The new results narrow that further:
 - `factorized_v5` showed that extra policy-specific capacity can recover much of the lost policy signal without falling back to a full flat head
 - `factorized_v6` showed that explicit policy-side `from-to` coupling can push legality further still, but not enough to win policy
 - `relational_v1` showed that the typed backbone remains useful when paired with the stronger newer decoder heads
+- `symbolic_v1` showed that exact symbolic legality plus candidate scoring is dramatically stronger on the current `10k` corpus than any learned-legality arm, but it currently lives outside the old proposer export contract
 
 So the next decoder question is no longer "factorized or not", but how to improve policy while keeping the stronger legality structure and how to select checkpoints when legality and policy peak at different epochs.
 
@@ -212,6 +245,8 @@ The flat action index matches the Phase-3 factorization:
 `((from_index * 64) + to_index) * 5 + promotion_index`
 
 The output contract remains identical across `mlp_v1`, `multistream_v2`, `factorized_v3`, `factorized_v4`, `factorized_v5`, `factorized_v6`, and `relational_v1`, so existing datasets, metrics, export tooling, and Rust-side metadata validation remain compatible.
+
+`symbolic_v1` is the current exception: it preserves the same flat action indices for supervision and evaluation, but it depends on a symbolic legal-candidate side input and therefore is not yet exported through the old Phase-5 Rust bundle path.
 
 ## Training Objective
 

@@ -17,10 +17,16 @@ from train.config import (
 from train.datasets import (
     POSITION_FEATURE_SIZE,
     load_proposer_examples,
+    materialize_symbolic_proposer_artifacts,
     proposer_artifact_name,
+    symbolic_proposer_artifact_name,
     write_dataset_artifacts,
 )
-from train.datasets.artifacts import to_proposer_example
+from train.datasets.artifacts import (
+    SYMBOLIC_PROPOSER_CANDIDATE_FEATURE_SIZE,
+    SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE,
+    to_proposer_example,
+)
 from train.datasets.schema import DatasetExample
 from train.export.proposer import build_export_metadata
 from train.models.proposer import LegalityPolicyProposer
@@ -94,6 +100,72 @@ def test_train_proposer_can_load_optional_lean_artifacts(tmp_path: Path) -> None
     assert len(validation_examples) == 1
     assert train_examples[0].sample_id == "train:1"
     assert validation_examples[0].sample_id == "validation:1"
+
+
+def test_symbolic_proposer_examples_can_be_materialized_and_loaded(tmp_path: Path) -> None:
+    pytest.importorskip("chess")
+
+    dataset_dir = tmp_path / "dataset"
+    dataset_dir.mkdir()
+    dataset_examples = [
+        DatasetExample.from_dict(_dataset_example_dict(sample_id="train:1", split="train")),
+    ]
+    dataset = SimpleNamespace(examples=dataset_examples, summary={"ok": True})
+
+    write_dataset_artifacts(dataset_dir, dataset, write_proposer_artifacts=True)
+    counts = materialize_symbolic_proposer_artifacts(dataset_dir)
+    examples = load_proposer_examples(dataset_dir, "train", variant="symbolic")
+
+    assert counts["train"] == 1
+    assert (dataset_dir / symbolic_proposer_artifact_name("train")).exists()
+    assert len(examples) == 1
+    assert len(examples[0].global_features) == SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE
+    assert len(examples[0].candidate_features[0]) == SYMBOLIC_PROPOSER_CANDIDATE_FEATURE_SIZE
+
+
+def test_config_accepts_symbolic_v1_architecture(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "seed": 7,
+                "output_dir": "artifacts/phase5/test-run",
+                "data": {
+                    "dataset_path": "artifacts/datasets/phase4",
+                    "train_split": "train",
+                    "validation_split": "validation",
+                },
+                "model": {
+                    "architecture": "symbolic_v1",
+                    "hidden_dim": 64,
+                    "hidden_layers": 2,
+                    "dropout": 0.0,
+                },
+                "optimization": {
+                    "epochs": 1,
+                    "batch_size": 2,
+                    "learning_rate": 0.001,
+                    "weight_decay": 0.0,
+                    "legality_loss_weight": 1.0,
+                    "policy_loss_weight": 1.0,
+                },
+                "evaluation": {"legality_threshold": 0.4},
+                "export": {
+                    "enabled": False,
+                    "bundle_dir": "models/proposer/test-symbolic-v1",
+                    "checkpoint_name": "checkpoint.pt",
+                    "exported_program_name": "proposer.pt2",
+                    "metadata_name": "metadata.json",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_proposer_train_config(config_path)
+
+    assert config.model.architecture == "symbolic_v1"
+    assert config.export.enabled is False
 
 
 def test_config_loading_and_export_metadata_are_repo_relative(tmp_path: Path) -> None:
@@ -1200,6 +1272,72 @@ def test_train_proposer_supports_relational_v1(tmp_path: Path) -> None:
     assert run.model_parameter_count > 0
     assert (tmp_path / "models/proposer/test-relational-v1/checkpoint.pt").exists()
     assert (tmp_path / "models/proposer/test-relational-v1/proposer.pt2").exists()
+
+
+def test_train_proposer_supports_symbolic_v1_without_export(tmp_path: Path) -> None:
+    pytest.importorskip("torch")
+    pytest.importorskip("chess")
+
+    dataset_dir = tmp_path / "artifacts" / "datasets" / "phase4"
+    dataset_dir.mkdir(parents=True)
+    dataset = SimpleNamespace(
+        examples=[
+            DatasetExample.from_dict(_dataset_example_dict(sample_id="train:1", split="train")),
+            DatasetExample.from_dict(_dataset_example_dict(sample_id="train:2", split="train")),
+            DatasetExample.from_dict(
+                _dataset_example_dict(sample_id="validation:1", split="validation")
+            ),
+        ],
+        summary={"ok": True},
+    )
+    write_dataset_artifacts(dataset_dir, dataset, write_proposer_artifacts=True)
+    materialize_symbolic_proposer_artifacts(dataset_dir)
+
+    config_path = tmp_path / "python" / "configs" / "phase5_proposer_symbolic_v1.json"
+    config_path.parent.mkdir(parents=True)
+    config_path.write_text(
+        json.dumps(
+            {
+                "seed": 3,
+                "output_dir": "artifacts/phase5/test-run-symbolic-v1",
+                "data": {
+                    "dataset_path": "artifacts/datasets/phase4",
+                    "train_split": "train",
+                    "validation_split": "validation",
+                },
+                "model": {
+                    "architecture": "symbolic_v1",
+                    "hidden_dim": 32,
+                    "hidden_layers": 1,
+                    "dropout": 0.0,
+                },
+                "optimization": {
+                    "epochs": 1,
+                    "batch_size": 2,
+                    "learning_rate": 0.001,
+                    "weight_decay": 0.0,
+                    "legality_loss_weight": 1.0,
+                    "policy_loss_weight": 1.0,
+                },
+                "evaluation": {"legality_threshold": 0.5},
+                "export": {
+                    "enabled": False,
+                    "bundle_dir": "models/proposer/test-symbolic-v1",
+                    "checkpoint_name": "checkpoint.pt",
+                    "exported_program_name": "proposer.pt2",
+                    "metadata_name": "metadata.json",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    run = train_proposer(load_proposer_train_config(config_path), repo_root=tmp_path)
+
+    assert run.best_epoch == 1
+    assert run.model_parameter_count > 0
+    assert (tmp_path / "models/proposer/test-symbolic-v1/checkpoint.pt").exists()
+    assert "exported_program" not in run.export_paths
 
 
 def _dataset_example_dict(
