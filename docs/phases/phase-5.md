@@ -29,6 +29,12 @@ Train and export the first legality/policy proposer without introducing dynamics
 
 The `*_pi_10k_v1` corpora are the current default Phase-5 reference datasets for proposer work. The smaller `*_v1` and `*_pi_v1` Stockfish corpora remain in the repository as early baselines and regression fixtures, not as the preferred training starting point.
 
+The same `current default` / `experimental variant` / `legacy baseline` split is now documented for:
+
+- [python/configs/README.md](/home/torsten/EngineKonzept/python/configs/README.md)
+- [models/proposer/README.md](/home/torsten/EngineKonzept/models/proposer/README.md)
+- [artifacts/phase5/README.md](/home/torsten/EngineKonzept/artifacts/phase5/README.md)
+
 ## Current findings
 
 - legality is materially easier for the current MLP than policy

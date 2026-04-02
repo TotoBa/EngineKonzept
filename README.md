@@ -64,6 +64,12 @@ Reference Phase-5 experiments on the `10,240` train / `2,048` verify Pi-labeled 
 
 For dataset naming, treat [phase5_stockfish_pgn_train_pi_10k_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1) and [phase5_stockfish_pgn_verify_pi_10k_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_verify_pi_10k_v1) as the current standard Phase-5 corpora. The smaller [phase5_stockfish_pgn_train_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_v1), [phase5_stockfish_pgn_verify_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_verify_v1), [phase5_stockfish_pgn_train_pi_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_pi_v1), and [phase5_stockfish_pgn_verify_pi_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_verify_pi_v1) remain available as early small-baseline artifacts and regression fixtures.
 
+For the same categorization on configs, model bundles, and Phase-5 summaries, see:
+
+- [python/configs/README.md](/home/torsten/EngineKonzept/python/configs/README.md)
+- [models/proposer/README.md](/home/torsten/EngineKonzept/models/proposer/README.md)
+- [artifacts/phase5/README.md](/home/torsten/EngineKonzept/artifacts/phase5/README.md)
+
 ## Repository Layout
 
 ```text
