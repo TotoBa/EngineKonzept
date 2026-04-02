@@ -188,3 +188,9 @@ These contracts are also the natural attachment points for offline alpha-beta an
 - `TransitionContextV1` for dynamics/opponent traces
 - `LatentStateV1` for planner-facing supervision
 - `OpponentHeadV1` for reply-policy and threat targets
+
+The first concrete workflow attachment is now implemented:
+
+- `search_teacher_<split>.jsonl` root-label datasets over exact legal candidates
+- built from `CandidateContextV2`
+- explicitly offline and teacher-only

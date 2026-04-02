@@ -273,6 +273,7 @@ Current status:
 
 - `CandidateContextV2` now exists as a versioned Python-side dataset/workflow contract
 - `TransitionContextV1` now exists as a versioned Python-side transition artifact contract
+- the first offline `search_teacher_<split>.jsonl` workflow now exists over exact legal candidates
 - shipped Rust runtime bundles still validate and execute only the current `CandidateContextV1` scorer path
 - current default dynamics bundles still do not consume `TransitionContextV1`
 - that split is intentional until a matching runtime-trained proposer or dynamics/opponent arm adopts the richer contracts

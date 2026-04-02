@@ -46,6 +46,14 @@ from train.datasets.pgn_policy import (
     training_split_ratios,
     verification_split_ratios,
 )
+from train.datasets.search_teacher import (
+    SearchTeacherExample,
+    build_search_teacher_example_from_analysis,
+    build_search_teacher_examples,
+    load_search_teacher_examples,
+    search_teacher_artifact_name,
+    write_search_teacher_artifact,
+)
 from train.datasets.schema import DatasetExample, RawPositionRecord, SplitRatios, WdlTarget
 from train.datasets.sources import SUPPORTED_SOURCE_FORMATS, load_raw_records
 
@@ -67,10 +75,13 @@ __all__ = [
     "RawPositionRecord",
     "SYMBOLIC_MAX_LEGAL_CANDIDATES",
     "SUPPORTED_SOURCE_FORMATS",
+    "SearchTeacherExample",
     "SplitRatios",
     "SymbolicProposerTrainingExample",
     "WdlTarget",
     "build_dataset",
+    "build_search_teacher_example_from_analysis",
+    "build_search_teacher_examples",
     "build_selected_move_action_features",
     "build_symbolic_proposer_example",
     "candidate_context_feature_dim",
@@ -85,6 +96,7 @@ __all__ = [
     "load_dynamics_examples",
     "load_proposer_examples",
     "load_raw_records",
+    "load_search_teacher_examples",
     "load_split_examples",
     "materialize_dynamics_artifacts",
     "materialize_proposer_artifacts",
@@ -94,6 +106,7 @@ __all__ = [
     "position_feature_spec",
     "proposer_artifact_name",
     "sample_policy_records_from_pgns",
+    "search_teacher_artifact_name",
     "symbolic_candidate_context_v2_feature_spec",
     "symbolic_proposer_artifact_name",
     "symbolic_proposer_feature_spec",
@@ -103,5 +116,6 @@ __all__ = [
     "transition_context_feature_order",
     "transition_context_spec",
     "verification_split_ratios",
+    "write_search_teacher_artifact",
     "write_dataset_artifacts",
 ]

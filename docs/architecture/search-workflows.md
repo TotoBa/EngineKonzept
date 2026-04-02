@@ -70,6 +70,13 @@ The next workflow layer should be built in this order:
 4. curriculum buckets driven by those disagreements and traces
 5. only later, offline MCTS distillation over the learned stack
 
+Status now:
+
+- the first `search_teacher_<split>.jsonl` workflow is implemented
+- it is explicitly an offline UCI-teacher workflow
+- it uses the exact legal candidate set plus `CandidateContextV2`
+- it does not modify the runtime move-selection path
+
 ### Alpha-Beta Teacher Labels
 
 For each root position, the most useful initial outputs are:
@@ -87,6 +94,13 @@ Suggested first dataset family:
 - `search_teacher_train.jsonl`
 - `search_teacher_validation.jsonl`
 - `search_teacher_test.jsonl`
+
+The current repo implementation builds these with:
+
+- [build_search_teacher_dataset.py](/home/torsten/EngineKonzept/python/scripts/build_search_teacher_dataset.py)
+- [search_teacher.py](/home/torsten/EngineKonzept/python/train/datasets/search_teacher.py)
+
+The first implementation deliberately uses an external UCI alpha-beta teacher, for example Stockfish, instead of embedding search inside the shipped runtime path. That keeps the architectural boundary clear while still producing structured offline labels.
 
 ### Search Traces
 
