@@ -93,6 +93,12 @@ The first explicit opponent module should predict:
 - threat or pressure signal
 - uncertainty
 
+The first comparison baseline should be:
+
+1. exact apply our move
+2. exact-generate opponent legal candidates
+3. reuse the current symbolic proposer as the opponent-reply scorer
+
 ## Concrete Workflow Layer
 
 ### Alpha-Beta First
@@ -105,6 +111,10 @@ Build first:
 - top-k teacher sets
 - short PV traces
 
+Recommended first dataset family:
+
+- `search_teacher_<split>.jsonl`
+
 ### Search Traces
 
 Recommended new dataset family:
@@ -115,6 +125,10 @@ Recommended new dataset family:
 - reply set
 - short PV line
 - depth/nodes metadata
+
+Recommended first dataset family:
+
+- `search_traces_<split>.jsonl`
 
 ### Disagreement Mining
 
@@ -135,7 +149,8 @@ Use later for:
 ## Immediate Repo Actions
 
 1. version the next contracts before Phase 7 code grows
-2. keep improving Phase 6 on top of large-corpus `structured_v5`
-3. add granular exactness metrics beyond the current all-or-nothing exact next-state metric
-4. build the offline alpha-beta teacher/trace/disagreement layer
-5. only then expand opponent/planner code
+2. unify symbolic feature authority or add golden Python/Rust identity tests
+3. keep improving Phase 6 on top of large-corpus `structured_v5`
+4. add granular exactness metrics beyond the current all-or-nothing exact next-state metric
+5. build the offline alpha-beta teacher/trace/disagreement layer
+6. only then expand opponent/planner code

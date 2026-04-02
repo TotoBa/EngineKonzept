@@ -132,6 +132,8 @@ The next metrics that should be added are more granular exactness slices, not ju
 - rule-token exactness
 - occupancy exactness
 - special-move exactness buckets
+- `next_global_feature_l1`
+- transition-tag accuracy
 
 The current materialized runs are:
 
@@ -245,5 +247,7 @@ The obvious next pressures are now:
 - a better way to use multi-step supervision than the current `structured_v4_v1` rollout-loss formulation
 - potentially partial-state or tokenized reconstruction instead of one flat feature regression target
 - stronger multi-step drift supervision beyond the current short held-out slice
+- a clearer split between root-candidate features and selected-action transition features
+- a single feature-authority path or golden tests so Python and Rust cannot silently drift
 
 Those changes should stay action-conditioned and must not drift toward any hidden symbolic search or fallback evaluator.

@@ -265,6 +265,10 @@ The next concrete contract definitions should be:
 4. `OpponentHeadV1`
    Explicit reply distribution, pressure/threat, and uncertainty outputs over exact legal replies.
 
+The next implementation hygiene requirement should be:
+
+5. a single symbolic-feature authority or golden cross-language tests so Python dataset materialization and Rust runtime feature generation cannot silently diverge
+
 ## Success Criteria For The Next Step
 
 The next proposer experiment should count as successful only if it improves at least one of these without breaking the current symbolic contracts:
@@ -278,5 +282,6 @@ The next dynamics/opponent preparation step should count as successful only if i
 - improves verify drift on top of large-corpus `structured_v5`
 - clarifies the selected-action contract for later imagined rollouts
 - introduces opponent/planner supervision targets without embedding runtime search
+- beats the exact-reply symbolic proposer baseline once an explicit opponent head exists
 
 If a new arm is slower and does not materially improve held-out policy or legality, it should remain experimental rather than become the default.

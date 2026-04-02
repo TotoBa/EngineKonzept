@@ -82,6 +82,12 @@ For each root position, the most useful initial outputs are:
 
 These targets fit the current symbolic proposer contract directly.
 
+Suggested first dataset family:
+
+- `search_teacher_train.jsonl`
+- `search_teacher_validation.jsonl`
+- `search_teacher_test.jsonl`
+
 ### Search Traces
 
 The next dataset family should contain short offline traces, not runtime search code.
@@ -97,6 +103,12 @@ Recommended fields:
 
 That makes the trace useful later for opponent-head supervision and bounded planner supervision.
 
+Suggested first dataset family:
+
+- `search_traces_train.jsonl`
+- `search_traces_validation.jsonl`
+- `search_traces_test.jsonl`
+
 ### Disagreement Mining
 
 The repo should explicitly mine positions where:
@@ -107,6 +119,16 @@ The repo should explicitly mine positions where:
 - special-move or mobility edge cases cause large ranking errors
 
 These positions should become regression fixtures and curriculum buckets, not one-off analysis files.
+
+## Baseline Rule For Phase 7
+
+Before a learned opponent head is treated as progress, compare it against one exact symbolic baseline:
+
+1. exact apply our move
+2. exact-generate opponent legal candidates
+3. reuse the current symbolic proposer as the opponent reply scorer
+
+That baseline is cheap, repo-compatible, and strong enough to prevent low-value opponent-model churn.
 
 ### MCTS Later
 

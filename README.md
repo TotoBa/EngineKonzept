@@ -89,6 +89,7 @@ For the same categorization on configs, model bundles, and Phase-5 summaries, se
 - [models/proposer/README.md](/home/torsten/EngineKonzept/models/proposer/README.md)
 - [artifacts/phase5/README.md](/home/torsten/EngineKonzept/artifacts/phase5/README.md)
 - [model-roadmap.md](/home/torsten/EngineKonzept/docs/architecture/model-roadmap.md)
+- [contracts.md](/home/torsten/EngineKonzept/docs/architecture/contracts.md)
 - [search-workflows.md](/home/torsten/EngineKonzept/docs/architecture/search-workflows.md)
 - [gpt-pro-review-brief.md](/home/torsten/EngineKonzept/docs/experiments/gpt-pro-review-brief.md)
 
