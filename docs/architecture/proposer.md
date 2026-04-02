@@ -189,6 +189,14 @@ Held-out reporting currently includes:
 - policy top-1 accuracy on positions with selected-action labels
 - training examples/second so CPU throughput changes remain measurable
 
+Checkpoint selection is now an explicit config choice as well:
+
+- `legality_first`
+- `policy_first`
+- `balanced`
+
+The `balanced` mode uses a weighted score over legality and policy metrics instead of always selecting by legal-set F1 first.
+
 ## Training Runtime
 
 The training config now also exposes a small runtime section for CPU-bound runs:
@@ -197,6 +205,8 @@ The training config now also exposes a small runtime section for CPU-bound runs:
 - `runtime.dataloader_workers`: worker count for the PyTorch `DataLoader`
 
 The trainer pre-packs dense legality targets once per split before epoch iteration. That keeps Phase 5 simple while avoiding repeated `20480`-wide target construction in every batch.
+
+The trainer now also supports explicit checkpoint-selection policy via the evaluation config. This matters for the factorized line because legality and policy can peak at different epochs.
 
 ## Export Bundle
 

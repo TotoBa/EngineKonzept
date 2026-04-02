@@ -88,10 +88,18 @@ class ProposerEvaluationConfig:
     """Held-out evaluation settings."""
 
     legality_threshold: float = 0.5
+    checkpoint_selection: str = "legality_first"
+    selection_policy_weight: float = 1.0
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.legality_threshold <= 1.0:
             raise ValueError("evaluation.legality_threshold must be in [0.0, 1.0]")
+        if self.checkpoint_selection not in {"legality_first", "policy_first", "balanced"}:
+            raise ValueError(
+                "evaluation.checkpoint_selection must be 'legality_first', 'policy_first', or 'balanced'"
+            )
+        if self.selection_policy_weight <= 0.0:
+            raise ValueError("evaluation.selection_policy_weight must be positive")
 
 
 @dataclass(frozen=True)

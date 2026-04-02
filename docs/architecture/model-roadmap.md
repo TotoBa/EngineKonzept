@@ -56,6 +56,7 @@ The important findings are:
 - the first additive factorized decoder cut parameters drastically, but collapsed both legality and policy quality
 - the first conditional factorized decoder became the best legal-set-F1 arm so far, but still did not take the policy lead from `current_default`
 - the next policy-stronger conditional decoder regained much of the policy gap while still beating the older MLP baselines on legality
+- explicit checkpoint selection now shows a real legality-vs-policy tradeoff inside `factorized_v5`
 
 That means:
 
@@ -106,6 +107,11 @@ The remaining gap is now:
 - best policy still belongs to `current_default`
 - best legality still belongs to `factorized_v4`
 - best legality/policy balance among the factorized arms currently belongs to `factorized_v5`
+
+And there is now a separate method choice as well:
+
+- `legality_first` selection keeps the strongest legal-set F1
+- `balanced` selection lifts policy somewhat further, but gives up legality
 
 ## Phase 6
 
@@ -182,7 +188,7 @@ These ideas are interesting for later phases, but they are not the current bottl
 
 The next model experiments should be ordered like this:
 
-1. improve checkpoint selection for mixed legality/policy objectives
+1. make the checkpoint-selection strategy a deliberate default decision
 2. conditional factorized proposer decoder with stronger policy coupling
 3. stronger relational proposer variant if the improved conditional decoder still does not close the policy gap
 4. Phase-6 local latent dynamics prototype

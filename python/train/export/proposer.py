@@ -38,6 +38,8 @@ def build_export_metadata(
             "seed": config.seed,
             "train_split": config.data.train_split,
             "validation_split": config.data.validation_split,
+            "checkpoint_selection": config.evaluation.checkpoint_selection,
+            "selection_policy_weight": config.evaluation.selection_policy_weight,
             "architecture": config.model.architecture,
             "hidden_dim": config.model.hidden_dim,
             "hidden_layers": config.model.hidden_layers,

@@ -24,6 +24,7 @@ from train.datasets.artifacts import to_proposer_example
 from train.datasets.schema import DatasetExample
 from train.export.proposer import build_export_metadata
 from train.models.proposer import LegalityPolicyProposer
+from train.trainers.proposer import ProposerMetrics, _is_better_validation
 from train.trainers import train_proposer
 
 
@@ -140,6 +141,7 @@ def test_config_loading_and_export_metadata_are_repo_relative(tmp_path: Path) ->
     assert metadata["action_space"]["flat_size"] == ACTION_SPACE_SIZE
     assert metadata["input"]["feature_dim"] == POSITION_FEATURE_SIZE
     assert metadata["outputs"]["legality_threshold"] == 0.4
+    assert metadata["training"]["checkpoint_selection"] == "legality_first"
     assert metadata["artifacts"]["exported_program_file"] == "proposer.pt2"
     assert config.runtime.torch_threads == 0
     assert config.runtime.dataloader_workers == 0
@@ -186,6 +188,54 @@ def test_config_accepts_multistream_v2_architecture(tmp_path: Path) -> None:
     config = load_proposer_train_config(config_path)
 
     assert config.model.architecture == "multistream_v2"
+
+
+def test_config_accepts_balanced_checkpoint_selection(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "seed": 7,
+                "output_dir": "artifacts/phase5/test-run",
+                "data": {
+                    "dataset_path": "artifacts/datasets/phase4",
+                    "train_split": "train",
+                    "validation_split": "validation",
+                },
+                "model": {
+                    "architecture": "factorized_v5",
+                    "hidden_dim": 64,
+                    "hidden_layers": 2,
+                    "dropout": 0.0,
+                },
+                "optimization": {
+                    "epochs": 1,
+                    "batch_size": 2,
+                    "learning_rate": 0.001,
+                    "weight_decay": 0.0,
+                    "legality_loss_weight": 1.0,
+                    "policy_loss_weight": 1.0,
+                },
+                "evaluation": {
+                    "legality_threshold": 0.4,
+                    "checkpoint_selection": "balanced",
+                    "selection_policy_weight": 5.0,
+                },
+                "export": {
+                    "bundle_dir": "models/proposer/test",
+                    "checkpoint_name": "checkpoint.pt",
+                    "exported_program_name": "proposer.pt2",
+                    "metadata_name": "metadata.json",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_proposer_train_config(config_path)
+
+    assert config.evaluation.checkpoint_selection == "balanced"
+    assert config.evaluation.selection_policy_weight == 5.0
 
 
 def test_config_accepts_factorized_v3_architecture(tmp_path: Path) -> None:
@@ -452,6 +502,40 @@ def test_factorized_v5_has_more_capacity_than_factorized_v4() -> None:
     )
 
     assert factorized_v5_param_count > factorized_v4_param_count
+
+
+def test_balanced_checkpoint_selection_can_prefer_policy_better_epoch() -> None:
+    lower_policy_higher_f1 = ProposerMetrics(
+        total_examples=1,
+        labeled_policy_examples=1,
+        total_loss=0.0,
+        legality_loss=0.0,
+        policy_loss=0.0,
+        legal_set_precision=0.0,
+        legal_set_recall=0.03,
+        legal_set_f1=0.055,
+        policy_top1_accuracy=0.014,
+        examples_per_second=1.0,
+    )
+    higher_policy_lower_f1 = ProposerMetrics(
+        total_examples=1,
+        labeled_policy_examples=1,
+        total_loss=0.0,
+        legality_loss=0.0,
+        policy_loss=0.0,
+        legal_set_precision=0.0,
+        legal_set_recall=0.02,
+        legal_set_f1=0.023,
+        policy_top1_accuracy=0.022,
+        examples_per_second=1.0,
+    )
+
+    assert _is_better_validation(
+        higher_policy_lower_f1,
+        lower_policy_higher_f1,
+        selection_mode="balanced",
+        selection_policy_weight=5.0,
+    )
 
 
 def test_config_rejects_non_default_metadata_filename(tmp_path: Path) -> None:

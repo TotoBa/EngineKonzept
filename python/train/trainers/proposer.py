@@ -162,7 +162,12 @@ def train_proposer(config: ProposerTrainConfig, *, repo_root: Path) -> ProposerT
             }
         )
 
-        if best_validation is None or _is_better_validation(validation_metrics, best_validation):
+        if best_validation is None or _is_better_validation(
+            validation_metrics,
+            best_validation,
+            selection_mode=config.evaluation.checkpoint_selection,
+            selection_policy_weight=config.evaluation.selection_policy_weight,
+        ):
             best_epoch = epoch
             best_validation = validation_metrics
             best_state = {
@@ -351,12 +356,36 @@ def _run_epoch(
     )
 
 
-def _is_better_validation(current: ProposerMetrics, best: ProposerMetrics) -> bool:
-    if current.legal_set_f1 != best.legal_set_f1:
-        return current.legal_set_f1 > best.legal_set_f1
-    if current.legal_set_recall != best.legal_set_recall:
+def _is_better_validation(
+    current: ProposerMetrics,
+    best: ProposerMetrics,
+    *,
+    selection_mode: str,
+    selection_policy_weight: float,
+) -> bool:
+    if selection_mode == "legality_first":
+        if current.legal_set_f1 != best.legal_set_f1:
+            return current.legal_set_f1 > best.legal_set_f1
+        if current.legal_set_recall != best.legal_set_recall:
+            return current.legal_set_recall > best.legal_set_recall
+        return current.policy_top1_accuracy > best.policy_top1_accuracy
+
+    if selection_mode == "policy_first":
+        if current.policy_top1_accuracy != best.policy_top1_accuracy:
+            return current.policy_top1_accuracy > best.policy_top1_accuracy
+        if current.legal_set_f1 != best.legal_set_f1:
+            return current.legal_set_f1 > best.legal_set_f1
         return current.legal_set_recall > best.legal_set_recall
-    return current.policy_top1_accuracy > best.policy_top1_accuracy
+
+    current_score = current.legal_set_f1 + (
+        selection_policy_weight * current.policy_top1_accuracy
+    )
+    best_score = best.legal_set_f1 + (selection_policy_weight * best.policy_top1_accuracy)
+    if current_score != best_score:
+        return current_score > best_score
+    if current.policy_top1_accuracy != best.policy_top1_accuracy:
+        return current.policy_top1_accuracy > best.policy_top1_accuracy
+    return current.legal_set_recall > best.legal_set_recall
 
 
 def _set_seed(seed: int) -> None:

@@ -30,6 +30,7 @@ Train and export the first legality/policy proposer without introducing dynamics
 - current five-way comparison with the first factorized decoder arm: [stockfish_pgn_10k_five_way_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_10k_five_way_compare_v1.json)
 - current six-way comparison with the conditional factorized decoder arm: [stockfish_pgn_10k_six_way_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_10k_six_way_compare_v1.json)
 - current seven-way comparison with the policy-stronger conditional decoder arm: [stockfish_pgn_10k_seven_way_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_10k_seven_way_compare_v1.json)
+- direct checkpoint-selection comparison for `factorized_v5`: [stockfish_pgn_factorized_v5_selection_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_factorized_v5_selection_compare_v1.json)
 - earlier small local baseline corpus: [phase5_stockfish_pgn_train_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_v1)
 - earlier small Pi baseline corpus: [phase5_stockfish_pgn_train_pi_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_pi_v1)
 - 10k comparison summary: [stockfish_pgn_pi_10k_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_pi_10k_compare_v1.json)
@@ -53,6 +54,7 @@ The same `current default` / `experimental variant` / `legacy baseline` split is
 - the first additive `factorized_v3` decoder drastically reduced parameter count, but collapsed held-out legality and policy quality, so the next decoder step must keep more coupling between move components
 - the first conditional `factorized_v4` decoder became the best legal-set-F1 arm so far on the `10k` corpus, but it still trails the current default on policy accuracy
 - the policy-stronger `factorized_v5` arm recovered a large part of the policy gap while still outperforming the old MLP baselines on legality, but it no longer beats `factorized_v4` on legal-set F1
+- explicit balanced checkpoint selection for `factorized_v5` further improved policy on the held-out verify split (`0.015137` vs `0.014648`), but it reduced legal-set F1 sharply (`0.029989` vs `0.06438`)
 
 The current Phase-5 architecture decision is therefore:
 
@@ -62,7 +64,8 @@ The current Phase-5 architecture decision is therefore:
 - keep `factorized_v3` as an explicit negative baseline
 - keep `factorized_v4` as the best current legality arm
 - keep `factorized_v5` as the best current factorized balance arm
-- prioritize checkpoint-selection and policy-coupling follow-up on top of the conditional factorized decoder line
+- keep checkpoint selection explicit rather than implicit
+- prioritize the default decision between legality-first and balanced selection before another decoder rewrite
 
 These findings suggest that raw capacity helps, but the current flat MLP is likely not sufficient by itself for strong policy learning.
 
