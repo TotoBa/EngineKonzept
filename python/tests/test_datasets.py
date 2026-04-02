@@ -189,6 +189,62 @@ def test_build_dataset_parallel_oracle_preserves_record_order() -> None:
     ]
 
 
+def test_build_dataset_auto_batches_when_parallel_workers_are_requested() -> None:
+    records = [
+        RawPositionRecord(
+            sample_id=f"sample-{index}",
+            fen=f"fen-{index}",
+            source="synthetic",
+        )
+        for index in range(4)
+    ]
+    seen_batch_sizes: list[int] = []
+
+    def fake_label_records(batch: list[RawPositionRecord], **_: object) -> list[dict[str, object]]:
+        seen_batch_sizes.append(len(batch))
+        return [
+            {
+                "side_to_move": "w",
+                "selected_action_encoding": None,
+                "next_fen": None,
+                "legal_moves": [record.sample_id],
+                "legal_action_encodings": [[0, 1, 0]],
+                "position_encoding": {
+                    "piece_tokens": [],
+                    "square_tokens": [[square, 0] for square in range(64)],
+                    "rule_token": [0, 0, 0, 0, 1, 0],
+                },
+                "annotations": {
+                    "in_check": False,
+                    "is_checkmate": False,
+                    "is_stalemate": False,
+                    "has_legal_en_passant": False,
+                    "has_legal_castle": False,
+                    "has_legal_promotion": False,
+                    "is_low_material_endgame": True,
+                    "legal_move_count": 1,
+                    "piece_count": 2,
+                    "selected_move_is_capture": None,
+                    "selected_move_is_promotion": None,
+                    "selected_move_is_castle": None,
+                    "selected_move_is_en_passant": None,
+                    "selected_move_gives_check": None,
+                },
+            }
+            for record in batch
+        ]
+
+    with patch("train.datasets.builder.label_records_with_oracle", side_effect=fake_label_records):
+        build_dataset(
+            records,
+            ratios=SplitRatios(1.0, 0.0, 0.0),
+            seed="parallel-auto-batch",
+            oracle_workers=2,
+        )
+
+    assert seen_batch_sizes == [2, 2]
+
+
 def test_build_dataset_rejects_invalid_oracle_parallelism() -> None:
     record = RawPositionRecord(
         sample_id="sample-1",

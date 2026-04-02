@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
@@ -104,7 +105,10 @@ def _label_records(
     if not resolved_records:
         return []
 
-    batch_size = oracle_batch_size or len(resolved_records)
+    batch_size = oracle_batch_size or _default_oracle_batch_size(
+        len(resolved_records),
+        oracle_workers=oracle_workers,
+    )
     if oracle_workers == 1 or batch_size >= len(resolved_records):
         return label_records_with_oracle(
             resolved_records,
@@ -128,6 +132,14 @@ def _label_records(
             )
         )
     return [output for batch in batch_outputs for output in batch]
+
+
+def _default_oracle_batch_size(record_count: int, *, oracle_workers: int) -> int:
+    if record_count <= 0:
+        return 0
+    if oracle_workers <= 1:
+        return record_count
+    return max(1, math.ceil(record_count / oracle_workers))
 
 
 def _derive_wdl_target(

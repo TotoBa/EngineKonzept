@@ -1,0 +1,23 @@
+{
+  "benchmark_input": {
+    "input": "/srv/schach/tmp/oracle-e2e/train_raw_2k.jsonl",
+    "record_count": 2000,
+    "oracle_workers": 4,
+    "comparison": "auto batch-size heuristic vs previous single-batch default"
+  },
+  "results": {
+    "old_single_batch_seconds": 1.394059,
+    "auto_batch_seconds": 1.045609,
+    "auto_batch_speedup": 1.3333,
+    "saved_seconds": 0.34845
+  },
+  "artifact_digests": {
+    "dataset_jsonl": "4c2af5e2ba5cd2009d5c4a59b361e600c4a98253e1b34a4f0c601129c6c0971f",
+    "summary_json": "e8be41f60ff8cd01bdb5c52bcebbfe3b0032fde588ea884cab7782491b069567"
+  },
+  "notes": [
+    "When oracle_workers > 1 and no explicit oracle_batch_size is provided, the builder now splits the workload into roughly one batch per worker.",
+    "The baseline forces the previous behavior by setting --oracle-batch-size to the full record count.",
+    "Output digests are identical between both modes."
+  ]
+}
