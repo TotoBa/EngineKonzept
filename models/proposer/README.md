@@ -26,6 +26,8 @@ These bundles correspond to the main `10k` comparison grid:
   Early `10k` batch-size reference point.
 - [stockfish_pgn_pi_10k_bs128_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_pi_10k_bs128_v1)
   Best current speed/quality trade-off on the `10k` corpus.
+- [stockfish_pgn_policy_focus_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_policy_focus_v1)
+  Isolated policy-focus run on the same `10k` corpus.
 - [stockfish_pgn_pi_10k_h192_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_pi_10k_h192_v1)
   Wider hidden-layer experimental variant.
 - [stockfish_pgn_pi_10k_h256_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_pi_10k_h256_v1)

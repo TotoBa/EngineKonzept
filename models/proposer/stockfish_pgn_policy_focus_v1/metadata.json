@@ -1,0 +1,68 @@
+{
+  "action_space": {
+    "flat_size": 20480,
+    "flatten_formula": "((from_index * 64) + to_index) * 5 + promotion_index",
+    "from_head_size": 64,
+    "promotion_head_size": 5,
+    "to_head_size": 64
+  },
+  "artifacts": {
+    "checkpoint_file": "checkpoint.pt",
+    "exported_program_file": "proposer.pt2"
+  },
+  "input": {
+    "feature_dim": 230,
+    "layout": {
+      "flatten_order": [
+        "piece_tokens padded to 32 rows with [-1, -1, -1]",
+        "square_tokens[64][square_index, occupant_code]",
+        "rule_token[side_to_move, castling_bits, en_passant_square, halfmove_clock, fullmove_number, repetition_count]"
+      ],
+      "piece_padding_value": -1,
+      "piece_token_capacity": 32,
+      "piece_token_width": 3,
+      "rule_token_width": 6,
+      "square_token_count": 64,
+      "square_token_width": 2
+    }
+  },
+  "model_name": "legality_policy_proposer_v1",
+  "outputs": {
+    "legality_logits_shape": {
+      "actions": 20480,
+      "batch": "dynamic"
+    },
+    "legality_threshold": 0.5,
+    "policy_logits_shape": {
+      "actions": 20480,
+      "batch": "dynamic"
+    }
+  },
+  "schema_version": 2,
+  "training": {
+    "batch_size": 128,
+    "dropout": 0.1,
+    "epochs": 10,
+    "hidden_dim": 128,
+    "hidden_layers": 2,
+    "learning_rate": 0.0007,
+    "legality_loss_weight": 1.0,
+    "policy_loss_weight": 2.0,
+    "seed": 17,
+    "train_split": "train",
+    "validation_split": "validation",
+    "weight_decay": 0.0001
+  },
+  "validation_metrics": {
+    "examples_per_second": 2487.694,
+    "labeled_policy_examples": 1024,
+    "legal_set_f1": 0.013691,
+    "legal_set_precision": 0.544248,
+    "legal_set_recall": 0.006933,
+    "legality_loss": 0.009189,
+    "policy_loss": 7.025406,
+    "policy_top1_accuracy": 0.018555,
+    "total_examples": 1024,
+    "total_loss": 14.06
+  }
+}

@@ -10,10 +10,13 @@ Use these first when reviewing the current standard proposer path:
   Main `10k` comparison summary for the Pi-labeled reference corpus.
 - [proposer_artifact_bench_10k_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/proposer_artifact_bench_10k_v2.json)
   Full-vs-lean proposer artifact benchmark on the current `10k` corpus.
+- [stockfish_pgn_10k_three_way_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_10k_three_way_compare_v1.json)
+  Three-way comparison between `current_default`, `h256`, and `policy_focus`.
 
 The current default config writes its training summary to:
 
 - [stockfish_pgn_current_default_v1/summary.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_current_default_v1/summary.json)
+- [stockfish_pgn_current_default_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_current_default_v1_verify.json)
 
 ## Experimental Variants
 
@@ -23,6 +26,9 @@ These summaries correspond to the main `10k` proposer comparison runs:
 - [stockfish_pgn_pi_10k_bs128_v1/summary.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_pi_10k_bs128_v1/summary.json)
 - [stockfish_pgn_pi_10k_h192_v1/summary.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_pi_10k_h192_v1/summary.json)
 - [stockfish_pgn_pi_10k_h256_v1/summary.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_pi_10k_h256_v1/summary.json)
+- [stockfish_pgn_pi_10k_h256_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_pi_10k_h256_v1_verify.json)
+- [stockfish_pgn_policy_focus_v1/summary.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_policy_focus_v1/summary.json)
+- [stockfish_pgn_policy_focus_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_policy_focus_v1_verify.json)
 
 ## Legacy Baselines
 

@@ -20,6 +20,8 @@ Use these when comparing architecture or optimization changes against the curren
 
 - [phase5_stockfish_pgn_pi_10k_v1.json](/home/torsten/EngineKonzept/python/configs/phase5_stockfish_pgn_pi_10k_v1.json)
   Early `10k` throughput-oriented point with `batch_size=256`.
+- [phase5_stockfish_pgn_policy_focus_v1.json](/home/torsten/EngineKonzept/python/configs/phase5_stockfish_pgn_policy_focus_v1.json)
+  Isolated policy-focus run on the same `10k` corpus with higher `policy_loss_weight` and lower learning rate.
 - [phase5_stockfish_pgn_pi_10k_h192_v1.json](/home/torsten/EngineKonzept/python/configs/phase5_stockfish_pgn_pi_10k_h192_v1.json)
   Wider hidden layer variant.
 - [phase5_stockfish_pgn_pi_10k_h256_v1.json](/home/torsten/EngineKonzept/python/configs/phase5_stockfish_pgn_pi_10k_h256_v1.json)
