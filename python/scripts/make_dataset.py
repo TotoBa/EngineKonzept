@@ -25,6 +25,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--test-ratio", type=float, default=0.1)
     parser.add_argument("--oracle-workers", type=int, default=1)
     parser.add_argument("--oracle-batch-size", type=int, default=0)
+    parser.add_argument(
+        "--write-proposer-artifacts",
+        action="store_true",
+        help="also emit proposer_<split>.jsonl files with packed training features",
+    )
     args = parser.parse_args(argv)
 
     records = load_raw_records(
@@ -44,7 +49,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         oracle_workers=args.oracle_workers,
         oracle_batch_size=args.oracle_batch_size,
     )
-    write_dataset_artifacts(args.output_dir, dataset)
+    write_dataset_artifacts(
+        args.output_dir,
+        dataset,
+        write_proposer_artifacts=args.write_proposer_artifacts,
+    )
 
     print(json.dumps(dataset.summary, indent=2, sort_keys=True))
     print(f"Wrote dataset artifacts to {args.output_dir}")

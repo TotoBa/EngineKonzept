@@ -49,6 +49,8 @@ The dataset builders also support offline oracle parallelism:
 
 These knobs are intended for throughput tuning during dataset generation only. Current reference measurements are recorded in [oracle_e2e_parallel_bench_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_e2e_parallel_bench_v1.json).
 
+For Phase-5 proposer training, the dataset builders now also support `--write-proposer-artifacts`. That emits optional `proposer_train.jsonl`, `proposer_validation.jsonl`, and `proposer_test.jsonl` files alongside the full dataset artifacts. Each line already contains the packed fixed-width feature vector plus flattened legality/policy supervision, so the proposer trainer can skip reparsing the larger `DatasetExample` payloads. If those files are absent, training still falls back to the existing `train.jsonl` / `validation.jsonl` split artifacts.
+
 If `rust/target/debug/dataset-oracle` already exists, the Python wrapper now uses that binary directly for one-shot oracle calls instead of spawning `cargo run` each time. The warmed reference measurement for that path is stored in [oracle_one_shot_binary_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_one_shot_binary_v1.json).
 
 If `oracle_workers > 1` and no explicit `oracle_batch_size` is provided, the dataset builder now auto-splits the workload into roughly one batch per worker. The current reference measurement for that path is stored in [oracle_auto_batch_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_auto_batch_v1.json).

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -13,7 +14,14 @@ from train.config import (
     load_proposer_train_config,
     resolve_repo_path,
 )
-from train.datasets import POSITION_FEATURE_SIZE, load_proposer_examples
+from train.datasets import (
+    POSITION_FEATURE_SIZE,
+    load_proposer_examples,
+    proposer_artifact_name,
+    write_dataset_artifacts,
+)
+from train.datasets.artifacts import to_proposer_example
+from train.datasets.schema import DatasetExample
 from train.export.proposer import build_export_metadata
 from train.trainers import train_proposer
 
@@ -40,6 +48,50 @@ def test_proposer_examples_load_and_pack_fixed_width_features(tmp_path: Path) ->
     assert len(examples[0].feature_vector) == POSITION_FEATURE_SIZE
     assert examples[0].selected_action_index == flatten_action([12, 28, 0])
     assert examples[0].legal_action_indices == sorted(examples[0].legal_action_indices)
+
+
+def test_proposer_examples_prefer_lean_split_artifacts_when_available(tmp_path: Path) -> None:
+    dataset_dir = tmp_path / "dataset"
+    dataset_dir.mkdir()
+    (dataset_dir / "train.jsonl").write_text(
+        json.dumps(_dataset_example_dict(split="train")) + "\n",
+        encoding="utf-8",
+    )
+    lean_example = to_proposer_example(
+        DatasetExample.from_dict(_dataset_example_dict(split="train"))
+    )
+    lean_payload = lean_example.to_dict()
+    lean_payload["sample_id"] = "lean:train"
+    (dataset_dir / proposer_artifact_name("train")).write_text(
+        json.dumps(lean_payload) + "\n",
+        encoding="utf-8",
+    )
+
+    examples = load_proposer_examples(dataset_dir, "train")
+
+    assert len(examples) == 1
+    assert examples[0].sample_id == "lean:train"
+    assert len(examples[0].feature_vector) == POSITION_FEATURE_SIZE
+
+
+def test_train_proposer_can_load_optional_lean_artifacts(tmp_path: Path) -> None:
+    dataset_dir = tmp_path / "dataset"
+    dataset_dir.mkdir()
+    dataset_examples = [
+        DatasetExample.from_dict(_dataset_example_dict(sample_id="train:1", split="train")),
+        DatasetExample.from_dict(_dataset_example_dict(sample_id="validation:1", split="validation")),
+    ]
+    dataset = SimpleNamespace(examples=dataset_examples, summary={"ok": True})
+
+    write_dataset_artifacts(dataset_dir, dataset, write_proposer_artifacts=True)
+
+    train_examples = load_proposer_examples(dataset_dir, "train")
+    validation_examples = load_proposer_examples(dataset_dir, "validation")
+
+    assert len(train_examples) == 1
+    assert len(validation_examples) == 1
+    assert train_examples[0].sample_id == "train:1"
+    assert validation_examples[0].sample_id == "validation:1"
 
 
 def test_config_loading_and_export_metadata_are_repo_relative(tmp_path: Path) -> None:

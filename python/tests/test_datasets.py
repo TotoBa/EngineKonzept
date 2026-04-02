@@ -13,6 +13,7 @@ from train.datasets import (
     SplitRatios,
     build_dataset,
     load_raw_records,
+    proposer_artifact_name,
     write_dataset_artifacts,
 )
 from train.datasets.splits import assign_splits
@@ -128,6 +129,50 @@ def test_build_dataset_uses_exact_rule_oracle_and_writes_artifacts(tmp_path: Pat
     assert (output_dir / "train.jsonl").exists()
     assert (output_dir / "validation.jsonl").exists()
     assert (output_dir / "test.jsonl").exists()
+    assert not (output_dir / proposer_artifact_name("train")).exists()
+    assert not (output_dir / proposer_artifact_name("validation")).exists()
+    assert not (output_dir / proposer_artifact_name("test")).exists()
+
+
+def test_write_dataset_artifacts_can_emit_proposer_split_files(tmp_path: Path) -> None:
+    records = [
+        RawPositionRecord(
+            sample_id="startpos:e2e4",
+            fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+            source="jsonl",
+            selected_move_uci="e2e4",
+            result="1-0",
+        )
+    ]
+    dataset = build_dataset(
+        records,
+        ratios=SplitRatios(1.0, 0.0, 0.0),
+        seed="phase4-proposer-artifacts",
+        repo_root=_repo_root(),
+    )
+
+    output_dir = tmp_path / "dataset"
+    write_dataset_artifacts(output_dir, dataset, write_proposer_artifacts=True)
+
+    train_payload = [
+        json.loads(line)
+        for line in (output_dir / proposer_artifact_name("train"))
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if line.strip()
+    ]
+    validation_payload = (output_dir / proposer_artifact_name("validation")).read_text(
+        encoding="utf-8"
+    )
+    test_payload = (output_dir / proposer_artifact_name("test")).read_text(encoding="utf-8")
+
+    assert len(train_payload) == 1
+    assert train_payload[0]["sample_id"] == "startpos:e2e4"
+    assert train_payload[0]["split"] == "train"
+    assert len(train_payload[0]["feature_vector"]) > 0
+    assert train_payload[0]["selected_action_index"] is not None
+    assert validation_payload == ""
+    assert test_payload == ""
 
 
 def test_build_dataset_parallel_oracle_preserves_record_order() -> None:

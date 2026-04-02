@@ -35,6 +35,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--split-seed", default="phase5-stockfish-pgn-v1")
     parser.add_argument("--oracle-workers", type=int, default=1)
     parser.add_argument("--oracle-batch-size", type=int, default=0)
+    parser.add_argument(
+        "--write-proposer-artifacts",
+        action="store_true",
+        help="also emit proposer_<split>.jsonl files with packed training features",
+    )
     args = parser.parse_args(argv)
 
     selection = sample_policy_records_from_pgns(
@@ -70,8 +75,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         oracle_batch_size=args.oracle_batch_size,
     )
 
-    write_dataset_artifacts(args.train_output_dir, train_dataset)
-    write_dataset_artifacts(args.verify_output_dir, verify_dataset)
+    write_dataset_artifacts(
+        args.train_output_dir,
+        train_dataset,
+        write_proposer_artifacts=args.write_proposer_artifacts,
+    )
+    write_dataset_artifacts(
+        args.verify_output_dir,
+        verify_dataset,
+        write_proposer_artifacts=args.write_proposer_artifacts,
+    )
 
     if args.raw_output_dir is not None:
         args.raw_output_dir.mkdir(parents=True, exist_ok=True)

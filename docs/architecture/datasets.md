@@ -73,6 +73,22 @@ The builder writes:
 - `test.jsonl`
 - `summary.json`
 
+When a build is invoked with `--write-proposer-artifacts`, it also writes lean proposer-ready split files:
+
+- `proposer_train.jsonl`
+- `proposer_validation.jsonl`
+- `proposer_test.jsonl`
+
+These files contain:
+
+- `sample_id`
+- `split`
+- packed `feature_vector`
+- flattened `legal_action_indices`
+- optional flattened `selected_action_index`
+
+The full dataset artifacts remain the canonical review/debug path. The lean proposer files are an optional training convenience path for the Phase-5 proposer only. They keep the existing dataset semantics but avoid reparsing full `DatasetExample` payloads when the trainer only needs packed features plus legality/policy supervision.
+
 When using PGN/Stockfish labeling with `--raw-output-dir`, the builder also writes:
 
 - `train_raw.jsonl`
@@ -85,6 +101,8 @@ The dataset build scripts now also expose offline throughput knobs for the Rust 
 - `--oracle-batch-size`: records per oracle call before splitting into multiple batches
 
 These affect only offline dataset generation. They do not change label semantics or any runtime engine path.
+
+The proposer trainer now prefers `proposer_<split>.jsonl` when those files are present in a dataset directory. If they are absent, it falls back to the existing full split artifacts and packs features on load, so older datasets remain valid.
 
 When `oracle_workers > 1` and `oracle_batch_size == 0`, the builder now auto-splits the workload into roughly one batch per worker instead of falling back to a single giant batch. On a 2000-record build with `4` workers, that reduced wall-clock time from about `1.394s` to about `1.046s`, or about `1.33x` faster, with identical output digests. That measurement is stored in [oracle_auto_batch_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_auto_batch_v1.json).
 

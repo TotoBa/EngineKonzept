@@ -8,6 +8,7 @@ from train.datasets.artifacts import (
     load_split_examples,
     pack_position_features,
     position_feature_spec,
+    proposer_artifact_name,
 )
 from train.datasets.builder import BuiltDataset, build_dataset
 from train.datasets.io import write_dataset_artifacts
@@ -44,6 +45,7 @@ __all__ = [
     "module_purpose",
     "pack_position_features",
     "position_feature_spec",
+    "proposer_artifact_name",
     "sample_policy_records_from_pgns",
     "training_split_ratios",
     "verification_split_ratios",
