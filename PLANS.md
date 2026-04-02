@@ -320,11 +320,13 @@ Train and integrate the first model that predicts legal moves and a prior over c
 - model export path
 - Rust-side inference loading for proposer outputs
 - metrics for legal-set precision/recall
+- at least one structured proposer comparison beyond the flat baseline
 
 ## Exit criteria
 - proposer metrics are reported on held-out data
 - model export can be consumed from Rust
 - runtime still verifies legality symbolically
+- the repository records which proposer family is current default vs. experimental
 
 ---
 
@@ -343,11 +345,13 @@ Add the first action-conditioned latent dynamics model.
 - one-step reconstruction targets
 - multi-step drift measurements
 - Rust-side inference boundary for `E` + `G`
+- explicit treatment of special-move transitions
 
 ## Exit criteria
 - exact next-state accuracy and drift metrics are reported
 - special-move cases are tracked separately
 - Rust can execute the exported encoder/dynamics stack
+- the dynamics design is local and action-conditioned rather than a hidden classical fallback
 
 ---
 
@@ -364,6 +368,7 @@ Add the opponent model and a first adversarial latent planner.
 - proposer -> dynamics -> opponent -> aggregation runtime path
 - root WDL head
 - planner-vs-proposer comparisons
+- explicit opponent-facing diagnostics such as reply quality or threat signals
 
 ## Exit criteria
 - better than proposer-only baseline
@@ -382,6 +387,7 @@ Extend the planner into a bounded recurrent latent planner with memory slots and
 - multiple internal deliberation steps
 - uncertainty-aware prioritization
 - planner diagnostics and regression tests
+- a bounded compute budget that stays visibly distinct from classical search
 
 ## Exit criteria
 - measurable gain over the 2-ply planner
@@ -443,4 +449,3 @@ Harden the system with benchmarks, regression tracking, optimization, and failur
 - new checkpoints are comparable
 - regressions are caught automatically
 - hot-path optimizations preserve architectural boundaries
-

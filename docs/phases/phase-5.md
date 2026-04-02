@@ -38,6 +38,7 @@ The same `current default` / `experimental variant` / `legacy baseline` split is
 - [python/configs/README.md](/home/torsten/EngineKonzept/python/configs/README.md)
 - [models/proposer/README.md](/home/torsten/EngineKonzept/models/proposer/README.md)
 - [artifacts/phase5/README.md](/home/torsten/EngineKonzept/artifacts/phase5/README.md)
+- [model-roadmap.md](/home/torsten/EngineKonzept/docs/architecture/model-roadmap.md)
 
 ## Current findings
 
@@ -46,6 +47,13 @@ The same `current default` / `experimental variant` / `legacy baseline` split is
 - increasing hidden width to `256` improved legal-set F1 further, but did not materially improve policy top-1 accuracy
 - increasing `policy_loss_weight` to `2.0` on the same 128-wide default backbone did not beat the current default on verify policy accuracy and regressed legal-set F1
 - the first structured `multistream_v2` arm slightly improved validation legal-set F1 over the `current_default` MLP, but it did not beat `h256` on legality, regressed policy accuracy, and was materially slower
+
+The current Phase-5 architecture decision is therefore:
+
+- keep `current_default` as the standard path
+- keep `h256` as the best legal-F1 reference
+- keep `multistream_v2` as the first structured baseline
+- prioritize a factorized proposer decoder as the next real architecture arm
 
 These findings suggest that raw capacity helps, but the current flat MLP is likely not sufficient by itself for strong policy learning.
 

@@ -6,6 +6,8 @@ EngineKonzept is converging toward a latent-planning chess engine, not a classic
 
 `position -> encoder -> legality/policy proposer -> latent dynamics -> opponent module -> recurrent planner -> WDL + move selection -> UCI output`
 
+The current canonical roadmap for the learned stack is documented in [model-roadmap.md](/home/torsten/EngineKonzept/docs/architecture/model-roadmap.md).
+
 ## Repository Boundaries
 
 - `rust/` will hold runtime, exact rules, UCI, inference integration, planner runtime, and evaluation harnesses.
@@ -51,4 +53,9 @@ This adds reproducible example schemas, labels, split generation, and summary re
 The repository now additionally includes the first learned legality/policy proposer in Python, held-out proposer metrics, a `torch.export` bundle, a Rust-side bundle loader, and an offline PGN-to-Stockfish labeling path for larger policy datasets.
 The runtime still does not execute learned inference yet, and no dynamics, opponent, planner, or classical search logic has been introduced.
 
-The current proposer remains a flat MLP over the deterministic encoder features. That is enough to establish the Phase-5 contracts, dataset paths, export schema, and regression harnesses, but it is not yet the likely long-term architecture for strong policy quality.
+Phase 5 now has two architecture families behind the same export contract:
+
+- `mlp_v1`
+- `multistream_v2`
+
+The measured result so far is that structured inputs are promising but not yet enough by themselves. The current default remains the simpler MLP path, while the next preferred model step is a factorized proposer decoder rather than immediately moving to heavier expert-routing designs.

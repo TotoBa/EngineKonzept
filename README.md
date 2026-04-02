@@ -77,6 +77,7 @@ For the same categorization on configs, model bundles, and Phase-5 summaries, se
 - [python/configs/README.md](/home/torsten/EngineKonzept/python/configs/README.md)
 - [models/proposer/README.md](/home/torsten/EngineKonzept/models/proposer/README.md)
 - [artifacts/phase5/README.md](/home/torsten/EngineKonzept/artifacts/phase5/README.md)
+- [model-roadmap.md](/home/torsten/EngineKonzept/docs/architecture/model-roadmap.md)
 
 The first architecture-extension notes beyond the flat MLP live in [docs/arch.ideas.md](/home/torsten/EngineKonzept/docs/arch.ideas.md). The current implementation applies only the low-risk part of that direction so far: typed multi-stream fusion before considering any heavier routing or expert machinery.
 

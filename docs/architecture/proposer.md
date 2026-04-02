@@ -74,7 +74,18 @@ The choice of this direction is deliberate. For this repository state, a typed m
 - the main weakness is likely representational bias, not yet routing capacity
 - the runtime/export contract must remain stable while Phase 5 is still offline-training only
 
-This follows the same broad design pressure emphasized by work on permutation-aware set models and relational inductive biases, but keeps the actual Phase-5 implementation small enough to test and compare directly.
+This follows the same broad design pressure emphasized by work on permutation-aware set models and relational inductive biases, but keeps the actual Phase-5 implementation small enough to test and compare directly. The broader prioritization is captured in [model-roadmap.md](/home/torsten/EngineKonzept/docs/architecture/model-roadmap.md).
+
+## Current Decision
+
+For this repository state, the next preferred proposer direction is a factorized decoder over the existing move schema, not early mixture-of-experts routing.
+
+Why:
+
+- the move space is already factorized in the action-space layer
+- the current flat `20480` heads dominate parameter count
+- current results suggest policy needs better structure more than it needs heavier routing
+- factorization preserves the exact same Rust legality authority and export boundary
 
 ## Model Outputs
 
