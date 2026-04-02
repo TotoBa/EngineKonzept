@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 from train.action_space import ACTION_SPACE_SIZE
-from train.datasets.artifacts import POSITION_FEATURE_SIZE
+from train.datasets.artifacts import (
+    PIECE_FEATURE_SIZE,
+    POSITION_FEATURE_SIZE,
+    RULE_FEATURE_SIZE,
+    SQUARE_FEATURE_SIZE,
+)
 
 try:
     import torch
@@ -23,6 +29,16 @@ def torch_is_available() -> bool:
     return torch is not None and nn is not None
 
 
+@dataclass(frozen=True)
+class DynamicsPrediction:
+    """Structured next-state prediction for one action-conditioned transition."""
+
+    next_features: Any
+    piece_features: Any
+    square_features: Any
+    rule_features: Any
+
+
 if torch is not None and nn is not None:
 
     class LatentDynamicsModel(nn.Module):
@@ -31,6 +47,7 @@ if torch is not None and nn is not None:
         def __init__(
             self,
             *,
+            architecture: str,
             latent_dim: int,
             hidden_dim: int,
             hidden_layers: int,
@@ -38,6 +55,7 @@ if torch is not None and nn is not None:
             dropout: float,
         ) -> None:
             super().__init__()
+            self.architecture = architecture
             self.latent_dim = latent_dim
             self.action_embedding_dim = action_embedding_dim
             self.encoder = _build_mlp(
@@ -55,13 +73,42 @@ if torch is not None and nn is not None:
                 output_dim=latent_dim,
                 dropout=dropout,
             )
-            self.decoder = _build_mlp(
-                input_dim=latent_dim,
-                hidden_dim=hidden_dim,
-                hidden_layers=hidden_layers,
-                output_dim=POSITION_FEATURE_SIZE,
-                dropout=dropout,
-            )
+            if architecture == "mlp_v1":
+                self.decoder = _build_mlp(
+                    input_dim=latent_dim,
+                    hidden_dim=hidden_dim,
+                    hidden_layers=hidden_layers,
+                    output_dim=POSITION_FEATURE_SIZE,
+                    dropout=dropout,
+                )
+                self.piece_decoder = None
+                self.square_decoder = None
+                self.rule_decoder = None
+            elif architecture == "structured_v2":
+                self.decoder = None
+                self.piece_decoder = _build_mlp(
+                    input_dim=latent_dim,
+                    hidden_dim=hidden_dim,
+                    hidden_layers=max(1, hidden_layers - 1),
+                    output_dim=PIECE_FEATURE_SIZE,
+                    dropout=dropout,
+                )
+                self.square_decoder = _build_mlp(
+                    input_dim=latent_dim,
+                    hidden_dim=hidden_dim,
+                    hidden_layers=max(1, hidden_layers - 1),
+                    output_dim=SQUARE_FEATURE_SIZE,
+                    dropout=dropout,
+                )
+                self.rule_decoder = _build_mlp(
+                    input_dim=latent_dim,
+                    hidden_dim=hidden_dim,
+                    hidden_layers=max(1, hidden_layers - 1),
+                    output_dim=RULE_FEATURE_SIZE,
+                    dropout=dropout,
+                )
+            else:
+                raise ValueError(f"unsupported dynamics architecture: {architecture}")
 
         def encode(self, features: Any) -> Any:
             """Map flat state features to a latent vector."""
@@ -73,15 +120,39 @@ if torch is not None and nn is not None:
             delta = self.transition(torch.cat((latent, action_embedding), dim=1))
             return latent + delta
 
-        def decode(self, latent: Any) -> Any:
-            """Decode a latent state back into packed next-state features."""
-            return self.decoder(latent)
-
-        def forward(self, features: Any, action_indices: Any) -> Any:
-            """Predict packed next-state features for one action-conditioned transition."""
+        def predict(self, features: Any, action_indices: Any) -> DynamicsPrediction:
+            """Predict structured next-state sections for one action-conditioned transition."""
             latent = self.encode(features)
             next_latent = self.step(latent, action_indices)
             return self.decode(next_latent)
+
+        def decode(self, latent: Any) -> DynamicsPrediction:
+            """Decode a latent state into structured next-state sections."""
+            if self.architecture == "mlp_v1":
+                next_features = self.decoder(latent)
+                piece_features, square_features, rule_features = torch.split(
+                    next_features,
+                    [PIECE_FEATURE_SIZE, SQUARE_FEATURE_SIZE, RULE_FEATURE_SIZE],
+                    dim=1,
+                )
+            else:
+                piece_features = self.piece_decoder(latent)
+                square_features = self.square_decoder(latent)
+                rule_features = self.rule_decoder(latent)
+                next_features = torch.cat(
+                    (piece_features, square_features, rule_features),
+                    dim=1,
+                )
+            return DynamicsPrediction(
+                next_features=next_features,
+                piece_features=piece_features,
+                square_features=square_features,
+                rule_features=rule_features,
+            )
+
+        def forward(self, features: Any, action_indices: Any) -> Any:
+            """Predict packed next-state features for one action-conditioned transition."""
+            return self.predict(features, action_indices).next_features
 
 
     def _build_mlp(

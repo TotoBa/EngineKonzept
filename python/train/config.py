@@ -202,6 +202,7 @@ class DynamicsDataConfig:
 class DynamicsModelConfig:
     """Model hyperparameters for the first latent dynamics model."""
 
+    architecture: str = "mlp_v1"
     latent_dim: int = 128
     hidden_dim: int = 256
     hidden_layers: int = 2
@@ -209,6 +210,8 @@ class DynamicsModelConfig:
     dropout: float = 0.0
 
     def __post_init__(self) -> None:
+        if self.architecture not in {"mlp_v1", "structured_v2"}:
+            raise ValueError("model.architecture must be 'mlp_v1' or 'structured_v2'")
         if self.latent_dim <= 0:
             raise ValueError("model.latent_dim must be positive")
         if self.hidden_dim <= 0:
@@ -230,6 +233,9 @@ class DynamicsOptimizationConfig:
     learning_rate: float = 1e-3
     weight_decay: float = 0.0
     reconstruction_loss_weight: float = 1.0
+    piece_loss_weight: float = 1.0
+    square_loss_weight: float = 1.0
+    rule_loss_weight: float = 1.0
 
     def __post_init__(self) -> None:
         if self.epochs <= 0:
@@ -242,6 +248,12 @@ class DynamicsOptimizationConfig:
             raise ValueError("optimization.weight_decay must be non-negative")
         if self.reconstruction_loss_weight <= 0.0:
             raise ValueError("optimization.reconstruction_loss_weight must be positive")
+        if self.piece_loss_weight <= 0.0:
+            raise ValueError("optimization.piece_loss_weight must be positive")
+        if self.square_loss_weight <= 0.0:
+            raise ValueError("optimization.square_loss_weight must be positive")
+        if self.rule_loss_weight <= 0.0:
+            raise ValueError("optimization.rule_loss_weight must be positive")
 
 
 @dataclass(frozen=True)

@@ -29,6 +29,7 @@ def test_load_dynamics_train_config_accepts_phase6_schema(tmp_path: Path) -> Non
                     "validation_split": "validation",
                 },
                 "model": {
+                    "architecture": "mlp_v1",
                     "latent_dim": 64,
                     "hidden_dim": 128,
                     "hidden_layers": 2,
@@ -41,6 +42,9 @@ def test_load_dynamics_train_config_accepts_phase6_schema(tmp_path: Path) -> Non
                     "learning_rate": 1e-3,
                     "weight_decay": 0.0,
                     "reconstruction_loss_weight": 1.0,
+                    "piece_loss_weight": 1.0,
+                    "square_loss_weight": 1.0,
+                    "rule_loss_weight": 1.0,
                 },
                 "evaluation": {"drift_horizon": 2},
                 "runtime": {"torch_threads": 0, "dataloader_workers": 0},
@@ -58,6 +62,7 @@ def test_load_dynamics_train_config_accepts_phase6_schema(tmp_path: Path) -> Non
     config = load_dynamics_train_config(config_path)
 
     assert config.model.latent_dim == 64
+    assert config.model.architecture == "mlp_v1"
     assert config.evaluation.drift_horizon == 2
 
 
@@ -137,6 +142,7 @@ def test_train_and_evaluate_dynamics_checkpoint(tmp_path: Path) -> None:
                     "validation_split": "validation",
                 },
                 "model": {
+                    "architecture": "mlp_v1",
                     "latent_dim": 32,
                     "hidden_dim": 64,
                     "hidden_layers": 2,
@@ -149,6 +155,9 @@ def test_train_and_evaluate_dynamics_checkpoint(tmp_path: Path) -> None:
                     "learning_rate": 1e-3,
                     "weight_decay": 0.0,
                     "reconstruction_loss_weight": 1.0,
+                    "piece_loss_weight": 1.0,
+                    "square_loss_weight": 1.0,
+                    "rule_loss_weight": 1.0,
                 },
                 "evaluation": {"drift_horizon": 2},
                 "runtime": {"torch_threads": 1, "dataloader_workers": 0},

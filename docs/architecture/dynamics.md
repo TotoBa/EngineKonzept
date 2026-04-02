@@ -1,10 +1,10 @@
 # Dynamics Architecture
 
-This page documents the first Phase-6 latent-dynamics baseline.
+This page documents the first Phase-6 latent-dynamics baselines.
 
 ## Current Baseline
 
-The current implementation is a local, action-conditioned transition model:
+The current implementations are local, action-conditioned transition models:
 
 - state input: the same packed `230`-feature encoder vector used by the proposer
 - action input: one flattened `20480`-space action index
@@ -18,7 +18,12 @@ The exported bundle stays intentionally narrow:
 - `torch.export` program
 - Rust-loadable metadata
 
-The current bundle lives under [v1](/home/torsten/EngineKonzept/models/dynamics/v1).
+Materialized bundles:
+
+- [v1](/home/torsten/EngineKonzept/models/dynamics/v1)
+  Flat decoder baseline.
+- [structured_v2_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v2_v1)
+  Piece-/square-/rule-decoder follow-up with section-wise losses.
 
 ## Training Contract
 
@@ -46,17 +51,26 @@ The current baseline tracks:
 - separate exact-accuracy slices for capture, promotion, castle, en-passant, and check-giving moves
 - multi-step drift over contiguous in-split action chains
 
-The first materialized run is:
+The current materialized runs are:
 
 - summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_v1/summary.json)
 - verify: [dynamics_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_v1_verify.json)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_v1/summary.json)
+- verify: [dynamics_structured_v2_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_v1_verify.json)
 
 ## Current Reading Of The Results
 
-The initial `v1` dynamics arm learns a smoother next-state reconstruction signal, but it does **not** yet recover exact packed next states:
+The initial `v1` dynamics arm learns a smoother next-state reconstruction signal, but it does **not** yet recover exact packed next states.
 
-- validation `feature_l1_error` falls materially during training
-- verify `feature_l1_error` is stable and externally checkable
+The first structured follow-up `structured_v2_v1` materially improves the soft metrics:
+
+- validation `feature_l1_error`: `1.699881 -> 1.448869`
+- verify `feature_l1_error`: `1.686233 -> 1.433716`
+- verify `drift_feature_l1_error`: `1.902871 -> 1.595053`
+- rule-section validation `feature_l1_error`: `1.161234`
+
+But the hard limit is unchanged:
+
 - exact next-state accuracy is still `0.0`
 - multi-step drift remains measurable but weak
 
@@ -64,9 +78,9 @@ This is enough to establish the Phase-6 dataset, training, export, and Rust-boun
 
 ## Next Model Pressure
 
-The obvious next pressures are:
+The obvious next pressures are now:
 
-- stronger local structure than a flat MLP encoder/decoder
+- explicit special-move treatment inside the transition path or loss
 - more explicit handling of special-move transitions
 - potentially partial-state or tokenized reconstruction instead of one flat feature regression target
 

@@ -10,7 +10,13 @@ import time
 from typing import Any
 
 from train.config import DynamicsTrainConfig, resolve_repo_path
-from train.datasets.artifacts import DynamicsTrainingExample, load_dynamics_examples
+from train.datasets.artifacts import (
+    DynamicsTrainingExample,
+    PIECE_FEATURE_SIZE,
+    RULE_FEATURE_SIZE,
+    SQUARE_FEATURE_SIZE,
+    load_dynamics_examples,
+)
 from train.export.dynamics import export_dynamics_bundle
 from train.losses.dynamics import compute_dynamics_losses
 from train.models.dynamics import LatentDynamicsModel, torch_is_available
@@ -28,7 +34,13 @@ class DynamicsMetrics:
     total_examples: int
     total_loss: float
     reconstruction_loss: float
+    piece_loss: float
+    square_loss: float
+    rule_loss: float
     feature_l1_error: float
+    piece_feature_l1_error: float
+    square_feature_l1_error: float
+    rule_feature_l1_error: float
     exact_next_feature_accuracy: float
     capture_examples: int
     capture_exact_next_feature_accuracy: float
@@ -51,7 +63,13 @@ class DynamicsMetrics:
             "total_examples": self.total_examples,
             "total_loss": round(self.total_loss, 6),
             "reconstruction_loss": round(self.reconstruction_loss, 6),
+            "piece_loss": round(self.piece_loss, 6),
+            "square_loss": round(self.square_loss, 6),
+            "rule_loss": round(self.rule_loss, 6),
             "feature_l1_error": round(self.feature_l1_error, 6),
+            "piece_feature_l1_error": round(self.piece_feature_l1_error, 6),
+            "square_feature_l1_error": round(self.square_feature_l1_error, 6),
+            "rule_feature_l1_error": round(self.rule_feature_l1_error, 6),
             "exact_next_feature_accuracy": round(self.exact_next_feature_accuracy, 6),
             "capture_examples": self.capture_examples,
             "capture_exact_next_feature_accuracy": round(
@@ -139,6 +157,7 @@ def train_dynamics(config: DynamicsTrainConfig, *, repo_root: Path) -> DynamicsT
         raise ValueError("validation split has no action-conditioned transitions")
 
     model = LatentDynamicsModel(
+        architecture=config.model.architecture,
         latent_dim=config.model.latent_dim,
         hidden_dim=config.model.hidden_dim,
         hidden_layers=config.model.hidden_layers,
@@ -180,6 +199,9 @@ def train_dynamics(config: DynamicsTrainConfig, *, repo_root: Path) -> DynamicsT
             optimizer=optimizer,
             training=True,
             reconstruction_weight=config.optimization.reconstruction_loss_weight,
+            piece_weight=config.optimization.piece_loss_weight,
+            square_weight=config.optimization.square_loss_weight,
+            rule_weight=config.optimization.rule_loss_weight,
             drift_horizon=config.evaluation.drift_horizon,
         )
         validation_metrics = _run_epoch(
@@ -189,6 +211,9 @@ def train_dynamics(config: DynamicsTrainConfig, *, repo_root: Path) -> DynamicsT
             optimizer=None,
             training=False,
             reconstruction_weight=config.optimization.reconstruction_loss_weight,
+            piece_weight=config.optimization.piece_loss_weight,
+            square_weight=config.optimization.square_loss_weight,
+            rule_weight=config.optimization.rule_loss_weight,
             drift_horizon=config.evaluation.drift_horizon,
         )
 
@@ -255,6 +280,7 @@ def evaluate_dynamics_checkpoint(
     payload = torch.load(checkpoint_path, map_location="cpu")
     config = DynamicsTrainConfig.from_dict(dict(payload["training_config"]))
     model = LatentDynamicsModel(
+        architecture=config.model.architecture,
         latent_dim=config.model.latent_dim,
         hidden_dim=config.model.hidden_dim,
         hidden_layers=config.model.hidden_layers,
@@ -281,6 +307,9 @@ def evaluate_dynamics_checkpoint(
         optimizer=None,
         training=False,
         reconstruction_weight=config.optimization.reconstruction_loss_weight,
+        piece_weight=config.optimization.piece_loss_weight,
+        square_weight=config.optimization.square_loss_weight,
+        rule_weight=config.optimization.rule_loss_weight,
         drift_horizon=drift_horizon,
     )
 
@@ -312,6 +341,9 @@ def _run_epoch(
     optimizer: Any,
     training: bool,
     reconstruction_weight: float,
+    piece_weight: float,
+    square_weight: float,
+    rule_weight: float,
     drift_horizon: int,
 ) -> DynamicsMetrics:
     if training:
@@ -322,7 +354,13 @@ def _run_epoch(
     total_examples = 0
     total_loss = 0.0
     reconstruction_loss_total = 0.0
+    piece_loss_total = 0.0
+    square_loss_total = 0.0
+    rule_loss_total = 0.0
     feature_l1_total = 0.0
+    piece_feature_l1_total = 0.0
+    square_feature_l1_total = 0.0
+    rule_feature_l1_total = 0.0
     exact_next_total = 0
     capture_examples = 0
     capture_exact = 0
@@ -343,11 +381,26 @@ def _run_epoch(
 
         context = torch.enable_grad() if training else torch.no_grad()
         with context:
-            predicted_next = model(features, action_indices)
+            prediction = model.predict(features, action_indices)
+            predicted_next = prediction.next_features
+            target_piece, target_square, target_rule = torch.split(
+                next_features,
+                [PIECE_FEATURE_SIZE, SQUARE_FEATURE_SIZE, RULE_FEATURE_SIZE],
+                dim=1,
+            )
             losses = compute_dynamics_losses(
                 predicted_next,
                 next_features,
+                predicted_piece_features=prediction.piece_features,
+                predicted_square_features=prediction.square_features,
+                predicted_rule_features=prediction.rule_features,
+                target_piece_features=target_piece,
+                target_square_features=target_square,
+                target_rule_features=target_rule,
                 reconstruction_weight=reconstruction_weight,
+                piece_weight=piece_weight,
+                square_weight=square_weight,
+                rule_weight=rule_weight,
             )
 
         if training:
@@ -359,9 +412,21 @@ def _run_epoch(
         total_examples += batch_size
         total_loss += float(losses.total.item()) * batch_size
         reconstruction_loss_total += float(losses.reconstruction.item()) * batch_size
+        piece_loss_total += float(losses.piece.item()) * batch_size
+        square_loss_total += float(losses.square.item()) * batch_size
+        rule_loss_total += float(losses.rule.item()) * batch_size
 
         exact_mask = _exact_feature_match_mask(predicted_next, next_features)
         feature_l1_total += float(torch.abs(predicted_next - next_features).mean(dim=1).sum().item())
+        piece_feature_l1_total += float(
+            torch.abs(prediction.piece_features - target_piece).mean(dim=1).sum().item()
+        )
+        square_feature_l1_total += float(
+            torch.abs(prediction.square_features - target_square).mean(dim=1).sum().item()
+        )
+        rule_feature_l1_total += float(
+            torch.abs(prediction.rule_features - target_rule).mean(dim=1).sum().item()
+        )
         exact_next_total += int(exact_mask.sum().item())
 
         capture_examples += int(batch["is_capture"].sum().item())
@@ -383,7 +448,13 @@ def _run_epoch(
         total_examples=total_examples,
         total_loss=_ratio(total_loss, total_examples),
         reconstruction_loss=_ratio(reconstruction_loss_total, total_examples),
+        piece_loss=_ratio(piece_loss_total, total_examples),
+        square_loss=_ratio(square_loss_total, total_examples),
+        rule_loss=_ratio(rule_loss_total, total_examples),
         feature_l1_error=_ratio(feature_l1_total, total_examples),
+        piece_feature_l1_error=_ratio(piece_feature_l1_total, total_examples),
+        square_feature_l1_error=_ratio(square_feature_l1_total, total_examples),
+        rule_feature_l1_error=_ratio(rule_feature_l1_total, total_examples),
         exact_next_feature_accuracy=_ratio(exact_next_total, total_examples),
         capture_examples=capture_examples,
         capture_exact_next_feature_accuracy=_ratio(capture_exact, capture_examples),
@@ -427,7 +498,7 @@ def _evaluate_multistep_drift(
                     latent,
                     torch.tensor([example.action_index], dtype=torch.long),
                 )
-            predicted = model.decode(latent)
+            predicted = model.decode(latent).next_features
             target = torch.tensor([chain[-1].next_feature_vector], dtype=torch.float32)
             total_l1 += float(torch.abs(predicted - target).mean().item())
             exact_total += int(_exact_feature_match_mask(predicted, target).sum().item())

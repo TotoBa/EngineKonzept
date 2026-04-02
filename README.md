@@ -115,6 +115,15 @@ The current model is still weak in the exact sense:
 - exact packed next-state accuracy remains `0.0`
 - multi-step drift is measurable, but not yet good
 
+The first structured follow-up is now also materialized:
+
+- config: [phase6_dynamics_structured_v2_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v2_v1.json)
+- bundle: [structured_v2_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v2_v1)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_v1/summary.json)
+- verify: [dynamics_structured_v2_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_v1_verify.json)
+
+That `structured_v2` arm improves validation and verify feature-L1 error over `v1`, but exact next-state accuracy still remains `0.0`.
+
 ## Repository Layout
 
 ```text

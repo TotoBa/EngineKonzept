@@ -58,3 +58,5 @@ These remain useful as small-corpus regression baselines, but they are no longer
 
 - [phase6_dynamics_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_v1.json)
   First action-conditioned latent-dynamics baseline over the current standard `10,240 / 2,048` Pi-labeled corpus.
+- [phase6_dynamics_structured_v2_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v2_v1.json)
+  First structured dynamics follow-up with separate piece/square/rule decoder heads and section-wise reconstruction weights.

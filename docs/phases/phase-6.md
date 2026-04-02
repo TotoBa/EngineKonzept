@@ -22,6 +22,13 @@ The first materialized baseline run is:
 - summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_v1/summary.json)
 - verify: [dynamics_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_v1_verify.json)
 
+The first structured follow-up run is:
+
+- config: [phase6_dynamics_structured_v2_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v2_v1.json)
+- bundle: [structured_v2_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v2_v1)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_v1/summary.json)
+- verify: [dynamics_structured_v2_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_v1_verify.json)
+
 ## What this baseline does
 
 - encodes packed current-state features into a latent vector
@@ -44,5 +51,13 @@ The `v1` baseline is good enough to establish the Phase-6 plumbing, but not yet 
 - held-out feature-L1 error is stable and measurable
 - exact next-state accuracy remains `0.0`
 - drift metrics are now externally checkable, but still weak
+
+The structured `v2` follow-up is the first real modeling improvement:
+
+- lower validation and verify feature-L1 error
+- lower verify drift error
+- separate piece/square/rule reconstruction losses now visible
+
+But it still does **not** recover exact packed next states.
 
 That means the repo has crossed from “Phase 6 placeholder” into “first checkable dynamics baseline”, but the modeling work is still ahead.

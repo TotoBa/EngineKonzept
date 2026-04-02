@@ -22,6 +22,12 @@ POSITION_FEATURE_SIZE = (
     + SQUARE_TOKEN_COUNT * SQUARE_TOKEN_WIDTH
     + RULE_TOKEN_WIDTH
 )
+PIECE_FEATURE_SIZE = PIECE_TOKEN_CAPACITY * PIECE_TOKEN_WIDTH
+SQUARE_FEATURE_SIZE = SQUARE_TOKEN_COUNT * SQUARE_TOKEN_WIDTH
+RULE_FEATURE_SIZE = RULE_TOKEN_WIDTH
+PIECE_FEATURE_SLICE = slice(0, PIECE_FEATURE_SIZE)
+SQUARE_FEATURE_SLICE = slice(PIECE_FEATURE_SIZE, PIECE_FEATURE_SIZE + SQUARE_FEATURE_SIZE)
+RULE_FEATURE_SLICE = slice(PIECE_FEATURE_SIZE + SQUARE_FEATURE_SIZE, POSITION_FEATURE_SIZE)
 PROPOSER_ARTIFACT_PREFIX = "proposer_"
 DYNAMICS_ARTIFACT_PREFIX = "dynamics_"
 
@@ -276,6 +282,11 @@ def position_feature_spec() -> dict[str, object]:
     """Describe the fixed-width proposer input layout."""
     return {
         "feature_dim": POSITION_FEATURE_SIZE,
+        "sections": {
+            "piece": {"offset": PIECE_FEATURE_SLICE.start, "size": PIECE_FEATURE_SIZE},
+            "square": {"offset": SQUARE_FEATURE_SLICE.start, "size": SQUARE_FEATURE_SIZE},
+            "rule": {"offset": RULE_FEATURE_SLICE.start, "size": RULE_FEATURE_SIZE},
+        },
         "layout": {
             "piece_token_capacity": PIECE_TOKEN_CAPACITY,
             "piece_token_width": PIECE_TOKEN_WIDTH,
@@ -304,6 +315,20 @@ def dynamics_artifact_name(split: str) -> str:
     if split not in SUPPORTED_SPLITS:
         raise ValueError(f"unsupported split: {split}")
     return f"{DYNAMICS_ARTIFACT_PREFIX}{split}.jsonl"
+
+
+def split_position_features(feature_vector: Sequence[float]) -> dict[str, list[float]]:
+    """Split one packed feature vector into deterministic piece/square/rule sections."""
+    values = [float(value) for value in feature_vector]
+    if len(values) != POSITION_FEATURE_SIZE:
+        raise ValueError(
+            f"expected {POSITION_FEATURE_SIZE} packed features, got {len(values)}"
+        )
+    return {
+        "piece": values[PIECE_FEATURE_SLICE],
+        "square": values[SQUARE_FEATURE_SLICE],
+        "rule": values[RULE_FEATURE_SLICE],
+    }
 
 
 def _load_examples_from_jsonl(path: Path) -> list[DatasetExample]:
