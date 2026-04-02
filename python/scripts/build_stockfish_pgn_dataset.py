@@ -38,8 +38,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--write-proposer-artifacts",
         action="store_true",
-        help="also emit proposer_<split>.jsonl files with packed training features",
+        dest="write_proposer_artifacts",
+        help="emit proposer_<split>.jsonl files with packed training features",
     )
+    parser.add_argument(
+        "--no-proposer-artifacts",
+        action="store_false",
+        dest="write_proposer_artifacts",
+        help="skip proposer_<split>.jsonl output even for larger Phase-5 dataset builds",
+    )
+    parser.set_defaults(write_proposer_artifacts=True)
     args = parser.parse_args(argv)
 
     selection = sample_policy_records_from_pgns(

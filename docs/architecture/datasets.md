@@ -73,7 +73,9 @@ The builder writes:
 - `test.jsonl`
 - `summary.json`
 
-When a build is invoked with `--write-proposer-artifacts`, it also writes lean proposer-ready split files:
+The generic dataset builder can be told to emit lean proposer-ready split files with `--write-proposer-artifacts`. The larger PGN/Stockfish Phase-5 builder now does this by default and exposes `--no-proposer-artifacts` only as an escape hatch.
+
+Those lean split files are:
 
 - `proposer_train.jsonl`
 - `proposer_validation.jsonl`
