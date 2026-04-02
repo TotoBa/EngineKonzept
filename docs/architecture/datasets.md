@@ -325,6 +325,8 @@ To make the serializer itself more directly inspectable, the large local profile
 
 That does not replace the time-based profile, but it does answer a previously ambiguous question: the largest JSON payload pressure is not the legal-move list, it is the encoded feature payload.
 
+The next split in [oracle_profile_50k_v12.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_50k_v12.json) breaks `position_encoding` down one level further. Within that payload, `square_tokens` clearly dominates by bytes, with `piece_tokens` and `rule_token` far behind. A first focused writer variant for `square_tokens` was benchmarked in [oracle_pair_50k_squaretokens_v13.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_50k_squaretokens_v13.json), but it regressed the real `50k` build, so it was discarded. The takeaway is narrower now: `square_tokens` is the biggest payload block, but not every attempt to buffer it more aggressively improves end-to-end throughput.
+
 The next profiling refinement split the remaining self-check attack cost into local attackers and slider attackers. The current result in [oracle_profile_v8.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v8.json) is:
 
 - `attack_check_local`: about `23.0%`

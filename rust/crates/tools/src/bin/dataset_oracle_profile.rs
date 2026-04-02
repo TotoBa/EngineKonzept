@@ -24,6 +24,7 @@ struct ProfileReport {
     total_measured_seconds: f64,
     phases: Vec<(&'static str, ProfilePhaseReport)>,
     json_sections: Vec<(&'static str, JsonSectionReport)>,
+    position_encoding_sections: Vec<(&'static str, JsonSectionReport)>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -161,6 +162,7 @@ fn to_report(profile: &OracleProfileTotals) -> ProfileReport {
             ),
         ],
         json_sections: json_sections(profile, records),
+        position_encoding_sections: position_encoding_sections(profile, records),
     }
 }
 
@@ -231,6 +233,35 @@ fn phase(
             },
         },
     )
+}
+
+fn position_encoding_sections(
+    profile: &OracleProfileTotals,
+    records: u64,
+) -> Vec<(&'static str, JsonSectionReport)> {
+    let total_position_encoding_bytes = profile.json_serialize_piece_tokens_bytes
+        + profile.json_serialize_square_tokens_bytes
+        + profile.json_serialize_rule_token_bytes;
+    vec![
+        json_section(
+            "piece_tokens",
+            profile.json_serialize_piece_tokens_bytes,
+            total_position_encoding_bytes,
+            records,
+        ),
+        json_section(
+            "square_tokens",
+            profile.json_serialize_square_tokens_bytes,
+            total_position_encoding_bytes,
+            records,
+        ),
+        json_section(
+            "rule_token",
+            profile.json_serialize_rule_token_bytes,
+            total_position_encoding_bytes,
+            records,
+        ),
+    ]
 }
 
 fn json_section(

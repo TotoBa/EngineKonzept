@@ -38,6 +38,8 @@ The matching Pi hotspot profile is [oracle_profile_50k_pi_v4.json](/home/torsten
 
 The newer local profile [oracle_profile_50k_v10.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_50k_v10.json) also records JSON subsection byte shares. On the current `50k` run, `position_encoding` is the largest JSON payload block, ahead of `annotations`, `legal_action_encodings`, and `legal_moves`.
 
+The follow-up profile [oracle_profile_50k_v12.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_50k_v12.json) splits `position_encoding` further and shows that `square_tokens` is the dominant payload inside that block. A first focused `square_tokens` writer experiment is recorded in [oracle_pair_50k_squaretokens_v13.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_50k_squaretokens_v13.json); it did not improve the real `50k` build and was therefore not kept.
+
 The dataset builders also support offline oracle parallelism:
 
 - `--oracle-workers`

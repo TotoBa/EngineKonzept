@@ -130,6 +130,9 @@ pub struct OracleProfileTotals {
     pub json_serialize_legal_moves_bytes: u64,
     pub json_serialize_legal_action_encodings_bytes: u64,
     pub json_serialize_position_encoding_bytes: u64,
+    pub json_serialize_piece_tokens_bytes: u64,
+    pub json_serialize_square_tokens_bytes: u64,
+    pub json_serialize_rule_token_bytes: u64,
     pub json_serialize_annotations_bytes: u64,
 }
 
@@ -187,6 +190,9 @@ impl OracleProfileTotals {
             profile.json_serialize_legal_action_encodings_bytes;
         self.json_serialize_position_encoding_bytes +=
             profile.json_serialize_position_encoding_bytes;
+        self.json_serialize_piece_tokens_bytes += profile.json_serialize_piece_tokens_bytes;
+        self.json_serialize_square_tokens_bytes += profile.json_serialize_square_tokens_bytes;
+        self.json_serialize_rule_token_bytes += profile.json_serialize_rule_token_bytes;
         self.json_serialize_annotations_bytes += profile.json_serialize_annotations_bytes;
     }
 }
@@ -217,6 +223,9 @@ struct OracleRecordProfile {
     json_serialize_legal_moves_bytes: u64,
     json_serialize_legal_action_encodings_bytes: u64,
     json_serialize_position_encoding_bytes: u64,
+    json_serialize_piece_tokens_bytes: u64,
+    json_serialize_square_tokens_bytes: u64,
+    json_serialize_rule_token_bytes: u64,
     json_serialize_annotations_bytes: u64,
 }
 
@@ -425,7 +434,7 @@ fn write_oracle_output_json_profiled<W: Write>(
     writer.write_all(b",").map_err(json_io_error)?;
     write_json_field_name(writer, "position_encoding")?;
     let position_encoding_started_bytes = writer.bytes_written();
-    write_position_encoding(writer, &output.position_encoding)?;
+    write_position_encoding_profiled(writer, &output.position_encoding, profile)?;
     let position_encoding_bytes = writer.bytes_written() - position_encoding_started_bytes;
     profile.json_serialize_position_encoding_bytes += position_encoding_bytes;
     writer.write_all(b",").map_err(json_io_error)?;
@@ -487,6 +496,32 @@ fn write_position_encoding(
     writer.write_all(b",").map_err(json_io_error)?;
     write_json_field_name(writer, "rule_token")?;
     write_u32_six(writer, encoding.rule_token)?;
+    writer.write_all(b"}").map_err(json_io_error)?;
+    Ok(())
+}
+
+fn write_position_encoding_profiled<W: Write>(
+    writer: &mut CountingWriter<W>,
+    encoding: &PositionEncodingOutput,
+    profile: &mut OracleRecordProfile,
+) -> Result<(), DatasetOracleError> {
+    writer.write_all(b"{").map_err(json_io_error)?;
+    write_json_field_name(writer, "piece_tokens")?;
+    let piece_tokens_started_bytes = writer.bytes_written();
+    write_u32_triplet_array(writer, &encoding.piece_tokens)?;
+    profile.json_serialize_piece_tokens_bytes +=
+        writer.bytes_written() - piece_tokens_started_bytes;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "square_tokens")?;
+    let square_tokens_started_bytes = writer.bytes_written();
+    write_u32_pair_array(writer, &encoding.square_tokens)?;
+    profile.json_serialize_square_tokens_bytes +=
+        writer.bytes_written() - square_tokens_started_bytes;
+    writer.write_all(b",").map_err(json_io_error)?;
+    write_json_field_name(writer, "rule_token")?;
+    let rule_token_started_bytes = writer.bytes_written();
+    write_u32_six(writer, encoding.rule_token)?;
+    profile.json_serialize_rule_token_bytes += writer.bytes_written() - rule_token_started_bytes;
     writer.write_all(b"}").map_err(json_io_error)?;
     Ok(())
 }
