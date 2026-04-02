@@ -81,12 +81,22 @@ pub struct LegalMoveProfile {
     pub self_check_filter: Duration,
     pub attack_check_local: Duration,
     pub attack_check_slider: Duration,
+    pub attack_check_pawn: Duration,
+    pub attack_check_knight: Duration,
+    pub attack_check_king: Duration,
+    pub attack_check_bishop_ray: Duration,
+    pub attack_check_rook_ray: Duration,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 struct AttackCheckProfile {
     local: Duration,
     slider: Duration,
+    pawn: Duration,
+    knight: Duration,
+    king: Duration,
+    bishop_ray: Duration,
+    rook_ray: Duration,
 }
 
 /// Returns whether `square` is attacked by `attacker`.
@@ -118,37 +128,49 @@ fn is_square_attacked_on_board_profiled(
     let knight = Piece::new(attacker, PieceKind::Knight);
     let king = Piece::new(attacker, PieceKind::King);
 
+    let pawn_started = Instant::now();
     for file_delta in [-1, 1] {
         let file = square_file + file_delta;
         if let Some(source_index) = board_index(file, pawn_source_rank) {
             if board[source_index] == Some(pawn) {
                 if let Some(profile) = profile.as_deref_mut() {
+                    profile.pawn += pawn_started.elapsed();
                     profile.local += local_started.elapsed();
                 }
                 return true;
             }
         }
     }
+    if let Some(profile) = profile.as_deref_mut() {
+        profile.pawn += pawn_started.elapsed();
+    }
 
+    let knight_started = Instant::now();
     for (file_delta, rank_delta) in KNIGHT_DELTAS {
         let file = square_file + file_delta;
         let rank = square_rank + rank_delta;
         if let Some(source_index) = board_index(file, rank) {
             if board[source_index] == Some(knight) {
                 if let Some(profile) = profile.as_deref_mut() {
+                    profile.knight += knight_started.elapsed();
                     profile.local += local_started.elapsed();
                 }
                 return true;
             }
         }
     }
+    if let Some(profile) = profile.as_deref_mut() {
+        profile.knight += knight_started.elapsed();
+    }
 
+    let king_started = Instant::now();
     for (file_delta, rank_delta) in KING_DELTAS {
         let file = square_file + file_delta;
         let rank = square_rank + rank_delta;
         if let Some(source_index) = board_index(file, rank) {
             if board[source_index] == Some(king) {
                 if let Some(profile) = profile.as_deref_mut() {
+                    profile.king += king_started.elapsed();
                     profile.local += local_started.elapsed();
                 }
                 return true;
@@ -156,14 +178,23 @@ fn is_square_attacked_on_board_profiled(
         }
     }
     if let Some(profile) = profile.as_deref_mut() {
+        profile.king += king_started.elapsed();
         profile.local += local_started.elapsed();
     }
 
     let slider_started = Instant::now();
-    let attacked =
-        is_attacked_by_slider_on_board(board, square, attacker, &BISHOP_DIRECTIONS, true)
-            || is_attacked_by_slider_on_board(board, square, attacker, &ROOK_DIRECTIONS, false);
+    let bishop_started = Instant::now();
+    let bishop_attacked =
+        is_attacked_by_slider_on_board(board, square, attacker, &BISHOP_DIRECTIONS, true);
     if let Some(profile) = profile.as_deref_mut() {
+        profile.bishop_ray += bishop_started.elapsed();
+    }
+    let rook_started = Instant::now();
+    let rook_attacked =
+        !bishop_attacked && is_attacked_by_slider_on_board(board, square, attacker, &ROOK_DIRECTIONS, false);
+    let attacked = bishop_attacked || rook_attacked;
+    if let Some(profile) = profile.as_deref_mut() {
+        profile.rook_ray += rook_started.elapsed();
         profile.slider += slider_started.elapsed();
     }
     attacked
@@ -251,6 +282,11 @@ pub fn legal_moves_profiled(position: &Position) -> (Vec<Move>, LegalMoveProfile
             self_check_filter,
             attack_check_local: attack_profile.local,
             attack_check_slider: attack_profile.slider,
+            attack_check_pawn: attack_profile.pawn,
+            attack_check_knight: attack_profile.knight,
+            attack_check_king: attack_profile.king,
+            attack_check_bishop_ray: attack_profile.bishop_ray,
+            attack_check_rook_ray: attack_profile.rook_ray,
         },
     )
 }

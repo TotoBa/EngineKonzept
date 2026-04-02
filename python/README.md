@@ -25,6 +25,8 @@ For reproducible hotspot analysis on a raw dataset slice, use [profile_dataset_o
 
 The latest JSON-writer follow-up is captured in [oracle_pair_50k_json_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_50k_json_v2.json) and [oracle_profile_50k_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_50k_v2.json). It is a small optimization, not a step change: the large-build result improves modestly, while the profile still points primarily at `legal_generation` and secondarily at JSON serialization.
 
+The finer attack-check breakdown now lives in [oracle_profile_50k_v3.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_50k_v3.json). On the current large run, the remaining self-check pressure is led by rook-ray scans, king-local checks, and knight-local checks, not by pawn checks.
+
 The dataset builders also support offline oracle parallelism:
 
 - `--oracle-workers`

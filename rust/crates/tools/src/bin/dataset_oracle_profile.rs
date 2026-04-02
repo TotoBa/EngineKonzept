@@ -61,8 +61,38 @@ fn to_report(profile: &OracleProfileTotals) -> ProfileReport {
                 records,
             ),
             phase(
+                "attack_check_pawn",
+                profile.attack_check_pawn,
+                total_measured,
+                records,
+            ),
+            phase(
+                "attack_check_knight",
+                profile.attack_check_knight,
+                total_measured,
+                records,
+            ),
+            phase(
+                "attack_check_king",
+                profile.attack_check_king,
+                total_measured,
+                records,
+            ),
+            phase(
                 "attack_check_slider",
                 profile.attack_check_slider,
+                total_measured,
+                records,
+            ),
+            phase(
+                "attack_check_bishop_ray",
+                profile.attack_check_bishop_ray,
+                total_measured,
+                records,
+            ),
+            phase(
+                "attack_check_rook_ray",
+                profile.attack_check_rook_ray,
                 total_measured,
                 records,
             ),

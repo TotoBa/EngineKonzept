@@ -111,6 +111,11 @@ pub struct OracleProfileTotals {
     pub self_check_filter: Duration,
     pub attack_check_local: Duration,
     pub attack_check_slider: Duration,
+    pub attack_check_pawn: Duration,
+    pub attack_check_knight: Duration,
+    pub attack_check_king: Duration,
+    pub attack_check_bishop_ray: Duration,
+    pub attack_check_rook_ray: Duration,
     pub legal_move_uci: Duration,
     pub legal_action_encoding: Duration,
     pub selected_move_resolution: Duration,
@@ -153,6 +158,11 @@ impl OracleProfileTotals {
         self.self_check_filter += profile.self_check_filter;
         self.attack_check_local += profile.attack_check_local;
         self.attack_check_slider += profile.attack_check_slider;
+        self.attack_check_pawn += profile.attack_check_pawn;
+        self.attack_check_knight += profile.attack_check_knight;
+        self.attack_check_king += profile.attack_check_king;
+        self.attack_check_bishop_ray += profile.attack_check_bishop_ray;
+        self.attack_check_rook_ray += profile.attack_check_rook_ray;
         self.legal_move_uci += profile.legal_move_uci;
         self.legal_action_encoding += profile.legal_action_encoding;
         self.selected_move_resolution += profile.selected_move_resolution;
@@ -171,6 +181,11 @@ struct OracleRecordProfile {
     self_check_filter: Duration,
     attack_check_local: Duration,
     attack_check_slider: Duration,
+    attack_check_pawn: Duration,
+    attack_check_knight: Duration,
+    attack_check_king: Duration,
+    attack_check_bishop_ray: Duration,
+    attack_check_rook_ray: Duration,
     legal_move_uci: Duration,
     legal_action_encoding: Duration,
     selected_move_resolution: Duration,
@@ -538,6 +553,11 @@ fn label_dataset_input_impl(
         profile.self_check_filter += legal_profile.self_check_filter;
         profile.attack_check_local += legal_profile.attack_check_local;
         profile.attack_check_slider += legal_profile.attack_check_slider;
+        profile.attack_check_pawn += legal_profile.attack_check_pawn;
+        profile.attack_check_knight += legal_profile.attack_check_knight;
+        profile.attack_check_king += legal_profile.attack_check_king;
+        profile.attack_check_bishop_ray += legal_profile.attack_check_bishop_ray;
+        profile.attack_check_rook_ray += legal_profile.attack_check_rook_ray;
     }
 
     let started = Instant::now();

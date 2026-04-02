@@ -260,6 +260,24 @@ The newest small JSON-path refinement adds a fast ASCII string path to the speci
 
 The matching large-run profile is stored in [oracle_profile_50k_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_50k_v2.json). Its absolute timings still move around enough that the profile should be treated as directional rather than exact for this micro-step, but it keeps the same priority order: `legal_generation` first, `json_serialize` still a real secondary cost.
 
+The newest attack-check refinement is purely profiling-oriented: it does not change legality semantics, but it splits the remaining attack path into:
+
+- `attack_check_pawn`
+- `attack_check_knight`
+- `attack_check_king`
+- `attack_check_bishop_ray`
+- `attack_check_rook_ray`
+
+The current 50k reference is [oracle_profile_50k_v3.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_50k_v3.json). On that run, the remaining attack-check cost is led by:
+
+- `attack_check_rook_ray`: about `9.1%`
+- `attack_check_king`: about `8.8%`
+- `attack_check_knight`: about `8.1%`
+- `attack_check_bishop_ray`: about `7.2%`
+- `attack_check_pawn`: about `2.5%`
+
+So the remaining self-check pressure is not pawn-dominated. The next likely rules-side wins, if any remain, are king-local checks, knight-local checks, and rook-ray scans.
+
 The next profiling refinement split the remaining self-check attack cost into local attackers and slider attackers. The current result in [oracle_profile_v8.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v8.json) is:
 
 - `attack_check_local`: about `23.0%`
