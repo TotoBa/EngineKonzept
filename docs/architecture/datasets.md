@@ -86,6 +86,8 @@ The dataset build scripts now also expose offline throughput knobs for the Rust 
 
 These affect only offline dataset generation. They do not change label semantics or any runtime engine path.
 
+When the Python wrapper uses the one-shot subprocess oracle path, it now prefers a prebuilt local binary at `rust/target/debug/dataset-oracle` before falling back to `cargo run`. On a warmed 250-record one-shot benchmark, that reduced wall-clock time from about `0.117s` to about `0.076s`, or about `1.53x` faster, with identical output digests. That measurement is stored in [oracle_one_shot_binary_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_one_shot_binary_v1.json).
+
 Current end-to-end measurement on a 2000-record JSONL build:
 
 - serial daemon vs. subprocess: about `1.03x`

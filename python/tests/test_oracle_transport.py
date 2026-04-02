@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import json
+import os
 import socket
 from pathlib import Path
 from unittest.mock import patch
 
-from train.datasets.oracle import label_records_with_oracle
+from train.datasets.oracle import _default_oracle_command, label_records_with_oracle
 from train.datasets.schema import RawPositionRecord
 
 
@@ -114,3 +115,24 @@ def test_label_records_with_subprocess_command_roundtrips(tmp_path: Path) -> Non
     outputs = label_records_with_oracle([record], command=["python3", str(script)])
 
     assert outputs == [{"fen": "4k3/8/8/8/8/8/8/4K3 w - - 0 1"}]
+
+
+def test_default_oracle_command_prefers_built_binary(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    binary = repo_root / "rust" / "target" / "debug" / "dataset-oracle"
+    binary.parent.mkdir(parents=True)
+    binary.write_text("", encoding="utf-8")
+
+    with patch.dict(os.environ, {}, clear=True):
+        command = _default_oracle_command(repo_root)
+
+    assert command == [str(binary)]
+
+
+def test_default_oracle_command_honors_env_override(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+
+    with patch.dict(os.environ, {"ENGINEKONZEPT_DATASET_ORACLE": "python3 oracle.py"}):
+        command = _default_oracle_command(repo_root)
+
+    assert command == ["python3", "oracle.py"]

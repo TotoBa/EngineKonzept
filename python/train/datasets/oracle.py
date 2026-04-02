@@ -30,7 +30,7 @@ def label_records_with_oracle(
         return []
 
     resolved_repo_root = repo_root or _default_repo_root()
-    resolved_command = list(command or _default_oracle_command())
+    resolved_command = list(command or _default_oracle_command(resolved_repo_root))
 
     payload = "\n".join(
         json.dumps(record.to_oracle_input(), sort_keys=True) for record in records
@@ -91,9 +91,12 @@ def _label_records_with_unix_socket(
     return outputs
 
 
-def _default_oracle_command() -> list[str]:
+def _default_oracle_command(repo_root: Path) -> list[str]:
     if env_command := os.environ.get(DATASET_ORACLE_ENV):
         return shlex.split(env_command)
+    built_binary = repo_root / "rust" / "target" / "debug" / "dataset-oracle"
+    if built_binary.exists():
+        return [str(built_binary)]
     return ["cargo", "run", "--quiet", "-p", "tools", "--bin", "dataset-oracle"]
 
 

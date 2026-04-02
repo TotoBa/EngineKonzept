@@ -1,0 +1,31 @@
+{
+  "benchmark_input": {
+    "input": "/srv/schach/tmp/oracle-e2e/train_raw_2k.jsonl",
+    "record_count": 250,
+    "comparison": "warmed one-shot oracle subprocess path"
+  },
+  "results": {
+    "cargo_run_seconds": [
+      0.116953,
+      0.116117,
+      0.118113
+    ],
+    "built_binary_seconds": [
+      0.076058,
+      0.075896,
+      0.076853
+    ],
+    "cargo_run_mean_seconds": 0.117061,
+    "built_binary_mean_seconds": 0.076269,
+    "built_binary_vs_cargo_run_speedup": 1.5348,
+    "saved_seconds_mean": 0.040792
+  },
+  "artifact_digests": {
+    "stdout_sha256": "6cfe12854a58a724c1aeab6d844e0af89f213838bf2b84274c09e401891273e3"
+  },
+  "notes": [
+    "The Python oracle wrapper now prefers a prebuilt rust/target/debug/dataset-oracle binary before falling back to cargo run.",
+    "Both command forms are warmed once before measurement to avoid counting an initial cargo startup spike as steady-state behavior.",
+    "Output digests are identical across both command forms."
+  ]
+}
