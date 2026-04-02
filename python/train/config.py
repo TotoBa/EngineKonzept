@@ -220,10 +220,11 @@ class DynamicsModelConfig:
             "structured_v2",
             "structured_v3",
             "structured_v4",
+            "structured_v5",
             "edit_v1",
         }:
             raise ValueError(
-                "model.architecture must be 'mlp_v1', 'structured_v2', 'structured_v3', 'structured_v4', or 'edit_v1'"
+                "model.architecture must be 'mlp_v1', 'structured_v2', 'structured_v3', 'structured_v4', 'structured_v5', or 'edit_v1'"
             )
         if self.latent_dim <= 0:
             raise ValueError("model.latent_dim must be positive")

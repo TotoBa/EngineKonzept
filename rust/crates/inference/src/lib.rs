@@ -175,6 +175,14 @@ pub struct DynamicsActionInputSpec {
     pub flatten_formula: String,
     pub dtype: String,
     pub shape: DynamicBatchShapeSpec,
+    #[serde(default)]
+    pub symbolic: Option<DynamicsSymbolicActionSpec>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DynamicsSymbolicActionSpec {
+    pub feature_dim: u32,
+    pub feature_order: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -328,6 +336,7 @@ pub enum DynamicsLoadError {
     InvalidFeatureDim { expected: u32, found: u32 },
     InvalidActionSpaceFlatSize { expected: u32, found: u32 },
     InvalidActionDtype(String),
+    InvalidSymbolicActionFeatureDim(u32),
     InvalidNextStateShape { expected: u32, found: u32 },
     InvalidDriftHorizon(u32),
 }
@@ -431,6 +440,9 @@ impl fmt::Display for DynamicsLoadError {
                     "invalid dynamics action dtype: expected int64, found {dtype}"
                 )
             }
+            Self::InvalidSymbolicActionFeatureDim(value) => {
+                write!(f, "invalid dynamics symbolic action feature dim: {value}")
+            }
             Self::InvalidNextStateShape { expected, found } => write!(
                 f,
                 "invalid dynamics next-state shape: expected {expected} features, found {found}"
@@ -452,6 +464,7 @@ impl Error for DynamicsLoadError {
             | Self::InvalidFeatureDim { .. }
             | Self::InvalidActionSpaceFlatSize { .. }
             | Self::InvalidActionDtype(_)
+            | Self::InvalidSymbolicActionFeatureDim(_)
             | Self::InvalidNextStateShape { .. }
             | Self::InvalidDriftHorizon(_) => None,
         }
@@ -682,6 +695,14 @@ pub fn validate_dynamics_metadata(metadata: &DynamicsMetadata) -> Result<(), Dyn
         return Err(DynamicsLoadError::InvalidActionDtype(
             metadata.input.action.dtype.clone(),
         ));
+    }
+
+    if let Some(symbolic) = metadata.input.action.symbolic.as_ref() {
+        if symbolic.feature_dim != SYMBOLIC_CANDIDATE_FEATURE_DIM as u32 {
+            return Err(DynamicsLoadError::InvalidSymbolicActionFeatureDim(
+                symbolic.feature_dim,
+            ));
+        }
     }
 
     if metadata.outputs.next_state_shape.features != metadata.input.state.feature_dim {
@@ -1271,6 +1292,23 @@ mod tests {
         assert!(matches!(error, DynamicsLoadError::InvalidDriftHorizon(1)));
     }
 
+    #[test]
+    fn validate_dynamics_metadata_rejects_invalid_symbolic_action_feature_dim() {
+        let mut metadata = valid_dynamics_metadata();
+        metadata["input"]["action"]["symbolic"] = json!({
+            "feature_dim": 7,
+            "feature_order": []
+        });
+
+        let parsed = serde_json::from_value(metadata).expect("metadata parses");
+        let error = validate_dynamics_metadata(&parsed).expect_err("metadata should be rejected");
+
+        assert!(matches!(
+            error,
+            DynamicsLoadError::InvalidSymbolicActionFeatureDim(7)
+        ));
+    }
+
     fn write_valid_bundle(bundle_dir: &Path) {
         fs::write(
             bundle_dir.join("metadata.json"),
@@ -1428,7 +1466,8 @@ mod tests {
                     "dtype": "int64",
                     "shape": {
                         "batch": "dynamic"
-                    }
+                    },
+                    "symbolic": null
                 }
             },
             "latent": {

@@ -174,6 +174,11 @@ The explicit drift-supervision `structured_v4_v1` follow-up clarified one more p
 
 - simply adding a short rollout loss on top of the current contract is not enough; this formulation is worse than `structured_v2_latent_v1` and `structured_v3_v1`
 
+The next `structured_v5_v1` follow-up clarified the first direct proposer-to-dynamics contract question:
+
+- feeding exact symbolic move-side features from the symbolic proposer contract helps one-step reconstruction
+- but that alone is not enough to protect multi-step drift, so it remains experimental
+
 ### Why
 
 This fits the exactness constraints and the planned Phase-6 measurements better than a diffuse global reconstructor.

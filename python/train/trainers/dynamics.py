@@ -15,6 +15,7 @@ from train.datasets.artifacts import (
     PIECE_FEATURE_SIZE,
     RULE_FEATURE_SIZE,
     SQUARE_FEATURE_SIZE,
+    SYMBOLIC_PROPOSER_CANDIDATE_FEATURE_SIZE,
     load_dynamics_examples,
 )
 from train.export.dynamics import export_dynamics_bundle
@@ -455,11 +456,16 @@ def _run_epoch(
     for batch in loader:
         features = batch["features"]
         action_indices = batch["action_indices"]
+        action_features = batch["action_features"]
         next_features = batch["next_features"]
 
         context = torch.enable_grad() if training else torch.inference_mode()
         with context:
-            prediction = model.predict(features, action_indices)
+            prediction = model.predict(
+                features,
+                action_indices,
+                action_features=action_features,
+            )
             predicted_next = prediction.next_features
             current_piece, current_square, current_rule = torch.split(
                 features,
@@ -641,6 +647,13 @@ def _evaluate_multistep_drift(
             [[example.action_index for example in chain] for chain in chains],
             dtype=torch.long,
         )
+        action_features = torch.tensor(
+            [
+                [_action_features_or_default(example) for example in chain]
+                for chain in chains
+            ],
+            dtype=torch.float32,
+        )
         targets = torch.tensor(
             [chain[-1].next_feature_vector for chain in chains],
             dtype=torch.float32,
@@ -648,7 +661,11 @@ def _evaluate_multistep_drift(
 
         latent = model.encode(start_features)
         for step_index in range(int(action_indices.shape[1])):
-            latent = model.step(latent, action_indices[:, step_index])
+            latent = model.step(
+                latent,
+                action_indices[:, step_index],
+                action_features=action_features[:, step_index, :],
+            )
 
         predicted = model.decode(latent).next_features
         target_latent = model.encode(targets)
@@ -691,6 +708,13 @@ def _run_drift_supervision(
             [[example.action_index for example in chain] for chain in chains],
             dtype=torch.long,
         )
+        action_features = torch.tensor(
+            [
+                [_action_features_or_default(example) for example in chain]
+                for chain in chains
+            ],
+            dtype=torch.float32,
+        )
         targets = torch.tensor(
             [chain[-1].next_feature_vector for chain in chains],
             dtype=torch.float32,
@@ -698,7 +722,11 @@ def _run_drift_supervision(
 
         latent = model.encode(start_features)
         for step_index in range(int(action_indices.shape[1])):
-            latent = model.step(latent, action_indices[:, step_index])
+            latent = model.step(
+                latent,
+                action_indices[:, step_index],
+                action_features=action_features[:, step_index, :],
+            )
 
         predicted = model.decode(latent).next_features
         total_loss = torch.nn.functional.mse_loss(predicted, targets)
@@ -807,6 +835,12 @@ def _ratio(numerator: float | int, denominator: float | int) -> float:
     return float(numerator) / float(denominator)
 
 
+def _action_features_or_default(example: DynamicsTrainingExample) -> list[float]:
+    if example.action_features is None:
+        return [0.0] * SYMBOLIC_PROPOSER_CANDIDATE_FEATURE_SIZE
+    return list(example.action_features)
+
+
 if torch is not None:
 
     class _TensorDataset(torch.utils.data.Dataset):
@@ -816,6 +850,7 @@ if torch is not None:
             self,
             features: Any,
             action_indices: Any,
+            action_features: Any,
             next_features: Any,
             is_capture: Any,
             is_promotion: Any,
@@ -825,6 +860,7 @@ if torch is not None:
         ) -> None:
             self._features = features
             self._action_indices = action_indices
+            self._action_features = action_features
             self._next_features = next_features
             self._is_capture = is_capture
             self._is_promotion = is_promotion
@@ -842,6 +878,10 @@ if torch is not None:
                 action_indices=torch.tensor(
                     [example.action_index for example in examples],
                     dtype=torch.long,
+                ),
+                action_features=torch.tensor(
+                    [_action_features_or_default(example) for example in examples],
+                    dtype=torch.float32,
                 ),
                 next_features=torch.tensor(
                     [example.next_feature_vector for example in examples],
@@ -876,6 +916,7 @@ if torch is not None:
             return {
                 "features": self._features[index],
                 "action_indices": self._action_indices[index],
+                "action_features": self._action_features[index],
                 "next_features": self._next_features[index],
                 "is_capture": self._is_capture[index],
                 "is_promotion": self._is_promotion[index],

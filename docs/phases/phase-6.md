@@ -14,6 +14,7 @@ The repository now includes the first Phase-6 baseline:
 - config-driven training in [train_dynamics.py](/home/torsten/EngineKonzept/python/scripts/train_dynamics.py)
 - held-out one-step and drift metrics in [dynamics.py](/home/torsten/EngineKonzept/python/train/trainers/dynamics.py)
 - a `torch.export` dynamics bundle plus Rust-side metadata validation in [lib.rs](/home/torsten/EngineKonzept/rust/crates/inference/src/lib.rs)
+- optional symbolic selected-move action features aligned with the current symbolic proposer contract
 
 The first materialized baseline run is:
 
@@ -56,6 +57,13 @@ The next drift-supervised experimental run is:
 - bundle: [structured_v4_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v4_v1)
 - summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v4_v1/summary.json)
 - verify: [dynamics_structured_v4_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v4_v1_verify.json)
+
+The next symbolic-action experimental run is:
+
+- config: [phase6_dynamics_structured_v5_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v5_v1.json)
+- bundle: [structured_v5_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v5_v1)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v5_v1/summary.json)
+- verify: [dynamics_structured_v5_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v5_v1_verify.json)
 
 The parallel local edit-target experimental run is:
 
@@ -112,6 +120,15 @@ The explicit drift-supervision `structured_v4_v1` arm also fails to replace the 
 
 - verify `feature_l1_error`: `1.425074 -> 1.611914`
 - verify `drift_feature_l1_error`: `1.429654 -> 1.49735`
+
+The `structured_v5_v1` arm binds Phase 6 to the symbolic proposer-side move contract:
+
+- verify `feature_l1_error`: `1.425074 -> 1.404499`
+- verify `piece_feature_l1_error`: `1.453196 -> 1.38897`
+- verify `rule_feature_l1_error`: `1.210871 -> 1.085876`
+- verify `drift_feature_l1_error`: `1.429654 -> 1.556962`
+
+That makes it a useful new experimental arm, but not the new default: the symbolic move-side features clearly help local one-step reconstruction, yet drift remains worse than `structured_v2_latent_v1`.
 
 The parallel `edit_v1` arm is informative but remains experimental:
 

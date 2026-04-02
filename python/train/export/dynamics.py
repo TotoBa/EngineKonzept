@@ -8,7 +8,10 @@ from typing import Any, Mapping
 
 from train.action_space import action_space_metadata
 from train.config import DynamicsTrainConfig
-from train.datasets.artifacts import position_feature_spec
+from train.datasets.artifacts import (
+    dynamics_symbolic_action_feature_spec,
+    position_feature_spec,
+)
 from train.models.dynamics import DYNAMICS_MODEL_NAME, torch_is_available
 
 DYNAMICS_EXPORT_SCHEMA_VERSION = 1
@@ -33,6 +36,11 @@ def build_dynamics_export_metadata(
                 **action_space_metadata(),
                 "dtype": "int64",
                 "shape": {"batch": "dynamic"},
+                "symbolic": (
+                    dynamics_symbolic_action_feature_spec()
+                    if config.model.architecture == "structured_v5"
+                    else None
+                ),
             },
         },
         "latent": {
@@ -108,14 +116,30 @@ def export_dynamics_bundle(
 
     export_features = torch.zeros((2, position_feature_spec()["feature_dim"]), dtype=torch.float32)
     export_actions = torch.zeros((2,), dtype=torch.int64)
-    exported_program = torch.export.export(
-        model.cpu(),
-        (export_features, export_actions),
-        dynamic_shapes=(
-            {0: torch.export.Dim.DYNAMIC},
-            {0: torch.export.Dim.DYNAMIC},
-        ),
-    )
+    if config.model.architecture == "structured_v5":
+        symbolic_action_spec = dynamics_symbolic_action_feature_spec()
+        export_action_features = torch.zeros(
+            (2, int(symbolic_action_spec["feature_dim"])),
+            dtype=torch.float32,
+        )
+        exported_program = torch.export.export(
+            model.cpu(),
+            (export_features, export_actions, export_action_features),
+            dynamic_shapes=(
+                {0: torch.export.Dim.DYNAMIC},
+                {0: torch.export.Dim.DYNAMIC},
+                {0: torch.export.Dim.DYNAMIC},
+            ),
+        )
+    else:
+        exported_program = torch.export.export(
+            model.cpu(),
+            (export_features, export_actions),
+            dynamic_shapes=(
+                {0: torch.export.Dim.DYNAMIC},
+                {0: torch.export.Dim.DYNAMIC},
+            ),
+        )
     torch.export.save(exported_program, exported_program_path)
 
     metadata = build_dynamics_export_metadata(config, validation_metrics=validation_metrics)

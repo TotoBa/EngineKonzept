@@ -163,6 +163,7 @@ class DynamicsTrainingExample:
     split: str
     feature_vector: list[float]
     action_index: int
+    action_features: list[float] | None
     next_feature_vector: list[float]
     is_capture: bool
     is_promotion: bool
@@ -179,6 +180,7 @@ class DynamicsTrainingExample:
             "split": self.split,
             "feature_vector": self.feature_vector,
             "action_index": self.action_index,
+            "action_features": self.action_features,
             "next_feature_vector": self.next_feature_vector,
             "is_capture": self.is_capture,
             "is_promotion": self.is_promotion,
@@ -195,11 +197,18 @@ class DynamicsTrainingExample:
         split = str(payload["split"])
         if split not in SUPPORTED_SPLITS:
             raise ValueError(f"unsupported split: {split}")
+        action_features = _optional_float_list(payload.get("action_features"))
+        if action_features is not None and len(action_features) != SYMBOLIC_PROPOSER_CANDIDATE_FEATURE_SIZE:
+            raise ValueError(
+                "action_features must have width "
+                f"{SYMBOLIC_PROPOSER_CANDIDATE_FEATURE_SIZE}"
+            )
         return cls(
             sample_id=str(payload["sample_id"]),
             split=split,
             feature_vector=[float(value) for value in list(payload["feature_vector"])],
             action_index=int(payload["action_index"]),
+            action_features=action_features,
             next_feature_vector=[
                 float(value) for value in list(payload["next_feature_vector"])
             ],
@@ -279,16 +288,23 @@ def load_dynamics_examples(
     if split not in SUPPORTED_SPLITS:
         raise ValueError(f"unsupported split: {split}")
 
+    loaded_examples: list[DynamicsTrainingExample] | None = None
     if dataset_path.is_dir():
         dynamics_path = dataset_path / dynamics_artifact_name(split)
         if dynamics_path.exists():
-            return _load_dynamics_examples_from_jsonl(dynamics_path)
+            loaded_examples = _load_dynamics_examples_from_jsonl(dynamics_path)
+            if all(example.action_features is not None for example in loaded_examples):
+                return loaded_examples
 
-    return _build_dynamics_examples(
-        load_split_examples(dataset_path, split),
-        repo_root=repo_root,
-        oracle_command=oracle_command,
-    )
+    split_examples = load_split_examples(dataset_path, split)
+    if split_examples:
+        return _build_dynamics_examples(
+            split_examples,
+            repo_root=repo_root,
+            oracle_command=oracle_command,
+        )
+
+    return [] if loaded_examples is None else loaded_examples
 
 
 def materialize_proposer_artifacts(dataset_path: Path) -> dict[str, int]:
@@ -521,6 +537,15 @@ def symbolic_proposer_feature_spec() -> dict[str, object]:
     }
 
 
+def dynamics_symbolic_action_feature_spec() -> dict[str, object]:
+    """Describe the symbolic action feature vector shared with the proposer."""
+    proposer_spec = symbolic_proposer_feature_spec()
+    return {
+        "feature_dim": proposer_spec["candidate_feature_dim"],
+        "feature_order": proposer_spec["candidate_feature_order"],
+    }
+
+
 def split_position_features(feature_vector: Sequence[float]) -> dict[str, list[float]]:
     """Split one packed feature vector into deterministic piece/square/rule sections."""
     values = [float(value) for value in feature_vector]
@@ -689,6 +714,12 @@ def _optional_str(value: object) -> str | None:
     return str(value)
 
 
+def _optional_float_list(value: object) -> list[float] | None:
+    if value is None:
+        return None
+    return [float(element) for element in list(value)]
+
+
 def _build_dynamics_examples(
     split_examples: list[DatasetExample],
     *,
@@ -720,12 +751,14 @@ def _build_dynamics_examples(
     dynamics_examples: list[DynamicsTrainingExample] = []
     for example, next_payload in zip(transition_examples, next_payloads, strict=True):
         next_position = PositionEncoding.from_oracle_dict(dict(next_payload["position_encoding"]))
+        action_features = _selected_move_action_features(example)
         dynamics_examples.append(
             DynamicsTrainingExample(
                 sample_id=example.sample_id,
                 split=example.split,
                 feature_vector=pack_position_features(example.position_encoding),
                 action_index=flatten_action(example.selected_action_encoding),
+                action_features=action_features,
                 next_feature_vector=pack_position_features(next_position),
                 is_capture=bool(example.annotations.selected_move_is_capture),
                 is_promotion=bool(example.annotations.selected_move_is_promotion),
@@ -752,3 +785,20 @@ def _trajectory_ply(example: DatasetExample) -> int | None:
     if ply is None:
         return None
     return int(ply)
+
+
+def _selected_move_action_features(example: DatasetExample) -> list[float]:
+    if chess is None:  # pragma: no cover - exercised when chess is absent
+        raise RuntimeError(
+            "python-chess is required for symbolic dynamics artifacts. Install the 'train' extra."
+        )
+    if example.selected_move_uci is None:
+        raise ValueError(f"{example.sample_id}: selected_move_uci is required for dynamics")
+
+    board = chess.Board(example.fen)
+    move = chess.Move.from_uci(example.selected_move_uci)
+    if move not in board.legal_moves:
+        raise ValueError(f"{example.sample_id}: selected move {example.selected_move_uci} is illegal")
+    own_attacks = _attack_map(board, board.turn)
+    opp_attacks = _attack_map(board, not board.turn)
+    return _candidate_feature_row(board, move, own_attacks, opp_attacks)

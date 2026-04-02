@@ -1,0 +1,43 @@
+{
+  "seed": 5,
+  "output_dir": "artifacts/phase6/dynamics_structured_v5_v1",
+  "data": {
+    "dataset_path": "artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1",
+    "train_split": "train",
+    "validation_split": "validation"
+  },
+  "model": {
+    "architecture": "structured_v5",
+    "latent_dim": 128,
+    "hidden_dim": 256,
+    "hidden_layers": 2,
+    "action_embedding_dim": 64,
+    "dropout": 0.1
+  },
+  "optimization": {
+    "epochs": 10,
+    "batch_size": 128,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "reconstruction_loss_weight": 1.0,
+    "piece_loss_weight": 1.0,
+    "square_loss_weight": 1.0,
+    "rule_loss_weight": 2.0,
+    "latent_consistency_loss_weight": 0.1
+  },
+  "evaluation": {
+    "drift_horizon": 2,
+    "drift_dataset_path": "artifacts/datasets/phase5_stockfish_pgn_verify_pi_10k_v1",
+    "drift_split": "test"
+  },
+  "runtime": {
+    "torch_threads": 4,
+    "dataloader_workers": 0
+  },
+  "export": {
+    "bundle_dir": "models/dynamics/structured_v5_v1",
+    "checkpoint_name": "checkpoint.pt",
+    "exported_program_name": "dynamics.pt2",
+    "metadata_name": "metadata.json"
+  }
+}

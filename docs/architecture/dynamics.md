@@ -8,6 +8,7 @@ The current implementations are local, action-conditioned transition models:
 
 - state input: the same packed `230`-feature encoder vector used by the proposer
 - action input: one flattened `20480`-space action index
+- optional symbolic action side input: the selected move's exact candidate-feature row from the symbolic proposer contract
 - latent state: `z = E(s)`
 - transition: `z' = z + G(z, a)`
 - decoder: `D(z') -> next packed state features`
@@ -32,6 +33,8 @@ Materialized bundles:
   Same latent-stable main path, plus auxiliary delta decoders trained only as a side target.
 - [structured_v4_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v4_v1)
   Drift-supervised follow-up that keeps the latent-stable path but adds explicit short-horizon rollout supervision during training.
+- [structured_v5_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v5_v1)
+  Symbolic-action follow-up that keeps the latent-consistency baseline but augments the action pathway with the selected move's exact symbolic candidate features.
 - [edit_v1](/home/torsten/EngineKonzept/models/dynamics/edit_v1)
   Experimental local edit-target arm that reconstructs delta sections relative to the current state.
 
@@ -41,6 +44,7 @@ The first dynamics trainer uses exact one-step supervision derived from existing
 
 - current packed state features from `position_encoding`
 - selected action index from `selected_action_encoding`
+- optional selected-move symbolic feature row aligned with the symbolic proposer contract
 - exact next packed state features by re-encoding `next_fen` through the Rust oracle
 
 Optional lean artifacts are now supported:
@@ -76,6 +80,8 @@ The current materialized runs are:
 - verify: [dynamics_structured_v3_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v3_v1_verify.json)
 - summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v4_v1/summary.json)
 - verify: [dynamics_structured_v4_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v4_v1_verify.json)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v5_v1/summary.json)
+- verify: [dynamics_structured_v5_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v5_v1_verify.json)
 - summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_edit_v1/summary.json)
 - verify: [dynamics_edit_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_edit_v1_verify.json)
 - comparison: [dynamics_phase6_parallel_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_phase6_parallel_compare_v1.json)
@@ -121,6 +127,15 @@ The explicit drift-supervision `structured_v4_v1` follow-up does not rescue that
 - verify `drift_feature_l1_error`: `1.429654 -> 1.49735`
 
 That makes it useful as a checked negative result, but not as a new baseline.
+
+The `structured_v5_v1` follow-up then aligns Phase 6 with the symbolic proposer contract by feeding the exact selected-move candidate features into the transition path:
+
+- verify `feature_l1_error`: `1.425074 -> 1.404499`
+- verify `piece_feature_l1_error`: `1.453196 -> 1.38897`
+- verify `rule_feature_l1_error`: `1.210871 -> 1.085876`
+- verify `drift_feature_l1_error`: `1.429654 -> 1.556962`
+
+So the symbolic action side input helps one-step local reconstruction, but it still gives back too much drift quality to replace `structured_v2_latent_v1` as the default.
 
 The parallel local edit-target arm `edit_v1` shows the opposite tradeoff:
 

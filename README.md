@@ -171,6 +171,20 @@ The parallel `edit_v1` arm is also materialized as an experimental counterexampl
 
 It wins one-step reconstruction strongly, but collapses multi-step drift and therefore remains experimental only.
 
+The next `structured_v5_v1` arm connects Phase 6 directly to the symbolic proposer contract by feeding the selected move's exact symbolic candidate features into the transition path:
+
+- config: [phase6_dynamics_structured_v5_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v5_v1.json)
+- bundle: [structured_v5_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v5_v1)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v5_v1/summary.json)
+- verify: [dynamics_structured_v5_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v5_v1_verify.json)
+
+It improves one-step held-out reconstruction over the current default, but not drift:
+
+- verify `feature_l1_error`: `1.425074 -> 1.404499`
+- verify `drift_feature_l1_error`: `1.429654 -> 1.556962`
+
+So it is kept as the new symbolic-action experimental arm, while `structured_v2_latent_v1` remains the current default.
+
 Exact next-state accuracy still remains `0.0`.
 
 ## Repository Layout

@@ -11,6 +11,7 @@ from train.datasets.artifacts import (
     POSITION_FEATURE_SIZE,
     RULE_FEATURE_SIZE,
     SQUARE_FEATURE_SIZE,
+    SYMBOLIC_PROPOSER_CANDIDATE_FEATURE_SIZE,
 )
 
 try:
@@ -70,7 +71,19 @@ if torch is not None and nn is not None:
                 dropout=dropout,
             )
             self.action_embedding = nn.Embedding(ACTION_SPACE_SIZE, action_embedding_dim)
-            self.transition_input_dim = latent_dim + action_embedding_dim
+            if architecture == "structured_v5":
+                self.symbolic_action_projection = nn.Sequential(
+                    nn.Linear(
+                        SYMBOLIC_PROPOSER_CANDIDATE_FEATURE_SIZE,
+                        action_embedding_dim,
+                    ),
+                    nn.ReLU(),
+                )
+                action_context_dim = action_embedding_dim * 2
+            else:
+                self.symbolic_action_projection = None
+                action_context_dim = action_embedding_dim
+            self.transition_input_dim = latent_dim + action_context_dim
             self.transition = _build_mlp(
                 input_dim=self.transition_input_dim,
                 hidden_dim=hidden_dim,
@@ -92,7 +105,7 @@ if torch is not None and nn is not None:
                 self.piece_delta_decoder = None
                 self.square_delta_decoder = None
                 self.rule_delta_decoder = None
-            elif architecture == "structured_v2":
+            elif architecture in {"structured_v2", "structured_v5"}:
                 self.decoder = None
                 self.piece_decoder = _build_mlp(
                     input_dim=latent_dim,
@@ -213,14 +226,28 @@ if torch is not None and nn is not None:
             """Map flat state features to a latent vector."""
             return self.encoder(features)
 
-        def step(self, latent: Any, action_indices: Any) -> Any:
+        def step(self, latent: Any, action_indices: Any, action_features: Any | None = None) -> Any:
             """Apply one residual action-conditioned latent transition."""
             action_embedding = self.action_embedding(action_indices)
-            return self.step_from_action_embedding(latent, action_embedding)
+            return self.step_from_action_embedding(
+                latent,
+                action_embedding,
+                action_features=action_features,
+            )
 
-        def step_from_action_embedding(self, latent: Any, action_embedding: Any) -> Any:
+        def step_from_action_embedding(
+            self,
+            latent: Any,
+            action_embedding: Any,
+            *,
+            action_features: Any | None = None,
+        ) -> Any:
             """Apply one residual action-conditioned latent transition from a precomputed embedding."""
-            transition_input = torch.cat((latent, action_embedding), dim=1)
+            action_context = self._build_action_context(
+                action_embedding,
+                action_features=action_features,
+            )
+            transition_input = torch.cat((latent, action_context), dim=1)
             return self.step_from_transition_input(latent, transition_input)
 
         def step_from_transition_input(self, latent: Any, transition_input: Any) -> Any:
@@ -228,11 +255,20 @@ if torch is not None and nn is not None:
             delta = self.transition(transition_input)
             return latent + delta
 
-        def predict(self, features: Any, action_indices: Any) -> DynamicsPrediction:
+        def predict(
+            self,
+            features: Any,
+            action_indices: Any,
+            action_features: Any | None = None,
+        ) -> DynamicsPrediction:
             """Predict structured next-state sections for one action-conditioned transition."""
             latent = self.encode(features)
             action_embedding = self.action_embedding(action_indices)
-            transition_input = torch.cat((latent, action_embedding), dim=1)
+            action_context = self._build_action_context(
+                action_embedding,
+                action_features=action_features,
+            )
+            transition_input = torch.cat((latent, action_context), dim=1)
             next_latent = self.step_from_transition_input(latent, transition_input)
             decoded = self.decode(next_latent)
             piece_delta_features = None
@@ -271,6 +307,19 @@ if torch is not None and nn is not None:
                 rule_delta_features=rule_delta_features,
             )
 
+        def _build_action_context(
+            self,
+            action_embedding: Any,
+            *,
+            action_features: Any | None = None,
+        ) -> Any:
+            if self.architecture != "structured_v5":
+                return action_embedding
+            if action_features is None:
+                raise ValueError("structured_v5 requires symbolic action_features")
+            symbolic_context = self.symbolic_action_projection(action_features)
+            return torch.cat((action_embedding, symbolic_context), dim=1)
+
         def decode(self, latent: Any) -> DynamicsPrediction:
             """Decode a latent state into structured next-state sections."""
             if self.architecture == "mlp_v1":
@@ -299,9 +348,18 @@ if torch is not None and nn is not None:
                 rule_delta_features=None,
             )
 
-        def forward(self, features: Any, action_indices: Any) -> Any:
+        def forward(
+            self,
+            features: Any,
+            action_indices: Any,
+            action_features: Any | None = None,
+        ) -> Any:
             """Predict packed next-state features for one action-conditioned transition."""
-            return self.predict(features, action_indices).next_features
+            return self.predict(
+                features,
+                action_indices,
+                action_features=action_features,
+            ).next_features
 
 
     def _build_mlp(
