@@ -67,5 +67,7 @@ These remain useful as small-corpus regression baselines, but they are no longer
 
 ## Phase 6 Experimental Variants
 
+- [phase6_dynamics_structured_v3_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v3_v1.json)
+  Latent-stable structured follow-up with auxiliary delta supervision. Better one-step reconstruction than the current default, but slightly worse drift.
 - [phase6_dynamics_edit_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_edit_v1.json)
   Local edit-target dynamics arm. Very strong one-step reconstruction, but currently unacceptable drift.

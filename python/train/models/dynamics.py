@@ -118,6 +118,50 @@ if torch is not None and nn is not None:
                 self.piece_delta_decoder = None
                 self.square_delta_decoder = None
                 self.rule_delta_decoder = None
+            elif architecture == "structured_v3":
+                self.decoder = None
+                self.piece_decoder = _build_mlp(
+                    input_dim=latent_dim,
+                    hidden_dim=hidden_dim,
+                    hidden_layers=max(1, hidden_layers - 1),
+                    output_dim=PIECE_FEATURE_SIZE,
+                    dropout=dropout,
+                )
+                self.square_decoder = _build_mlp(
+                    input_dim=latent_dim,
+                    hidden_dim=hidden_dim,
+                    hidden_layers=max(1, hidden_layers - 1),
+                    output_dim=SQUARE_FEATURE_SIZE,
+                    dropout=dropout,
+                )
+                self.rule_decoder = _build_mlp(
+                    input_dim=latent_dim,
+                    hidden_dim=hidden_dim,
+                    hidden_layers=max(1, hidden_layers - 1),
+                    output_dim=RULE_FEATURE_SIZE,
+                    dropout=dropout,
+                )
+                self.piece_delta_decoder = _build_mlp(
+                    input_dim=self.transition_input_dim,
+                    hidden_dim=hidden_dim,
+                    hidden_layers=1,
+                    output_dim=PIECE_FEATURE_SIZE,
+                    dropout=dropout,
+                )
+                self.square_delta_decoder = _build_mlp(
+                    input_dim=self.transition_input_dim,
+                    hidden_dim=hidden_dim,
+                    hidden_layers=1,
+                    output_dim=SQUARE_FEATURE_SIZE,
+                    dropout=dropout,
+                )
+                self.rule_delta_decoder = _build_mlp(
+                    input_dim=self.transition_input_dim,
+                    hidden_dim=hidden_dim,
+                    hidden_layers=1,
+                    output_dim=RULE_FEATURE_SIZE,
+                    dropout=dropout,
+                )
             elif architecture == "edit_v1":
                 self.decoder = None
                 self.piece_decoder = _build_mlp(
@@ -179,17 +223,18 @@ if torch is not None and nn is not None:
         def predict(self, features: Any, action_indices: Any) -> DynamicsPrediction:
             """Predict structured next-state sections for one action-conditioned transition."""
             latent = self.encode(features)
+            action_embedding = self.action_embedding(action_indices)
+            transition_input = torch.cat((latent, action_embedding), dim=1)
             next_latent = self.step(latent, action_indices)
             decoded = self.decode(next_latent)
             piece_delta_features = None
             square_delta_features = None
             rule_delta_features = None
-            if self.architecture == "edit_v1":
-                action_embedding = self.action_embedding(action_indices)
-                transition_input = torch.cat((latent, action_embedding), dim=1)
+            if self.architecture in {"structured_v3", "edit_v1"}:
                 piece_delta_features = self.piece_delta_decoder(transition_input)
                 square_delta_features = self.square_delta_decoder(transition_input)
                 rule_delta_features = self.rule_delta_decoder(transition_input)
+            if self.architecture == "edit_v1":
                 current_piece, current_square, current_rule = torch.split(
                     features,
                     [PIECE_FEATURE_SIZE, SQUARE_FEATURE_SIZE, RULE_FEATURE_SIZE],

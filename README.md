@@ -133,6 +133,18 @@ The latest parallel follow-up keeps that drift-aware structure and adds latent-c
 - verify `feature_l1_error`: `1.425823 -> 1.425074`
 - verify `drift_feature_l1_error`: `1.557198 -> 1.429654`
 
+The next `structured_v3_v1` follow-up adds a delta auxiliary head on top of the same latent-stable path:
+
+- config: [phase6_dynamics_structured_v3_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v3_v1.json)
+- bundle: [structured_v3_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v3_v1)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v3_v1/summary.json)
+- verify: [dynamics_structured_v3_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v3_v1_verify.json)
+
+It improves one-step verify reconstruction again, but gives back a little drift quality:
+
+- verify `feature_l1_error`: `1.425074 -> 1.353977`
+- verify `drift_feature_l1_error`: `1.429654 -> 1.47778`
+
 The parallel `edit_v1` arm is also materialized as an experimental counterexample:
 
 - config: [phase6_dynamics_edit_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_edit_v1.json)

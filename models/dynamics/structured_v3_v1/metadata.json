@@ -1,0 +1,119 @@
+{
+  "artifacts": {
+    "checkpoint_file": "checkpoint.pt",
+    "exported_program_file": "dynamics.pt2"
+  },
+  "input": {
+    "action": {
+      "dtype": "int64",
+      "flat_size": 20480,
+      "flatten_formula": "((from_index * 64) + to_index) * 5 + promotion_index",
+      "from_head_size": 64,
+      "promotion_head_size": 5,
+      "shape": {
+        "batch": "dynamic"
+      },
+      "to_head_size": 64
+    },
+    "state": {
+      "feature_dim": 230,
+      "layout": {
+        "flatten_order": [
+          "piece_tokens padded to 32 rows with [-1, -1, -1]",
+          "square_tokens[64][square_index, occupant_code]",
+          "rule_token[side_to_move, castling_bits, en_passant_square, halfmove_clock, fullmove_number, repetition_count]"
+        ],
+        "piece_padding_value": -1,
+        "piece_token_capacity": 32,
+        "piece_token_width": 3,
+        "rule_token_width": 6,
+        "square_token_count": 64,
+        "square_token_width": 2
+      },
+      "sections": {
+        "piece": {
+          "offset": 0,
+          "size": 96
+        },
+        "rule": {
+          "offset": 224,
+          "size": 6
+        },
+        "square": {
+          "offset": 96,
+          "size": 128
+        }
+      }
+    }
+  },
+  "latent": {
+    "action_embedding_dim": 64,
+    "latent_dim": 128
+  },
+  "model_name": "latent_dynamics_v1",
+  "outputs": {
+    "next_state_shape": {
+      "batch": "dynamic",
+      "features": 230
+    }
+  },
+  "schema_version": 1,
+  "training": {
+    "action_embedding_dim": 64,
+    "architecture": "structured_v3",
+    "batch_size": 128,
+    "delta_loss_weight": 0.02,
+    "drift_dataset_path": "artifacts/datasets/phase5_stockfish_pgn_verify_pi_10k_v1",
+    "drift_horizon": 2,
+    "drift_split": "test",
+    "dropout": 0.1,
+    "epochs": 10,
+    "hidden_dim": 256,
+    "hidden_layers": 2,
+    "latent_consistency_loss_weight": 0.1,
+    "latent_dim": 128,
+    "learning_rate": 0.001,
+    "piece_loss_weight": 1.0,
+    "reconstruction_loss_weight": 1.0,
+    "rule_loss_weight": 2.0,
+    "seed": 5,
+    "square_loss_weight": 1.0,
+    "train_split": "train",
+    "validation_split": "validation",
+    "weight_decay": 0.0001
+  },
+  "validation_metrics": {
+    "capture_exact_next_feature_accuracy": 0.0,
+    "capture_examples": 208,
+    "castle_exact_next_feature_accuracy": 0.0,
+    "castle_examples": 22,
+    "delta_loss": 11.588682,
+    "drift_exact_next_feature_accuracy": 0.0,
+    "drift_examples": 2,
+    "drift_feature_l1_error": 1.432024,
+    "drift_latent_l1_error": 1.080834,
+    "en_passant_exact_next_feature_accuracy": 0.0,
+    "en_passant_examples": 1,
+    "exact_next_feature_accuracy": 0.0,
+    "examples_per_second": 25374.25,
+    "feature_l1_error": 1.366429,
+    "gives_check_exact_next_feature_accuracy": 0.0,
+    "gives_check_examples": 33,
+    "latent_consistency_loss": 1.840311,
+    "latent_l1_error": 0.794789,
+    "piece_delta_l1_error": 0.584628,
+    "piece_feature_l1_error": 1.434268,
+    "piece_loss": 12.939801,
+    "promotion_exact_next_feature_accuracy": 0.0,
+    "promotion_examples": 0,
+    "reconstruction_loss": 7.944679,
+    "rule_delta_l1_error": 0.585627,
+    "rule_feature_l1_error": 1.119671,
+    "rule_loss": 4.478872,
+    "square_delta_l1_error": 0.121426,
+    "square_feature_l1_error": 1.327117,
+    "square_loss": 4.360797,
+    "total_examples": 1024,
+    "total_loss": 26.674145
+  }
+}

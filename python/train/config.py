@@ -210,8 +210,10 @@ class DynamicsModelConfig:
     dropout: float = 0.0
 
     def __post_init__(self) -> None:
-        if self.architecture not in {"mlp_v1", "structured_v2", "edit_v1"}:
-            raise ValueError("model.architecture must be 'mlp_v1', 'structured_v2', or 'edit_v1'")
+        if self.architecture not in {"mlp_v1", "structured_v2", "structured_v3", "edit_v1"}:
+            raise ValueError(
+                "model.architecture must be 'mlp_v1', 'structured_v2', 'structured_v3', or 'edit_v1'"
+            )
         if self.latent_dim <= 0:
             raise ValueError("model.latent_dim must be positive")
         if self.hidden_dim <= 0:

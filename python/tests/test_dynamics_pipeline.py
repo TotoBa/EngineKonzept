@@ -219,6 +219,57 @@ def test_load_dynamics_train_config_accepts_edit_v1(tmp_path: Path) -> None:
     assert config.optimization.delta_loss_weight == 0.1
 
 
+def test_load_dynamics_train_config_accepts_structured_v3(tmp_path: Path) -> None:
+    config_path = tmp_path / "config_structured_v3.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "seed": 7,
+                "output_dir": "artifacts/phase6/test-structured-v3",
+                "data": {
+                    "dataset_path": "artifacts/datasets/test",
+                    "train_split": "train",
+                    "validation_split": "validation",
+                },
+                "model": {
+                    "architecture": "structured_v3",
+                    "latent_dim": 64,
+                    "hidden_dim": 128,
+                    "hidden_layers": 2,
+                    "action_embedding_dim": 32,
+                    "dropout": 0.1,
+                },
+                "optimization": {
+                    "epochs": 1,
+                    "batch_size": 2,
+                    "learning_rate": 1e-3,
+                    "weight_decay": 0.0,
+                    "reconstruction_loss_weight": 1.0,
+                    "piece_loss_weight": 1.0,
+                    "square_loss_weight": 1.0,
+                    "rule_loss_weight": 2.0,
+                    "delta_loss_weight": 0.02,
+                    "latent_consistency_loss_weight": 0.1
+                },
+                "evaluation": {"drift_horizon": 2},
+                "runtime": {"torch_threads": 0, "dataloader_workers": 0},
+                "export": {
+                    "bundle_dir": "models/dynamics/test-structured-v3",
+                    "checkpoint_name": "checkpoint.pt",
+                    "exported_program_name": "dynamics.pt2",
+                    "metadata_name": "metadata.json",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_dynamics_train_config(config_path)
+
+    assert config.model.architecture == "structured_v3"
+    assert config.optimization.delta_loss_weight == 0.02
+
+
 def test_load_dynamics_examples_builds_from_full_dataset(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

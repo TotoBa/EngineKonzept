@@ -162,6 +162,11 @@ The latest parallel follow-up clarified two more:
 - auxiliary latent-consistency supervision is worth keeping and is now the current Phase-6 default
 - pure local edit-target reconstruction is informative, but in its current form it is too drift-unstable to become the default
 
+The next `structured_v3_v1` follow-up refined that picture:
+
+- auxiliary delta supervision can improve one-step soft reconstruction without moving all the way to the unstable `edit_v1` contract
+- but the current formulation still gives back some drift quality, so it remains experimental
+
 ### Why
 
 This fits the exactness constraints and the planned Phase-6 measurements better than a diffuse global reconstructor.
