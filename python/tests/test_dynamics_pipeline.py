@@ -770,6 +770,7 @@ def _dynamics_example_payload(
         "split": split,
         "feature_vector": current,
         "action_index": action_index,
+        "action_candidate_context_version": 1,
         "action_features": _action_feature_vector(action_index),
         "next_feature_vector": nxt,
         "is_capture": False,

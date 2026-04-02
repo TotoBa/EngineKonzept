@@ -50,6 +50,14 @@ Until that is done, feature evolution should be treated as high-risk.
 
 This is the next root-candidate contract for proposer, offline search teachers, and later planner roots.
 
+Status now:
+
+- implemented as a versioned Python-side contract
+- explicitly serialized in symbolic proposer artifacts
+- intentionally not yet the default Rust runtime contract
+
+That means the repository now has a real `CandidateContextV2` for datasets and offline workflows, while the shipped symbolic runtime still stays on the current `CandidateContextV1` until a matching runtime scorer is trained and exported.
+
 It should keep:
 
 - the current exact legal candidate discipline
@@ -71,6 +79,14 @@ It should remain:
 - cheap to compute
 
 It should not drift into handcrafted static-eval fragments.
+
+The current implemented `V2` fields are:
+
+- promotion piece identity
+- castle side identity
+- full captured-piece type
+- normalized move geometry
+- renamed pre-move attack/defense fields
 
 ## TransitionContextV1
 

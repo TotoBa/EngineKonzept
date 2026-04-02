@@ -89,6 +89,8 @@ The recommended next additions are:
 - normalized move geometry such as from/to file-rank and deltas
 - explicit naming of existing attack-map features as pre-move features
 
+That contract now exists in code on the Python dataset/workflow side. The current shipped Phase-6 runtime path still consumes the existing selected-action symbolic row, but future dataset families can already materialize the richer `CandidateContextV2` contract without changing the current default bundle.
+
 ### TransitionContextV1
 
 The selected-action dynamics path should not be forced to reuse the proposer row forever.

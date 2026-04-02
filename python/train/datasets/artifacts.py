@@ -8,6 +8,14 @@ from pathlib import Path
 from typing import Sequence
 
 from train.action_space import flatten_action, flatten_legal_actions
+from train.datasets.contracts import (
+    DEFAULT_CANDIDATE_CONTEXT_VERSION,
+    DEFAULT_GLOBAL_CONTEXT_VERSION,
+    SYMBOLIC_MAX_LEGAL_CANDIDATES as CONTRACT_SYMBOLIC_MAX_LEGAL_CANDIDATES,
+    candidate_context_feature_dim,
+    global_context_feature_dim,
+    symbolic_candidate_context_spec,
+)
 from train.datasets.oracle import label_records_with_oracle
 from train.datasets.schema import DatasetExample, PositionEncoding, RawPositionRecord, SUPPORTED_SPLITS
 
@@ -36,9 +44,13 @@ RULE_FEATURE_SLICE = slice(PIECE_FEATURE_SIZE + SQUARE_FEATURE_SIZE, POSITION_FE
 PROPOSER_ARTIFACT_PREFIX = "proposer_"
 SYMBOLIC_PROPOSER_ARTIFACT_PREFIX = "proposer_symbolic_"
 DYNAMICS_ARTIFACT_PREFIX = "dynamics_"
-SYMBOLIC_PROPOSER_CANDIDATE_FEATURE_SIZE = 18
-SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE = 9
-SYMBOLIC_MAX_LEGAL_CANDIDATES = 256
+SYMBOLIC_PROPOSER_CANDIDATE_FEATURE_SIZE = candidate_context_feature_dim(
+    DEFAULT_CANDIDATE_CONTEXT_VERSION
+)
+SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE = global_context_feature_dim(
+    DEFAULT_GLOBAL_CONTEXT_VERSION
+)
+SYMBOLIC_MAX_LEGAL_CANDIDATES = CONTRACT_SYMBOLIC_MAX_LEGAL_CANDIDATES
 
 
 @dataclass(frozen=True)
@@ -93,6 +105,8 @@ class SymbolicProposerTrainingExample:
     sample_id: str
     split: str
     feature_vector: list[float]
+    candidate_context_version: int
+    global_context_version: int
     global_features: list[float]
     legal_action_indices: list[int]
     candidate_action_indices: list[int]
@@ -105,6 +119,8 @@ class SymbolicProposerTrainingExample:
             "sample_id": self.sample_id,
             "split": self.split,
             "feature_vector": self.feature_vector,
+            "candidate_context_version": self.candidate_context_version,
+            "global_context_version": self.global_context_version,
             "global_features": self.global_features,
             "legal_action_indices": self.legal_action_indices,
             "candidate_action_indices": self.candidate_action_indices,
@@ -118,25 +134,33 @@ class SymbolicProposerTrainingExample:
         split = str(payload["split"])
         if split not in SUPPORTED_SPLITS:
             raise ValueError(f"unsupported split: {split}")
+        candidate_context_version = int(
+            payload.get("candidate_context_version", DEFAULT_CANDIDATE_CONTEXT_VERSION)
+        )
+        global_context_version = int(
+            payload.get("global_context_version", DEFAULT_GLOBAL_CONTEXT_VERSION)
+        )
         global_features = [float(value) for value in list(payload["global_features"])]
-        if len(global_features) != SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE:
+        if len(global_features) != global_context_feature_dim(global_context_version):
             raise ValueError(
                 "global_features must have width "
-                f"{SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE}"
+                f"{global_context_feature_dim(global_context_version)}"
             )
         candidate_features = [
             [float(value) for value in row] for row in list(payload["candidate_features"])
         ]
         for row in candidate_features:
-            if len(row) != SYMBOLIC_PROPOSER_CANDIDATE_FEATURE_SIZE:
+            if len(row) != candidate_context_feature_dim(candidate_context_version):
                 raise ValueError(
                     "candidate_features rows must have width "
-                    f"{SYMBOLIC_PROPOSER_CANDIDATE_FEATURE_SIZE}"
+                    f"{candidate_context_feature_dim(candidate_context_version)}"
                 )
         return cls(
             sample_id=str(payload["sample_id"]),
             split=split,
             feature_vector=[float(value) for value in list(payload["feature_vector"])],
+            candidate_context_version=candidate_context_version,
+            global_context_version=global_context_version,
             global_features=global_features,
             legal_action_indices=sorted(int(value) for value in list(payload["legal_action_indices"])),
             candidate_action_indices=[
@@ -163,6 +187,7 @@ class DynamicsTrainingExample:
     split: str
     feature_vector: list[float]
     action_index: int
+    action_candidate_context_version: int | None
     action_features: list[float] | None
     next_feature_vector: list[float]
     is_capture: bool
@@ -180,6 +205,7 @@ class DynamicsTrainingExample:
             "split": self.split,
             "feature_vector": self.feature_vector,
             "action_index": self.action_index,
+            "action_candidate_context_version": self.action_candidate_context_version,
             "action_features": self.action_features,
             "next_feature_vector": self.next_feature_vector,
             "is_capture": self.is_capture,
@@ -197,17 +223,32 @@ class DynamicsTrainingExample:
         split = str(payload["split"])
         if split not in SUPPORTED_SPLITS:
             raise ValueError(f"unsupported split: {split}")
+        action_candidate_context_version = _optional_int(
+            payload.get("action_candidate_context_version")
+        )
         action_features = _optional_float_list(payload.get("action_features"))
-        if action_features is not None and len(action_features) != SYMBOLIC_PROPOSER_CANDIDATE_FEATURE_SIZE:
-            raise ValueError(
-                "action_features must have width "
-                f"{SYMBOLIC_PROPOSER_CANDIDATE_FEATURE_SIZE}"
+        if action_features is not None:
+            version = (
+                DEFAULT_CANDIDATE_CONTEXT_VERSION
+                if action_candidate_context_version is None
+                else action_candidate_context_version
             )
+            expected_width = candidate_context_feature_dim(version)
+            if len(action_features) != expected_width:
+                raise ValueError(
+                    "action_features must have width "
+                    f"{expected_width}"
+                )
+        if action_features is None:
+            action_candidate_context_version = None
+        elif action_candidate_context_version is None:
+            action_candidate_context_version = DEFAULT_CANDIDATE_CONTEXT_VERSION
         return cls(
             sample_id=str(payload["sample_id"]),
             split=split,
             feature_vector=[float(value) for value in list(payload["feature_vector"])],
             action_index=int(payload["action_index"]),
+            action_candidate_context_version=action_candidate_context_version,
             action_features=action_features,
             next_feature_vector=[
                 float(value) for value in list(payload["next_feature_vector"])
@@ -321,7 +362,12 @@ def materialize_proposer_artifacts(dataset_path: Path) -> dict[str, int]:
     return written_counts
 
 
-def materialize_symbolic_proposer_artifacts(dataset_path: Path) -> dict[str, int]:
+def materialize_symbolic_proposer_artifacts(
+    dataset_path: Path,
+    *,
+    candidate_context_version: int = DEFAULT_CANDIDATE_CONTEXT_VERSION,
+    global_context_version: int = DEFAULT_GLOBAL_CONTEXT_VERSION,
+) -> dict[str, int]:
     """Write proposer_symbolic_<split>.jsonl files next to full dataset split artifacts."""
     if not dataset_path.is_dir():
         raise ValueError("dataset_path must be a directory")
@@ -329,7 +375,14 @@ def materialize_symbolic_proposer_artifacts(dataset_path: Path) -> dict[str, int
     written_counts: dict[str, int] = {}
     for split in sorted(SUPPORTED_SPLITS):
         split_examples = load_split_examples(dataset_path, split)
-        symbolic_examples = [to_symbolic_proposer_example(example) for example in split_examples]
+        symbolic_examples = [
+            build_symbolic_proposer_example(
+                example,
+                candidate_context_version=candidate_context_version,
+                global_context_version=global_context_version,
+            )
+            for example in split_examples
+        ]
         _write_jsonl(
             path=dataset_path / symbolic_proposer_artifact_name(split),
             records=symbolic_examples,
@@ -385,6 +438,20 @@ def to_proposer_example(example: DatasetExample) -> ProposerTrainingExample:
 
 def to_symbolic_proposer_example(example: DatasetExample) -> SymbolicProposerTrainingExample:
     """Convert a dataset example into symbolic candidate-scoring supervision."""
+    return build_symbolic_proposer_example(
+        example,
+        candidate_context_version=DEFAULT_CANDIDATE_CONTEXT_VERSION,
+        global_context_version=DEFAULT_GLOBAL_CONTEXT_VERSION,
+    )
+
+
+def build_symbolic_proposer_example(
+    example: DatasetExample,
+    *,
+    candidate_context_version: int,
+    global_context_version: int,
+) -> SymbolicProposerTrainingExample:
+    """Convert a dataset example into a versioned symbolic candidate-scoring example."""
     if chess is None:  # pragma: no cover - exercised when chess is absent
         raise RuntimeError(
             "python-chess is required for symbolic proposer artifacts. Install the 'train' extra."
@@ -405,6 +472,7 @@ def to_symbolic_proposer_example(example: DatasetExample) -> SymbolicProposerTra
             chess.Move.from_uci(legal_moves_by_action[action_index]),
             own_attacks,
             opp_attacks,
+            version=candidate_context_version,
         )
         for action_index in candidate_action_indices
     ]
@@ -422,7 +490,14 @@ def to_symbolic_proposer_example(example: DatasetExample) -> SymbolicProposerTra
         sample_id=example.sample_id,
         split=example.split,
         feature_vector=pack_position_features(example.position_encoding),
-        global_features=_symbolic_global_features(example, own_attacks, opp_attacks),
+        candidate_context_version=candidate_context_version,
+        global_context_version=global_context_version,
+        global_features=_symbolic_global_features(
+            example,
+            own_attacks,
+            opp_attacks,
+            version=global_context_version,
+        ),
         legal_action_indices=legal_action_indices,
         candidate_action_indices=candidate_action_indices,
         candidate_features=candidate_features,
@@ -499,48 +574,19 @@ def dynamics_artifact_name(split: str) -> str:
 
 def symbolic_proposer_feature_spec() -> dict[str, object]:
     """Describe the symbolic proposer side inputs."""
-    return {
-        "max_legal_candidates": SYMBOLIC_MAX_LEGAL_CANDIDATES,
-        "candidate_feature_dim": SYMBOLIC_PROPOSER_CANDIDATE_FEATURE_SIZE,
-        "global_feature_dim": SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE,
-        "candidate_feature_order": [
-            "is_capture",
-            "is_promotion",
-            "is_castle",
-            "is_en_passant",
-            "gives_check",
-            "from_attacked_by_opponent",
-            "to_attacked_by_opponent",
-            "from_defended_by_self",
-            "to_attacked_by_self",
-            "moving_piece_pawn",
-            "moving_piece_knight",
-            "moving_piece_bishop",
-            "moving_piece_rook",
-            "moving_piece_queen",
-            "moving_piece_king",
-            "captured_piece_present",
-            "captured_piece_pawn",
-            "captured_piece_minor_or_major",
-        ],
-        "global_feature_order": [
-            "in_check",
-            "has_legal_castle",
-            "has_legal_en_passant",
-            "has_legal_promotion",
-            "is_low_material_endgame",
-            "legal_move_count_normalized",
-            "piece_count_normalized",
-            "self_attack_square_ratio",
-            "opponent_attack_square_ratio",
-        ],
-    }
+    return symbolic_candidate_context_spec()
+
+
+def symbolic_candidate_context_v2_feature_spec() -> dict[str, object]:
+    """Describe the next candidate-context contract without changing the current runtime default."""
+    return symbolic_candidate_context_spec(candidate_context_version=2)
 
 
 def dynamics_symbolic_action_feature_spec() -> dict[str, object]:
     """Describe the symbolic action feature vector shared with the proposer."""
     proposer_spec = symbolic_proposer_feature_spec()
     return {
+        "candidate_context_version": proposer_spec["candidate_context_version"],
         "feature_dim": proposer_spec["candidate_feature_dim"],
         "feature_order": proposer_spec["candidate_feature_order"],
     }
@@ -623,7 +669,11 @@ def _symbolic_global_features(
     example: DatasetExample,
     own_attacks: list[bool],
     opp_attacks: list[bool],
+    *,
+    version: int = DEFAULT_GLOBAL_CONTEXT_VERSION,
 ) -> list[float]:
+    if version != 1:
+        raise ValueError(f"unsupported GlobalContext version: {version}")
     annotations = example.annotations
     return [
         float(annotations.in_check),
@@ -643,6 +693,8 @@ def _candidate_feature_row(
     move: "chess.Move",
     own_attacks: list[bool],
     opp_attacks: list[bool],
+    *,
+    version: int = DEFAULT_CANDIDATE_CONTEXT_VERSION,
 ) -> list[float]:
     moving_piece = board.piece_at(move.from_square)
     if moving_piece is None:
@@ -661,6 +713,41 @@ def _candidate_feature_row(
         in {chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN}
         else 0.0
     )
+    if version == 1:
+        return [
+            float(board.is_capture(move)),
+            float(move.promotion is not None),
+            float(board.is_castling(move)),
+            float(board.is_en_passant(move)),
+            float(board.gives_check(move)),
+            float(opp_attacks[move.from_square]),
+            float(opp_attacks[move.to_square]),
+            float(own_attacks[move.from_square]),
+            float(own_attacks[move.to_square]),
+            *piece_one_hot,
+            float(captured_piece is not None),
+            float(captured_piece is not None and captured_piece.piece_type == chess.PAWN),
+            captured_minor_or_major,
+        ]
+
+    if version != 2:
+        raise ValueError(f"unsupported CandidateContext version: {version}")
+
+    from_file = chess.square_file(move.from_square)
+    from_rank = chess.square_rank(move.from_square)
+    to_file = chess.square_file(move.to_square)
+    to_rank = chess.square_rank(move.to_square)
+    delta_file = (to_file - from_file) / 7.0
+    delta_rank = (to_rank - from_rank) / 7.0
+    captured_piece_types = {
+        chess.PAWN: 0.0,
+        chess.KNIGHT: 0.0,
+        chess.BISHOP: 0.0,
+        chess.ROOK: 0.0,
+        chess.QUEEN: 0.0,
+    }
+    if captured_piece is not None and captured_piece.piece_type in captured_piece_types:
+        captured_piece_types[captured_piece.piece_type] = 1.0
     return [
         float(board.is_capture(move)),
         float(move.promotion is not None),
@@ -673,8 +760,25 @@ def _candidate_feature_row(
         float(own_attacks[move.to_square]),
         *piece_one_hot,
         float(captured_piece is not None),
-        float(captured_piece is not None and captured_piece.piece_type == chess.PAWN),
-        captured_minor_or_major,
+        captured_piece_types[chess.PAWN],
+        captured_piece_types[chess.KNIGHT],
+        captured_piece_types[chess.BISHOP],
+        captured_piece_types[chess.ROOK],
+        captured_piece_types[chess.QUEEN],
+        float(move.promotion == chess.KNIGHT),
+        float(move.promotion == chess.BISHOP),
+        float(move.promotion == chess.ROOK),
+        float(move.promotion == chess.QUEEN),
+        float(board.is_castling(move) and to_file > from_file),
+        float(board.is_castling(move) and to_file < from_file),
+        from_file / 7.0,
+        from_rank / 7.0,
+        to_file / 7.0,
+        to_rank / 7.0,
+        delta_file,
+        delta_rank,
+        abs(delta_file),
+        abs(delta_rank),
     ]
 
 
@@ -758,6 +862,7 @@ def _build_dynamics_examples(
                 split=example.split,
                 feature_vector=pack_position_features(example.position_encoding),
                 action_index=flatten_action(example.selected_action_encoding),
+                action_candidate_context_version=DEFAULT_CANDIDATE_CONTEXT_VERSION,
                 action_features=action_features,
                 next_feature_vector=pack_position_features(next_position),
                 is_capture=bool(example.annotations.selected_move_is_capture),
@@ -788,6 +893,18 @@ def _trajectory_ply(example: DatasetExample) -> int | None:
 
 
 def _selected_move_action_features(example: DatasetExample) -> list[float]:
+    return build_selected_move_action_features(
+        example,
+        candidate_context_version=DEFAULT_CANDIDATE_CONTEXT_VERSION,
+    )
+
+
+def build_selected_move_action_features(
+    example: DatasetExample,
+    *,
+    candidate_context_version: int,
+) -> list[float]:
+    """Build versioned selected-move candidate features for dynamics artifacts."""
     if chess is None:  # pragma: no cover - exercised when chess is absent
         raise RuntimeError(
             "python-chess is required for symbolic dynamics artifacts. Install the 'train' extra."
@@ -801,4 +918,10 @@ def _selected_move_action_features(example: DatasetExample) -> list[float]:
         raise ValueError(f"{example.sample_id}: selected move {example.selected_move_uci} is illegal")
     own_attacks = _attack_map(board, board.turn)
     opp_attacks = _attack_map(board, not board.turn)
-    return _candidate_feature_row(board, move, own_attacks, opp_attacks)
+    return _candidate_feature_row(
+        board,
+        move,
+        own_attacks,
+        opp_attacks,
+        version=candidate_context_version,
+    )

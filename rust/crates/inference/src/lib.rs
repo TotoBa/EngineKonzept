@@ -21,6 +21,39 @@ pub const SYMBOLIC_CANDIDATE_FEATURE_DIM: usize = 18;
 pub const SYMBOLIC_GLOBAL_FEATURE_DIM: usize = 9;
 const SYMBOLIC_RUNTIME_MAGIC: &[u8; 8] = b"EKSPRT1\n";
 const SYMBOLIC_RUNTIME_VERSION: u32 = 1;
+const DEFAULT_CANDIDATE_CONTEXT_VERSION: u32 = 1;
+const DEFAULT_GLOBAL_CONTEXT_VERSION: u32 = 1;
+const CANDIDATE_CONTEXT_V1_ORDER: &[&str; 18] = &[
+    "is_capture",
+    "is_promotion",
+    "is_castle",
+    "is_en_passant",
+    "gives_check",
+    "from_attacked_by_opponent",
+    "to_attacked_by_opponent",
+    "from_defended_by_self",
+    "to_attacked_by_self",
+    "moving_piece_pawn",
+    "moving_piece_knight",
+    "moving_piece_bishop",
+    "moving_piece_rook",
+    "moving_piece_queen",
+    "moving_piece_king",
+    "captured_piece_present",
+    "captured_piece_pawn",
+    "captured_piece_minor_or_major",
+];
+const GLOBAL_CONTEXT_V1_ORDER: &[&str; 9] = &[
+    "in_check",
+    "has_legal_castle",
+    "has_legal_en_passant",
+    "has_legal_promotion",
+    "is_low_material_endgame",
+    "legal_move_count_normalized",
+    "piece_count_normalized",
+    "self_attack_square_ratio",
+    "opponent_attack_square_ratio",
+];
 
 /// Returns the current purpose of this crate.
 pub fn crate_purpose() -> &'static str {
@@ -88,7 +121,11 @@ pub struct ProposerActionSpaceSpec {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProposerSymbolicInputSpec {
     pub max_legal_candidates: u32,
+    #[serde(default = "default_candidate_context_version")]
+    pub candidate_context_version: u32,
     pub candidate_feature_dim: u32,
+    #[serde(default = "default_global_context_version")]
+    pub global_context_version: u32,
     pub global_feature_dim: u32,
     pub candidate_feature_order: Vec<String>,
     pub global_feature_order: Vec<String>,
@@ -181,6 +218,8 @@ pub struct DynamicsActionInputSpec {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DynamicsSymbolicActionSpec {
+    #[serde(default = "default_candidate_context_version")]
+    pub candidate_context_version: u32,
     pub feature_dim: u32,
     pub feature_order: Vec<String>,
 }
@@ -319,8 +358,12 @@ pub enum ProposerLoadError {
     },
     InvalidLegalityThreshold(f32),
     InvalidSymbolicMaxLegalCandidates(u32),
+    UnsupportedSymbolicCandidateContextVersion(u32),
     InvalidSymbolicCandidateFeatureDim(u32),
+    InvalidSymbolicCandidateFeatureOrder,
+    UnsupportedSymbolicGlobalContextVersion(u32),
     InvalidSymbolicGlobalFeatureDim(u32),
+    InvalidSymbolicGlobalFeatureOrder,
     InvalidLegalitySource(String),
     MissingRuntimeWeights(PathBuf),
     InvalidRuntimeWeights(String),
@@ -336,7 +379,9 @@ pub enum DynamicsLoadError {
     InvalidFeatureDim { expected: u32, found: u32 },
     InvalidActionSpaceFlatSize { expected: u32, found: u32 },
     InvalidActionDtype(String),
+    UnsupportedSymbolicCandidateContextVersion(u32),
     InvalidSymbolicActionFeatureDim(u32),
+    InvalidSymbolicActionFeatureOrder,
     InvalidNextStateShape { expected: u32, found: u32 },
     InvalidDriftHorizon(u32),
 }
@@ -373,11 +418,23 @@ impl fmt::Display for ProposerLoadError {
             Self::InvalidSymbolicMaxLegalCandidates(value) => {
                 write!(f, "invalid symbolic max_legal_candidates: {value}")
             }
+            Self::UnsupportedSymbolicCandidateContextVersion(value) => {
+                write!(f, "unsupported symbolic CandidateContext version: {value}")
+            }
             Self::InvalidSymbolicCandidateFeatureDim(value) => {
                 write!(f, "invalid symbolic candidate_feature_dim: {value}")
             }
+            Self::InvalidSymbolicCandidateFeatureOrder => {
+                write!(f, "invalid symbolic candidate_feature_order")
+            }
+            Self::UnsupportedSymbolicGlobalContextVersion(value) => {
+                write!(f, "unsupported symbolic GlobalContext version: {value}")
+            }
             Self::InvalidSymbolicGlobalFeatureDim(value) => {
                 write!(f, "invalid symbolic global_feature_dim: {value}")
+            }
+            Self::InvalidSymbolicGlobalFeatureOrder => {
+                write!(f, "invalid symbolic global_feature_order")
             }
             Self::InvalidLegalitySource(source) => {
                 write!(f, "invalid proposer legality_source: {source}")
@@ -404,8 +461,12 @@ impl Error for ProposerLoadError {
             | Self::InvalidOutputShape { .. }
             | Self::InvalidLegalityThreshold(_)
             | Self::InvalidSymbolicMaxLegalCandidates(_)
+            | Self::UnsupportedSymbolicCandidateContextVersion(_)
             | Self::InvalidSymbolicCandidateFeatureDim(_)
+            | Self::InvalidSymbolicCandidateFeatureOrder
+            | Self::UnsupportedSymbolicGlobalContextVersion(_)
             | Self::InvalidSymbolicGlobalFeatureDim(_)
+            | Self::InvalidSymbolicGlobalFeatureOrder
             | Self::InvalidLegalitySource(_)
             | Self::MissingRuntimeWeights(_)
             | Self::InvalidRuntimeWeights(_) => None,
@@ -440,8 +501,14 @@ impl fmt::Display for DynamicsLoadError {
                     "invalid dynamics action dtype: expected int64, found {dtype}"
                 )
             }
+            Self::UnsupportedSymbolicCandidateContextVersion(value) => {
+                write!(f, "unsupported symbolic CandidateContext version: {value}")
+            }
             Self::InvalidSymbolicActionFeatureDim(value) => {
                 write!(f, "invalid dynamics symbolic action feature dim: {value}")
+            }
+            Self::InvalidSymbolicActionFeatureOrder => {
+                write!(f, "invalid dynamics symbolic action feature_order")
             }
             Self::InvalidNextStateShape { expected, found } => write!(
                 f,
@@ -464,11 +531,21 @@ impl Error for DynamicsLoadError {
             | Self::InvalidFeatureDim { .. }
             | Self::InvalidActionSpaceFlatSize { .. }
             | Self::InvalidActionDtype(_)
+            | Self::UnsupportedSymbolicCandidateContextVersion(_)
             | Self::InvalidSymbolicActionFeatureDim(_)
+            | Self::InvalidSymbolicActionFeatureOrder
             | Self::InvalidNextStateShape { .. }
             | Self::InvalidDriftHorizon(_) => None,
         }
     }
+}
+
+fn default_candidate_context_version() -> u32 {
+    DEFAULT_CANDIDATE_CONTEXT_VERSION
+}
+
+fn default_global_context_version() -> u32 {
+    DEFAULT_GLOBAL_CONTEXT_VERSION
 }
 
 /// Load and validate a proposer export bundle from disk.
@@ -607,16 +684,16 @@ pub fn validate_proposer_metadata(metadata: &ProposerMetadata) -> Result<(), Pro
                 symbolic.max_legal_candidates,
             ));
         }
-        if symbolic.candidate_feature_dim != SYMBOLIC_CANDIDATE_FEATURE_DIM as u32 {
-            return Err(ProposerLoadError::InvalidSymbolicCandidateFeatureDim(
-                symbolic.candidate_feature_dim,
-            ));
-        }
-        if symbolic.global_feature_dim != SYMBOLIC_GLOBAL_FEATURE_DIM as u32 {
-            return Err(ProposerLoadError::InvalidSymbolicGlobalFeatureDim(
-                symbolic.global_feature_dim,
-            ));
-        }
+        validate_candidate_context_contract(
+            symbolic.candidate_context_version,
+            symbolic.candidate_feature_dim,
+            &symbolic.candidate_feature_order,
+        )?;
+        validate_global_context_contract(
+            symbolic.global_context_version,
+            symbolic.global_feature_dim,
+            &symbolic.global_feature_order,
+        )?;
     }
 
     match metadata
@@ -698,11 +775,11 @@ pub fn validate_dynamics_metadata(metadata: &DynamicsMetadata) -> Result<(), Dyn
     }
 
     if let Some(symbolic) = metadata.input.action.symbolic.as_ref() {
-        if symbolic.feature_dim != SYMBOLIC_CANDIDATE_FEATURE_DIM as u32 {
-            return Err(DynamicsLoadError::InvalidSymbolicActionFeatureDim(
-                symbolic.feature_dim,
-            ));
-        }
+        validate_dynamics_candidate_context_contract(
+            symbolic.candidate_context_version,
+            symbolic.feature_dim,
+            &symbolic.feature_order,
+        )?;
     }
 
     if metadata.outputs.next_state_shape.features != metadata.input.state.feature_dim {
@@ -734,6 +811,82 @@ fn validate_output_shape(
         });
     }
     Ok(())
+}
+
+fn validate_candidate_context_contract(
+    version: u32,
+    feature_dim: u32,
+    feature_order: &[String],
+) -> Result<(), ProposerLoadError> {
+    let expected = candidate_context_order(version)
+        .map_err(ProposerLoadError::UnsupportedSymbolicCandidateContextVersion)?;
+    if feature_dim != expected.len() as u32 {
+        return Err(ProposerLoadError::InvalidSymbolicCandidateFeatureDim(
+            feature_dim,
+        ));
+    }
+    if !matches_expected_order(feature_order, expected) {
+        return Err(ProposerLoadError::InvalidSymbolicCandidateFeatureOrder);
+    }
+    Ok(())
+}
+
+fn validate_global_context_contract(
+    version: u32,
+    feature_dim: u32,
+    feature_order: &[String],
+) -> Result<(), ProposerLoadError> {
+    let expected = global_context_order(version)
+        .map_err(ProposerLoadError::UnsupportedSymbolicGlobalContextVersion)?;
+    if feature_dim != expected.len() as u32 {
+        return Err(ProposerLoadError::InvalidSymbolicGlobalFeatureDim(
+            feature_dim,
+        ));
+    }
+    if !matches_expected_order(feature_order, expected) {
+        return Err(ProposerLoadError::InvalidSymbolicGlobalFeatureOrder);
+    }
+    Ok(())
+}
+
+fn validate_dynamics_candidate_context_contract(
+    version: u32,
+    feature_dim: u32,
+    feature_order: &[String],
+) -> Result<(), DynamicsLoadError> {
+    let expected = candidate_context_order(version)
+        .map_err(DynamicsLoadError::UnsupportedSymbolicCandidateContextVersion)?;
+    if feature_dim != expected.len() as u32 {
+        return Err(DynamicsLoadError::InvalidSymbolicActionFeatureDim(
+            feature_dim,
+        ));
+    }
+    if !matches_expected_order(feature_order, expected) {
+        return Err(DynamicsLoadError::InvalidSymbolicActionFeatureOrder);
+    }
+    Ok(())
+}
+
+fn candidate_context_order(version: u32) -> Result<&'static [&'static str], u32> {
+    match version {
+        1 => Ok(CANDIDATE_CONTEXT_V1_ORDER),
+        other => Err(other),
+    }
+}
+
+fn global_context_order(version: u32) -> Result<&'static [&'static str], u32> {
+    match version {
+        1 => Ok(GLOBAL_CONTEXT_V1_ORDER),
+        other => Err(other),
+    }
+}
+
+fn matches_expected_order(actual: &[String], expected: &[&str]) -> bool {
+    actual.len() == expected.len()
+        && actual
+            .iter()
+            .zip(expected.iter())
+            .all(|(left, right)| left == right)
 }
 
 impl SymbolicProposerRuntime {
@@ -1173,8 +1326,9 @@ mod tests {
         build_symbolic_proposer_inputs, crate_purpose, flatten_action_index, load_dynamics_bundle,
         load_proposer_bundle, load_symbolic_proposer_runtime, validate_dynamics_metadata,
         validate_proposer_metadata, DynamicsLoadError, ProposerLoadError,
-        SYMBOLIC_CANDIDATE_FEATURE_DIM, SYMBOLIC_GLOBAL_FEATURE_DIM, SYMBOLIC_MAX_LEGAL_CANDIDATES,
-        SYMBOLIC_RUNTIME_MAGIC, SYMBOLIC_RUNTIME_VERSION,
+        CANDIDATE_CONTEXT_V1_ORDER, GLOBAL_CONTEXT_V1_ORDER, SYMBOLIC_CANDIDATE_FEATURE_DIM,
+        SYMBOLIC_GLOBAL_FEATURE_DIM, SYMBOLIC_MAX_LEGAL_CANDIDATES, SYMBOLIC_RUNTIME_MAGIC,
+        SYMBOLIC_RUNTIME_VERSION,
     };
     use position::Position;
     use rules::legal_moves;
@@ -1212,6 +1366,50 @@ mod tests {
                 expected: 20_480,
                 found: 7,
             }
+        ));
+    }
+
+    #[test]
+    fn validate_proposer_metadata_rejects_unsupported_candidate_context_version() {
+        let mut metadata = valid_metadata();
+        metadata["input"]["symbolic"] = json!({
+            "max_legal_candidates": SYMBOLIC_MAX_LEGAL_CANDIDATES,
+            "candidate_context_version": 2,
+            "candidate_feature_dim": 35,
+            "global_context_version": 1,
+            "global_feature_dim": SYMBOLIC_GLOBAL_FEATURE_DIM,
+            "candidate_feature_order": [],
+            "global_feature_order": GLOBAL_CONTEXT_V1_ORDER
+        });
+
+        let parsed = serde_json::from_value(metadata).expect("metadata parses");
+        let error = validate_proposer_metadata(&parsed).expect_err("metadata should be rejected");
+
+        assert!(matches!(
+            error,
+            ProposerLoadError::UnsupportedSymbolicCandidateContextVersion(2)
+        ));
+    }
+
+    #[test]
+    fn validate_proposer_metadata_rejects_invalid_symbolic_candidate_order() {
+        let mut metadata = valid_metadata();
+        metadata["input"]["symbolic"] = json!({
+            "max_legal_candidates": SYMBOLIC_MAX_LEGAL_CANDIDATES,
+            "candidate_context_version": 1,
+            "candidate_feature_dim": SYMBOLIC_CANDIDATE_FEATURE_DIM,
+            "global_context_version": 1,
+            "global_feature_dim": SYMBOLIC_GLOBAL_FEATURE_DIM,
+            "candidate_feature_order": ["wrong"],
+            "global_feature_order": GLOBAL_CONTEXT_V1_ORDER
+        });
+
+        let parsed = serde_json::from_value(metadata).expect("metadata parses");
+        let error = validate_proposer_metadata(&parsed).expect_err("metadata should be rejected");
+
+        assert!(matches!(
+            error,
+            ProposerLoadError::InvalidSymbolicCandidateFeatureOrder
         ));
     }
 
@@ -1296,8 +1494,9 @@ mod tests {
     fn validate_dynamics_metadata_rejects_invalid_symbolic_action_feature_dim() {
         let mut metadata = valid_dynamics_metadata();
         metadata["input"]["action"]["symbolic"] = json!({
+            "candidate_context_version": 1,
             "feature_dim": 7,
-            "feature_order": []
+            "feature_order": CANDIDATE_CONTEXT_V1_ORDER
         });
 
         let parsed = serde_json::from_value(metadata).expect("metadata parses");
@@ -1306,6 +1505,24 @@ mod tests {
         assert!(matches!(
             error,
             DynamicsLoadError::InvalidSymbolicActionFeatureDim(7)
+        ));
+    }
+
+    #[test]
+    fn validate_dynamics_metadata_rejects_invalid_symbolic_action_feature_order() {
+        let mut metadata = valid_dynamics_metadata();
+        metadata["input"]["action"]["symbolic"] = json!({
+            "candidate_context_version": 1,
+            "feature_dim": SYMBOLIC_CANDIDATE_FEATURE_DIM,
+            "feature_order": ["wrong"]
+        });
+
+        let parsed = serde_json::from_value(metadata).expect("metadata parses");
+        let error = validate_dynamics_metadata(&parsed).expect_err("metadata should be rejected");
+
+        assert!(matches!(
+            error,
+            DynamicsLoadError::InvalidSymbolicActionFeatureOrder
         ));
     }
 
@@ -1324,10 +1541,12 @@ mod tests {
         let mut metadata = valid_metadata();
         metadata["input"]["symbolic"] = json!({
             "max_legal_candidates": SYMBOLIC_MAX_LEGAL_CANDIDATES,
+            "candidate_context_version": 1,
             "candidate_feature_dim": SYMBOLIC_CANDIDATE_FEATURE_DIM,
+            "global_context_version": 1,
             "global_feature_dim": SYMBOLIC_GLOBAL_FEATURE_DIM,
-            "candidate_feature_order": [],
-            "global_feature_order": []
+            "candidate_feature_order": CANDIDATE_CONTEXT_V1_ORDER,
+            "global_feature_order": GLOBAL_CONTEXT_V1_ORDER
         });
         metadata["outputs"]["legality_source"] = json!("symbolic_generator");
         metadata["artifacts"]["runtime_weights_file"] = json!("symbolic_runtime.bin");

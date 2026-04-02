@@ -298,6 +298,20 @@ The proposer export bundle currently contains:
 
 The `inference` crate now defines and executes the official symbolic proposer input contract for the current `symbolic_v1` path.
 
+The repo now also carries a versioned next-step symbolic candidate contract for dataset and workflow use:
+
+- `CandidateContextV1` remains the current exported/runtime scorer contract
+- `CandidateContextV2` is now implemented in Python artifact code for offline workflows and later proposer/dynamics follow-ups
+
+This is deliberate. The richer `V2` contract exists so future workflows and models can use:
+
+- promotion piece identity
+- castle side identity
+- full captured-piece type
+- normalized move geometry
+
+without pretending that the current Rust runtime scorer already consumes those extra fields.
+
 In Phase 5 it is responsible for:
 
 - loading `metadata.json`

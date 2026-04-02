@@ -16,9 +16,12 @@ from train.config import (
 )
 from train.datasets import (
     POSITION_FEATURE_SIZE,
+    build_symbolic_proposer_example,
+    candidate_context_feature_dim,
     load_proposer_examples,
     materialize_symbolic_proposer_artifacts,
     proposer_artifact_name,
+    symbolic_candidate_context_v2_feature_spec,
     symbolic_proposer_artifact_name,
     write_dataset_artifacts,
 )
@@ -121,6 +124,33 @@ def test_symbolic_proposer_examples_can_be_materialized_and_loaded(tmp_path: Pat
     assert len(examples) == 1
     assert len(examples[0].global_features) == SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE
     assert len(examples[0].candidate_features[0]) == SYMBOLIC_PROPOSER_CANDIDATE_FEATURE_SIZE
+    assert examples[0].candidate_context_version == 1
+    assert examples[0].global_context_version == 1
+
+
+def test_symbolic_candidate_context_v2_spec_is_exposed() -> None:
+    spec = symbolic_candidate_context_v2_feature_spec()
+
+    assert spec["candidate_context_version"] == 2
+    assert spec["candidate_feature_dim"] == candidate_context_feature_dim(2)
+    assert "promotion_to_queen" in spec["candidate_feature_order"]
+    assert "castle_queenside" in spec["candidate_feature_order"]
+    assert "delta_file_normalized" in spec["candidate_feature_order"]
+
+
+def test_symbolic_proposer_example_supports_candidate_context_v2() -> None:
+    pytest.importorskip("chess")
+
+    example = build_symbolic_proposer_example(
+        DatasetExample.from_dict(_dataset_example_dict(split="train")),
+        candidate_context_version=2,
+        global_context_version=1,
+    )
+
+    assert example.candidate_context_version == 2
+    assert example.global_context_version == 1
+    assert len(example.candidate_features[0]) == candidate_context_feature_dim(2)
+    assert len(example.global_features) == SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE
 
 
 def test_config_accepts_symbolic_v1_architecture(tmp_path: Path) -> None:

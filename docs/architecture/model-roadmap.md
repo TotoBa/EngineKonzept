@@ -269,6 +269,12 @@ The next implementation hygiene requirement should be:
 
 5. a single symbolic-feature authority or golden cross-language tests so Python dataset materialization and Rust runtime feature generation cannot silently diverge
 
+Current status:
+
+- `CandidateContextV2` now exists as a versioned Python-side dataset/workflow contract
+- shipped Rust runtime bundles still validate and execute only the current `CandidateContextV1` scorer path
+- that split is intentional until a matching runtime-trained proposer or dynamics arm adopts the richer contract
+
 ## Success Criteria For The Next Step
 
 The next proposer experiment should count as successful only if it improves at least one of these without breaking the current symbolic contracts:
