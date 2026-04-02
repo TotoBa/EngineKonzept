@@ -34,6 +34,8 @@ The emitted `summary.json` now also records the effective offline oracle schedul
 
 For larger real builds, use [benchmark_dataset_build.py](/home/torsten/EngineKonzept/python/scripts/benchmark_dataset_build.py) to compare multiple worker/batch schedules on the same raw input. The first 10k reference sweep is stored in [oracle_build_sweep_10k_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_build_sweep_10k_v1.json), and repeated pairwise confirmations are stored in [oracle_pair_10k_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_10k_v1.json) and [oracle_pair_20k_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_20k_v1.json). Based on those runs, the default auto heuristic now caps the effective batch size at `500` when `oracle_workers > 1`.
 
+The same pair runner was also executed on `raspberrypi`; the fetched artifacts are [oracle_pair_10k_pi_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_10k_pi_v1.json), [oracle_pair_20k_pi_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_20k_pi_v1.json), and the local roll-up is [oracle_host_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_host_compare_v1.json).
+
 The proposer config also accepts a `runtime` object for CPU tuning:
 
 - `torch_threads` to cap PyTorch CPU threads

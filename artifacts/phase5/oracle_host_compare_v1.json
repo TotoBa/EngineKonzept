@@ -1,0 +1,27 @@
+{
+  "10k": {
+    "local": {
+      "auto_w4_seconds": 6.378215,
+      "w4_b500_seconds": 6.221907
+    },
+    "raspberrypi": {
+      "auto_w4_seconds": 15.20112,
+      "w4_b500_seconds": 15.398508
+    }
+  },
+  "20k": {
+    "local": {
+      "auto_w4_seconds": 13.336488,
+      "w4_b500_seconds": 10.642938
+    },
+    "raspberrypi": {
+      "auto_w4_seconds": 31.176064,
+      "w4_b500_seconds": 29.225835
+    }
+  },
+  "notes": [
+    "Local pair artifacts were measured before and after the auto-batch cap change; on raspberrypi, auto_w4 already resolves to effective_batch_size=500 under the current default.",
+    "At 20k, the raspberrypi run shows the capped auto heuristic remains aligned with the explicit 500 schedule within the expected measurement envelope.",
+    "The comparison is intended to validate that the new 500-cap default does not regress on the slower host."
+  ]
+}

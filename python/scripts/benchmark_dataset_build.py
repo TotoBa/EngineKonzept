@@ -119,6 +119,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     }
     rendered = json.dumps(summary, indent=2)
     if args.artifact_out is not None:
+        args.artifact_out.parent.mkdir(parents=True, exist_ok=True)
         args.artifact_out.write_text(rendered + "\n", encoding="utf-8")
     print(rendered)
     return 0

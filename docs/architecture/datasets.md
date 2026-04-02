@@ -113,6 +113,14 @@ Those pairwise runs show `w4_b500` ahead of the old auto point on both sizes:
 
 Because that advantage now survives repeated pairwise runs, the default auto heuristic caps the per-batch size at `500` when `oracle_workers > 1`.
 
+A follow-up host check against `raspberrypi` is stored in:
+
+- [oracle_pair_10k_pi_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_10k_pi_v1.json)
+- [oracle_pair_20k_pi_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_20k_pi_v1.json)
+- [oracle_host_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_host_compare_v1.json)
+
+That comparison is mainly a regression check for the new default on the slower host. Because `auto_w4` already resolves to `effective_batch_size = 500` under the new heuristic, the Pi run is not a second old-vs-new comparison; it is a confirmation that the capped default remains viable off the local workstation. On the 20k run, `w4_b500` still lands slightly ahead (`29.226s` vs. `31.176s`), while the 10k difference is small enough to treat as noise on that host.
+
 When the Python wrapper uses the one-shot subprocess oracle path, it now prefers a prebuilt local binary at `rust/target/debug/dataset-oracle` before falling back to `cargo run`. On a warmed 250-record one-shot benchmark, that reduced wall-clock time from about `0.117s` to about `0.076s`, or about `1.53x` faster, with identical output digests. That measurement is stored in [oracle_one_shot_binary_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_one_shot_binary_v1.json).
 
 Current end-to-end measurement on a 2000-record JSONL build:

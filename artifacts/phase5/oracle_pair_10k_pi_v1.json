@@ -1,0 +1,62 @@
+{
+  "input": "/home/toto/git/EngineKonzept.hostcmp/artifacts/datasets/phase5_stockfish_pgn_raw_pi_10k_v1/train_raw.jsonl",
+  "record_count": 10240,
+  "repeats": 3,
+  "results": [
+    {
+      "name": "auto_w4",
+      "oracle_workers": 4,
+      "oracle_batch_size": 0,
+      "seconds": 15.20112,
+      "repeat_seconds": [
+        15.129343,
+        15.671356,
+        14.80266
+      ],
+      "records_per_second": 673.635,
+      "oracle_schedule": {
+        "record_count": 10240,
+        "oracle_workers": 4,
+        "requested_batch_size": 0,
+        "effective_batch_size": 500,
+        "batch_count": 21
+      },
+      "digests": {
+        "dataset_jsonl": "d138797807bbbc1fba4a984685dde960621c14d7b69bee212465f5c80ecc6558",
+        "train_jsonl": "b8d028d932ce2ad8b3969db16c3fc2381954bf01a88e41a2b69b85aa2f611758",
+        "validation_jsonl": "c26182d2a34ee682a6659cbe9612d7dc79c1c36dc5645b12fff769e6b98d003d",
+        "test_jsonl": "e523759d3a6299f84c6aacea2742225bd46c8ba404565a45ab4733bfe5724f0c"
+      }
+    },
+    {
+      "name": "w4_b500",
+      "oracle_workers": 4,
+      "oracle_batch_size": 500,
+      "seconds": 15.398508,
+      "repeat_seconds": [
+        14.937322,
+        15.520147,
+        15.738054
+      ],
+      "records_per_second": 665.0,
+      "oracle_schedule": {
+        "record_count": 10240,
+        "oracle_workers": 4,
+        "requested_batch_size": 500,
+        "effective_batch_size": 500,
+        "batch_count": 21
+      },
+      "digests": {
+        "dataset_jsonl": "d138797807bbbc1fba4a984685dde960621c14d7b69bee212465f5c80ecc6558",
+        "train_jsonl": "b8d028d932ce2ad8b3969db16c3fc2381954bf01a88e41a2b69b85aa2f611758",
+        "validation_jsonl": "c26182d2a34ee682a6659cbe9612d7dc79c1c36dc5645b12fff769e6b98d003d",
+        "test_jsonl": "e523759d3a6299f84c6aacea2742225bd46c8ba404565a45ab4733bfe5724f0c"
+      }
+    }
+  ],
+  "fastest": {
+    "name": "auto_w4",
+    "seconds": 15.20112,
+    "records_per_second": 673.635
+  }
+}
