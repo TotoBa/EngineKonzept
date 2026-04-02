@@ -1,0 +1,171 @@
+{
+  "input": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_raw_pi_10k_v1/train_raw.jsonl",
+  "record_count": 51200,
+  "runtime": {
+    "hostname": "chesstrainer",
+    "platform": "Linux-6.12.73+deb13-amd64-x86_64-with-glibc2.41",
+    "python_version": "3.13.5",
+    "cpu_count": 7
+  },
+  "command": [
+    "/home/torsten/EngineKonzept/rust/target/debug/dataset-oracle-profile"
+  ],
+  "profile": {
+    "records": 51200,
+    "total_measured_seconds": 11.603541412,
+    "phases": [
+      [
+        "json_parse",
+        {
+          "seconds": 0.203588811,
+          "milliseconds_per_record": 0.00397634396484375,
+          "share_of_measured": 0.017545403060263583
+        }
+      ],
+      [
+        "fen_parse",
+        {
+          "seconds": 0.589953646,
+          "milliseconds_per_record": 0.0115225321484375,
+          "share_of_measured": 0.050842550998257255
+        }
+      ],
+      [
+        "legal_generation",
+        {
+          "seconds": 5.702349821,
+          "milliseconds_per_record": 0.11137401994140626,
+          "share_of_measured": 0.4914318498577355
+        }
+      ],
+      [
+        "pseudo_legal_generation",
+        {
+          "seconds": 1.068662444,
+          "milliseconds_per_record": 0.020872313359375002,
+          "share_of_measured": 0.09209795579260178
+        }
+      ],
+      [
+        "self_check_filter",
+        {
+          "seconds": 4.485606013,
+          "milliseconds_per_record": 0.08760949244140624,
+          "share_of_measured": 0.3865721553215757
+        }
+      ],
+      [
+        "attack_check_local",
+        {
+          "seconds": 2.110908387,
+          "milliseconds_per_record": 0.04122867943359375,
+          "share_of_measured": 0.1819193220456789
+        }
+      ],
+      [
+        "attack_check_slider",
+        {
+          "seconds": 1.803731363,
+          "milliseconds_per_record": 0.03522912818359375,
+          "share_of_measured": 0.15544662607353996
+        }
+      ],
+      [
+        "legal_move_uci",
+        {
+          "seconds": 0.771079513,
+          "milliseconds_per_record": 0.01506014673828125,
+          "share_of_measured": 0.06645208437853076
+        }
+      ],
+      [
+        "legal_action_encoding",
+        {
+          "seconds": 0.609033187,
+          "milliseconds_per_record": 0.01189517943359375,
+          "share_of_measured": 0.0524868370246137
+        }
+      ],
+      [
+        "selected_move_resolution",
+        {
+          "seconds": 0.004780217,
+          "milliseconds_per_record": 9.336361328125e-05,
+          "share_of_measured": 0.00041196190285979904
+        }
+      ],
+      [
+        "selected_move_apply",
+        {
+          "seconds": 0.08051826,
+          "milliseconds_per_record": 0.001572622265625,
+          "share_of_measured": 0.006939110840482774
+        }
+      ],
+      [
+        "selected_action_encoding",
+        {
+          "seconds": 0.002470441,
+          "milliseconds_per_record": 4.825080078124999e-05,
+          "share_of_measured": 0.0002129040533647039
+        }
+      ],
+      [
+        "position_encoding",
+        {
+          "seconds": 0.532346388,
+          "milliseconds_per_record": 0.010397390390625,
+          "share_of_measured": 0.04587792373882209
+        }
+      ],
+      [
+        "annotations",
+        {
+          "seconds": 0.547626385,
+          "milliseconds_per_record": 0.010695827832031251,
+          "share_of_measured": 0.047194762836254706
+        }
+      ],
+      [
+        "json_serialize",
+        {
+          "seconds": 2.707876107,
+          "milliseconds_per_record": 0.05288820521484375,
+          "share_of_measured": 0.23336635005237313
+        }
+      ]
+    ]
+  },
+  "top_phases": [
+    {
+      "name": "legal_generation",
+      "seconds": 5.702349821,
+      "milliseconds_per_record": 0.11137401994140626,
+      "share_of_measured": 0.4914318498577355
+    },
+    {
+      "name": "self_check_filter",
+      "seconds": 4.485606013,
+      "milliseconds_per_record": 0.08760949244140624,
+      "share_of_measured": 0.3865721553215757
+    },
+    {
+      "name": "json_serialize",
+      "seconds": 2.707876107,
+      "milliseconds_per_record": 0.05288820521484375,
+      "share_of_measured": 0.23336635005237313
+    },
+    {
+      "name": "attack_check_local",
+      "seconds": 2.110908387,
+      "milliseconds_per_record": 0.04122867943359375,
+      "share_of_measured": 0.1819193220456789
+    },
+    {
+      "name": "attack_check_slider",
+      "seconds": 1.803731363,
+      "milliseconds_per_record": 0.03522912818359375,
+      "share_of_measured": 0.15544662607353996
+    }
+  ]
+}

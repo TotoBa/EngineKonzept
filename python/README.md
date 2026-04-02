@@ -23,6 +23,8 @@ Both benchmark helpers now embed basic runtime metadata in their JSON output, in
 
 For reproducible hotspot analysis on a raw dataset slice, use [profile_dataset_oracle.py](/home/torsten/EngineKonzept/python/scripts/profile_dataset_oracle.py). The current large reference run is [oracle_profile_50k_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_50k_v1.json).
 
+The latest JSON-writer follow-up is captured in [oracle_pair_50k_json_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_50k_json_v2.json) and [oracle_profile_50k_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_50k_v2.json). It is a small optimization, not a step change: the large-build result improves modestly, while the profile still points primarily at `legal_generation` and secondarily at JSON serialization.
+
 The dataset builders also support offline oracle parallelism:
 
 - `--oracle-workers`

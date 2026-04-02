@@ -405,7 +405,14 @@ fn write_json_field_name(writer: &mut impl Write, name: &str) -> Result<(), Data
 }
 
 fn write_json_string(writer: &mut impl Write, value: &str) -> Result<(), DatasetOracleError> {
-    serde_json::to_writer(&mut *writer, value).map_err(DatasetOracleError::Json)
+    if is_plain_json_string(value) {
+        writer.write_all(b"\"").map_err(json_io_error)?;
+        writer.write_all(value.as_bytes()).map_err(json_io_error)?;
+        writer.write_all(b"\"").map_err(json_io_error)?;
+        Ok(())
+    } else {
+        serde_json::to_writer(&mut *writer, value).map_err(DatasetOracleError::Json)
+    }
 }
 
 fn write_optional_string(
@@ -505,6 +512,12 @@ fn json_io_error(error: io::Error) -> DatasetOracleError {
         error.kind(),
         error.to_string(),
     )))
+}
+
+fn is_plain_json_string(value: &str) -> bool {
+    value
+        .bytes()
+        .all(|byte| byte >= 0x20 && byte != b'"' && byte != b'\\')
 }
 
 fn label_dataset_input_impl(
@@ -766,6 +779,32 @@ mod tests {
             selected_move_uci: Some("e2e4".to_string()),
         })
         .expect("oracle labels position");
+
+        let expected = format!("{}\n", to_string(&output).expect("serde json"));
+        let mut actual = Vec::new();
+        write_output_json_line(&mut actual, &output).expect("specialized writer succeeds");
+
+        assert_eq!(String::from_utf8(actual).expect("utf8 output"), expected);
+    }
+
+    #[test]
+    fn specialized_writer_escapes_strings_like_serde() {
+        let output = label_dataset_input(&DatasetOracleInput {
+            fen: "4k3/8/8/8/8/8/8/4K3 w - - 0 1".to_string(),
+            selected_move_uci: None,
+        })
+        .expect("oracle labels position");
+        let output = super::DatasetOracleOutput {
+            fen: "quoted\"fen\\line".to_string(),
+            side_to_move: output.side_to_move,
+            legal_moves: vec!["a2a4".to_string(), "quote\"move".to_string()],
+            legal_action_encodings: output.legal_action_encodings,
+            selected_move_uci: Some("back\\slash".to_string()),
+            selected_action_encoding: output.selected_action_encoding,
+            next_fen: Some("line\nbreak".to_string()),
+            position_encoding: output.position_encoding,
+            annotations: output.annotations,
+        };
 
         let expected = format!("{}\n", to_string(&output).expect("serde json"));
         let mut actual = Vec::new();

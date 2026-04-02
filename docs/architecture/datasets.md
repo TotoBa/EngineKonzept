@@ -253,6 +253,13 @@ After that change, [oracle_profile_v7.json](/home/torsten/EngineKonzept/artifact
 
 So the current picture is now cleaner again: the legality path is once more the clear primary target, and the output path is materially cheaper than it was before the custom writer.
 
+The newest small JSON-path refinement adds a fast ASCII string path to the specialized writer and falls back to `serde_json` only when escaping is actually needed. That keeps byte-for-byte compatibility for quoted, backslash-containing, or control-character strings, but avoids the generic serializer on the dominant FEN/UCI/field-name path. The latest large-build reference is stored in [oracle_pair_50k_json_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_50k_json_v2.json), where the same 50k build lands at about:
+
+- `auto_w4`: `26.052s` vs. `26.577s` in the previous 50k reference
+- `w4_b500`: `26.424s` vs. `26.547s` in the previous 50k reference
+
+The matching large-run profile is stored in [oracle_profile_50k_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_50k_v2.json). Its absolute timings still move around enough that the profile should be treated as directional rather than exact for this micro-step, but it keeps the same priority order: `legal_generation` first, `json_serialize` still a real secondary cost.
+
 The next profiling refinement split the remaining self-check attack cost into local attackers and slider attackers. The current result in [oracle_profile_v8.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v8.json) is:
 
 - `attack_check_local`: about `23.0%`
