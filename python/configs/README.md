@@ -1,6 +1,6 @@
-# Phase 5 Config Guide
+# Phase 5/6 Config Guide
 
-This directory contains the externally checkable proposer-training configs for Phase 5.
+This directory contains the externally checkable proposer-training and dynamics-training configs.
 
 ## Current Default
 
@@ -53,3 +53,8 @@ These remain useful as small-corpus regression baselines, but they are no longer
   Original Phase-5 proposer smoke path over the Phase-4 dataset.
 - [phase5_policy_seed_v1.json](/home/torsten/EngineKonzept/python/configs/phase5_policy_seed_v1.json)
   Tiny manually curated seed set for policy supervision plumbing.
+
+## Phase 6 Baseline
+
+- [phase6_dynamics_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_v1.json)
+  First action-conditioned latent-dynamics baseline over the current standard `10,240 / 2,048` Pi-labeled corpus.

@@ -9,7 +9,7 @@ The target runtime path is:
 
 ## Current Scope
 
-The repository now covers Phase 5:
+The repository now covers Phase 6 foundations:
 
 - root project rules and execution plans
 - Rust workspace boundaries and placeholder future crates
@@ -23,6 +23,7 @@ The repository now covers Phase 5:
 - bounded PGN ingestion with offline Stockfish 18 labeling for policy-supervised runs
 - a `torch.export` proposer bundle plus Rust-side metadata loading/validation
 - a local-first Unix-domain-socket oracle daemon for faster reproducible dataset builds
+- a first action-conditioned latent dynamics baseline with held-out reconstruction and drift metrics
 - CI, lint, and test wiring
 - architecture and phase documentation
 
@@ -30,7 +31,7 @@ It still does **not** implement:
 
 - learned runtime inference
 - any search or evaluation runtime
-- any dynamics, opponent, or planner model
+- any opponent or planner model
 - any classical engine/search machinery
 
 ## Phase 5 Snapshot
@@ -90,6 +91,30 @@ The first architecture-extension notes beyond the flat MLP live in [docs/arch.id
 
 The newer proposer comparison now extends beyond the first three factorized decoder baselines. `factorized_v6` is the current best legality arm on the `10k` corpus by a clear margin, while `relational_v1` improves policy over the earlier factorized runs without taking the policy lead from `current_default`. There is also an explicit checkpoint-selection comparison for `factorized_v5`, showing the expected tradeoff between legality-first and balanced selection.
 
+## Phase 6 Snapshot
+
+The proposer is now accepted as a temporary frontier, and the repository includes the first checkable latent-dynamics baseline:
+
+- current Phase-6 config: [phase6_dynamics_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_v1.json)
+- current Phase-6 bundle: [v1](/home/torsten/EngineKonzept/models/dynamics/v1)
+- current Phase-6 summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_v1/summary.json)
+- current Phase-6 verify eval: [dynamics_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_v1_verify.json)
+- architecture note: [dynamics.md](/home/torsten/EngineKonzept/docs/architecture/dynamics.md)
+- phase note: [phase-6.md](/home/torsten/EngineKonzept/docs/phases/phase-6.md)
+
+The first `v1` run establishes the exact Phase-6 plumbing:
+
+- lean `dynamics_<split>.jsonl` artifacts
+- action-conditioned latent transition training
+- `torch.export` + Rust metadata validation
+- one-step reconstruction and multi-step drift metrics
+
+The current model is still weak in the exact sense:
+
+- validation and verify feature-reconstruction errors decrease into a stable range
+- exact packed next-state accuracy remains `0.0`
+- multi-step drift is measurable, but not yet good
+
 ## Repository Layout
 
 ```text
@@ -146,6 +171,9 @@ cargo run --quiet -p tools --bin dataset-oracle-daemon --socket /tmp/enginekonze
 ENGINEKONZEPT_DATASET_ORACLE=unix:///tmp/enginekonzept-oracle.sock TMPDIR=/srv/schach/tmp .venv/bin/python python/scripts/build_stockfish_pgn_dataset.py --help
 TMPDIR=/srv/schach/tmp .venv/bin/python python/scripts/benchmark_dataset_oracle.py --input tests/positions/edge_cases.txt --source-format edge-cases --records 10000
 TMPDIR=/srv/schach/tmp cargo run --quiet -p tools --bin dataset-oracle-profile < /srv/schach/tmp/oracle-e2e/train_raw_2k.jsonl
+TMPDIR=/srv/schach/tmp .venv/bin/python python/scripts/materialize_dynamics_artifacts.py --dataset-dir artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1
+TMPDIR=/srv/schach/tmp .venv/bin/python python/scripts/train_dynamics.py --config python/configs/phase6_dynamics_v1.json
+TMPDIR=/srv/schach/tmp .venv/bin/python python/scripts/eval_dynamics.py --checkpoint models/dynamics/v1/checkpoint.pt --dataset-path artifacts/datasets/phase5_stockfish_pgn_verify_pi_10k_v1 --split test --drift-horizon 2
 ```
 
 ## Guardrails

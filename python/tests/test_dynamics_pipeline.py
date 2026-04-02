@@ -1,0 +1,275 @@
+"""Regression tests for the Phase-6 latent dynamics pipeline."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from train.config import load_dynamics_train_config
+from train.datasets.artifacts import (
+    POSITION_FEATURE_SIZE,
+    dynamics_artifact_name,
+    load_dynamics_examples,
+)
+from train.trainers import evaluate_dynamics_checkpoint, train_dynamics
+
+
+def test_load_dynamics_train_config_accepts_phase6_schema(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "seed": 7,
+                "output_dir": "artifacts/phase6/test",
+                "data": {
+                    "dataset_path": "artifacts/datasets/test",
+                    "train_split": "train",
+                    "validation_split": "validation",
+                },
+                "model": {
+                    "latent_dim": 64,
+                    "hidden_dim": 128,
+                    "hidden_layers": 2,
+                    "action_embedding_dim": 32,
+                    "dropout": 0.1,
+                },
+                "optimization": {
+                    "epochs": 1,
+                    "batch_size": 2,
+                    "learning_rate": 1e-3,
+                    "weight_decay": 0.0,
+                    "reconstruction_loss_weight": 1.0,
+                },
+                "evaluation": {"drift_horizon": 2},
+                "runtime": {"torch_threads": 0, "dataloader_workers": 0},
+                "export": {
+                    "bundle_dir": "models/dynamics/test",
+                    "checkpoint_name": "checkpoint.pt",
+                    "exported_program_name": "dynamics.pt2",
+                    "metadata_name": "metadata.json",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_dynamics_train_config(config_path)
+
+    assert config.model.latent_dim == 64
+    assert config.evaluation.drift_horizon == 2
+
+
+def test_load_dynamics_examples_builds_from_full_dataset(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dataset_dir = tmp_path / "dataset"
+    dataset_dir.mkdir()
+    (dataset_dir / "train.jsonl").write_text(
+        _dataset_jsonl(
+            [
+                _dataset_example_payload("sample-a", "train", next_fen="fen-a", ply=1),
+                _dataset_example_payload("sample-b", "train", next_fen="fen-b", ply=2),
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    def fake_label_records(records, *, repo_root=None, command=None):  # type: ignore[no-untyped-def]
+        assert repo_root == tmp_path
+        return [
+            {"position_encoding": _position_encoding_payload(offset=index + 10)}
+            for index, _ in enumerate(records)
+        ]
+
+    monkeypatch.setattr(
+        "train.datasets.artifacts.label_records_with_oracle",
+        fake_label_records,
+    )
+
+    examples = load_dynamics_examples(dataset_dir, "train", repo_root=tmp_path)
+
+    assert len(examples) == 2
+    assert examples[0].trajectory_id == "sample:1"
+    assert examples[1].ply_index == 2
+    assert len(examples[0].next_feature_vector) == POSITION_FEATURE_SIZE
+
+
+def test_train_and_evaluate_dynamics_checkpoint(tmp_path: Path) -> None:
+    pytest.importorskip("torch")
+    dataset_dir = tmp_path / "artifacts" / "datasets" / "phase6_fixture"
+    dataset_dir.mkdir(parents=True)
+    _write_dynamics_artifact(
+        dataset_dir / dynamics_artifact_name("train"),
+        [
+            _dynamics_example_payload("train-1", "train", action_index=3, offset=0, ply=1),
+            _dynamics_example_payload("train-2", "train", action_index=4, offset=1, ply=2),
+            _dynamics_example_payload("train-3", "train", action_index=5, offset=2, ply=10),
+            _dynamics_example_payload("train-4", "train", action_index=6, offset=3, ply=11),
+        ],
+    )
+    _write_dynamics_artifact(
+        dataset_dir / dynamics_artifact_name("validation"),
+        [
+            _dynamics_example_payload("val-1", "validation", action_index=7, offset=4, ply=1),
+            _dynamics_example_payload("val-2", "validation", action_index=8, offset=5, ply=2),
+        ],
+    )
+    _write_dynamics_artifact(
+        dataset_dir / dynamics_artifact_name("test"),
+        [
+            _dynamics_example_payload("test-1", "test", action_index=9, offset=6, ply=1),
+            _dynamics_example_payload("test-2", "test", action_index=10, offset=7, ply=2),
+        ],
+    )
+
+    config_path = tmp_path / "phase6.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "seed": 3,
+                "output_dir": str((tmp_path / "artifacts" / "phase6" / "run").relative_to(tmp_path)),
+                "data": {
+                    "dataset_path": str(dataset_dir.relative_to(tmp_path)),
+                    "train_split": "train",
+                    "validation_split": "validation",
+                },
+                "model": {
+                    "latent_dim": 32,
+                    "hidden_dim": 64,
+                    "hidden_layers": 2,
+                    "action_embedding_dim": 16,
+                    "dropout": 0.0,
+                },
+                "optimization": {
+                    "epochs": 1,
+                    "batch_size": 2,
+                    "learning_rate": 1e-3,
+                    "weight_decay": 0.0,
+                    "reconstruction_loss_weight": 1.0,
+                },
+                "evaluation": {"drift_horizon": 2},
+                "runtime": {"torch_threads": 1, "dataloader_workers": 0},
+                "export": {
+                    "bundle_dir": str((tmp_path / "models" / "dynamics" / "test").relative_to(tmp_path)),
+                    "checkpoint_name": "checkpoint.pt",
+                    "exported_program_name": "dynamics.pt2",
+                    "metadata_name": "metadata.json",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_dynamics_train_config(config_path)
+    result = train_dynamics(config, repo_root=tmp_path)
+
+    assert result.best_epoch == 1
+    assert Path(result.summary_path).is_file()
+    assert Path(result.export_paths["metadata"]).is_file()
+
+    metrics = evaluate_dynamics_checkpoint(
+        Path(result.export_paths["checkpoint"]),
+        dataset_path=dataset_dir,
+        split="test",
+        drift_horizon=2,
+        repo_root=tmp_path,
+    )
+
+    assert metrics.total_examples == 2
+    assert metrics.drift_examples == 1
+
+
+def _dataset_jsonl(records: list[dict[str, object]]) -> str:
+    return "\n".join(json.dumps(record, sort_keys=True) for record in records) + "\n"
+
+
+def _write_dynamics_artifact(path: Path, records: list[dict[str, object]]) -> None:
+    path.write_text(_dataset_jsonl(records), encoding="utf-8")
+
+
+def _dataset_example_payload(
+    sample_id: str,
+    split: str,
+    *,
+    next_fen: str,
+    ply: int,
+) -> dict[str, object]:
+    return {
+        "sample_id": sample_id,
+        "split": split,
+        "source": "fixture",
+        "fen": f"fen:{sample_id}",
+        "side_to_move": "w",
+        "selected_move_uci": "e2e4",
+        "selected_action_encoding": [12, 28, 0],
+        "next_fen": next_fen,
+        "legal_moves": ["e2e4"],
+        "legal_action_encodings": [[12, 28, 0]],
+        "position_encoding": _position_encoding_payload(offset=ply),
+        "wdl_target": None,
+        "annotations": {
+            "in_check": False,
+            "is_checkmate": False,
+            "is_stalemate": False,
+            "has_legal_en_passant": False,
+            "has_legal_castle": False,
+            "has_legal_promotion": False,
+            "is_low_material_endgame": False,
+            "legal_move_count": 1,
+            "piece_count": 32,
+            "selected_move_is_capture": False,
+            "selected_move_is_promotion": False,
+            "selected_move_is_castle": False,
+            "selected_move_is_en_passant": False,
+            "selected_move_gives_check": False,
+        },
+        "result": None,
+        "metadata": {"source_pgn": "sample", "game_index": 1, "ply": ply},
+    }
+
+
+def _dynamics_example_payload(
+    sample_id: str,
+    split: str,
+    *,
+    action_index: int,
+    offset: int,
+    ply: int,
+) -> dict[str, object]:
+    current = _feature_vector(offset)
+    nxt = _feature_vector(offset + 1)
+    return {
+        "sample_id": sample_id,
+        "split": split,
+        "feature_vector": current,
+        "action_index": action_index,
+        "next_feature_vector": nxt,
+        "is_capture": False,
+        "is_promotion": False,
+        "is_castle": False,
+        "is_en_passant": False,
+        "gives_check": False,
+        "trajectory_id": f"{split}:1",
+        "ply_index": ply,
+    }
+
+
+def _position_encoding_payload(*, offset: int) -> dict[str, object]:
+    return {
+        "piece_tokens": [[1, 0, offset % 64]],
+        "square_tokens": [[square, (square + offset) % 13] for square in range(64)],
+        "rule_token": [0, 15, -1, offset, 1, 0],
+    }
+
+
+def _feature_vector(offset: int) -> list[float]:
+    position = _position_encoding_payload(offset=offset)
+    flat: list[float] = [-1.0] * 96
+    flat[0:3] = [1.0, 0.0, float(offset % 64)]
+    for square_index, occupant_code in position["square_tokens"]:  # type: ignore[misc]
+        flat.extend([float(square_index), float(occupant_code)])
+    flat.extend(float(value) for value in position["rule_token"])  # type: ignore[arg-type]
+    return flat

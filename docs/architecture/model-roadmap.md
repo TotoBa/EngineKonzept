@@ -134,6 +134,24 @@ The preferred design is a local updater, not a whole-board hallucination model:
 - update the global rule state
 - track special moves separately
 
+### Current implementation status
+
+The repository now has a first `v1` baseline for this phase:
+
+- lean `dynamics_<split>.jsonl` artifacts
+- action-conditioned latent transition training
+- one-step reconstruction metrics
+- short-horizon drift metrics
+- exported `torch.export` bundle plus Rust metadata validation
+
+The first result is useful, but still weak:
+
+- held-out reconstruction error decreases materially
+- exact packed next-state accuracy remains `0.0`
+- multi-step drift is measurable but not yet good
+
+That means the plumbing direction is now validated, while model quality is still open.
+
 ### Why
 
 This fits the exactness constraints and the planned Phase-6 measurements better than a diffuse global reconstructor.
@@ -193,16 +211,10 @@ These ideas are interesting for later phases, but they are not the current bottl
 
 The next model experiments should be ordered like this:
 
-1. make the checkpoint-selection strategy a deliberate default decision
-2. conditional factorized proposer decoder with stronger policy coupling
-3. stronger relational proposer variant if the improved conditional decoder still does not close the policy gap
-4. Phase-6 local latent dynamics prototype
-5. explicit opponent-head design before recurrent planner work
-
-The first three steps above are now complete enough to change the next decision:
-
-1. either keep iterating proposer policy quality until it actually beats `current_default`
-2. or accept the current proposer frontier and move on to Phase 6 latent dynamics
+1. improve the Phase-6 dynamics model until it beats the current plumbing baseline on exactness
+2. decide whether special-move structure belongs in the loss, decoder, or target format
+3. define the first explicit opponent-head contract before planner work
+4. only then resume broader proposer exploration if Phase-6 pressure points point back at representation quality
 
 ## Success Criteria For The Next Step
 

@@ -68,7 +68,7 @@ The current Phase-5 architecture decision is therefore:
 - keep `factorized_v5` as the clearest checkpoint-selection tradeoff example inside the factorized line
 - keep `relational_v1` as the current typed-backbone policy-path reference
 - keep checkpoint selection explicit rather than implicit
-- prioritize the next decision between another policy-focused proposer arm and starting Phase 6 latent dynamics
+- accept the current proposer frontier as provisionally sufficient and move on to Phase 6 latent dynamics
 
 These findings suggest that raw capacity helps, but the current flat MLP is likely not sufficient by itself for strong policy learning.
 

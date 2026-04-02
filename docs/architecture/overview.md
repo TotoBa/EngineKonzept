@@ -15,6 +15,7 @@ The current canonical roadmap for the learned stack is documented in [model-road
 - `tests/` will hold shared fixtures and reference suites.
 - `models/` and `artifacts/` will store generated outputs, not source code.
 - local IPC and future distribution notes live in [distribution.md](/home/torsten/EngineKonzept/docs/architecture/distribution.md)
+- the current Phase-6 dynamics design lives in [dynamics.md](/home/torsten/EngineKonzept/docs/architecture/dynamics.md)
 
 ## Phase 0 Constraints
 
@@ -59,3 +60,9 @@ Phase 5 now has two architecture families behind the same export contract:
 - `multistream_v2`
 
 The measured result so far is that structured inputs are promising but not yet enough by themselves. The current default remains the simpler MLP path, while the next preferred model step is a factorized proposer decoder rather than immediately moving to heavier expert-routing designs.
+
+## Phase 6 Status
+
+The repository now additionally includes the first action-conditioned latent-dynamics baseline in Python, lean dynamics split artifacts, held-out reconstruction and drift metrics, and a Rust-side bundle loader for exported dynamics metadata.
+
+That baseline is enough to make Phase-6 transitions externally checkable, but not enough yet to count as a strong exact next-state model. Exact packed next-state accuracy is still `0.0`, so the next pressure is model quality rather than more plumbing.

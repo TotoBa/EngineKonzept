@@ -2,7 +2,7 @@
 
 This directory hosts the dataset, training, export, and experiment code for EngineKonzept.
 
-The repository now includes the Phase-5 proposer stack:
+The repository now includes the Phase-5 proposer stack and the first Phase-6 dynamics baseline:
 
 - raw position ingestion from edge-case files, FEN line files, EPD suites, and JSONL
 - exact-rule labeling via the Rust dataset oracle
@@ -12,6 +12,7 @@ The repository now includes the Phase-5 proposer stack:
 - bounded PGN sampling with Stockfish 18 move labels for policy-supervised runs
 - config-driven training with held-out legal-set precision/recall reporting and examples/second
 - `torch.export` bundles plus Rust-loadable metadata
+- action-conditioned latent dynamics training with one-step reconstruction and short-horizon drift metrics
 
 The PGN utility entry point is `python/scripts/build_stockfish_pgn_dataset.py`. It streams selected PGNs, queries `/usr/games/stockfish18` for bounded move labels, then routes legality and next-state generation back through the Rust oracle.
 
@@ -54,6 +55,18 @@ These knobs are intended for throughput tuning during dataset generation only. C
 For Phase-5 proposer training, the dataset builders now also support lean proposer artifacts. The generic `make_dataset.py` path exposes that via `--write-proposer-artifacts`. The larger PGN/Stockfish builder [build_stockfish_pgn_dataset.py](/home/torsten/EngineKonzept/python/scripts/build_stockfish_pgn_dataset.py) now emits them by default and only needs `--no-proposer-artifacts` if you explicitly want to suppress them. The emitted `proposer_train.jsonl`, `proposer_validation.jsonl`, and `proposer_test.jsonl` files contain packed fixed-width features plus flattened legality/policy supervision, so the proposer trainer can skip reparsing the larger `DatasetExample` payloads. If those files are absent, training still falls back to the existing `train.jsonl` / `validation.jsonl` split artifacts.
 
 For older datasets, use [materialize_proposer_artifacts.py](/home/torsten/EngineKonzept/python/scripts/materialize_proposer_artifacts.py) to backfill those lean split files in place. To benchmark the effect on proposer loading and a short real training run, use [benchmark_proposer_artifacts.py](/home/torsten/EngineKonzept/python/scripts/benchmark_proposer_artifacts.py).
+
+The same pattern now exists for Phase 6 dynamics training. Use [materialize_dynamics_artifacts.py](/home/torsten/EngineKonzept/python/scripts/materialize_dynamics_artifacts.py) to backfill `dynamics_train.jsonl`, `dynamics_validation.jsonl`, and `dynamics_test.jsonl` for an existing dataset directory. These lean artifacts keep:
+
+- current packed state features
+- selected flat action index
+- exact next packed state features
+- special-move flags
+- optional trajectory metadata for drift evaluation
+
+The first Phase-6 training entry point is [train_dynamics.py](/home/torsten/EngineKonzept/python/scripts/train_dynamics.py), and the matching held-out evaluator is [eval_dynamics.py](/home/torsten/EngineKonzept/python/scripts/eval_dynamics.py).
+
+The current baseline config is [phase6_dynamics_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_v1.json). The corresponding summary and verify artifacts are [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_v1/summary.json) and [dynamics_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_v1_verify.json).
 
 The current `10k` reference benchmark is [proposer_artifact_bench_10k_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/proposer_artifact_bench_10k_v2.json). On the Pi-labeled `10,240` dataset, that run shows:
 

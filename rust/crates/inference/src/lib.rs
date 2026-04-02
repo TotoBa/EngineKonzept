@@ -9,11 +9,12 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 pub const PROPOSER_SCHEMA_VERSION: u32 = 2;
+pub const DYNAMICS_SCHEMA_VERSION: u32 = 1;
 pub const PROPOSER_METADATA_FILE: &str = "metadata.json";
 
 /// Returns the current purpose of this crate.
 pub fn crate_purpose() -> &'static str {
-    "Rust-side loading and validation for exported proposer bundles"
+    "Rust-side loading and validation for exported proposer and dynamics bundles"
 }
 
 /// Fully loaded proposer bundle with validated metadata and artifact paths.
@@ -112,6 +113,107 @@ pub struct ProposerValidationMetrics {
     pub policy_top1_accuracy: f32,
 }
 
+/// Fully loaded dynamics bundle with validated metadata and artifact paths.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct DynamicsBundle {
+    pub bundle_dir: PathBuf,
+    pub checkpoint_path: PathBuf,
+    pub exported_program_path: PathBuf,
+    pub metadata: DynamicsMetadata,
+}
+
+/// Top-level dynamics export metadata written by the Phase-6 Python exporter.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct DynamicsMetadata {
+    pub schema_version: u32,
+    pub model_name: String,
+    pub artifacts: ProposerArtifacts,
+    pub input: DynamicsInputSpec,
+    pub latent: DynamicsLatentSpec,
+    pub outputs: DynamicsOutputSpec,
+    pub training: DynamicsTrainingSpec,
+    pub validation_metrics: DynamicsValidationMetrics,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct DynamicsInputSpec {
+    pub state: ProposerInputSpec,
+    pub action: DynamicsActionInputSpec,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DynamicsActionInputSpec {
+    pub from_head_size: u32,
+    pub to_head_size: u32,
+    pub promotion_head_size: u32,
+    pub flat_size: u32,
+    pub flatten_formula: String,
+    pub dtype: String,
+    pub shape: DynamicBatchShapeSpec,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DynamicBatchShapeSpec {
+    pub batch: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DynamicsLatentSpec {
+    pub latent_dim: u32,
+    pub action_embedding_dim: u32,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct DynamicsOutputSpec {
+    pub next_state_shape: FeatureTensorShapeSpec,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FeatureTensorShapeSpec {
+    pub batch: String,
+    pub features: u32,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct DynamicsTrainingSpec {
+    pub seed: u64,
+    pub train_split: String,
+    pub validation_split: String,
+    pub latent_dim: u32,
+    pub hidden_dim: u32,
+    pub hidden_layers: u32,
+    pub action_embedding_dim: u32,
+    pub dropout: f32,
+    pub epochs: u32,
+    pub batch_size: u32,
+    pub learning_rate: f32,
+    pub weight_decay: f32,
+    pub reconstruction_loss_weight: f32,
+    pub drift_horizon: u32,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct DynamicsValidationMetrics {
+    pub total_examples: u32,
+    pub total_loss: f32,
+    pub reconstruction_loss: f32,
+    pub feature_l1_error: f32,
+    pub exact_next_feature_accuracy: f32,
+    pub capture_examples: u32,
+    pub capture_exact_next_feature_accuracy: f32,
+    pub promotion_examples: u32,
+    pub promotion_exact_next_feature_accuracy: f32,
+    pub castle_examples: u32,
+    pub castle_exact_next_feature_accuracy: f32,
+    pub en_passant_examples: u32,
+    pub en_passant_exact_next_feature_accuracy: f32,
+    pub gives_check_examples: u32,
+    pub gives_check_exact_next_feature_accuracy: f32,
+    pub drift_examples: u32,
+    pub drift_feature_l1_error: f32,
+    pub drift_exact_next_feature_accuracy: f32,
+}
+
 /// Errors returned when loading an exported proposer bundle.
 #[derive(Debug)]
 pub enum ProposerLoadError {
@@ -133,6 +235,20 @@ pub enum ProposerLoadError {
         expected: u32,
     },
     InvalidLegalityThreshold(f32),
+}
+
+/// Errors returned when loading an exported dynamics bundle.
+#[derive(Debug)]
+pub enum DynamicsLoadError {
+    Io(std::io::Error),
+    Json(serde_json::Error),
+    UnsupportedSchemaVersion(u32),
+    MissingArtifact(PathBuf),
+    InvalidFeatureDim { expected: u32, found: u32 },
+    InvalidActionSpaceFlatSize { expected: u32, found: u32 },
+    InvalidActionDtype(String),
+    InvalidNextStateShape { expected: u32, found: u32 },
+    InvalidDriftHorizon(u32),
 }
 
 impl fmt::Display for ProposerLoadError {
@@ -183,6 +299,60 @@ impl Error for ProposerLoadError {
     }
 }
 
+impl fmt::Display for DynamicsLoadError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Io(error) => write!(f, "could not read dynamics bundle: {error}"),
+            Self::Json(error) => write!(f, "invalid dynamics metadata JSON: {error}"),
+            Self::UnsupportedSchemaVersion(version) => {
+                write!(f, "unsupported dynamics schema version: {version}")
+            }
+            Self::MissingArtifact(path) => {
+                write!(f, "required dynamics artifact is missing: {path:?}")
+            }
+            Self::InvalidFeatureDim { expected, found } => {
+                write!(
+                    f,
+                    "invalid dynamics feature dim: expected {expected}, found {found}"
+                )
+            }
+            Self::InvalidActionSpaceFlatSize { expected, found } => write!(
+                f,
+                "invalid dynamics action-space size: expected {expected}, found {found}"
+            ),
+            Self::InvalidActionDtype(dtype) => {
+                write!(
+                    f,
+                    "invalid dynamics action dtype: expected int64, found {dtype}"
+                )
+            }
+            Self::InvalidNextStateShape { expected, found } => write!(
+                f,
+                "invalid dynamics next-state shape: expected {expected} features, found {found}"
+            ),
+            Self::InvalidDriftHorizon(horizon) => {
+                write!(f, "invalid dynamics drift horizon: {horizon}")
+            }
+        }
+    }
+}
+
+impl Error for DynamicsLoadError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::Io(error) => Some(error),
+            Self::Json(error) => Some(error),
+            Self::UnsupportedSchemaVersion(_)
+            | Self::MissingArtifact(_)
+            | Self::InvalidFeatureDim { .. }
+            | Self::InvalidActionSpaceFlatSize { .. }
+            | Self::InvalidActionDtype(_)
+            | Self::InvalidNextStateShape { .. }
+            | Self::InvalidDriftHorizon(_) => None,
+        }
+    }
+}
+
 /// Load and validate a proposer export bundle from disk.
 pub fn load_proposer_bundle(
     bundle_dir: impl AsRef<Path>,
@@ -210,6 +380,33 @@ pub fn load_proposer_bundle(
     })
 }
 
+/// Load and validate a dynamics export bundle from disk.
+pub fn load_dynamics_bundle(
+    bundle_dir: impl AsRef<Path>,
+) -> Result<DynamicsBundle, DynamicsLoadError> {
+    let bundle_dir = bundle_dir.as_ref().to_path_buf();
+    let metadata_path = bundle_dir.join(PROPOSER_METADATA_FILE);
+    let metadata = load_dynamics_metadata(&metadata_path)?;
+    validate_dynamics_metadata(&metadata)?;
+
+    let checkpoint_path = bundle_dir.join(&metadata.artifacts.checkpoint_file);
+    let exported_program_path = bundle_dir.join(&metadata.artifacts.exported_program_file);
+
+    if !checkpoint_path.is_file() {
+        return Err(DynamicsLoadError::MissingArtifact(checkpoint_path));
+    }
+    if !exported_program_path.is_file() {
+        return Err(DynamicsLoadError::MissingArtifact(exported_program_path));
+    }
+
+    Ok(DynamicsBundle {
+        bundle_dir,
+        checkpoint_path,
+        exported_program_path,
+        metadata,
+    })
+}
+
 /// Load proposer metadata from a metadata JSON file.
 pub fn load_proposer_metadata(
     path: impl AsRef<Path>,
@@ -217,6 +414,15 @@ pub fn load_proposer_metadata(
     let path = path.as_ref();
     let payload = fs::read_to_string(path).map_err(ProposerLoadError::Io)?;
     serde_json::from_str(&payload).map_err(ProposerLoadError::Json)
+}
+
+/// Load dynamics metadata from a metadata JSON file.
+pub fn load_dynamics_metadata(
+    path: impl AsRef<Path>,
+) -> Result<DynamicsMetadata, DynamicsLoadError> {
+    let path = path.as_ref();
+    let payload = fs::read_to_string(path).map_err(DynamicsLoadError::Io)?;
+    serde_json::from_str(&payload).map_err(DynamicsLoadError::Json)
 }
 
 /// Validate proposer metadata without touching the referenced artifact files.
@@ -268,6 +474,58 @@ pub fn validate_proposer_metadata(metadata: &ProposerMetadata) -> Result<(), Pro
     Ok(())
 }
 
+/// Validate dynamics metadata without touching the referenced artifact files.
+pub fn validate_dynamics_metadata(metadata: &DynamicsMetadata) -> Result<(), DynamicsLoadError> {
+    if metadata.schema_version != DYNAMICS_SCHEMA_VERSION {
+        return Err(DynamicsLoadError::UnsupportedSchemaVersion(
+            metadata.schema_version,
+        ));
+    }
+
+    let expected_feature_dim = metadata.input.state.layout.piece_token_capacity
+        * metadata.input.state.layout.piece_token_width
+        + metadata.input.state.layout.square_token_count
+            * metadata.input.state.layout.square_token_width
+        + metadata.input.state.layout.rule_token_width;
+    if metadata.input.state.feature_dim != expected_feature_dim {
+        return Err(DynamicsLoadError::InvalidFeatureDim {
+            expected: expected_feature_dim,
+            found: metadata.input.state.feature_dim,
+        });
+    }
+
+    let expected_flat_size = metadata.input.action.from_head_size
+        * metadata.input.action.to_head_size
+        * metadata.input.action.promotion_head_size;
+    if metadata.input.action.flat_size != expected_flat_size {
+        return Err(DynamicsLoadError::InvalidActionSpaceFlatSize {
+            expected: expected_flat_size,
+            found: metadata.input.action.flat_size,
+        });
+    }
+
+    if metadata.input.action.dtype != "int64" {
+        return Err(DynamicsLoadError::InvalidActionDtype(
+            metadata.input.action.dtype.clone(),
+        ));
+    }
+
+    if metadata.outputs.next_state_shape.features != metadata.input.state.feature_dim {
+        return Err(DynamicsLoadError::InvalidNextStateShape {
+            expected: metadata.input.state.feature_dim,
+            found: metadata.outputs.next_state_shape.features,
+        });
+    }
+
+    if metadata.training.drift_horizon < 2 {
+        return Err(DynamicsLoadError::InvalidDriftHorizon(
+            metadata.training.drift_horizon,
+        ));
+    }
+
+    Ok(())
+}
+
 fn validate_output_shape(
     name: &'static str,
     shape: &TensorShapeSpec,
@@ -292,7 +550,8 @@ mod tests {
     use tempfile::tempdir;
 
     use super::{
-        crate_purpose, load_proposer_bundle, validate_proposer_metadata, ProposerLoadError,
+        crate_purpose, load_dynamics_bundle, load_proposer_bundle, validate_dynamics_metadata,
+        validate_proposer_metadata, DynamicsLoadError, ProposerLoadError,
     };
 
     #[test]
@@ -344,6 +603,30 @@ mod tests {
         assert!(matches!(error, ProposerLoadError::MissingArtifact(_)));
     }
 
+    #[test]
+    fn load_dynamics_bundle_accepts_valid_export() {
+        let bundle_dir = tempdir().expect("temp dir");
+        write_valid_dynamics_bundle(bundle_dir.path());
+
+        let bundle = load_dynamics_bundle(bundle_dir.path()).expect("bundle loads");
+
+        assert_eq!(bundle.metadata.schema_version, 1);
+        assert_eq!(bundle.metadata.input.state.feature_dim, 230);
+        assert_eq!(bundle.metadata.latent.latent_dim, 128);
+        assert!(bundle.exported_program_path.ends_with("dynamics.pt2"));
+    }
+
+    #[test]
+    fn validate_dynamics_metadata_rejects_invalid_drift_horizon() {
+        let mut metadata = valid_dynamics_metadata();
+        metadata["training"]["drift_horizon"] = json!(1);
+
+        let parsed = serde_json::from_value(metadata).expect("metadata parses");
+        let error = validate_dynamics_metadata(&parsed).expect_err("metadata should be rejected");
+
+        assert!(matches!(error, DynamicsLoadError::InvalidDriftHorizon(1)));
+    }
+
     fn write_valid_bundle(bundle_dir: &Path) {
         fs::write(
             bundle_dir.join("metadata.json"),
@@ -352,6 +635,17 @@ mod tests {
         .expect("write metadata");
         fs::write(bundle_dir.join("checkpoint.pt"), b"checkpoint").expect("write checkpoint");
         fs::write(bundle_dir.join("proposer.pt2"), b"exported program")
+            .expect("write exported program");
+    }
+
+    fn write_valid_dynamics_bundle(bundle_dir: &Path) {
+        fs::write(
+            bundle_dir.join("metadata.json"),
+            serde_json::to_vec_pretty(&valid_dynamics_metadata()).expect("serialize metadata"),
+        )
+        .expect("write metadata");
+        fs::write(bundle_dir.join("checkpoint.pt"), b"checkpoint").expect("write checkpoint");
+        fs::write(bundle_dir.join("dynamics.pt2"), b"exported program")
             .expect("write exported program");
     }
 
@@ -421,6 +715,92 @@ mod tests {
                 "legal_set_recall": 0.6,
                 "legal_set_f1": 0.48,
                 "policy_top1_accuracy": 1.0
+            }
+        })
+    }
+
+    fn valid_dynamics_metadata() -> serde_json::Value {
+        json!({
+            "schema_version": 1,
+            "model_name": "latent_dynamics_v1",
+            "artifacts": {
+                "checkpoint_file": "checkpoint.pt",
+                "exported_program_file": "dynamics.pt2"
+            },
+            "input": {
+                "state": {
+                    "feature_dim": 230,
+                    "layout": {
+                        "piece_token_capacity": 32,
+                        "piece_token_width": 3,
+                        "piece_padding_value": -1,
+                        "square_token_count": 64,
+                        "square_token_width": 2,
+                        "rule_token_width": 6,
+                        "flatten_order": [
+                            "piece_tokens padded to 32 rows with [-1, -1, -1]",
+                            "square_tokens[64][square_index, occupant_code]",
+                            "rule_token[side_to_move, castling_bits, en_passant_square, halfmove_clock, fullmove_number, repetition_count]"
+                        ]
+                    }
+                },
+                "action": {
+                    "from_head_size": 64,
+                    "to_head_size": 64,
+                    "promotion_head_size": 5,
+                    "flat_size": 20480,
+                    "flatten_formula": "((from_index * 64) + to_index) * 5 + promotion_index",
+                    "dtype": "int64",
+                    "shape": {
+                        "batch": "dynamic"
+                    }
+                }
+            },
+            "latent": {
+                "latent_dim": 128,
+                "action_embedding_dim": 64
+            },
+            "outputs": {
+                "next_state_shape": {
+                    "batch": "dynamic",
+                    "features": 230
+                }
+            },
+            "training": {
+                "seed": 5,
+                "train_split": "train",
+                "validation_split": "validation",
+                "latent_dim": 128,
+                "hidden_dim": 256,
+                "hidden_layers": 2,
+                "action_embedding_dim": 64,
+                "dropout": 0.1,
+                "epochs": 10,
+                "batch_size": 128,
+                "learning_rate": 0.001,
+                "weight_decay": 0.0001,
+                "reconstruction_loss_weight": 1.0,
+                "drift_horizon": 2
+            },
+            "validation_metrics": {
+                "total_examples": 4,
+                "total_loss": 1.0,
+                "reconstruction_loss": 1.0,
+                "feature_l1_error": 0.5,
+                "exact_next_feature_accuracy": 0.25,
+                "capture_examples": 1,
+                "capture_exact_next_feature_accuracy": 0.0,
+                "promotion_examples": 1,
+                "promotion_exact_next_feature_accuracy": 0.0,
+                "castle_examples": 1,
+                "castle_exact_next_feature_accuracy": 1.0,
+                "en_passant_examples": 1,
+                "en_passant_exact_next_feature_accuracy": 1.0,
+                "gives_check_examples": 1,
+                "gives_check_exact_next_feature_accuracy": 0.0,
+                "drift_examples": 2,
+                "drift_feature_l1_error": 0.75,
+                "drift_exact_next_feature_accuracy": 0.0
             }
         })
     }

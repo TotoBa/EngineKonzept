@@ -1,0 +1,21 @@
+{
+  "capture_exact_next_feature_accuracy": 0.0,
+  "capture_examples": 406,
+  "castle_exact_next_feature_accuracy": 0.0,
+  "castle_examples": 32,
+  "drift_exact_next_feature_accuracy": 0.0,
+  "drift_examples": 7,
+  "drift_feature_l1_error": 1.902871,
+  "en_passant_exact_next_feature_accuracy": 0.0,
+  "en_passant_examples": 1,
+  "exact_next_feature_accuracy": 0.0,
+  "examples_per_second": 24199.644,
+  "feature_l1_error": 1.686233,
+  "gives_check_exact_next_feature_accuracy": 0.0,
+  "gives_check_examples": 69,
+  "promotion_exact_next_feature_accuracy": 0.0,
+  "promotion_examples": 1,
+  "reconstruction_loss": 12.437525,
+  "total_examples": 2048,
+  "total_loss": 12.437525
+}
