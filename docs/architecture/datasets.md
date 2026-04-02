@@ -88,6 +88,21 @@ These affect only offline dataset generation. They do not change label semantics
 
 When `oracle_workers > 1` and `oracle_batch_size == 0`, the builder now auto-splits the workload into roughly one batch per worker instead of falling back to a single giant batch. On a 2000-record build with `4` workers, that reduced wall-clock time from about `1.394s` to about `1.046s`, or about `1.33x` faster, with identical output digests. That measurement is stored in [oracle_auto_batch_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_auto_batch_v1.json).
 
+For larger offline builds, the repository now also includes a reproducible sweep runner:
+
+- `python/scripts/benchmark_dataset_build.py`
+
+It benchmarks multiple `(workers, batch_size)` schedules against the same raw dataset, writes full artifacts for each config, and verifies that the emitted `dataset.jsonl` / split files remain identical across the sweep. The first 10k reference run is stored in [oracle_build_sweep_10k_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_build_sweep_10k_v1.json).
+
+That 10k run currently shows:
+
+- `w4_b500`: about `4.934s`
+- `auto_w4`: about `5.204s`
+- `w2_auto`: about `6.371s`
+- `w1_single`: about `6.810s`
+
+So the current measured recommendation for larger offline builds is explicit `--oracle-workers 4 --oracle-batch-size 500`. The default auto heuristic remains intentionally conservative until that advantage is confirmed by repeated pairwise runs.
+
 When the Python wrapper uses the one-shot subprocess oracle path, it now prefers a prebuilt local binary at `rust/target/debug/dataset-oracle` before falling back to `cargo run`. On a warmed 250-record one-shot benchmark, that reduced wall-clock time from about `0.117s` to about `0.076s`, or about `1.53x` faster, with identical output digests. That measurement is stored in [oracle_one_shot_binary_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_one_shot_binary_v1.json).
 
 Current end-to-end measurement on a 2000-record JSONL build:

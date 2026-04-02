@@ -1,0 +1,111 @@
+{
+  "input": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_raw_pi_10k_v1/train_raw.jsonl",
+  "record_count": 10240,
+  "results": [
+    {
+      "name": "auto_w4",
+      "oracle_workers": 4,
+      "oracle_batch_size": 0,
+      "seconds": 5.203949,
+      "records_per_second": 1967.736,
+      "oracle_schedule": {
+        "record_count": 10240,
+        "oracle_workers": 4,
+        "requested_batch_size": 0,
+        "effective_batch_size": 2560,
+        "batch_count": 4
+      },
+      "digests": {
+        "dataset_jsonl": "d138797807bbbc1fba4a984685dde960621c14d7b69bee212465f5c80ecc6558",
+        "train_jsonl": "b8d028d932ce2ad8b3969db16c3fc2381954bf01a88e41a2b69b85aa2f611758",
+        "validation_jsonl": "c26182d2a34ee682a6659cbe9612d7dc79c1c36dc5645b12fff769e6b98d003d",
+        "test_jsonl": "e523759d3a6299f84c6aacea2742225bd46c8ba404565a45ab4733bfe5724f0c"
+      }
+    },
+    {
+      "name": "w4_b1000",
+      "oracle_workers": 4,
+      "oracle_batch_size": 1000,
+      "seconds": 5.670255,
+      "records_per_second": 1805.915,
+      "oracle_schedule": {
+        "record_count": 10240,
+        "oracle_workers": 4,
+        "requested_batch_size": 1000,
+        "effective_batch_size": 1000,
+        "batch_count": 11
+      },
+      "digests": {
+        "dataset_jsonl": "d138797807bbbc1fba4a984685dde960621c14d7b69bee212465f5c80ecc6558",
+        "train_jsonl": "b8d028d932ce2ad8b3969db16c3fc2381954bf01a88e41a2b69b85aa2f611758",
+        "validation_jsonl": "c26182d2a34ee682a6659cbe9612d7dc79c1c36dc5645b12fff769e6b98d003d",
+        "test_jsonl": "e523759d3a6299f84c6aacea2742225bd46c8ba404565a45ab4733bfe5724f0c"
+      }
+    },
+    {
+      "name": "w4_b500",
+      "oracle_workers": 4,
+      "oracle_batch_size": 500,
+      "seconds": 4.933679,
+      "records_per_second": 2075.53,
+      "oracle_schedule": {
+        "record_count": 10240,
+        "oracle_workers": 4,
+        "requested_batch_size": 500,
+        "effective_batch_size": 500,
+        "batch_count": 21
+      },
+      "digests": {
+        "dataset_jsonl": "d138797807bbbc1fba4a984685dde960621c14d7b69bee212465f5c80ecc6558",
+        "train_jsonl": "b8d028d932ce2ad8b3969db16c3fc2381954bf01a88e41a2b69b85aa2f611758",
+        "validation_jsonl": "c26182d2a34ee682a6659cbe9612d7dc79c1c36dc5645b12fff769e6b98d003d",
+        "test_jsonl": "e523759d3a6299f84c6aacea2742225bd46c8ba404565a45ab4733bfe5724f0c"
+      }
+    },
+    {
+      "name": "w2_auto",
+      "oracle_workers": 2,
+      "oracle_batch_size": 0,
+      "seconds": 6.370616,
+      "records_per_second": 1607.38,
+      "oracle_schedule": {
+        "record_count": 10240,
+        "oracle_workers": 2,
+        "requested_batch_size": 0,
+        "effective_batch_size": 5120,
+        "batch_count": 2
+      },
+      "digests": {
+        "dataset_jsonl": "d138797807bbbc1fba4a984685dde960621c14d7b69bee212465f5c80ecc6558",
+        "train_jsonl": "b8d028d932ce2ad8b3969db16c3fc2381954bf01a88e41a2b69b85aa2f611758",
+        "validation_jsonl": "c26182d2a34ee682a6659cbe9612d7dc79c1c36dc5645b12fff769e6b98d003d",
+        "test_jsonl": "e523759d3a6299f84c6aacea2742225bd46c8ba404565a45ab4733bfe5724f0c"
+      }
+    },
+    {
+      "name": "w1_single",
+      "oracle_workers": 1,
+      "oracle_batch_size": 0,
+      "seconds": 6.810017,
+      "records_per_second": 1503.667,
+      "oracle_schedule": {
+        "record_count": 10240,
+        "oracle_workers": 1,
+        "requested_batch_size": 0,
+        "effective_batch_size": 10240,
+        "batch_count": 1
+      },
+      "digests": {
+        "dataset_jsonl": "d138797807bbbc1fba4a984685dde960621c14d7b69bee212465f5c80ecc6558",
+        "train_jsonl": "b8d028d932ce2ad8b3969db16c3fc2381954bf01a88e41a2b69b85aa2f611758",
+        "validation_jsonl": "c26182d2a34ee682a6659cbe9612d7dc79c1c36dc5645b12fff769e6b98d003d",
+        "test_jsonl": "e523759d3a6299f84c6aacea2742225bd46c8ba404565a45ab4733bfe5724f0c"
+      }
+    }
+  ],
+  "fastest": {
+    "name": "w4_b500",
+    "seconds": 4.933679,
+    "records_per_second": 2075.53
+  }
+}
