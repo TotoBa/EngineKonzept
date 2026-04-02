@@ -27,6 +27,8 @@ The latest JSON-writer follow-up is captured in [oracle_pair_50k_json_v2.json](/
 
 The finer attack-check breakdown now lives in [oracle_profile_50k_v3.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_50k_v3.json). On the current large run, the remaining self-check pressure is led by rook-ray scans, king-local checks, and knight-local checks, not by pawn checks.
 
+The next move-label-path follow-up is captured in [oracle_profile_50k_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_50k_v4.json) and [oracle_pair_50k_encode_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_50k_encode_v4.json). It reuses preformatted legal UCI strings for `selected_move_resolution` and splits `legal_action_encoding` into `encode` and `sort`. On the current 50k run, that is a real step forward, not just a profiling refinement.
+
 The dataset builders also support offline oracle parallelism:
 
 - `--oracle-workers`

@@ -117,6 +117,8 @@ pub struct OracleProfileTotals {
     pub attack_check_bishop_ray: Duration,
     pub attack_check_rook_ray: Duration,
     pub legal_move_uci: Duration,
+    pub legal_action_encode: Duration,
+    pub legal_action_sort: Duration,
     pub legal_action_encoding: Duration,
     pub selected_move_resolution: Duration,
     pub selected_move_apply: Duration,
@@ -132,6 +134,8 @@ impl OracleProfileTotals {
             + self.fen_parse
             + self.effective_legal_generation()
             + self.legal_move_uci
+            + self.legal_action_encode
+            + self.legal_action_sort
             + self.legal_action_encoding
             + self.selected_move_resolution
             + self.selected_move_apply
@@ -164,6 +168,8 @@ impl OracleProfileTotals {
         self.attack_check_bishop_ray += profile.attack_check_bishop_ray;
         self.attack_check_rook_ray += profile.attack_check_rook_ray;
         self.legal_move_uci += profile.legal_move_uci;
+        self.legal_action_encode += profile.legal_action_encode;
+        self.legal_action_sort += profile.legal_action_sort;
         self.legal_action_encoding += profile.legal_action_encoding;
         self.selected_move_resolution += profile.selected_move_resolution;
         self.selected_move_apply += profile.selected_move_apply;
@@ -187,6 +193,8 @@ struct OracleRecordProfile {
     attack_check_bishop_ray: Duration,
     attack_check_rook_ray: Duration,
     legal_move_uci: Duration,
+    legal_action_encode: Duration,
+    legal_action_sort: Duration,
     legal_action_encoding: Duration,
     selected_move_resolution: Duration,
     selected_move_apply: Duration,
@@ -567,20 +575,25 @@ fn label_dataset_input_impl(
         profile.legal_move_uci += started.elapsed();
     }
 
-    let started = Instant::now();
+    let encode_started = Instant::now();
     let mut legal_action_encodings = legal
         .iter()
         .copied()
         .map(encode_move)
         .collect::<Result<Vec<_>, _>>()
         .map_err(DatasetOracleError::ActionEncoding)?;
+    let legal_action_encode = encode_started.elapsed();
+    let sort_started = Instant::now();
     legal_action_encodings.sort_unstable();
+    let legal_action_sort = sort_started.elapsed();
     let legal_action_encodings = legal_action_encodings
         .into_iter()
         .map(action_encoding_array)
         .collect();
     if let Some(profile) = profile.as_deref_mut() {
-        profile.legal_action_encoding += started.elapsed();
+        profile.legal_action_encode += legal_action_encode;
+        profile.legal_action_sort += legal_action_sort;
+        profile.legal_action_encoding += legal_action_encode + legal_action_sort;
     }
 
     let started = Instant::now();
@@ -590,8 +603,10 @@ fn label_dataset_input_impl(
         .map(|chess_move| {
             legal
                 .iter()
-                .copied()
-                .find(|candidate| candidate.to_uci() == *chess_move)
+                .zip(legal_move_strings.iter())
+                .find_map(|(candidate, candidate_uci)| {
+                    (candidate_uci == chess_move).then_some(*candidate)
+                })
                 .ok_or_else(|| DatasetOracleError::InvalidSelectedMove(chess_move.clone()))
         })
         .transpose()?;

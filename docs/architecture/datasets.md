@@ -278,6 +278,24 @@ The current 50k reference is [oracle_profile_50k_v3.json](/home/torsten/EngineKo
 
 So the remaining self-check pressure is not pawn-dominated. The next likely rules-side wins, if any remain, are king-local checks, knight-local checks, and rook-ray scans.
 
+The next profiling-and-throughput step tightened the move-label path itself. The oracle now:
+
+- reuses the already formatted legal UCI strings for `selected_move_resolution` instead of calling `to_uci()` again for each candidate
+- splits `legal_action_encoding` into `legal_action_encode` and `legal_action_sort`
+
+The current large-run profile is [oracle_profile_50k_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_50k_v4.json). On that run:
+
+- `selected_move_resolution` drops to about `0.7%`
+- `legal_action_encode` lands at about `3.9%`
+- `legal_action_sort` lands at about `4.6%`
+
+The matching end-to-end build result is stored in [oracle_pair_50k_encode_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_50k_encode_v4.json). Compared with the previous 50k reference:
+
+- `auto_w4`: `23.149s` vs. `26.052s`
+- `w4_b500`: `23.861s` vs. `26.424s`
+
+That is the clearest recent large-run win after the rules-kernel changes: avoiding duplicate UCI formatting in `selected_move_resolution` and making the encoding path more observable produces a real throughput improvement without changing label semantics.
+
 The next profiling refinement split the remaining self-check attack cost into local attackers and slider attackers. The current result in [oracle_profile_v8.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v8.json) is:
 
 - `attack_check_local`: about `23.0%`

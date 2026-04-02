@@ -103,6 +103,18 @@ fn to_report(profile: &OracleProfileTotals) -> ProfileReport {
                 records,
             ),
             phase(
+                "legal_action_encode",
+                profile.legal_action_encode,
+                total_measured,
+                records,
+            ),
+            phase(
+                "legal_action_sort",
+                profile.legal_action_sort,
+                total_measured,
+                records,
+            ),
+            phase(
                 "legal_action_encoding",
                 profile.legal_action_encoding,
                 total_measured,
