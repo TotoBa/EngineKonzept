@@ -35,14 +35,15 @@ That implies the following near-term sequence:
 
 ## What The Current Results Say
 
-The current `10,240 / 2,048` Pi-labeled Phase-5 corpus has four externally checkable proposer arms:
+The current `10,240 / 2,048` Pi-labeled Phase-5 corpus has five externally checkable proposer arms:
 
 - `current_default`
 - `h256`
 - `policy_focus`
 - `multistream_v2`
+- `factorized_v3`
 
-See [stockfish_pgn_10k_four_way_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_10k_four_way_compare_v1.json).
+See [stockfish_pgn_10k_five_way_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_10k_five_way_compare_v1.json).
 
 The important findings are:
 
@@ -50,6 +51,7 @@ The important findings are:
 - widening the flat MLP helps legal-set F1 more than policy accuracy
 - a pure policy-loss reweighting run did not improve held-out policy quality
 - the first structured multi-stream proposer slightly improved validation legality over the default MLP, but it did not beat `h256`, did not improve policy, and was slower
+- the first additive factorized decoder cut parameters drastically, but collapsed both legality and policy quality
 
 That means:
 
@@ -70,7 +72,7 @@ That means:
 
 ### Add next
 
-- a factorized proposer decoder over the existing move schema
+- a conditional factorized proposer decoder over the existing move schema
 - more structured proposer backbones where they preserve the same export and evaluation contract
 
 ### Do not add yet
@@ -88,6 +90,8 @@ The next best repo-local step is therefore:
 
 - not "more routing"
 - but "decode the existing move structure in a way that matches the action space"
+
+The first additive attempt already showed the constraint: factorization alone is not enough when it throws away too much coupling between `from`, `to`, and `promotion`.
 
 ## Phase 6
 
@@ -164,8 +168,8 @@ These ideas are interesting for later phases, but they are not the current bottl
 
 The next model experiments should be ordered like this:
 
-1. factorized proposer decoder
-2. stronger relational proposer variant if the decoder alone is not enough
+1. conditional factorized proposer decoder
+2. stronger relational proposer variant if the conditional decoder alone is not enough
 3. Phase-6 local latent dynamics prototype
 4. explicit opponent-head design before recurrent planner work
 

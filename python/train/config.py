@@ -39,8 +39,10 @@ class ProposerModelConfig:
     dropout: float = 0.0
 
     def __post_init__(self) -> None:
-        if self.architecture not in {"mlp_v1", "multistream_v2"}:
-            raise ValueError("model.architecture must be 'mlp_v1' or 'multistream_v2'")
+        if self.architecture not in {"mlp_v1", "multistream_v2", "factorized_v3"}:
+            raise ValueError(
+                "model.architecture must be 'mlp_v1', 'multistream_v2', or 'factorized_v3'"
+            )
         if self.hidden_dim <= 0:
             raise ValueError("model.hidden_dim must be positive")
         if self.hidden_layers <= 0:

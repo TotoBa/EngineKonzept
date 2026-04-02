@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from train.action_space import ACTION_SPACE_SIZE
+from train.action_space import (
+    ACTION_SPACE_SIZE,
+    FROM_HEAD_SIZE,
+    PROMOTION_HEAD_SIZE,
+    TO_HEAD_SIZE,
+    unflatten_action,
+)
 from train.datasets.artifacts import (
     PIECE_TOKEN_CAPACITY,
     PIECE_TOKEN_PADDING_VALUE,
@@ -59,6 +65,12 @@ if nn is not None:
                     hidden_layers=hidden_layers,
                     dropout=dropout,
                 )
+            elif architecture == "factorized_v3":
+                self._impl = _FactorizedMlpProposer(
+                    hidden_dim=hidden_dim,
+                    hidden_layers=hidden_layers,
+                    dropout=dropout,
+                )
             else:
                 raise ValueError(f"unsupported proposer architecture: {architecture}")
 
@@ -86,6 +98,61 @@ if nn is not None:
         def forward(self, features: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
             hidden = self.backbone(features)
             return self.legality_head(hidden), self.policy_head(hidden)
+
+
+    class _FactorizedActionHead(nn.Module):
+        def __init__(self, hidden_dim: int) -> None:
+            super().__init__()
+            self.from_head = nn.Linear(hidden_dim, FROM_HEAD_SIZE)
+            self.to_head = nn.Linear(hidden_dim, TO_HEAD_SIZE)
+            self.promotion_head = nn.Linear(hidden_dim, PROMOTION_HEAD_SIZE)
+            from_indices, to_indices, promotion_indices = _build_action_component_indices()
+            self.register_buffer("from_indices", from_indices, persistent=False)
+            self.register_buffer("to_indices", to_indices, persistent=False)
+            self.register_buffer("promotion_indices", promotion_indices, persistent=False)
+
+        def forward(self, hidden: torch.Tensor) -> torch.Tensor:
+            from_logits = self.from_head(hidden).index_select(1, self.from_indices)
+            to_logits = self.to_head(hidden).index_select(1, self.to_indices)
+            promotion_logits = self.promotion_head(hidden).index_select(
+                1, self.promotion_indices
+            )
+            return from_logits + to_logits + promotion_logits
+
+
+    class _FactorizedMlpProposer(nn.Module):
+        """MLP proposer with a factorized decoder over the existing action schema."""
+
+        def __init__(self, *, hidden_dim: int, hidden_layers: int, dropout: float) -> None:
+            super().__init__()
+            layers: list[nn.Module] = []
+            input_dim = POSITION_FEATURE_SIZE
+            for _ in range(hidden_layers):
+                layers.append(nn.Linear(input_dim, hidden_dim))
+                layers.append(nn.ReLU())
+                if dropout > 0.0:
+                    layers.append(nn.Dropout(dropout))
+                input_dim = hidden_dim
+
+            self.backbone = nn.Sequential(*layers)
+            self.legality_tower = nn.Sequential(
+                nn.Linear(input_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Dropout(dropout) if dropout > 0.0 else nn.Identity(),
+            )
+            self.policy_tower = nn.Sequential(
+                nn.Linear(input_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Dropout(dropout) if dropout > 0.0 else nn.Identity(),
+            )
+            self.legality_head = _FactorizedActionHead(hidden_dim)
+            self.policy_head = _FactorizedActionHead(hidden_dim)
+
+        def forward(self, features: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+            hidden = self.backbone(features)
+            legality_hidden = self.legality_tower(hidden)
+            policy_hidden = self.policy_tower(hidden)
+            return self.legality_head(legality_hidden), self.policy_head(policy_hidden)
 
 
     class _CrossAttentionBlock(nn.Module):
@@ -233,6 +300,15 @@ if nn is not None:
         summed = (values * keep_mask).sum(dim=1)
         counts = keep_mask.sum(dim=1).clamp_min(1)
         return summed / counts
+
+
+    def _build_action_component_indices() -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        action_components = [unflatten_action(index) for index in range(ACTION_SPACE_SIZE)]
+        return (
+            torch.tensor([parts[0] for parts in action_components], dtype=torch.long),
+            torch.tensor([parts[1] for parts in action_components], dtype=torch.long),
+            torch.tensor([parts[2] for parts in action_components], dtype=torch.long),
+        )
 
 
 else:

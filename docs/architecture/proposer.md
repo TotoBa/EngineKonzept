@@ -35,7 +35,7 @@ The `multistream_v2` arm is the first repo-local application of the broader arch
 
 ## Model Shape
 
-Phase 5 now carries two proposer architectures behind the same dataset and export contract.
+Phase 5 now carries three proposer architectures behind the same dataset and export contract.
 
 ### `mlp_v1`
 
@@ -76,9 +76,34 @@ The choice of this direction is deliberate. For this repository state, a typed m
 
 This follows the same broad design pressure emphasized by work on permutation-aware set models and relational inductive biases, but keeps the actual Phase-5 implementation small enough to test and compare directly. The broader prioritization is captured in [model-roadmap.md](/home/torsten/EngineKonzept/docs/architecture/model-roadmap.md).
 
+### `factorized_v3`
+
+The first factorized decoder arm keeps the same MLP-style backbone, but replaces the flat `20480` heads with smaller `from`, `to`, and `promotion` heads:
+
+- `from`: `64`
+- `to`: `64`
+- `promotion`: `5`
+
+The final flat action logits are reconstructed by summing the three component logits back into the canonical joint action space.
+
+This architecture was intentionally tested as the smallest possible repo-local decoder factorization that preserves:
+
+- the current dataset schema
+- the current losses
+- the current export contract
+- the current Rust-side metadata validation
+
+Measured outcome on the `10k` Pi-labeled corpus:
+
+- parameter count dropped to `113,418`
+- throughput remained good
+- but both legality and policy quality collapsed
+
+That makes `factorized_v3` a useful negative result, not a new default.
+
 ## Current Decision
 
-For this repository state, the next preferred proposer direction is a factorized decoder over the existing move schema, not early mixture-of-experts routing.
+For this repository state, the next preferred proposer direction is still a factorized decoder over the existing move schema, not early mixture-of-experts routing.
 
 Why:
 
@@ -86,6 +111,8 @@ Why:
 - the current flat `20480` heads dominate parameter count
 - current results suggest policy needs better structure more than it needs heavier routing
 - factorization preserves the exact same Rust legality authority and export boundary
+
+The new result from `factorized_v3` narrows that further: the next useful version should be a **conditional** factorized decoder, not a purely additive one.
 
 ## Model Outputs
 
@@ -98,7 +125,7 @@ The flat action index matches the Phase-3 factorization:
 
 `((from_index * 64) + to_index) * 5 + promotion_index`
 
-The output contract remains identical across `mlp_v1` and `multistream_v2`, so existing datasets, metrics, export tooling, and Rust-side metadata validation remain compatible.
+The output contract remains identical across `mlp_v1`, `multistream_v2`, and `factorized_v3`, so existing datasets, metrics, export tooling, and Rust-side metadata validation remain compatible.
 
 ## Training Objective
 

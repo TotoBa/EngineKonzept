@@ -1,0 +1,180 @@
+{
+  "best_by_metric": {
+    "validation_legal_set_f1": "h256",
+    "validation_policy_top1_accuracy": "current_default",
+    "verify_legal_set_f1": "h256",
+    "verify_policy_top1_accuracy": "current_default"
+  },
+  "runs": [
+    {
+      "config": {
+        "architecture": "mlp_v1",
+        "batch_size": 128,
+        "dataset_path": "artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1",
+        "hidden_dim": 128,
+        "hidden_layers": 2,
+        "learning_rate": 0.001,
+        "legality_loss_weight": 1.0,
+        "policy_loss_weight": 1.0,
+        "torch_threads": 4
+      },
+      "name": "current_default",
+      "paths": {
+        "summary": "artifacts/phase5/stockfish_pgn_current_default_v1/summary.json",
+        "verify": "artifacts/phase5/stockfish_pgn_current_default_v1_verify.json"
+      },
+      "validation": {
+        "examples_per_second": 2534.669,
+        "legal_set_f1": 0.019028,
+        "legal_set_precision": 0.510386,
+        "legal_set_recall": 0.009695,
+        "policy_loss": 7.066227,
+        "policy_top1_accuracy": 0.018555
+      },
+      "verify": {
+        "examples_per_second": 2287.629,
+        "legal_set_f1": 0.021512,
+        "legal_set_precision": 0.484346,
+        "legal_set_recall": 0.011,
+        "policy_loss": 7.042499,
+        "policy_top1_accuracy": 0.018555
+      }
+    },
+    {
+      "config": {
+        "architecture": "mlp_v1",
+        "batch_size": 256,
+        "dataset_path": "artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1",
+        "hidden_dim": 256,
+        "hidden_layers": 2,
+        "learning_rate": 0.001,
+        "legality_loss_weight": 1.0,
+        "policy_loss_weight": 1.0,
+        "torch_threads": 4
+      },
+      "name": "h256",
+      "paths": {
+        "summary": "artifacts/phase5/stockfish_pgn_pi_10k_h256_v1/summary.json",
+        "verify": "artifacts/phase5/stockfish_pgn_pi_10k_h256_v1_verify.json"
+      },
+      "validation": {
+        "examples_per_second": 2266.788,
+        "legal_set_f1": 0.021673,
+        "legal_set_precision": 0.501276,
+        "legal_set_recall": 0.011076,
+        "policy_loss": 7.282596,
+        "policy_top1_accuracy": 0.011719
+      },
+      "verify": {
+        "examples_per_second": 805.98,
+        "legal_set_f1": 0.024699,
+        "legal_set_precision": 0.484026,
+        "legal_set_recall": 0.012673,
+        "policy_loss": 7.236394,
+        "policy_top1_accuracy": 0.018555
+      }
+    },
+    {
+      "config": {
+        "architecture": "mlp_v1",
+        "batch_size": 128,
+        "dataset_path": "artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1",
+        "hidden_dim": 128,
+        "hidden_layers": 2,
+        "learning_rate": 0.0007,
+        "legality_loss_weight": 1.0,
+        "policy_loss_weight": 2.0,
+        "torch_threads": 4
+      },
+      "name": "policy_focus",
+      "paths": {
+        "summary": "artifacts/phase5/stockfish_pgn_policy_focus_v1/summary.json",
+        "verify": "artifacts/phase5/stockfish_pgn_policy_focus_v1_verify.json"
+      },
+      "validation": {
+        "examples_per_second": 2487.694,
+        "legal_set_f1": 0.013691,
+        "legal_set_precision": 0.544248,
+        "legal_set_recall": 0.006933,
+        "policy_loss": 7.025406,
+        "policy_top1_accuracy": 0.018555
+      },
+      "verify": {
+        "examples_per_second": 590.142,
+        "legal_set_f1": 0.016247,
+        "legal_set_precision": 0.516579,
+        "legal_set_recall": 0.008254,
+        "policy_loss": 7.001633,
+        "policy_top1_accuracy": 0.015625
+      }
+    },
+    {
+      "config": {
+        "architecture": "multistream_v2",
+        "batch_size": 128,
+        "dataset_path": "artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1",
+        "hidden_dim": 128,
+        "hidden_layers": 2,
+        "learning_rate": 0.001,
+        "legality_loss_weight": 1.0,
+        "policy_loss_weight": 1.0,
+        "torch_threads": 4
+      },
+      "name": "multistream_v2",
+      "paths": {
+        "summary": "artifacts/phase5/stockfish_pgn_multistream_v2_v1/summary.json",
+        "verify": "artifacts/phase5/stockfish_pgn_multistream_v2_v1_verify.json"
+      },
+      "validation": {
+        "examples_per_second": 1396.499,
+        "legal_set_f1": 0.020685,
+        "legal_set_precision": 0.483871,
+        "legal_set_recall": 0.010568,
+        "policy_loss": 6.795124,
+        "policy_top1_accuracy": 0.016602
+      },
+      "verify": {
+        "examples_per_second": 1148.308,
+        "legal_set_f1": 0.021361,
+        "legal_set_precision": 0.443503,
+        "legal_set_recall": 0.010944,
+        "policy_loss": 6.796891,
+        "policy_top1_accuracy": 0.015137
+      }
+    },
+    {
+      "config": {
+        "architecture": "factorized_v3",
+        "batch_size": 128,
+        "dataset_path": "artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1",
+        "hidden_dim": 128,
+        "hidden_layers": 2,
+        "learning_rate": 0.001,
+        "legality_loss_weight": 1.0,
+        "policy_loss_weight": 1.0,
+        "torch_threads": 4
+      },
+      "name": "factorized_v3",
+      "paths": {
+        "summary": "artifacts/phase5/stockfish_pgn_factorized_v3_v1/summary.json",
+        "verify": "artifacts/phase5/stockfish_pgn_factorized_v3_v1_verify.json"
+      },
+      "validation": {
+        "examples_per_second": 1921.269,
+        "legal_set_f1": 0.0,
+        "legal_set_precision": 0.0,
+        "legal_set_recall": 0.0,
+        "policy_loss": 8.073496,
+        "policy_top1_accuracy": 0.00293
+      },
+      "verify": {
+        "examples_per_second": 1763.536,
+        "legal_set_f1": 0.0,
+        "legal_set_precision": 0.0,
+        "legal_set_recall": 0.0,
+        "policy_loss": 8.056508,
+        "policy_top1_accuracy": 0.003418
+      }
+    }
+  ]
+}

@@ -24,6 +24,8 @@ Use these when comparing architecture or optimization changes against the curren
   Isolated policy-focus run on the same `10k` corpus with higher `policy_loss_weight` and lower learning rate.
 - [phase5_stockfish_pgn_multistream_v2_v1.json](/home/torsten/EngineKonzept/python/configs/phase5_stockfish_pgn_multistream_v2_v1.json)
   Structured multi-stream proposer that restores piece/square/rule streams inside the model.
+- [phase5_stockfish_pgn_factorized_v3_v1.json](/home/torsten/EngineKonzept/python/configs/phase5_stockfish_pgn_factorized_v3_v1.json)
+  First additive factorized-decoder baseline; useful as a negative reference for the next conditional decoder arm.
 - [phase5_stockfish_pgn_pi_10k_h192_v1.json](/home/torsten/EngineKonzept/python/configs/phase5_stockfish_pgn_pi_10k_h192_v1.json)
   Wider hidden layer variant.
 - [phase5_stockfish_pgn_pi_10k_h256_v1.json](/home/torsten/EngineKonzept/python/configs/phase5_stockfish_pgn_pi_10k_h256_v1.json)

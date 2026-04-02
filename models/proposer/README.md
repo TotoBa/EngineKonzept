@@ -30,6 +30,8 @@ These bundles correspond to the main `10k` comparison grid:
   Isolated policy-focus run on the same `10k` corpus.
 - [stockfish_pgn_multistream_v2_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_multistream_v2_v1)
   First structured multi-stream proposer over the same export contract.
+- [stockfish_pgn_factorized_v3_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_factorized_v3_v1)
+  First additive factorized-decoder proposer; kept as an explicit failed-but-informative baseline.
 - [stockfish_pgn_pi_10k_h192_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_pi_10k_h192_v1)
   Wider hidden-layer experimental variant.
 - [stockfish_pgn_pi_10k_h256_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_pi_10k_h256_v1)
