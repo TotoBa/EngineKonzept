@@ -81,9 +81,12 @@ The proposer config also accepts a `runtime` object for CPU tuning:
 
 Reference configs in the repository currently cover:
 
+- a current default entry point:
+  [phase5_stockfish_pgn_current_default_v1.json](/home/torsten/EngineKonzept/python/configs/phase5_stockfish_pgn_current_default_v1.json)
 - small smoke and seed runs
+- legacy small-baseline Stockfish runs
 - Pi-labeled `10,240 / 2,048` PGN policy runs
-- a small comparison grid across batch size and hidden width
+- experimental variants across batch size and hidden width
 
 The current larger comparison summary lives at [stockfish_pgn_pi_10k_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_pi_10k_compare_v1.json).
 
