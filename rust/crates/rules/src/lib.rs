@@ -190,8 +190,8 @@ fn is_square_attacked_on_board_profiled(
         profile.bishop_ray += bishop_started.elapsed();
     }
     let rook_started = Instant::now();
-    let rook_attacked =
-        !bishop_attacked && is_attacked_by_slider_on_board(board, square, attacker, &ROOK_DIRECTIONS, false);
+    let rook_attacked = !bishop_attacked
+        && is_attacked_by_slider_on_board(board, square, attacker, &ROOK_DIRECTIONS, false);
     let attacked = bishop_attacked || rook_attacked;
     if let Some(profile) = profile.as_deref_mut() {
         profile.rook_ray += rook_started.elapsed();
