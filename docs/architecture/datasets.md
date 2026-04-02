@@ -305,6 +305,16 @@ The matching end-to-end build result is stored in [oracle_pair_50k_encode_v4.jso
 
 That is the clearest recent large-run win after the rules-kernel changes: avoiding duplicate UCI formatting in `selected_move_resolution` and making the encoding path more observable produces a real throughput improvement without changing label semantics.
 
+The same profiled `50k` run was then mirrored on `raspberrypi` and fetched back as [oracle_profile_50k_pi_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_50k_pi_v4.json). That host-side profile keeps the same priority order:
+
+- `legal_generation`: about `51.5%`
+- `self_check_filter`: about `43.0%`
+- `attack_check_local`: about `21.7%`
+- `json_serialize`: about `17.9%`
+- `attack_check_slider`: about `16.8%`
+
+So the next optimization choice is now host-stable as well: legality generation remains the first target, but JSON serialization is still large enough on the slower ARM host to justify another serializer pass before deeper rules-kernel work.
+
 The next profiling refinement split the remaining self-check attack cost into local attackers and slider attackers. The current result in [oracle_profile_v8.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v8.json) is:
 
 - `attack_check_local`: about `23.0%`

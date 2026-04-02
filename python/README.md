@@ -34,6 +34,8 @@ That `v4` 50k result was also rerun on `raspberrypi` and fetched back as [oracle
 - local `50k`: `auto_w4` about `23.149s`, `w4_b500` about `23.861s`
 - `raspberrypi` `50k`: `auto_w4` about `74.679s`, `w4_b500` about `76.729s`
 
+The matching Pi hotspot profile is [oracle_profile_50k_pi_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_50k_pi_v4.json). It keeps the same ordering as the local profile: `legal_generation` first, `self_check_filter` inside it second, and `json_serialize` still large enough to remain a real secondary optimization target.
+
 The dataset builders also support offline oracle parallelism:
 
 - `--oracle-workers`
