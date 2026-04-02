@@ -79,6 +79,14 @@ impl Error for MoveError {}
 pub struct LegalMoveProfile {
     pub pseudo_legal_generation: Duration,
     pub self_check_filter: Duration,
+    pub attack_check_local: Duration,
+    pub attack_check_slider: Duration,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct AttackCheckProfile {
+    local: Duration,
+    slider: Duration,
 }
 
 /// Returns whether `square` is attacked by `attacker`.
@@ -92,10 +100,23 @@ fn is_square_attacked_on_board(
     square: Square,
     attacker: Color,
 ) -> bool {
+    is_square_attacked_on_board_profiled(board, square, attacker, None)
+}
+
+fn is_square_attacked_on_board_profiled(
+    board: &[Option<Piece>; 64],
+    square: Square,
+    attacker: Color,
+    mut profile: Option<&mut AttackCheckProfile>,
+) -> bool {
+    let local_started = Instant::now();
     let pawn_source_rank_delta = -attacker.pawn_push_delta();
     for file_delta in [-1, 1] {
         if let Some(source) = square.offset(file_delta, pawn_source_rank_delta) {
             if board_piece_at(board, source) == Some(Piece::new(attacker, PieceKind::Pawn)) {
+                if let Some(profile) = profile.as_deref_mut() {
+                    profile.local += local_started.elapsed();
+                }
                 return true;
             }
         }
@@ -104,6 +125,9 @@ fn is_square_attacked_on_board(
     for (file_delta, rank_delta) in KNIGHT_DELTAS {
         if let Some(source) = square.offset(file_delta, rank_delta) {
             if board_piece_at(board, source) == Some(Piece::new(attacker, PieceKind::Knight)) {
+                if let Some(profile) = profile.as_deref_mut() {
+                    profile.local += local_started.elapsed();
+                }
                 return true;
             }
         }
@@ -112,13 +136,25 @@ fn is_square_attacked_on_board(
     for (file_delta, rank_delta) in KING_DELTAS {
         if let Some(source) = square.offset(file_delta, rank_delta) {
             if board_piece_at(board, source) == Some(Piece::new(attacker, PieceKind::King)) {
+                if let Some(profile) = profile.as_deref_mut() {
+                    profile.local += local_started.elapsed();
+                }
                 return true;
             }
         }
     }
+    if let Some(profile) = profile.as_deref_mut() {
+        profile.local += local_started.elapsed();
+    }
 
-    is_attacked_by_slider_on_board(board, square, attacker, &BISHOP_DIRECTIONS, true)
-        || is_attacked_by_slider_on_board(board, square, attacker, &ROOK_DIRECTIONS, false)
+    let slider_started = Instant::now();
+    let attacked =
+        is_attacked_by_slider_on_board(board, square, attacker, &BISHOP_DIRECTIONS, true)
+            || is_attacked_by_slider_on_board(board, square, attacker, &ROOK_DIRECTIONS, false);
+    if let Some(profile) = profile.as_deref_mut() {
+        profile.slider += slider_started.elapsed();
+    }
+    attacked
 }
 
 /// Returns whether the given side is currently in check.
@@ -176,6 +212,7 @@ pub fn legal_moves_profiled(position: &Position) -> (Vec<Move>, LegalMoveProfile
         .king_square(moving_side)
         .expect("valid position must contain a king for the side to move");
     let filter_started = Instant::now();
+    let mut attack_profile = AttackCheckProfile::default();
     let legal = pseudo
         .into_iter()
         .filter(|candidate| {
@@ -183,10 +220,11 @@ pub fn legal_moves_profiled(position: &Position) -> (Vec<Move>, LegalMoveProfile
                 .map(|next_board| {
                     let checked_king_square =
                         king_square_after_move(king_square, position, *candidate);
-                    !is_square_attacked_on_board(
+                    !is_square_attacked_on_board_profiled(
                         &next_board,
                         checked_king_square,
                         moving_side.opposite(),
+                        Some(&mut attack_profile),
                     )
                 })
                 .unwrap_or(false)
@@ -199,6 +237,8 @@ pub fn legal_moves_profiled(position: &Position) -> (Vec<Move>, LegalMoveProfile
         LegalMoveProfile {
             pseudo_legal_generation,
             self_check_filter,
+            attack_check_local: attack_profile.local,
+            attack_check_slider: attack_profile.slider,
         },
     )
 }

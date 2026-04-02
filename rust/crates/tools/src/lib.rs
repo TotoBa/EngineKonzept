@@ -109,6 +109,8 @@ pub struct OracleProfileTotals {
     pub legal_generation: Duration,
     pub pseudo_legal_generation: Duration,
     pub self_check_filter: Duration,
+    pub attack_check_local: Duration,
+    pub attack_check_slider: Duration,
     pub legal_move_uci: Duration,
     pub legal_action_encoding: Duration,
     pub selected_move_resolution: Duration,
@@ -149,6 +151,8 @@ impl OracleProfileTotals {
         self.legal_generation += profile.legal_generation;
         self.pseudo_legal_generation += profile.pseudo_legal_generation;
         self.self_check_filter += profile.self_check_filter;
+        self.attack_check_local += profile.attack_check_local;
+        self.attack_check_slider += profile.attack_check_slider;
         self.legal_move_uci += profile.legal_move_uci;
         self.legal_action_encoding += profile.legal_action_encoding;
         self.selected_move_resolution += profile.selected_move_resolution;
@@ -165,6 +169,8 @@ struct OracleRecordProfile {
     legal_generation: Duration,
     pseudo_legal_generation: Duration,
     self_check_filter: Duration,
+    attack_check_local: Duration,
+    attack_check_slider: Duration,
     legal_move_uci: Duration,
     legal_action_encoding: Duration,
     selected_move_resolution: Duration,
@@ -517,6 +523,8 @@ fn label_dataset_input_impl(
         profile.legal_generation += started.elapsed();
         profile.pseudo_legal_generation += legal_profile.pseudo_legal_generation;
         profile.self_check_filter += legal_profile.self_check_filter;
+        profile.attack_check_local += legal_profile.attack_check_local;
+        profile.attack_check_slider += legal_profile.attack_check_slider;
     }
 
     let started = Instant::now();

@@ -1,0 +1,93 @@
+{
+  "benchmark_input": {
+    "input": "/srv/schach/tmp/oracle-e2e/train_raw_2k.jsonl",
+    "source": "artifacts/datasets/phase5_stockfish_pgn_raw_pi_10k_v1/train_raw.jsonl",
+    "record_count": 2000
+  },
+  "results": {
+    "records": 2000,
+    "total_measured_seconds": 0.496635075,
+    "phases": {
+      "json_parse": {
+        "seconds": 0.026400339,
+        "milliseconds_per_record": 0.0132001695,
+        "share_of_measured": 0.05315842623479624
+      },
+      "fen_parse": {
+        "seconds": 0.021984379,
+        "milliseconds_per_record": 0.0109921895,
+        "share_of_measured": 0.04426666602233038
+      },
+      "legal_generation": {
+        "seconds": 0.244837931,
+        "milliseconds_per_record": 0.1224189655,
+        "share_of_measured": 0.4929936352159581
+      },
+      "pseudo_legal_generation": {
+        "seconds": 0.041781724,
+        "milliseconds_per_record": 0.020890862,
+        "share_of_measured": 0.08412962777548484
+      },
+      "self_check_filter": {
+        "seconds": 0.19763269,
+        "milliseconds_per_record": 0.098816345,
+        "share_of_measured": 0.3979434799283961
+      },
+      "attack_check_local": {
+        "seconds": 0.114385714,
+        "milliseconds_per_record": 0.057192857,
+        "share_of_measured": 0.23032145685642522
+      },
+      "attack_check_slider": {
+        "seconds": 0.062279692,
+        "milliseconds_per_record": 0.031139846,
+        "share_of_measured": 0.12540332959769304
+      },
+      "legal_move_uci": {
+        "seconds": 0.019655489,
+        "milliseconds_per_record": 0.0098277445,
+        "share_of_measured": 0.03957732747732327
+      },
+      "legal_action_encoding": {
+        "seconds": 0.038952712,
+        "milliseconds_per_record": 0.019476356,
+        "share_of_measured": 0.07843326812952146
+      },
+      "selected_move_resolution": {
+        "seconds": 0.010818791,
+        "milliseconds_per_record": 0.0054093955,
+        "share_of_measured": 0.021784186306212868
+      },
+      "selected_move_apply": {
+        "seconds": 0.002746025,
+        "milliseconds_per_record": 0.0013730125,
+        "share_of_measured": 0.005529261097799023
+      },
+      "selected_action_encoding": {
+        "seconds": 0.0003931,
+        "milliseconds_per_record": 0.00019655,
+        "share_of_measured": 0.0007915268570187074
+      },
+      "position_encoding": {
+        "seconds": 0.019689121,
+        "milliseconds_per_record": 0.0098445605,
+        "share_of_measured": 0.03964504722104052
+      },
+      "annotations": {
+        "seconds": 0.021618157,
+        "milliseconds_per_record": 0.0108090785,
+        "share_of_measured": 0.04352925938628076
+      },
+      "json_serialize": {
+        "seconds": 0.094962548,
+        "milliseconds_per_record": 0.047481274,
+        "share_of_measured": 0.1912119235637958
+      }
+    }
+  },
+  "notes": [
+    "This profile splits the self-check attack validation into local attackers and slider attackers.",
+    "On the 2k reference corpus, local attackers are more expensive than slider attackers inside the remaining attack-check path.",
+    "That makes the next optimization target the pawn/knight/king attack checks rather than ray scans."
+  ]
+}

@@ -55,6 +55,18 @@ fn to_report(profile: &OracleProfileTotals) -> ProfileReport {
                 records,
             ),
             phase(
+                "attack_check_local",
+                profile.attack_check_local,
+                total_measured,
+                records,
+            ),
+            phase(
+                "attack_check_slider",
+                profile.attack_check_slider,
+                total_measured,
+                records,
+            ),
+            phase(
                 "legal_move_uci",
                 profile.legal_move_uci,
                 total_measured,
