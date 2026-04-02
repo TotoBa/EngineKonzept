@@ -35,7 +35,7 @@ The `multistream_v2` arm is the first repo-local application of the broader arch
 
 ## Model Shape
 
-Phase 5 now carries three proposer architectures behind the same dataset and export contract.
+Phase 5 now carries four proposer architectures behind the same dataset and export contract.
 
 ### `mlp_v1`
 
@@ -101,6 +101,30 @@ Measured outcome on the `10k` Pi-labeled corpus:
 
 That makes `factorized_v3` a useful negative result, not a new default.
 
+### `factorized_v4`
+
+The next decoder arm restores coupling between move components without returning to a full flat output head.
+
+It keeps:
+
+- a shared MLP backbone
+- small `from`, `to`, and `promotion` component heads
+- the same flat `20480` output contract externally
+
+But unlike `factorized_v3`, it conditions later move parts on earlier ones:
+
+- `to` depends on state plus `from`-conditioned queries
+- `promotion` depends on state plus both `from`- and `to`-conditioned queries
+
+Measured outcome on the `10k` Pi-labeled corpus:
+
+- parameter count: `4,359,434`
+- validation `legal_set_f1`: `0.082032`
+- verify `legal_set_f1`: `0.095668`
+- verify `policy_top1_accuracy`: `0.010742`
+
+This makes `factorized_v4` the current best legality arm, but not the best policy arm.
+
 ## Current Decision
 
 For this repository state, the next preferred proposer direction is still a factorized decoder over the existing move schema, not early mixture-of-experts routing.
@@ -112,7 +136,12 @@ Why:
 - current results suggest policy needs better structure more than it needs heavier routing
 - factorization preserves the exact same Rust legality authority and export boundary
 
-The new result from `factorized_v3` narrows that further: the next useful version should be a **conditional** factorized decoder, not a purely additive one.
+The new results narrow that further:
+
+- `factorized_v3` showed that purely additive factorization is too weak
+- `factorized_v4` showed that conditional factorization can recover and substantially improve legality
+
+So the next decoder question is no longer "factorized or not", but how to improve policy while keeping the stronger legality structure.
 
 ## Model Outputs
 
@@ -125,7 +154,7 @@ The flat action index matches the Phase-3 factorization:
 
 `((from_index * 64) + to_index) * 5 + promotion_index`
 
-The output contract remains identical across `mlp_v1`, `multistream_v2`, and `factorized_v3`, so existing datasets, metrics, export tooling, and Rust-side metadata validation remain compatible.
+The output contract remains identical across `mlp_v1`, `multistream_v2`, `factorized_v3`, and `factorized_v4`, so existing datasets, metrics, export tooling, and Rust-side metadata validation remain compatible.
 
 ## Training Objective
 

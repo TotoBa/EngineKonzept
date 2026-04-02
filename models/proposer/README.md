@@ -32,10 +32,12 @@ These bundles correspond to the main `10k` comparison grid:
   First structured multi-stream proposer over the same export contract.
 - [stockfish_pgn_factorized_v3_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_factorized_v3_v1)
   First additive factorized-decoder proposer; kept as an explicit failed-but-informative baseline.
+- [stockfish_pgn_factorized_v4_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_factorized_v4_v1)
+  Conditional factorized-decoder proposer; current best legality-focused Phase-5 arm.
 - [stockfish_pgn_pi_10k_h192_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_pi_10k_h192_v1)
   Wider hidden-layer experimental variant.
 - [stockfish_pgn_pi_10k_h256_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_pi_10k_h256_v1)
-  Best verify legal-set F1 so far on the `10k` corpus.
+  Earlier wide-MLP legal-F1 reference point.
 
 ## Legacy Baselines
 

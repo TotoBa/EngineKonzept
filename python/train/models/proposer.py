@@ -71,6 +71,12 @@ if nn is not None:
                     hidden_layers=hidden_layers,
                     dropout=dropout,
                 )
+            elif architecture == "factorized_v4":
+                self._impl = _ConditionalFactorizedMlpProposer(
+                    hidden_dim=hidden_dim,
+                    hidden_layers=hidden_layers,
+                    dropout=dropout,
+                )
             else:
                 raise ValueError(f"unsupported proposer architecture: {architecture}")
 
@@ -147,6 +153,83 @@ if nn is not None:
             )
             self.legality_head = _FactorizedActionHead(hidden_dim)
             self.policy_head = _FactorizedActionHead(hidden_dim)
+
+        def forward(self, features: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+            hidden = self.backbone(features)
+            legality_hidden = self.legality_tower(hidden)
+            policy_hidden = self.policy_tower(hidden)
+            return self.legality_head(legality_hidden), self.policy_head(policy_hidden)
+
+
+    class _ConditionalFactorizedActionHead(nn.Module):
+        def __init__(self, hidden_dim: int) -> None:
+            super().__init__()
+            self.hidden_dim = hidden_dim
+            self.from_head = nn.Linear(hidden_dim, FROM_HEAD_SIZE)
+            self.from_condition = nn.Linear(hidden_dim, FROM_HEAD_SIZE * hidden_dim)
+            self.to_base = nn.Linear(hidden_dim, TO_HEAD_SIZE)
+            self.to_condition = nn.Linear(hidden_dim, TO_HEAD_SIZE * hidden_dim)
+            self.promotion_base = nn.Linear(hidden_dim, PROMOTION_HEAD_SIZE)
+            self.to_keys = nn.Parameter(torch.empty(TO_HEAD_SIZE, hidden_dim))
+            self.promotion_from_keys = nn.Parameter(torch.empty(PROMOTION_HEAD_SIZE, hidden_dim))
+            self.promotion_to_keys = nn.Parameter(torch.empty(PROMOTION_HEAD_SIZE, hidden_dim))
+            nn.init.xavier_uniform_(self.to_keys)
+            nn.init.xavier_uniform_(self.promotion_from_keys)
+            nn.init.xavier_uniform_(self.promotion_to_keys)
+
+        def forward(self, hidden: torch.Tensor) -> torch.Tensor:
+            batch_size = hidden.shape[0]
+            from_logits = self.from_head(hidden)
+            from_queries = self.from_condition(hidden).reshape(
+                batch_size, FROM_HEAD_SIZE, self.hidden_dim
+            )
+            to_queries = self.to_condition(hidden).reshape(
+                batch_size, TO_HEAD_SIZE, self.hidden_dim
+            )
+
+            to_logits = (
+                from_logits.unsqueeze(2)
+                + self.to_base(hidden).unsqueeze(1)
+                + torch.matmul(from_queries, self.to_keys.transpose(0, 1))
+            )
+            promotion_logits = (
+                to_logits.unsqueeze(-1)
+                + self.promotion_base(hidden).reshape(batch_size, 1, 1, PROMOTION_HEAD_SIZE)
+                + torch.matmul(
+                    from_queries, self.promotion_from_keys.transpose(0, 1)
+                ).unsqueeze(2)
+                + torch.matmul(to_queries, self.promotion_to_keys.transpose(0, 1)).unsqueeze(1)
+            )
+            return promotion_logits.reshape(batch_size, ACTION_SPACE_SIZE)
+
+
+    class _ConditionalFactorizedMlpProposer(nn.Module):
+        """MLP proposer with conditional coupling between move components."""
+
+        def __init__(self, *, hidden_dim: int, hidden_layers: int, dropout: float) -> None:
+            super().__init__()
+            layers: list[nn.Module] = []
+            input_dim = POSITION_FEATURE_SIZE
+            for _ in range(hidden_layers):
+                layers.append(nn.Linear(input_dim, hidden_dim))
+                layers.append(nn.ReLU())
+                if dropout > 0.0:
+                    layers.append(nn.Dropout(dropout))
+                input_dim = hidden_dim
+
+            self.backbone = nn.Sequential(*layers)
+            self.legality_tower = nn.Sequential(
+                nn.Linear(input_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Dropout(dropout) if dropout > 0.0 else nn.Identity(),
+            )
+            self.policy_tower = nn.Sequential(
+                nn.Linear(input_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Dropout(dropout) if dropout > 0.0 else nn.Identity(),
+            )
+            self.legality_head = _ConditionalFactorizedActionHead(hidden_dim)
+            self.policy_head = _ConditionalFactorizedActionHead(hidden_dim)
 
         def forward(self, features: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
             hidden = self.backbone(features)

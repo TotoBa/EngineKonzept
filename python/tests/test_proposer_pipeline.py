@@ -231,6 +231,49 @@ def test_config_accepts_factorized_v3_architecture(tmp_path: Path) -> None:
     assert config.model.architecture == "factorized_v3"
 
 
+def test_config_accepts_factorized_v4_architecture(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "seed": 7,
+                "output_dir": "artifacts/phase5/test-run",
+                "data": {
+                    "dataset_path": "artifacts/datasets/phase4",
+                    "train_split": "train",
+                    "validation_split": "validation",
+                },
+                "model": {
+                    "architecture": "factorized_v4",
+                    "hidden_dim": 64,
+                    "hidden_layers": 2,
+                    "dropout": 0.0,
+                },
+                "optimization": {
+                    "epochs": 1,
+                    "batch_size": 2,
+                    "learning_rate": 0.001,
+                    "weight_decay": 0.0,
+                    "legality_loss_weight": 1.0,
+                    "policy_loss_weight": 1.0,
+                },
+                "evaluation": {"legality_threshold": 0.4},
+                "export": {
+                    "bundle_dir": "models/proposer/test",
+                    "checkpoint_name": "checkpoint.pt",
+                    "exported_program_name": "proposer.pt2",
+                    "metadata_name": "metadata.json",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_proposer_train_config(config_path)
+
+    assert config.model.architecture == "factorized_v4"
+
+
 def test_multistream_v2_forward_matches_action_space_shape() -> None:
     torch = pytest.importorskip("torch")
     model = LegalityPolicyProposer(
@@ -251,6 +294,22 @@ def test_factorized_v3_forward_matches_action_space_shape() -> None:
     torch = pytest.importorskip("torch")
     model = LegalityPolicyProposer(
         architecture="factorized_v3",
+        hidden_dim=32,
+        hidden_layers=2,
+        dropout=0.0,
+    )
+    features = torch.zeros((3, POSITION_FEATURE_SIZE), dtype=torch.float32)
+
+    legality_logits, policy_logits = model(features)
+
+    assert tuple(legality_logits.shape) == (3, ACTION_SPACE_SIZE)
+    assert tuple(policy_logits.shape) == (3, ACTION_SPACE_SIZE)
+
+
+def test_factorized_v4_forward_matches_action_space_shape() -> None:
+    torch = pytest.importorskip("torch")
+    model = LegalityPolicyProposer(
+        architecture="factorized_v4",
         hidden_dim=32,
         hidden_layers=2,
         dropout=0.0,
@@ -284,6 +343,31 @@ def test_factorized_v3_uses_fewer_parameters_than_flat_mlp() -> None:
     )
 
     assert factorized_param_count < flat_param_count
+
+
+def test_factorized_v4_has_more_capacity_than_factorized_v3() -> None:
+    pytest.importorskip("torch")
+    factorized_v3_model = LegalityPolicyProposer(
+        architecture="factorized_v3",
+        hidden_dim=128,
+        hidden_layers=2,
+        dropout=0.0,
+    )
+    factorized_v4_model = LegalityPolicyProposer(
+        architecture="factorized_v4",
+        hidden_dim=128,
+        hidden_layers=2,
+        dropout=0.0,
+    )
+
+    factorized_v3_param_count = sum(
+        parameter.numel() for parameter in factorized_v3_model.parameters()
+    )
+    factorized_v4_param_count = sum(
+        parameter.numel() for parameter in factorized_v4_model.parameters()
+    )
+
+    assert factorized_v4_param_count > factorized_v3_param_count
 
 
 def test_config_rejects_non_default_metadata_filename(tmp_path: Path) -> None:
@@ -520,6 +604,72 @@ def test_train_proposer_supports_factorized_v3(tmp_path: Path) -> None:
     assert run.model_parameter_count > 0
     assert (tmp_path / "models/proposer/test-v3/checkpoint.pt").exists()
     assert (tmp_path / "models/proposer/test-v3/proposer.pt2").exists()
+
+
+def test_train_proposer_supports_factorized_v4(tmp_path: Path) -> None:
+    pytest.importorskip("torch")
+
+    dataset_dir = tmp_path / "artifacts" / "datasets" / "phase4"
+    dataset_dir.mkdir(parents=True)
+    (dataset_dir / "train.jsonl").write_text(
+        "\n".join(
+            [
+                json.dumps(_dataset_example_dict(sample_id="train:1", split="train")),
+                json.dumps(_dataset_example_dict(sample_id="train:2", split="train")),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (dataset_dir / "validation.jsonl").write_text(
+        json.dumps(_dataset_example_dict(sample_id="validation:1", split="validation")) + "\n",
+        encoding="utf-8",
+    )
+
+    config_path = tmp_path / "python" / "configs" / "phase5_proposer_v4.json"
+    config_path.parent.mkdir(parents=True)
+    config_path.write_text(
+        json.dumps(
+            {
+                "seed": 3,
+                "output_dir": "artifacts/phase5/test-run-v4",
+                "data": {
+                    "dataset_path": "artifacts/datasets/phase4",
+                    "train_split": "train",
+                    "validation_split": "validation",
+                },
+                "model": {
+                    "architecture": "factorized_v4",
+                    "hidden_dim": 32,
+                    "hidden_layers": 1,
+                    "dropout": 0.0,
+                },
+                "optimization": {
+                    "epochs": 1,
+                    "batch_size": 2,
+                    "learning_rate": 0.001,
+                    "weight_decay": 0.0,
+                    "legality_loss_weight": 1.0,
+                    "policy_loss_weight": 1.0,
+                },
+                "evaluation": {"legality_threshold": 0.5},
+                "export": {
+                    "bundle_dir": "models/proposer/test-v4",
+                    "checkpoint_name": "checkpoint.pt",
+                    "exported_program_name": "proposer.pt2",
+                    "metadata_name": "metadata.json",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    run = train_proposer(load_proposer_train_config(config_path), repo_root=tmp_path)
+
+    assert run.best_epoch == 1
+    assert run.model_parameter_count > 0
+    assert (tmp_path / "models/proposer/test-v4/checkpoint.pt").exists()
+    assert (tmp_path / "models/proposer/test-v4/proposer.pt2").exists()
 
 
 def _dataset_example_dict(
