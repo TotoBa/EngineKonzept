@@ -89,6 +89,8 @@ For the same categorization on configs, model bundles, and Phase-5 summaries, se
 - [models/proposer/README.md](/home/torsten/EngineKonzept/models/proposer/README.md)
 - [artifacts/phase5/README.md](/home/torsten/EngineKonzept/artifacts/phase5/README.md)
 - [model-roadmap.md](/home/torsten/EngineKonzept/docs/architecture/model-roadmap.md)
+- [search-workflows.md](/home/torsten/EngineKonzept/docs/architecture/search-workflows.md)
+- [gpt-pro-review-brief.md](/home/torsten/EngineKonzept/docs/experiments/gpt-pro-review-brief.md)
 
 The first architecture-extension notes beyond the flat MLP live in [docs/arch.ideas.md](/home/torsten/EngineKonzept/docs/arch.ideas.md). The current implementation applies only the low-risk part of that direction so far: typed multi-stream fusion before considering any heavier routing or expert machinery.
 
@@ -258,6 +260,8 @@ TMPDIR=/srv/schach/tmp .venv/bin/python python/scripts/eval_dynamics.py --checkp
 
 - No alpha-beta, negamax, PVS, quiescence, TT-search, null-move pruning, LMR, or heuristic fallback engine.
 - The symbolic chess core is allowed later only for exact rules, labels, tests, and final move safety checks.
+
+If classical search methods are introduced for experiments, use them only under the boundary defined in [search-workflows.md](/home/torsten/EngineKonzept/docs/architecture/search-workflows.md): benchmark, teacher, analysis, and curriculum workflows are acceptable; runtime move selection is not.
 - The current exact rules core is intentionally isolated from any runtime search logic.
 - The current UCI shell is protocol-only and must not accrete classical engine behavior.
 - The current action space and encoder are deterministic schema layers, not learned components.

@@ -23,6 +23,7 @@ The current preferred direction is:
 3. improve inductive bias before adding heavy routing complexity
 4. preserve externally checkable dataset, export, and evaluation contracts
 5. treat Phase 5 as a proposer-quality and representation-learning phase, not a hidden planner phase
+6. use classical search methods only as offline workflow tools unless the runtime architecture is explicitly changed by decision
 
 That implies the following near-term sequence:
 
@@ -247,8 +248,9 @@ The next model experiments should be ordered like this:
 
 1. improve the Phase-6 dynamics model over the symbolic proposer candidate contract
 2. define the first explicit opponent-head contract before planner work
-3. explore richer symbolic proposer candidate features only if downstream modules need them
-4. only then resume broader proposer exploration if Phase-6/7 pressure points point back at representation quality
+3. define alpha-beta/MCTS-supported offline workflows for targets, benchmarking, and curriculum without making them the runtime path
+4. explore richer symbolic proposer candidate features only if downstream modules need them
+5. only then resume broader proposer exploration if Phase-6/7 pressure points point back at representation quality
 
 ## Success Criteria For The Next Step
 
