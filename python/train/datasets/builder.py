@@ -143,7 +143,7 @@ def _default_oracle_batch_size(record_count: int, *, oracle_workers: int) -> int
         return 0
     if oracle_workers <= 1:
         return record_count
-    return max(1, math.ceil(record_count / oracle_workers))
+    return min(500, max(1, math.ceil(record_count / oracle_workers)))
 
 
 def _oracle_schedule(

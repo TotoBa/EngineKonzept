@@ -32,7 +32,7 @@ If `oracle_workers > 1` and no explicit `oracle_batch_size` is provided, the dat
 
 The emitted `summary.json` now also records the effective offline oracle schedule under `oracle_schedule`, so external reviewers can see the resolved worker count, requested batch size, effective batch size, and resulting batch count directly from the artifact.
 
-For larger real builds, use [benchmark_dataset_build.py](/home/torsten/EngineKonzept/python/scripts/benchmark_dataset_build.py) to compare multiple worker/batch schedules on the same raw input. The first 10k reference sweep is stored in [oracle_build_sweep_10k_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_build_sweep_10k_v1.json); in that run, `--oracle-workers 4 --oracle-batch-size 500` was the fastest measured point.
+For larger real builds, use [benchmark_dataset_build.py](/home/torsten/EngineKonzept/python/scripts/benchmark_dataset_build.py) to compare multiple worker/batch schedules on the same raw input. The first 10k reference sweep is stored in [oracle_build_sweep_10k_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_build_sweep_10k_v1.json), and repeated pairwise confirmations are stored in [oracle_pair_10k_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_10k_v1.json) and [oracle_pair_20k_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_20k_v1.json). Based on those runs, the default auto heuristic now caps the effective batch size at `500` when `oracle_workers > 1`.
 
 The proposer config also accepts a `runtime` object for CPU tuning:
 

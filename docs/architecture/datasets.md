@@ -101,7 +101,17 @@ That 10k run currently shows:
 - `w2_auto`: about `6.371s`
 - `w1_single`: about `6.810s`
 
-So the current measured recommendation for larger offline builds is explicit `--oracle-workers 4 --oracle-batch-size 500`. The default auto heuristic remains intentionally conservative until that advantage is confirmed by repeated pairwise runs.
+Repeated pairwise reruns are now also stored in:
+
+- [oracle_pair_10k_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_10k_v1.json)
+- [oracle_pair_20k_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_20k_v1.json)
+
+Those pairwise runs show `w4_b500` ahead of the old auto point on both sizes:
+
+- 10k: about `6.222s` vs. `6.378s`
+- 20k: about `10.643s` vs. `13.336s`
+
+Because that advantage now survives repeated pairwise runs, the default auto heuristic caps the per-batch size at `500` when `oracle_workers > 1`.
 
 When the Python wrapper uses the one-shot subprocess oracle path, it now prefers a prebuilt local binary at `rust/target/debug/dataset-oracle` before falling back to `cargo run`. On a warmed 250-record one-shot benchmark, that reduced wall-clock time from about `0.117s` to about `0.076s`, or about `1.53x` faster, with identical output digests. That measurement is stored in [oracle_one_shot_binary_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_one_shot_binary_v1.json).
 
