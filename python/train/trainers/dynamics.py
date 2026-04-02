@@ -37,11 +37,18 @@ class DynamicsMetrics:
     piece_loss: float
     square_loss: float
     rule_loss: float
+    delta_loss: float
+    latent_consistency_loss: float
     feature_l1_error: float
     piece_feature_l1_error: float
     square_feature_l1_error: float
     rule_feature_l1_error: float
+    piece_delta_l1_error: float
+    square_delta_l1_error: float
+    rule_delta_l1_error: float
     exact_next_feature_accuracy: float
+    latent_l1_error: float
+    drift_latent_l1_error: float
     capture_examples: int
     capture_exact_next_feature_accuracy: float
     promotion_examples: int
@@ -66,11 +73,18 @@ class DynamicsMetrics:
             "piece_loss": round(self.piece_loss, 6),
             "square_loss": round(self.square_loss, 6),
             "rule_loss": round(self.rule_loss, 6),
+            "delta_loss": round(self.delta_loss, 6),
+            "latent_consistency_loss": round(self.latent_consistency_loss, 6),
             "feature_l1_error": round(self.feature_l1_error, 6),
             "piece_feature_l1_error": round(self.piece_feature_l1_error, 6),
             "square_feature_l1_error": round(self.square_feature_l1_error, 6),
             "rule_feature_l1_error": round(self.rule_feature_l1_error, 6),
+            "piece_delta_l1_error": round(self.piece_delta_l1_error, 6),
+            "square_delta_l1_error": round(self.square_delta_l1_error, 6),
+            "rule_delta_l1_error": round(self.rule_delta_l1_error, 6),
             "exact_next_feature_accuracy": round(self.exact_next_feature_accuracy, 6),
+            "latent_l1_error": round(self.latent_l1_error, 6),
+            "drift_latent_l1_error": round(self.drift_latent_l1_error, 6),
             "capture_examples": self.capture_examples,
             "capture_exact_next_feature_accuracy": round(
                 self.capture_exact_next_feature_accuracy,
@@ -215,6 +229,8 @@ def train_dynamics(config: DynamicsTrainConfig, *, repo_root: Path) -> DynamicsT
             piece_weight=config.optimization.piece_loss_weight,
             square_weight=config.optimization.square_loss_weight,
             rule_weight=config.optimization.rule_loss_weight,
+            delta_loss_weight=config.optimization.delta_loss_weight,
+            latent_consistency_weight=config.optimization.latent_consistency_loss_weight,
             drift_horizon=config.evaluation.drift_horizon,
         )
         validation_metrics = _run_epoch(
@@ -227,6 +243,8 @@ def train_dynamics(config: DynamicsTrainConfig, *, repo_root: Path) -> DynamicsT
             piece_weight=config.optimization.piece_loss_weight,
             square_weight=config.optimization.square_loss_weight,
             rule_weight=config.optimization.rule_loss_weight,
+            delta_loss_weight=config.optimization.delta_loss_weight,
+            latent_consistency_weight=config.optimization.latent_consistency_loss_weight,
             drift_horizon=config.evaluation.drift_horizon,
         )
         drift_validation_metrics = _evaluate_multistep_slice(
@@ -337,6 +355,8 @@ def evaluate_dynamics_checkpoint(
         piece_weight=config.optimization.piece_loss_weight,
         square_weight=config.optimization.square_loss_weight,
         rule_weight=config.optimization.rule_loss_weight,
+        delta_loss_weight=config.optimization.delta_loss_weight,
+        latent_consistency_weight=config.optimization.latent_consistency_loss_weight,
         drift_horizon=drift_horizon,
     )
 
@@ -371,6 +391,8 @@ def _run_epoch(
     piece_weight: float,
     square_weight: float,
     rule_weight: float,
+    delta_loss_weight: float,
+    latent_consistency_weight: float,
     drift_horizon: int,
 ) -> DynamicsMetrics:
     if training:
@@ -384,10 +406,16 @@ def _run_epoch(
     piece_loss_total = 0.0
     square_loss_total = 0.0
     rule_loss_total = 0.0
+    delta_loss_total = 0.0
+    latent_consistency_loss_total = 0.0
     feature_l1_total = 0.0
     piece_feature_l1_total = 0.0
     square_feature_l1_total = 0.0
     rule_feature_l1_total = 0.0
+    piece_delta_l1_total = 0.0
+    square_delta_l1_total = 0.0
+    rule_delta_l1_total = 0.0
+    latent_l1_total = 0.0
     exact_next_total = 0
     capture_examples = 0
     capture_exact = 0
@@ -410,11 +438,20 @@ def _run_epoch(
         with context:
             prediction = model.predict(features, action_indices)
             predicted_next = prediction.next_features
+            current_piece, current_square, current_rule = torch.split(
+                features,
+                [PIECE_FEATURE_SIZE, SQUARE_FEATURE_SIZE, RULE_FEATURE_SIZE],
+                dim=1,
+            )
             target_piece, target_square, target_rule = torch.split(
                 next_features,
                 [PIECE_FEATURE_SIZE, SQUARE_FEATURE_SIZE, RULE_FEATURE_SIZE],
                 dim=1,
             )
+            target_piece_delta = target_piece - current_piece
+            target_square_delta = target_square - current_square
+            target_rule_delta = target_rule - current_rule
+            target_next_latent = model.encode(next_features).detach()
             losses = compute_dynamics_losses(
                 predicted_next,
                 next_features,
@@ -424,10 +461,20 @@ def _run_epoch(
                 target_piece_features=target_piece,
                 target_square_features=target_square,
                 target_rule_features=target_rule,
+                predicted_piece_delta_features=prediction.piece_delta_features,
+                predicted_square_delta_features=prediction.square_delta_features,
+                predicted_rule_delta_features=prediction.rule_delta_features,
+                target_piece_delta_features=target_piece_delta,
+                target_square_delta_features=target_square_delta,
+                target_rule_delta_features=target_rule_delta,
+                predicted_next_latent=prediction.next_latent,
+                target_next_latent=target_next_latent,
                 reconstruction_weight=reconstruction_weight,
                 piece_weight=piece_weight,
                 square_weight=square_weight,
                 rule_weight=rule_weight,
+                delta_loss_weight=delta_loss_weight,
+                latent_consistency_weight=latent_consistency_weight,
             )
 
         if training:
@@ -442,6 +489,8 @@ def _run_epoch(
         piece_loss_total += float(losses.piece.item()) * batch_size
         square_loss_total += float(losses.square.item()) * batch_size
         rule_loss_total += float(losses.rule.item()) * batch_size
+        delta_loss_total += float(losses.delta.item()) * batch_size
+        latent_consistency_loss_total += float(losses.latent_consistency.item()) * batch_size
 
         exact_mask = _exact_feature_match_mask(predicted_next, next_features)
         feature_l1_total += float(torch.abs(predicted_next - next_features).mean(dim=1).sum().item())
@@ -454,6 +503,29 @@ def _run_epoch(
         rule_feature_l1_total += float(
             torch.abs(prediction.rule_features - target_rule).mean(dim=1).sum().item()
         )
+        if prediction.piece_delta_features is not None:
+            piece_delta_l1_total += float(
+                torch.abs(prediction.piece_delta_features - target_piece_delta)
+                .mean(dim=1)
+                .sum()
+                .item()
+            )
+            square_delta_l1_total += float(
+                torch.abs(prediction.square_delta_features - target_square_delta)
+                .mean(dim=1)
+                .sum()
+                .item()
+            )
+            rule_delta_l1_total += float(
+                torch.abs(prediction.rule_delta_features - target_rule_delta)
+                .mean(dim=1)
+                .sum()
+                .item()
+            )
+        if prediction.next_latent is not None:
+            latent_l1_total += float(
+                torch.abs(prediction.next_latent - target_next_latent).mean(dim=1).sum().item()
+            )
         exact_next_total += int(exact_mask.sum().item())
 
         capture_examples += int(batch["is_capture"].sum().item())
@@ -478,11 +550,17 @@ def _run_epoch(
         piece_loss=_ratio(piece_loss_total, total_examples),
         square_loss=_ratio(square_loss_total, total_examples),
         rule_loss=_ratio(rule_loss_total, total_examples),
+        delta_loss=_ratio(delta_loss_total, total_examples),
+        latent_consistency_loss=_ratio(latent_consistency_loss_total, total_examples),
         feature_l1_error=_ratio(feature_l1_total, total_examples),
         piece_feature_l1_error=_ratio(piece_feature_l1_total, total_examples),
         square_feature_l1_error=_ratio(square_feature_l1_total, total_examples),
         rule_feature_l1_error=_ratio(rule_feature_l1_total, total_examples),
+        piece_delta_l1_error=_ratio(piece_delta_l1_total, total_examples),
+        square_delta_l1_error=_ratio(square_delta_l1_total, total_examples),
+        rule_delta_l1_error=_ratio(rule_delta_l1_total, total_examples),
         exact_next_feature_accuracy=_ratio(exact_next_total, total_examples),
+        latent_l1_error=_ratio(latent_l1_total, total_examples),
         capture_examples=capture_examples,
         capture_exact_next_feature_accuracy=_ratio(capture_exact, capture_examples),
         promotion_examples=promotion_examples,
@@ -498,6 +576,7 @@ def _run_epoch(
         drift_exact_next_feature_accuracy=(
             0.0 if drift_metrics is None else drift_metrics["exact_next_feature_accuracy"]
         ),
+        drift_latent_l1_error=0.0 if drift_metrics is None else drift_metrics["latent_l1_error"],
         examples_per_second=_ratio(total_examples, time.perf_counter() - started_at),
     )
 
@@ -510,10 +589,16 @@ def _evaluate_multistep_drift(
 ) -> dict[str, float | int]:
     chains = _build_drift_chains(examples, horizon=horizon)
     if not chains:
-        return {"count": 0, "feature_l1_error": 0.0, "exact_next_feature_accuracy": 0.0}
+        return {
+            "count": 0,
+            "feature_l1_error": 0.0,
+            "exact_next_feature_accuracy": 0.0,
+            "latent_l1_error": 0.0,
+        }
 
     model.eval()
     total_l1 = 0.0
+    total_latent_l1 = 0.0
     exact_total = 0
     with torch.no_grad():
         for chain in chains:
@@ -527,13 +612,16 @@ def _evaluate_multistep_drift(
                 )
             predicted = model.decode(latent).next_features
             target = torch.tensor([chain[-1].next_feature_vector], dtype=torch.float32)
+            target_latent = model.encode(target)
             total_l1 += float(torch.abs(predicted - target).mean().item())
+            total_latent_l1 += float(torch.abs(latent - target_latent).mean().item())
             exact_total += int(_exact_feature_match_mask(predicted, target).sum().item())
 
     return {
         "count": len(chains),
         "feature_l1_error": _ratio(total_l1, len(chains)),
         "exact_next_feature_accuracy": _ratio(exact_total, len(chains)),
+        "latent_l1_error": _ratio(total_latent_l1, len(chains)),
     }
 
 
@@ -605,6 +693,7 @@ def _evaluate_multistep_slice(
         "drift_examples": int(metrics["count"]),
         "drift_feature_l1_error": float(metrics["feature_l1_error"]),
         "drift_exact_next_feature_accuracy": float(metrics["exact_next_feature_accuracy"]),
+        "drift_latent_l1_error": float(metrics["latent_l1_error"]),
     }
 
 

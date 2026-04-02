@@ -37,6 +37,10 @@ class DynamicsPrediction:
     piece_features: Any
     square_features: Any
     rule_features: Any
+    next_latent: Any | None = None
+    piece_delta_features: Any | None = None
+    square_delta_features: Any | None = None
+    rule_delta_features: Any | None = None
 
 
 if torch is not None and nn is not None:
@@ -85,6 +89,9 @@ if torch is not None and nn is not None:
                 self.piece_decoder = None
                 self.square_decoder = None
                 self.rule_decoder = None
+                self.piece_delta_decoder = None
+                self.square_delta_decoder = None
+                self.rule_delta_decoder = None
             elif architecture == "structured_v2":
                 self.decoder = None
                 self.piece_decoder = _build_mlp(
@@ -108,6 +115,53 @@ if torch is not None and nn is not None:
                     output_dim=RULE_FEATURE_SIZE,
                     dropout=dropout,
                 )
+                self.piece_delta_decoder = None
+                self.square_delta_decoder = None
+                self.rule_delta_decoder = None
+            elif architecture == "edit_v1":
+                self.decoder = None
+                self.piece_decoder = _build_mlp(
+                    input_dim=latent_dim,
+                    hidden_dim=hidden_dim,
+                    hidden_layers=max(1, hidden_layers - 1),
+                    output_dim=PIECE_FEATURE_SIZE,
+                    dropout=dropout,
+                )
+                self.square_decoder = _build_mlp(
+                    input_dim=latent_dim,
+                    hidden_dim=hidden_dim,
+                    hidden_layers=max(1, hidden_layers - 1),
+                    output_dim=SQUARE_FEATURE_SIZE,
+                    dropout=dropout,
+                )
+                self.rule_decoder = _build_mlp(
+                    input_dim=latent_dim,
+                    hidden_dim=hidden_dim,
+                    hidden_layers=max(1, hidden_layers - 1),
+                    output_dim=RULE_FEATURE_SIZE,
+                    dropout=dropout,
+                )
+                self.piece_delta_decoder = _build_mlp(
+                    input_dim=self.transition_input_dim,
+                    hidden_dim=hidden_dim,
+                    hidden_layers=1,
+                    output_dim=PIECE_FEATURE_SIZE,
+                    dropout=dropout,
+                )
+                self.square_delta_decoder = _build_mlp(
+                    input_dim=self.transition_input_dim,
+                    hidden_dim=hidden_dim,
+                    hidden_layers=1,
+                    output_dim=SQUARE_FEATURE_SIZE,
+                    dropout=dropout,
+                )
+                self.rule_delta_decoder = _build_mlp(
+                    input_dim=self.transition_input_dim,
+                    hidden_dim=hidden_dim,
+                    hidden_layers=1,
+                    output_dim=RULE_FEATURE_SIZE,
+                    dropout=dropout,
+                )
             else:
                 raise ValueError(f"unsupported dynamics architecture: {architecture}")
 
@@ -127,11 +181,41 @@ if torch is not None and nn is not None:
             latent = self.encode(features)
             next_latent = self.step(latent, action_indices)
             decoded = self.decode(next_latent)
+            piece_delta_features = None
+            square_delta_features = None
+            rule_delta_features = None
+            if self.architecture == "edit_v1":
+                action_embedding = self.action_embedding(action_indices)
+                transition_input = torch.cat((latent, action_embedding), dim=1)
+                piece_delta_features = self.piece_delta_decoder(transition_input)
+                square_delta_features = self.square_delta_decoder(transition_input)
+                rule_delta_features = self.rule_delta_decoder(transition_input)
+                current_piece, current_square, current_rule = torch.split(
+                    features,
+                    [PIECE_FEATURE_SIZE, SQUARE_FEATURE_SIZE, RULE_FEATURE_SIZE],
+                    dim=1,
+                )
+                piece_features = current_piece + piece_delta_features
+                square_features = current_square + square_delta_features
+                rule_features = current_rule + rule_delta_features
+                decoded = DynamicsPrediction(
+                    next_features=torch.cat(
+                        (piece_features, square_features, rule_features),
+                        dim=1,
+                    ),
+                    piece_features=piece_features,
+                    square_features=square_features,
+                    rule_features=rule_features,
+                )
             return DynamicsPrediction(
                 next_features=decoded.next_features,
                 piece_features=decoded.piece_features,
                 square_features=decoded.square_features,
                 rule_features=decoded.rule_features,
+                next_latent=next_latent,
+                piece_delta_features=piece_delta_features,
+                square_delta_features=square_delta_features,
+                rule_delta_features=rule_delta_features,
             )
 
         def decode(self, latent: Any) -> DynamicsPrediction:
@@ -156,6 +240,10 @@ if torch is not None and nn is not None:
                 piece_features=piece_features,
                 square_features=square_features,
                 rule_features=rule_features,
+                next_latent=None,
+                piece_delta_features=None,
+                square_delta_features=None,
+                rule_delta_features=None,
             )
 
         def forward(self, features: Any, action_indices: Any) -> Any:

@@ -56,9 +56,16 @@ These remain useful as small-corpus regression baselines, but they are no longer
 
 ## Phase 6 Baseline
 
+- [phase6_dynamics_structured_v2_latent_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v2_latent_v1.json)
+  Current preferred Phase-6 config: drift-aware structured decoder plus auxiliary latent-consistency supervision.
 - [phase6_dynamics_structured_v2_drift_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v2_drift_v1.json)
-  Current preferred Phase-6 config: structured piece/square/rule decoder plus explicit held-out drift-slice checkpoint selection.
+  Earlier preferred Phase-6 config: structured piece/square/rule decoder plus explicit held-out drift-slice checkpoint selection.
 - [phase6_dynamics_structured_v2_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v2_v1.json)
   First structured dynamics follow-up with separate piece/square/rule decoder heads and section-wise reconstruction weights.
 - [phase6_dynamics_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_v1.json)
   Original flat decoder baseline for the first action-conditioned latent-dynamics plumbing.
+
+## Phase 6 Experimental Variants
+
+- [phase6_dynamics_edit_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_edit_v1.json)
+  Local edit-target dynamics arm. Very strong one-step reconstruction, but currently unacceptable drift.

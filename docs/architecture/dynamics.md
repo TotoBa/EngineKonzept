@@ -26,6 +26,10 @@ Materialized bundles:
   Piece-/square-/rule-decoder follow-up with section-wise losses.
 - [structured_v2_drift_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v2_drift_v1)
   Same structured decoder, but with checkpoint selection against an explicit held-out drift slice.
+- [structured_v2_latent_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v2_latent_v1)
+  Same drift-aware structured decoder, but with an auxiliary latent-consistency loss.
+- [edit_v1](/home/torsten/EngineKonzept/models/dynamics/edit_v1)
+  Experimental local edit-target arm that reconstructs delta sections relative to the current state.
 
 ## Training Contract
 
@@ -62,6 +66,11 @@ The current materialized runs are:
 - summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_drift_v1/summary.json)
 - verify: [dynamics_structured_v2_drift_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_drift_v1_verify.json)
 - comparison: [dynamics_structured_v2_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_compare_v1.json)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_latent_v1/summary.json)
+- verify: [dynamics_structured_v2_latent_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_latent_v1_verify.json)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_edit_v1/summary.json)
+- verify: [dynamics_edit_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_edit_v1_verify.json)
+- comparison: [dynamics_phase6_parallel_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_phase6_parallel_compare_v1.json)
 
 ## Current Reading Of The Results
 
@@ -80,6 +89,20 @@ The drift-aware `structured_v2_drift_v1` run improves the main held-out soft met
 - verify `drift_feature_l1_error`: `1.595053 -> 1.557198`
 - verify `square_feature_l1_error`: `1.382824 -> 1.28254`
 
+The parallel latent-consistency follow-up `structured_v2_latent_v1` improves them again while preserving the same basic architecture:
+
+- verify `feature_l1_error`: `1.425823 -> 1.425074`
+- verify `drift_feature_l1_error`: `1.557198 -> 1.429654`
+- verify `piece_feature_l1_error`: `1.629223 -> 1.453196`
+- verify `rule_feature_l1_error`: `1.228122 -> 1.210871`
+
+The parallel local edit-target arm `edit_v1` shows the opposite tradeoff:
+
+- verify `feature_l1_error`: `1.425823 -> 0.349443`
+- verify `drift_feature_l1_error`: `1.557198 -> 13.251525`
+
+That is informative, but not acceptable for the current Phase-6 default. `edit_v1` is therefore kept as an experimental reference only.
+
 But the hard limit is unchanged:
 
 - exact next-state accuracy is still `0.0`
@@ -91,7 +114,7 @@ This is enough to establish the Phase-6 dataset, training, export, and Rust-boun
 
 The obvious next pressures are now:
 
-- a better special-move treatment that does not destabilize drift
+- a better local-transition target that keeps `edit_v1`'s one-step strength without its drift collapse
 - potentially partial-state or tokenized reconstruction instead of one flat feature regression target
 - stronger multi-step drift supervision beyond the current short held-out slice
 

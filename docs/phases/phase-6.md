@@ -29,12 +29,26 @@ The first structured follow-up run is:
 - summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_v1/summary.json)
 - verify: [dynamics_structured_v2_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_v1_verify.json)
 
-The current preferred drift-aware follow-up run is:
+The drift-aware follow-up established the first useful Phase-6 reference:
 
 - config: [phase6_dynamics_structured_v2_drift_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v2_drift_v1.json)
 - bundle: [structured_v2_drift_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v2_drift_v1)
 - summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_drift_v1/summary.json)
 - verify: [dynamics_structured_v2_drift_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_drift_v1_verify.json)
+
+The current preferred latent-consistency follow-up run is:
+
+- config: [phase6_dynamics_structured_v2_latent_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v2_latent_v1.json)
+- bundle: [structured_v2_latent_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v2_latent_v1)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_latent_v1/summary.json)
+- verify: [dynamics_structured_v2_latent_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_latent_v1_verify.json)
+
+The parallel local edit-target experimental run is:
+
+- config: [phase6_dynamics_edit_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_edit_v1.json)
+- bundle: [edit_v1](/home/torsten/EngineKonzept/models/dynamics/edit_v1)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_edit_v1/summary.json)
+- verify: [dynamics_edit_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_edit_v1_verify.json)
 
 ## What this baseline does
 
@@ -65,11 +79,23 @@ The structured `v2` follow-up is the first real modeling improvement:
 - lower verify drift error
 - separate piece/square/rule reconstruction losses now visible
 
-The drift-aware `structured_v2_drift_v1` follow-up is the current preferred Phase-6 reference because it adds an explicit held-out drift slice for checkpoint choice and improves the main verify soft metrics over `structured_v2_v1`:
+The drift-aware `structured_v2_drift_v1` follow-up improved the main verify soft metrics over `structured_v2_v1`:
 
 - verify `feature_l1_error`: `1.433716 -> 1.425823`
 - verify `drift_feature_l1_error`: `1.595053 -> 1.557198`
 
-But it still does **not** recover exact packed next states.
+The parallel latent-consistency `structured_v2_latent_v1` follow-up is now preferred because it improves them again:
+
+- verify `feature_l1_error`: `1.425823 -> 1.425074`
+- verify `drift_feature_l1_error`: `1.557198 -> 1.429654`
+
+The parallel `edit_v1` arm is informative but remains experimental:
+
+- verify `feature_l1_error`: `1.425823 -> 0.349443`
+- verify `drift_feature_l1_error`: `1.557198 -> 13.251525`
+
+That means `edit_v1` is currently useful as a diagnostic counterexample, not as a planner-facing dynamics default.
+
+But even the preferred arm still does **not** recover exact packed next states.
 
 That means the repo has crossed from “Phase 6 placeholder” into “first checkable dynamics baseline”, but the modeling work is still ahead.

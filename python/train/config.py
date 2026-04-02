@@ -210,8 +210,8 @@ class DynamicsModelConfig:
     dropout: float = 0.0
 
     def __post_init__(self) -> None:
-        if self.architecture not in {"mlp_v1", "structured_v2"}:
-            raise ValueError("model.architecture must be 'mlp_v1' or 'structured_v2'")
+        if self.architecture not in {"mlp_v1", "structured_v2", "edit_v1"}:
+            raise ValueError("model.architecture must be 'mlp_v1', 'structured_v2', or 'edit_v1'")
         if self.latent_dim <= 0:
             raise ValueError("model.latent_dim must be positive")
         if self.hidden_dim <= 0:
@@ -236,6 +236,8 @@ class DynamicsOptimizationConfig:
     piece_loss_weight: float = 1.0
     square_loss_weight: float = 1.0
     rule_loss_weight: float = 1.0
+    delta_loss_weight: float = 0.0
+    latent_consistency_loss_weight: float = 0.0
     def __post_init__(self) -> None:
         if self.epochs <= 0:
             raise ValueError("optimization.epochs must be positive")
@@ -253,6 +255,10 @@ class DynamicsOptimizationConfig:
             raise ValueError("optimization.square_loss_weight must be positive")
         if self.rule_loss_weight <= 0.0:
             raise ValueError("optimization.rule_loss_weight must be positive")
+        if self.delta_loss_weight < 0.0:
+            raise ValueError("optimization.delta_loss_weight must be non-negative")
+        if self.latent_consistency_loss_weight < 0.0:
+            raise ValueError("optimization.latent_consistency_loss_weight must be non-negative")
 
 
 @dataclass(frozen=True)

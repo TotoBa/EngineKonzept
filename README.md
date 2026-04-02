@@ -93,13 +93,13 @@ The newer proposer comparison now extends beyond the first three factorized deco
 
 ## Phase 6 Snapshot
 
-The proposer is now accepted as a temporary frontier, and the repository includes a checkable latent-dynamics baseline plus a stronger structured follow-up:
+The proposer is now accepted as a temporary frontier, and the repository includes a checkable latent-dynamics baseline plus parallel Phase-6 follow-ups:
 
-- current Phase-6 config: [phase6_dynamics_structured_v2_drift_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v2_drift_v1.json)
-- current Phase-6 bundle: [structured_v2_drift_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v2_drift_v1)
-- current Phase-6 summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_drift_v1/summary.json)
-- current Phase-6 verify eval: [dynamics_structured_v2_drift_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_drift_v1_verify.json)
-- direct comparison: [dynamics_structured_v2_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_compare_v1.json)
+- current Phase-6 config: [phase6_dynamics_structured_v2_latent_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v2_latent_v1.json)
+- current Phase-6 bundle: [structured_v2_latent_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v2_latent_v1)
+- current Phase-6 summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_latent_v1/summary.json)
+- current Phase-6 verify eval: [dynamics_structured_v2_latent_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_latent_v1_verify.json)
+- direct comparison: [dynamics_phase6_parallel_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_phase6_parallel_compare_v1.json)
 - architecture note: [dynamics.md](/home/torsten/EngineKonzept/docs/architecture/dynamics.md)
 - phase note: [phase-6.md](/home/torsten/EngineKonzept/docs/phases/phase-6.md)
 
@@ -123,17 +123,24 @@ The first structured follow-up is now also materialized:
 - summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_v1/summary.json)
 - verify: [dynamics_structured_v2_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_v1_verify.json)
 
-The explicit drift-selection follow-up is now the preferred Phase-6 reference:
-
-- config: [phase6_dynamics_structured_v2_drift_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v2_drift_v1.json)
-- bundle: [structured_v2_drift_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v2_drift_v1)
-- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_drift_v1/summary.json)
-- verify: [dynamics_structured_v2_drift_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_drift_v1_verify.json)
-
-That `structured_v2_drift` arm keeps the structured decoder, adds an explicit held-out drift slice for checkpoint choice, and improves the main held-out soft metrics over `structured_v2_v1`:
+The explicit drift-selection follow-up established the first useful Phase-6 reference:
 
 - verify `feature_l1_error`: `1.433716 -> 1.425823`
 - verify `drift_feature_l1_error`: `1.595053 -> 1.557198`
+
+The latest parallel follow-up keeps that drift-aware structure and adds latent-consistency supervision. It is now the preferred Phase-6 reference because it improves both main verify soft metrics again:
+
+- verify `feature_l1_error`: `1.425823 -> 1.425074`
+- verify `drift_feature_l1_error`: `1.557198 -> 1.429654`
+
+The parallel `edit_v1` arm is also materialized as an experimental counterexample:
+
+- config: [phase6_dynamics_edit_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_edit_v1.json)
+- bundle: [edit_v1](/home/torsten/EngineKonzept/models/dynamics/edit_v1)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_edit_v1/summary.json)
+- verify: [dynamics_edit_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_edit_v1_verify.json)
+
+It wins one-step reconstruction strongly, but collapses multi-step drift and therefore remains experimental only.
 
 Exact next-state accuracy still remains `0.0`.
 

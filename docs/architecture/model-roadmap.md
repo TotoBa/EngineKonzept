@@ -157,7 +157,10 @@ The next structured follow-up already clarified two Phase-6 decisions:
 - separate piece/square/rule decoding is better than the flat `v1` decoder
 - explicit held-out drift-slice checkpoint selection is worth keeping
 
-An initial explicit special-move-conditioned transition experiment was tried locally and rejected because it worsened both one-step and drift metrics. That pressure remains real, but the next answer should be gentler than a large gated residual branch.
+The latest parallel follow-up clarified two more:
+
+- auxiliary latent-consistency supervision is worth keeping and is now the current Phase-6 default
+- pure local edit-target reconstruction is informative, but in its current form it is too drift-unstable to become the default
 
 ### Why
 
