@@ -112,7 +112,7 @@ To keep the next optimization steps externally checkable, the tooling now also i
 
 - `cargo run --quiet -p tools --bin dataset-oracle-profile`
 
-It accepts the same newline-delimited request stream as `dataset-oracle` but reports aggregated phase timings instead of labels. The initial hotspot profile is stored in [oracle_profile_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v1.json), the post-serialization profile is stored in [oracle_profile_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v2.json), the post-check-path profile is stored in [oracle_profile_v3.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v3.json), and the current fine-grained split is stored in [oracle_profile_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v4.json).
+It accepts the same newline-delimited request stream as `dataset-oracle` but reports aggregated phase timings instead of labels. The initial hotspot profile is stored in [oracle_profile_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v1.json), the post-serialization profile is stored in [oracle_profile_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v2.json), the post-check-path profile is stored in [oracle_profile_v3.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v3.json), the first fine-grained split is stored in [oracle_profile_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v4.json), and the current profile is stored in [oracle_profile_v5.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v5.json).
 
 The first profile showed:
 
@@ -138,12 +138,20 @@ After that step, the profile tightened again to roughly:
 
 That is the current guide for further throughput work. In other words, the builder and daemon transport are no longer the main pressure, JSON serialization is no longer the obvious second target, and the dominant remaining work is still exact legal move generation inside the Rust oracle.
 
-The finer split in [oracle_profile_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v4.json) makes that more concrete:
+The finer split in [oracle_profile_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v4.json) made that more concrete:
 
 - `pseudo_legal_generation`: about `6.0%`
 - `self_check_filter`: about `49.8%`
 
-So the next meaningful optimization target is not piece move generation itself, but the king-safety filter that validates each pseudo-legal candidate.
+That led to the next rules-kernel change: the self-check filter now mutates a board snapshot instead of cloning a full `Position` for each pseudo-legal candidate. On the same 2000-record daemon benchmark, wall-clock time dropped from about `1.542s` to about `1.443s` on average across two runs. That measurement is stored in [oracle_e2e_boardcheck_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_e2e_boardcheck_v1.json).
+
+After that change, [oracle_profile_v5.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v5.json) shifted to roughly:
+
+- `legal_generation`: about `47.8%`
+- `self_check_filter`: about `40.9%`
+- `json_serialize`: about `25.5%`
+
+So the current picture is better balanced: legality remains the largest block, but the dominant part of it has already been materially reduced.
 
 The summary reports:
 

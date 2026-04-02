@@ -1,0 +1,83 @@
+{
+  "benchmark_input": {
+    "input": "/srv/schach/tmp/oracle-e2e/train_raw_2k.jsonl",
+    "source": "artifacts/datasets/phase5_stockfish_pgn_raw_pi_10k_v1/train_raw.jsonl",
+    "record_count": 2000
+  },
+  "results": {
+    "records": 2000,
+    "total_measured_seconds": 0.565770821,
+    "phases": {
+      "json_parse": {
+        "seconds": 0.024641941,
+        "milliseconds_per_record": 0.0123209705,
+        "share_of_measured": 0.043554633935425247
+      },
+      "fen_parse": {
+        "seconds": 0.020641979,
+        "milliseconds_per_record": 0.0103209895,
+        "share_of_measured": 0.0364847005780809
+      },
+      "legal_generation": {
+        "seconds": 0.270487774,
+        "milliseconds_per_record": 0.135243887,
+        "share_of_measured": 0.47808717586727584
+      },
+      "pseudo_legal_generation": {
+        "seconds": 0.038448685,
+        "milliseconds_per_record": 0.0192243425,
+        "share_of_measured": 0.06795805575841106
+      },
+      "self_check_filter": {
+        "seconds": 0.231673564,
+        "milliseconds_per_record": 0.115836782,
+        "share_of_measured": 0.40948305462363177
+      },
+      "legal_move_uci": {
+        "seconds": 0.018016738,
+        "milliseconds_per_record": 0.009008369,
+        "share_of_measured": 0.031844586767757685
+      },
+      "legal_action_encoding": {
+        "seconds": 0.03638685,
+        "milliseconds_per_record": 0.018193425,
+        "share_of_measured": 0.06431376212666153
+      },
+      "selected_move_resolution": {
+        "seconds": 0.010197544,
+        "milliseconds_per_record": 0.005098772,
+        "share_of_measured": 0.018024160351670027
+      },
+      "selected_move_apply": {
+        "seconds": 0.002741238,
+        "milliseconds_per_record": 0.001370619,
+        "share_of_measured": 0.0048451385229709475
+      },
+      "selected_action_encoding": {
+        "seconds": 0.000417124,
+        "milliseconds_per_record": 0.000208562,
+        "share_of_measured": 0.0007372667244711088
+      },
+      "position_encoding": {
+        "seconds": 0.018407174,
+        "milliseconds_per_record": 0.009203587,
+        "share_of_measured": 0.032534682448743676
+      },
+      "annotations": {
+        "seconds": 0.019934604,
+        "milliseconds_per_record": 0.009967302,
+        "share_of_measured": 0.03523441517320668
+      },
+      "json_serialize": {
+        "seconds": 0.14426338,
+        "milliseconds_per_record": 0.07213169,
+        "share_of_measured": 0.25498554298896936
+      }
+    }
+  },
+  "notes": [
+    "This profile was captured after moving the self-check filter from Position cloning to board-snapshot mutation.",
+    "Measured legal_generation time fell from about 0.390s in oracle_profile_v4.json to about 0.270s on the same 2k corpus.",
+    "The self_check_filter remains the largest single block, but it is now materially cheaper and no longer dominates the runtime as heavily as before."
+  ]
+}

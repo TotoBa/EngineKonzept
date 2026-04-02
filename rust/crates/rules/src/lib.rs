@@ -84,10 +84,18 @@ pub struct LegalMoveProfile {
 /// Returns whether `square` is attacked by `attacker`.
 #[must_use]
 pub fn is_square_attacked(position: &Position, square: Square, attacker: Color) -> bool {
+    is_square_attacked_on_board(position.board(), square, attacker)
+}
+
+fn is_square_attacked_on_board(
+    board: &[Option<Piece>; 64],
+    square: Square,
+    attacker: Color,
+) -> bool {
     let pawn_source_rank_delta = -attacker.pawn_push_delta();
     for file_delta in [-1, 1] {
         if let Some(source) = square.offset(file_delta, pawn_source_rank_delta) {
-            if position.piece_at(source) == Some(Piece::new(attacker, PieceKind::Pawn)) {
+            if board_piece_at(board, source) == Some(Piece::new(attacker, PieceKind::Pawn)) {
                 return true;
             }
         }
@@ -95,7 +103,7 @@ pub fn is_square_attacked(position: &Position, square: Square, attacker: Color) 
 
     for (file_delta, rank_delta) in KNIGHT_DELTAS {
         if let Some(source) = square.offset(file_delta, rank_delta) {
-            if position.piece_at(source) == Some(Piece::new(attacker, PieceKind::Knight)) {
+            if board_piece_at(board, source) == Some(Piece::new(attacker, PieceKind::Knight)) {
                 return true;
             }
         }
@@ -103,22 +111,20 @@ pub fn is_square_attacked(position: &Position, square: Square, attacker: Color) 
 
     for (file_delta, rank_delta) in KING_DELTAS {
         if let Some(source) = square.offset(file_delta, rank_delta) {
-            if position.piece_at(source) == Some(Piece::new(attacker, PieceKind::King)) {
+            if board_piece_at(board, source) == Some(Piece::new(attacker, PieceKind::King)) {
                 return true;
             }
         }
     }
 
-    is_attacked_by_slider(position, square, attacker, &BISHOP_DIRECTIONS, true)
-        || is_attacked_by_slider(position, square, attacker, &ROOK_DIRECTIONS, false)
+    is_attacked_by_slider_on_board(board, square, attacker, &BISHOP_DIRECTIONS, true)
+        || is_attacked_by_slider_on_board(board, square, attacker, &ROOK_DIRECTIONS, false)
 }
 
 /// Returns whether the given side is currently in check.
 #[must_use]
 pub fn is_in_check(position: &Position, color: Color) -> bool {
-    position
-        .king_square(color)
-        .is_some_and(|square| is_square_attacked(position, square, color.opposite()))
+    is_in_check_on_board(position.board(), color)
 }
 
 /// Generates pseudo-legal moves for the side to move.
@@ -171,7 +177,7 @@ pub fn legal_moves_profiled(position: &Position) -> (Vec<Move>, LegalMoveProfile
         .into_iter()
         .filter(|candidate| {
             try_apply_pseudo_move_for_check(position, *candidate)
-                .map(|next| !is_in_check(&next, moving_side))
+                .map(|next_board| !is_in_check_on_board(&next_board, moving_side))
                 .unwrap_or(false)
         })
         .collect();
@@ -234,8 +240,13 @@ pub fn divide(position: &Position, depth: u32) -> Vec<(Move, u64)> {
     result
 }
 
-fn is_attacked_by_slider(
-    position: &Position,
+fn is_in_check_on_board(board: &[Option<Piece>; 64], color: Color) -> bool {
+    king_square_on_board(board, color)
+        .is_some_and(|square| is_square_attacked_on_board(board, square, color.opposite()))
+}
+
+fn is_attacked_by_slider_on_board(
+    board: &[Option<Piece>; 64],
     square: Square,
     attacker: Color,
     directions: &[(i8, i8)],
@@ -245,7 +256,7 @@ fn is_attacked_by_slider(
         let mut current = square;
         while let Some(next) = current.offset(file_delta, rank_delta) {
             current = next;
-            if let Some(piece) = position.piece_at(current) {
+            if let Some(piece) = board_piece_at(board, current) {
                 if piece.color != attacker {
                     break;
                 }
@@ -262,6 +273,23 @@ fn is_attacked_by_slider(
         }
     }
     false
+}
+
+fn king_square_on_board(board: &[Option<Piece>; 64], color: Color) -> Option<Square> {
+    board.iter().enumerate().find_map(|(index, piece)| {
+        piece.and_then(|piece| {
+            (piece.color == color && piece.kind == PieceKind::King)
+                .then(|| Square::new(index as u8).expect("board indices are always in range"))
+        })
+    })
+}
+
+fn board_piece_at(board: &[Option<Piece>; 64], square: Square) -> Option<Piece> {
+    board[usize::from(square.index())]
+}
+
+fn set_board_piece_at(board: &mut [Option<Piece>; 64], square: Square, piece: Option<Piece>) {
+    board[usize::from(square.index())] = piece;
 }
 
 fn generate_pawn_moves(position: &Position, square: Square, piece: Piece, moves: &mut Vec<Move>) {
@@ -653,7 +681,7 @@ fn try_apply_pseudo_move(position: &Position, chess_move: Move) -> Result<Positi
 fn try_apply_pseudo_move_for_check(
     position: &Position,
     chess_move: Move,
-) -> Result<Position, MoveError> {
+) -> Result<[Option<Piece>; 64], MoveError> {
     let moving_piece = position
         .piece_at(chess_move.from)
         .ok_or(MoveError::NoPieceAtSource(chess_move.from))?;
@@ -661,15 +689,15 @@ fn try_apply_pseudo_move_for_check(
         return Err(MoveError::WrongSideToMove);
     }
 
-    let mut next = position.clone();
-    next.set_piece_at(chess_move.from, None);
+    let mut next = *position.board();
+    set_board_piece_at(&mut next, chess_move.from, None);
 
     match chess_move.kind {
         MoveKind::Quiet => {
-            if next.piece_at(chess_move.to).is_some() {
+            if board_piece_at(&next, chess_move.to).is_some() {
                 return Err(MoveError::OccupiedTargetSquare(chess_move.to));
             }
-            next.set_piece_at(chess_move.to, Some(moving_piece));
+            set_board_piece_at(&mut next, chess_move.to, Some(moving_piece));
         }
         MoveKind::DoublePawnPush => {
             if moving_piece.kind != PieceKind::Pawn {
@@ -679,19 +707,20 @@ fn try_apply_pseudo_move_for_check(
                 .from
                 .offset(0, moving_piece.color.pawn_push_delta())
                 .ok_or(MoveError::InvalidMoveKind)?;
-            if next.piece_at(intermediate).is_some() || next.piece_at(chess_move.to).is_some() {
+            if board_piece_at(&next, intermediate).is_some()
+                || board_piece_at(&next, chess_move.to).is_some()
+            {
                 return Err(MoveError::OccupiedTargetSquare(chess_move.to));
             }
-            next.set_piece_at(chess_move.to, Some(moving_piece));
+            set_board_piece_at(&mut next, chess_move.to, Some(moving_piece));
         }
         MoveKind::Capture => {
-            let target_piece = next
-                .piece_at(chess_move.to)
+            let target_piece = board_piece_at(&next, chess_move.to)
                 .ok_or(MoveError::MissingCaptureTarget(chess_move.to))?;
             if target_piece.color == moving_piece.color {
                 return Err(MoveError::CannotCaptureOwnPiece);
             }
-            next.set_piece_at(chess_move.to, Some(moving_piece));
+            set_board_piece_at(&mut next, chess_move.to, Some(moving_piece));
         }
         MoveKind::EnPassant => {
             if moving_piece.kind != PieceKind::Pawn {
@@ -704,42 +733,42 @@ fn try_apply_pseudo_move_for_check(
                 .to
                 .offset(0, -moving_piece.color.pawn_push_delta())
                 .ok_or(MoveError::InvalidEnPassantSquare)?;
-            let victim = next
-                .piece_at(victim_square)
-                .ok_or(MoveError::MissingEnPassantPawn)?;
+            let victim =
+                board_piece_at(&next, victim_square).ok_or(MoveError::MissingEnPassantPawn)?;
             if victim != Piece::new(moving_piece.color.opposite(), PieceKind::Pawn) {
                 return Err(MoveError::MissingEnPassantPawn);
             }
-            next.set_piece_at(victim_square, None);
-            next.set_piece_at(chess_move.to, Some(moving_piece));
+            set_board_piece_at(&mut next, victim_square, None);
+            set_board_piece_at(&mut next, chess_move.to, Some(moving_piece));
         }
         MoveKind::CastleKingside | MoveKind::CastleQueenside => {
             if moving_piece.kind != PieceKind::King {
                 return Err(MoveError::InvalidMoveKind);
             }
             let (rook_from, rook_to) = rook_squares_for_castle(moving_piece.color, chess_move.kind);
-            let rook = next
-                .piece_at(rook_from)
-                .ok_or(MoveError::MissingCastlingRook)?;
+            let rook = board_piece_at(&next, rook_from).ok_or(MoveError::MissingCastlingRook)?;
             if rook != Piece::new(moving_piece.color, PieceKind::Rook) {
                 return Err(MoveError::MissingCastlingRook);
             }
-            if next.piece_at(chess_move.to).is_some() || next.piece_at(rook_to).is_some() {
+            if board_piece_at(&next, chess_move.to).is_some()
+                || board_piece_at(&next, rook_to).is_some()
+            {
                 return Err(MoveError::OccupiedTargetSquare(chess_move.to));
             }
-            next.set_piece_at(chess_move.to, Some(moving_piece));
-            next.set_piece_at(rook_from, None);
-            next.set_piece_at(rook_to, Some(rook));
+            set_board_piece_at(&mut next, chess_move.to, Some(moving_piece));
+            set_board_piece_at(&mut next, rook_from, None);
+            set_board_piece_at(&mut next, rook_to, Some(rook));
         }
         MoveKind::Promotion(promotion) => {
             validate_promotion_piece(promotion)?;
             if moving_piece.kind != PieceKind::Pawn {
                 return Err(MoveError::InvalidMoveKind);
             }
-            if next.piece_at(chess_move.to).is_some() {
+            if board_piece_at(&next, chess_move.to).is_some() {
                 return Err(MoveError::OccupiedTargetSquare(chess_move.to));
             }
-            next.set_piece_at(
+            set_board_piece_at(
+                &mut next,
                 chess_move.to,
                 Some(Piece::new(moving_piece.color, promotion)),
             );
@@ -749,13 +778,13 @@ fn try_apply_pseudo_move_for_check(
             if moving_piece.kind != PieceKind::Pawn {
                 return Err(MoveError::InvalidMoveKind);
             }
-            let target_piece = next
-                .piece_at(chess_move.to)
+            let target_piece = board_piece_at(&next, chess_move.to)
                 .ok_or(MoveError::MissingCaptureTarget(chess_move.to))?;
             if target_piece.color == moving_piece.color {
                 return Err(MoveError::CannotCaptureOwnPiece);
             }
-            next.set_piece_at(
+            set_board_piece_at(
+                &mut next,
                 chess_move.to,
                 Some(Piece::new(moving_piece.color, promotion)),
             );

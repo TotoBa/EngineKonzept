@@ -85,7 +85,7 @@ The repository now also includes a profiling-only binary:
 
 - `cargo run --quiet -p tools --bin dataset-oracle-profile`
 
-It consumes the same newline-delimited oracle input as `dataset-oracle`, but instead of emitting labels it reports aggregated phase timings. The baseline profile is stored in [oracle_profile_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v1.json), the post-serialization-optimization profile is stored in [oracle_profile_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v2.json), the post-check-path profile is stored in [oracle_profile_v3.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v3.json), and the current fine-grained split is stored in [oracle_profile_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v4.json).
+It consumes the same newline-delimited oracle input as `dataset-oracle`, but instead of emitting labels it reports aggregated phase timings. The baseline profile is stored in [oracle_profile_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v1.json), the post-serialization-optimization profile is stored in [oracle_profile_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v2.json), the post-check-path profile is stored in [oracle_profile_v3.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v3.json), the first fine-grained split is stored in [oracle_profile_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v4.json), and the current profile is stored in [oracle_profile_v5.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v5.json).
 
 The first profile showed:
 
@@ -119,12 +119,20 @@ The corresponding profile tightened again:
 
 This is not a dramatic jump, but it confirms the direction: remaining wins are now incremental and concentrated almost entirely inside exact legality work.
 
-The next profiling refinement makes that even narrower. `legal_generation` is now split into:
+The next profiling refinement made that even narrower. In [oracle_profile_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v4.json), `legal_generation` was split into:
 
 - `pseudo_legal_generation`: about `6.0%`
 - `self_check_filter`: about `49.8%`
 
-That is the current key result from [oracle_profile_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v4.json): the remaining pressure is not raw move generation, but the king-safety validation pass that filters pseudo-legal moves down to legal moves.
+That pointed directly at the next useful optimization: the self-check filter now evaluates king safety on a board snapshot instead of cloning and mutating a full `Position` for every pseudo-legal candidate. On the same 2000-record daemon benchmark, wall-clock time dropped from about `1.542s` to about `1.443s` on average across two runs. That measurement is stored in [oracle_e2e_boardcheck_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_e2e_boardcheck_v1.json).
+
+After that change, [oracle_profile_v5.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v5.json) shifted to:
+
+- `legal_generation`: about `47.8%`
+- `self_check_filter`: about `40.9%`
+- `json_serialize`: about `25.5%`
+
+That is the current key result: the self-check filter is still the largest single rules block, but it is now materially cheaper than before, and the remaining runtime is split more evenly between legality work and output serialization.
 
 ## Deferred Options
 
