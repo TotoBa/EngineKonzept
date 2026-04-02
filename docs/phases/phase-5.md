@@ -20,9 +20,13 @@ Train and export the first legality/policy proposer without introducing dynamics
 ## Current externally checkable artifacts
 
 - small seed policy dataset: [policy_seed.jsonl](/home/torsten/EngineKonzept/tests/positions/policy_seed.jsonl)
-- Pi-labeled 10k training corpus: [phase5_stockfish_pgn_train_pi_10k_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1)
-- Pi-labeled 2k verify corpus: [phase5_stockfish_pgn_verify_pi_10k_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_verify_pi_10k_v1)
+- current standard training corpus: [phase5_stockfish_pgn_train_pi_10k_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1)
+- current standard verify corpus: [phase5_stockfish_pgn_verify_pi_10k_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_verify_pi_10k_v1)
+- earlier small local baseline corpus: [phase5_stockfish_pgn_train_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_v1)
+- earlier small Pi baseline corpus: [phase5_stockfish_pgn_train_pi_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_pi_v1)
 - 10k comparison summary: [stockfish_pgn_pi_10k_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_pi_10k_compare_v1.json)
+
+The `*_pi_10k_v1` corpora are the current default Phase-5 reference datasets for proposer work. The smaller `*_v1` and `*_pi_v1` Stockfish corpora remain in the repository as early baselines and regression fixtures, not as the preferred training starting point.
 
 ## Current findings
 

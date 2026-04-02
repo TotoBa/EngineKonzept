@@ -106,6 +106,13 @@ These affect only offline dataset generation. They do not change label semantics
 
 The proposer trainer now prefers `proposer_<split>.jsonl` when those files are present in a dataset directory. If they are absent, it falls back to the existing full split artifacts and packs features on load, so older datasets remain valid.
 
+For repository conventions, the current standard Stockfish-supervised Phase-5 corpora are:
+
+- [phase5_stockfish_pgn_train_pi_10k_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1)
+- [phase5_stockfish_pgn_verify_pi_10k_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_verify_pi_10k_v1)
+
+The smaller `phase5_stockfish_pgn_*_v1` and `phase5_stockfish_pgn_*_pi_v1` directories remain tracked as early baseline and regression datasets. They now also carry `proposer_<split>.jsonl`, but they are no longer the preferred starting point for larger proposer experiments.
+
 For existing datasets that were built before this optional path existed, the repository now also includes:
 
 - `python/scripts/materialize_proposer_artifacts.py`

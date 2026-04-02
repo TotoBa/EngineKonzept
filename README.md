@@ -61,6 +61,8 @@ Reference Phase-5 experiments on the `10,240` train / `2,048` verify Pi-labeled 
 - comparison summary: [stockfish_pgn_pi_10k_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_pi_10k_compare_v1.json)
 - oracle transport benchmark: [oracle_transport_bench_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_transport_bench_v1.json)
 
+For dataset naming, treat [phase5_stockfish_pgn_train_pi_10k_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1) and [phase5_stockfish_pgn_verify_pi_10k_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_verify_pi_10k_v1) as the current standard Phase-5 corpora. The smaller [phase5_stockfish_pgn_train_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_v1), [phase5_stockfish_pgn_verify_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_verify_v1), [phase5_stockfish_pgn_train_pi_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_pi_v1), and [phase5_stockfish_pgn_verify_pi_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_verify_pi_v1) remain available as early small-baseline artifacts and regression fixtures.
+
 ## Repository Layout
 
 ```text
