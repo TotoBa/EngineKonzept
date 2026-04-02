@@ -15,6 +15,8 @@ The repository now includes the Phase-5 proposer stack:
 
 The PGN utility entry point is `python/scripts/build_stockfish_pgn_dataset.py`. It streams selected PGNs, queries `/usr/games/stockfish18` for bounded move labels, then routes legality and next-state generation back through the Rust oracle.
 
+For much larger side-host labeling runs with corpus-wide uniqueness guarantees, use [build_unique_stockfish_pgn_corpus.py](/home/torsten/EngineKonzept/python/scripts/build_unique_stockfish_pgn_corpus.py). That builder stores a resumable `corpus.sqlite3`, keeps `train` and `verify` FENs disjoint by construction, and exports `train_raw.jsonl` / `verify_raw.jsonl` once the requested targets are complete. Its `--work-dir` should be on a normal local filesystem, not on an unreliable shared or lockless temporary mount.
+
 The Rust oracle can now run either as a subprocess or as a local Unix-domain-socket daemon. Set `ENGINEKONZEPT_DATASET_ORACLE=unix:///path/to/socket` to use the daemon path during dataset builds.
 
 To compare both transports directly, use [benchmark_dataset_oracle.py](/home/torsten/EngineKonzept/python/scripts/benchmark_dataset_oracle.py).
