@@ -5,8 +5,12 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
+import platform
 import shutil
+import socket
+import sys
 import time
 from typing import Sequence
 
@@ -110,6 +114,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "input": str(_resolve_repo_path(args.input)),
         "record_count": len(records),
         "repeats": args.repeats,
+        "runtime": _runtime_metadata(),
         "results": results,
         "fastest": {
             "name": fastest["name"],
@@ -164,6 +169,15 @@ def _resolve_repo_path(path: Path) -> Path:
 
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _runtime_metadata() -> dict[str, object]:
+    return {
+        "hostname": socket.gethostname(),
+        "platform": platform.platform(),
+        "python_version": sys.version.split()[0],
+        "cpu_count": os.cpu_count(),
+    }
 
 
 if __name__ == "__main__":

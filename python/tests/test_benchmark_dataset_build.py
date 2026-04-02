@@ -75,3 +75,6 @@ def test_main_creates_artifact_parent_directory(tmp_path: Path) -> None:
 
     assert exit_code == 0
     assert artifact_out.exists()
+    rendered = json.loads(artifact_out.read_text(encoding="utf-8"))
+    assert rendered["runtime"]["hostname"]
+    assert rendered["runtime"]["python_version"]

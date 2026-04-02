@@ -19,6 +19,8 @@ The Rust oracle can now run either as a subprocess or as a local Unix-domain-soc
 
 To compare both transports directly, use [benchmark_dataset_oracle.py](/home/torsten/EngineKonzept/python/scripts/benchmark_dataset_oracle.py).
 
+Both benchmark helpers now embed basic runtime metadata in their JSON output, including host name, platform string, Python version, and visible CPU count. That makes cross-host comparisons easier to review without hand-written side notes.
+
 The dataset builders also support offline oracle parallelism:
 
 - `--oracle-workers`

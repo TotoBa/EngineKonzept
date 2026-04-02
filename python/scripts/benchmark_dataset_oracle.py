@@ -5,8 +5,12 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
+import platform
+import socket
 import subprocess
+import sys
 import time
 from typing import Sequence
 
@@ -73,6 +77,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     result = {
         "record_count": len(records),
         "source_record_count": len(seed_records),
+        "runtime": _runtime_metadata(),
         "subprocess_seconds": round(subprocess_seconds, 6),
         "subprocess_records_per_second": round(rate(len(records), subprocess_seconds), 3),
         "daemon_seconds": round(daemon_seconds, 6),
@@ -182,6 +187,15 @@ def _default_daemon_command() -> list[str]:
 
 def _command_cwd(command: Sequence[str]) -> Path | None:
     return REPO_ROOT / "rust" if command and command[0] == "cargo" else None
+
+
+def _runtime_metadata() -> dict[str, object]:
+    return {
+        "hostname": socket.gethostname(),
+        "platform": platform.platform(),
+        "python_version": sys.version.split()[0],
+        "cpu_count": os.cpu_count(),
+    }
 
 
 if __name__ == "__main__":

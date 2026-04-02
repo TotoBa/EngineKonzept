@@ -94,6 +94,15 @@ For larger offline builds, the repository now also includes a reproducible sweep
 
 It benchmarks multiple `(workers, batch_size)` schedules against the same raw dataset, writes full artifacts for each config, and verifies that the emitted `dataset.jsonl` / split files remain identical across the sweep. The first 10k reference run is stored in [oracle_build_sweep_10k_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_build_sweep_10k_v1.json).
 
+Both benchmark helpers now also record basic runtime metadata directly in their JSON output:
+
+- `hostname`
+- `platform`
+- `python_version`
+- `cpu_count`
+
+That keeps cross-host comparisons externally checkable without requiring a separate roll-up step to explain where a measurement came from.
+
 That 10k run currently shows:
 
 - `w4_b500`: about `4.934s`
