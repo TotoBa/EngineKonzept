@@ -1,0 +1,33 @@
+{
+  "dataset_path": "artifacts/datasets/phase5_stockfish_pgn_verify_pi_10k_v1",
+  "split": "test",
+  "runs": {
+    "structured_v2_latent_v1": {
+      "feature_l1_error": 1.425074,
+      "drift_feature_l1_error": 1.429654,
+      "piece_feature_l1_error": 1.453196,
+      "rule_feature_l1_error": 1.210871
+    },
+    "structured_v5_v1": {
+      "feature_l1_error": 1.404499,
+      "drift_feature_l1_error": 1.556962,
+      "piece_feature_l1_error": 1.38897,
+      "rule_feature_l1_error": 1.085876
+    },
+    "structured_v6_v1": {
+      "feature_l1_error": 1.398971,
+      "drift_feature_l1_error": 1.487676,
+      "piece_feature_l1_error": 1.525914,
+      "rule_feature_l1_error": 1.32708
+    }
+  },
+  "conclusion": {
+    "best_feature_l1_error": "structured_v6_v1",
+    "best_drift_feature_l1_error": "structured_v2_latent_v1",
+    "notes": [
+      "structured_v6_v1 is the first arm to consume TransitionContextV1.",
+      "On the 10k corpus it improves both feature_l1_error and drift_feature_l1_error over structured_v5_v1.",
+      "It does not beat structured_v2_latent_v1 on drift, so the large-corpus structured_v5 default stays unchanged."
+    ]
+  }
+}

@@ -21,6 +21,8 @@ This directory contains exported latent-dynamics bundles.
   Explicit short-horizon drift-supervision follow-up. It does not beat the current default on held-out drift.
 - [structured_v5_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v5_v1)
   Symbolic-action follow-up. It consumes the selected move's exact symbolic candidate features from the proposer contract, improves one-step reconstruction, and still remains experimental because drift is worse than the current default.
+- [structured_v6_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v6_v1)
+  First `TransitionContextV1` dynamics bundle. It validates the richer selected-action transition contract on the `10k` corpus and improves both feature-L1 and drift over `structured_v5_v1`, but it has not yet displaced the large-corpus `structured_v5` default.
 - [edit_v1](/home/torsten/EngineKonzept/models/dynamics/edit_v1)
   Experimental local edit-target dynamics bundle. It is useful as a one-step-strong counterexample, but not acceptable as the current default because drift is much worse.
 - [structured_v2_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v2_v1)

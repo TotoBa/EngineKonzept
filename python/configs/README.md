@@ -81,5 +81,7 @@ These remain useful as small-corpus regression baselines, but they are no longer
   Explicit short-horizon drift-supervision follow-up. Useful as a checked negative result; it does not beat the current default or `structured_v3_v1`.
 - [phase6_dynamics_structured_v5_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v5_v1.json)
   Symbolic-action follow-up. Keeps the latent-consistency baseline and adds exact selected-move symbolic features aligned with the current symbolic proposer contract.
+- [phase6_dynamics_structured_v6_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v6_v1.json)
+  First `TransitionContextV1` follow-up. Replaces the selected-move symbolic side path with the richer versioned transition contract. On the `10k` corpus it improves both feature-L1 and drift over `structured_v5_v1`, but it is still not the large-corpus default.
 - [phase6_dynamics_edit_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_edit_v1.json)
   Local edit-target dynamics arm. Very strong one-step reconstruction, but currently unacceptable drift.

@@ -65,6 +65,14 @@ The next symbolic-action experimental run is:
 - summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v5_v1/summary.json)
 - verify: [dynamics_structured_v5_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v5_v1_verify.json)
 
+The next transition-context experimental run is:
+
+- config: [phase6_dynamics_structured_v6_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v6_v1.json)
+- bundle: [structured_v6_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v6_v1)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v6_v1/summary.json)
+- verify: [dynamics_structured_v6_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v6_v1_verify.json)
+- direct comparison: [dynamics_phase6_compare_v5.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_phase6_compare_v5.json)
+
 The larger-corpus reruns now provide the preferred Phase-6 reference:
 
 - config: [phase6_dynamics_merged_unique_structured_v5_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_merged_unique_structured_v5_v1.json)
@@ -137,6 +145,16 @@ The `structured_v5_v1` arm binds Phase 6 to the symbolic proposer-side move cont
 - verify `drift_feature_l1_error`: `1.429654 -> 1.556962`
 
 That makes it a useful new experimental arm, but not the new default: the symbolic move-side features clearly help local one-step reconstruction, yet drift remains worse than `structured_v2_latent_v1`.
+
+The `structured_v6_v1` follow-up is the first Phase-6 arm to consume `TransitionContextV1` directly:
+
+- verify `feature_l1_error`: `1.404499 -> 1.398971` versus `structured_v5_v1`
+- verify `drift_feature_l1_error`: `1.556962 -> 1.487676` versus `structured_v5_v1`
+
+That is enough to validate the richer transition contract as a real modeling path, but not enough to flip the overall Phase-6 default:
+
+- it still trails `structured_v2_latent_v1` on `10k`-corpus drift (`1.429654`)
+- it has not yet been rerun on the larger merged unique corpus where the current default `structured_v5` was selected
 
 The larger `merged_unique` reruns overturn that smaller-corpus conclusion:
 

@@ -26,6 +26,8 @@ This directory stores materialized latent-dynamics runs and held-out evaluation 
   Direct comparison that adds `structured_v4_v1` on top of the earlier Phase-6 arms.
 - [dynamics_phase6_compare_v4.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_phase6_compare_v4.json)
   Direct comparison between the current default and the new symbolic-action `structured_v5_v1` follow-up.
+- [dynamics_phase6_compare_v5.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_phase6_compare_v5.json)
+  Direct comparison that adds the first `TransitionContextV1` arm `structured_v6_v1` on top of the earlier smaller-corpus baselines.
 
 ## Experimental Variants
 
@@ -45,6 +47,10 @@ This directory stores materialized latent-dynamics runs and held-out evaluation 
   Training summary for the symbolic-action follow-up that reuses the symbolic proposer candidate-feature contract for the selected move.
 - [dynamics_structured_v5_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v5_v1_verify.json)
   Held-out verify evaluation for the same arm. It improves one-step reconstruction over the current default, but not drift.
+- [dynamics_structured_v6_v1](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v6_v1)
+  Training summary for the first `TransitionContextV1` follow-up.
+- [dynamics_structured_v6_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v6_v1_verify.json)
+  Held-out verify evaluation for the same arm. It improves both feature-L1 and drift over `structured_v5_v1`, but does not yet replace the large-corpus default.
 - [dynamics_edit_v1](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_edit_v1)
   Training summary for the experimental local edit-target arm.
 - [dynamics_edit_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_edit_v1_verify.json)

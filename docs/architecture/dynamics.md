@@ -35,6 +35,8 @@ Materialized bundles:
   Drift-supervised follow-up that keeps the latent-stable path but adds explicit short-horizon rollout supervision during training.
 - [structured_v5_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v5_v1)
   Symbolic-action follow-up that keeps the latent-consistency baseline but augments the action pathway with the selected move's exact symbolic candidate features.
+- [structured_v6_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v6_v1)
+  Transition-context follow-up that keeps the same backbone, but replaces the selected-move side path with the richer `TransitionContextV1` contract.
 - [dynamics_merged_unique_structured_v3_v1](/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v3_v1)
   Large-corpus rerun of the delta-auxiliary structured arm over the merged unique `110,570 / 12,286 / 2,169` dataset.
 - [dynamics_merged_unique_structured_v5_v1](/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v5_v1)
@@ -108,12 +110,13 @@ The recommended next selected-action contract is:
 
 This keeps the repo on the symbolic-contract path while making the dynamics input more transition-specific.
 
-That contract now also exists in code on the dataset side:
+That contract now also exists in code on the dataset side and has a first experimental model consumer:
 
 - `DynamicsTrainingExample` rows can carry `transition_context_version`
 - `transition_features` now materialize `CandidateContextV2` plus exact post-move tags
+- `structured_v6_v1` consumes `TransitionContextV1` end-to-end through training, export metadata, and Rust-side bundle validation
 
-The current default large-corpus `structured_v5` bundle still uses only the existing selected-move symbolic row. `TransitionContextV1` is the next explicit bridge for future dynamics and opponent heads, not a hidden runtime input change.
+The current default large-corpus `structured_v5` bundle still uses only the existing selected-move symbolic row. `TransitionContextV1` is now a validated experimental bridge for future dynamics and opponent heads, but not yet the default large-corpus runtime-facing contract.
 
 ### LatentStateV1
 
@@ -161,6 +164,8 @@ The current materialized runs are:
 - verify: [dynamics_structured_v4_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v4_v1_verify.json)
 - summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v5_v1/summary.json)
 - verify: [dynamics_structured_v5_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v5_v1_verify.json)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v6_v1/summary.json)
+- verify: [dynamics_structured_v6_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v6_v1_verify.json)
 - summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v3_v1/summary.json)
 - verify: [dynamics_merged_unique_structured_v3_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v3_v1_verify.json)
 - summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v5_v1/summary.json)
@@ -171,6 +176,7 @@ The current materialized runs are:
 - comparison: [dynamics_phase6_parallel_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_phase6_parallel_compare_v1.json)
 - comparison: [dynamics_phase6_compare_v2.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_phase6_compare_v2.json)
 - comparison: [dynamics_phase6_compare_v3.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_phase6_compare_v3.json)
+- comparison: [dynamics_phase6_compare_v5.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_phase6_compare_v5.json)
 
 ## Current Reading Of The Results
 
@@ -218,6 +224,15 @@ The `structured_v5_v1` follow-up then aligns Phase 6 with the symbolic proposer 
 - verify `piece_feature_l1_error`: `1.453196 -> 1.38897`
 - verify `rule_feature_l1_error`: `1.210871 -> 1.085876`
 - verify `drift_feature_l1_error`: `1.429654 -> 1.556962`
+
+The `structured_v6_v1` follow-up is the first direct `TransitionContextV1` consumer:
+
+- verify `feature_l1_error`: `1.404499 -> 1.398971` versus `structured_v5_v1`
+- verify `drift_feature_l1_error`: `1.556962 -> 1.487676` versus `structured_v5_v1`
+- verify `piece_feature_l1_error`: `1.38897 -> 1.525914`
+- verify `rule_feature_l1_error`: `1.085876 -> 1.32708`
+
+So `structured_v6_v1` confirms that the richer transition contract can help the overall one-step/drift tradeoff relative to `structured_v5_v1`, but the gains are still mixed by section and are not yet strong enough to replace the current large-corpus `structured_v5` default without a rerun on the merged unique corpus.
 
 So the symbolic action side input helps one-step local reconstruction, but it still gives back too much drift quality to replace `structured_v2_latent_v1` as the default.
 

@@ -180,6 +180,12 @@ The next `structured_v5_v1` follow-up clarified the first direct proposer-to-dyn
 - feeding exact symbolic move-side features from the symbolic proposer contract helps one-step reconstruction
 - but that alone is not enough to protect multi-step drift, so it remains experimental
 
+The next `structured_v6_v1` follow-up refines the selected-action contract question again:
+
+- the richer `TransitionContextV1` contract is now wired through a real experimental dynamics arm
+- on the `10k` corpus it improves both one-step feature error and drift over `structured_v5_v1`
+- but it is still not enough evidence to replace the current large-corpus `structured_v5` default without rerunning the same contract at scale
+
 The larger merged-unique reruns refine that again:
 
 - the large `structured_v3` rerun beats the old large `structured_v2_latent` baseline on both verify feature error and verify drift
@@ -273,10 +279,11 @@ Current status:
 
 - `CandidateContextV2` now exists as a versioned Python-side dataset/workflow contract
 - `TransitionContextV1` now exists as a versioned Python-side transition artifact contract
+- `structured_v6_v1` now consumes `TransitionContextV1` as the first real experimental model arm
 - the first offline `search_teacher_<split>.jsonl` workflow now exists over exact legal candidates
 - shipped Rust runtime bundles still validate and execute only the current `CandidateContextV1` scorer path
-- current default dynamics bundles still do not consume `TransitionContextV1`
-- that split is intentional until a matching runtime-trained proposer or dynamics/opponent arm adopts the richer contracts
+- current default large-corpus dynamics bundles still do not consume `TransitionContextV1`
+- that split is intentional until the richer transition contract is rerun and wins on the larger corpus
 
 ## Success Criteria For The Next Step
 

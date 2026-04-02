@@ -11,10 +11,16 @@ from train.config import DynamicsTrainConfig
 from train.datasets.artifacts import (
     dynamics_symbolic_action_feature_spec,
     position_feature_spec,
+    transition_context_feature_spec,
 )
 from train.models.dynamics import DYNAMICS_MODEL_NAME, torch_is_available
 
 DYNAMICS_EXPORT_SCHEMA_VERSION = 1
+
+try:
+    import torch
+except ModuleNotFoundError:  # pragma: no cover - exercised when torch is absent
+    torch = None
 
 
 def build_dynamics_export_metadata(
@@ -39,6 +45,11 @@ def build_dynamics_export_metadata(
                 "symbolic": (
                     dynamics_symbolic_action_feature_spec()
                     if config.model.architecture == "structured_v5"
+                    else None
+                ),
+                "transition": (
+                    transition_context_feature_spec()
+                    if config.model.architecture == "structured_v6"
                     else None
                 ),
             },
@@ -91,12 +102,10 @@ def export_dynamics_bundle(
     validation_metrics: Mapping[str, Any],
 ) -> dict[str, str]:
     """Export checkpoint, torch.export program, and metadata for Rust consumption."""
-    if not torch_is_available():  # pragma: no cover
+    if not torch_is_available() or torch is None:  # pragma: no cover
         raise RuntimeError(
             "PyTorch is required for dynamics export. Install the 'train' extra or torch."
         )
-
-    import torch
 
     bundle_dir.mkdir(parents=True, exist_ok=True)
 
@@ -131,6 +140,22 @@ def export_dynamics_bundle(
                 {0: torch.export.Dim.DYNAMIC},
             ),
         )
+    elif config.model.architecture == "structured_v6":
+        transition_spec = transition_context_feature_spec()
+        export_transition_features = torch.zeros(
+            (2, int(transition_spec["feature_dim"])),
+            dtype=torch.float32,
+        )
+        wrapper = _StructuredV6ExportWrapper(model.cpu())
+        exported_program = torch.export.export(
+            wrapper,
+            (export_features, export_actions, export_transition_features),
+            dynamic_shapes=(
+                {0: torch.export.Dim.DYNAMIC},
+                {0: torch.export.Dim.DYNAMIC},
+                {0: torch.export.Dim.DYNAMIC},
+            ),
+        )
     else:
         exported_program = torch.export.export(
             model.cpu(),
@@ -153,3 +178,30 @@ def export_dynamics_bundle(
         "exported_program": str(exported_program_path),
         "metadata": str(metadata_path),
     }
+
+
+if torch is not None:
+
+    class _StructuredV6ExportWrapper(torch.nn.Module):  # pragma: no cover - simple export adapter
+        """Expose a three-input export surface for TransitionContext-powered dynamics."""
+
+        def __init__(self, model: Any) -> None:
+            super().__init__()
+            self._model = model
+
+        def forward(self, features: Any, actions: Any, transition_features: Any) -> Any:
+            return self._model(
+                features,
+                actions,
+                transition_features=transition_features,
+            )
+
+else:
+
+    class _StructuredV6ExportWrapper:  # pragma: no cover - import-safe fallback
+        """Import-safe fallback when PyTorch is unavailable."""
+
+        def __init__(self, *_: Any, **__: Any) -> None:
+            raise RuntimeError(
+                "PyTorch is required for dynamics export. Install the 'train' extra or torch."
+            )

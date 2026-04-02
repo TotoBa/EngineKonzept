@@ -96,9 +96,10 @@ Status now:
 
 - implemented as a versioned Python-side transition artifact contract
 - materialized in `DynamicsTrainingExample` rows as optional `transition_features`
-- still not consumed by the current default Phase-6 bundle
+- now consumed by the experimental `structured_v6_v1` Phase-6 arm
+- still not consumed by the current large-corpus default bundle
 
-That split is intentional. The repo now has an explicit transition contract to build datasets and workflows against before the next dynamics or opponent arm commits to it as a runtime-facing input.
+That split is intentional. The repo now has an explicit transition contract that has been validated in one real dynamics arm without forcing an immediate default flip on the larger corpus.
 
 It should contain:
 
@@ -125,6 +126,12 @@ The current implemented `V1` post-move tags are:
 - four castling-rights-cleared bits
 - `en_passant_created`
 - `en_passant_cleared`
+
+Current measured status:
+
+- `structured_v6_v1` is the first experimental Phase-6 arm that consumes `TransitionContextV1`
+- on the `10k` corpus it improves both one-step `feature_l1_error` and `drift_feature_l1_error` over `structured_v5_v1`
+- the current large-corpus default remains `dynamics_merged_unique_structured_v5_v1` until the same contract is rerun on the merged unique corpus
 
 ## LatentStateV1
 

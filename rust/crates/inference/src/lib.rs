@@ -43,6 +43,90 @@ const CANDIDATE_CONTEXT_V1_ORDER: &[&str; 18] = &[
     "captured_piece_pawn",
     "captured_piece_minor_or_major",
 ];
+const CANDIDATE_CONTEXT_V2_ORDER: &[&str; 35] = &[
+    "is_capture",
+    "is_promotion",
+    "is_castle",
+    "is_en_passant",
+    "gives_check",
+    "pre_from_square_attacked_by_opponent",
+    "pre_to_square_attacked_by_opponent",
+    "pre_from_square_defended_by_self",
+    "pre_to_square_attacked_by_self",
+    "moving_piece_pawn",
+    "moving_piece_knight",
+    "moving_piece_bishop",
+    "moving_piece_rook",
+    "moving_piece_queen",
+    "moving_piece_king",
+    "captured_piece_present",
+    "captured_piece_pawn",
+    "captured_piece_knight",
+    "captured_piece_bishop",
+    "captured_piece_rook",
+    "captured_piece_queen",
+    "promotion_to_knight",
+    "promotion_to_bishop",
+    "promotion_to_rook",
+    "promotion_to_queen",
+    "castle_kingside",
+    "castle_queenside",
+    "from_file_normalized",
+    "from_rank_normalized",
+    "to_file_normalized",
+    "to_rank_normalized",
+    "delta_file_normalized",
+    "delta_rank_normalized",
+    "abs_delta_file_normalized",
+    "abs_delta_rank_normalized",
+];
+const TRANSITION_CONTEXT_V1_ORDER: &[&str; 45] = &[
+    "is_capture",
+    "is_promotion",
+    "is_castle",
+    "is_en_passant",
+    "gives_check",
+    "pre_from_square_attacked_by_opponent",
+    "pre_to_square_attacked_by_opponent",
+    "pre_from_square_defended_by_self",
+    "pre_to_square_attacked_by_self",
+    "moving_piece_pawn",
+    "moving_piece_knight",
+    "moving_piece_bishop",
+    "moving_piece_rook",
+    "moving_piece_queen",
+    "moving_piece_king",
+    "captured_piece_present",
+    "captured_piece_pawn",
+    "captured_piece_knight",
+    "captured_piece_bishop",
+    "captured_piece_rook",
+    "captured_piece_queen",
+    "promotion_to_knight",
+    "promotion_to_bishop",
+    "promotion_to_rook",
+    "promotion_to_queen",
+    "castle_kingside",
+    "castle_queenside",
+    "from_file_normalized",
+    "from_rank_normalized",
+    "to_file_normalized",
+    "to_rank_normalized",
+    "delta_file_normalized",
+    "delta_rank_normalized",
+    "abs_delta_file_normalized",
+    "abs_delta_rank_normalized",
+    "opponent_in_check_after_move",
+    "destination_attacked_after_move",
+    "destination_defended_after_move",
+    "halfmove_reset",
+    "white_kingside_castling_cleared",
+    "white_queenside_castling_cleared",
+    "black_kingside_castling_cleared",
+    "black_queenside_castling_cleared",
+    "en_passant_created",
+    "en_passant_cleared",
+];
 const GLOBAL_CONTEXT_V1_ORDER: &[&str; 9] = &[
     "in_check",
     "has_legal_castle",
@@ -214,6 +298,8 @@ pub struct DynamicsActionInputSpec {
     pub shape: DynamicBatchShapeSpec,
     #[serde(default)]
     pub symbolic: Option<DynamicsSymbolicActionSpec>,
+    #[serde(default)]
+    pub transition: Option<DynamicsTransitionContextSpec>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -222,6 +308,15 @@ pub struct DynamicsSymbolicActionSpec {
     pub candidate_context_version: u32,
     pub feature_dim: u32,
     pub feature_order: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DynamicsTransitionContextSpec {
+    pub version: u32,
+    pub candidate_context_version: u32,
+    pub feature_dim: u32,
+    pub feature_order: Vec<String>,
+    pub post_move_feature_order: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -382,6 +477,9 @@ pub enum DynamicsLoadError {
     UnsupportedSymbolicCandidateContextVersion(u32),
     InvalidSymbolicActionFeatureDim(u32),
     InvalidSymbolicActionFeatureOrder,
+    UnsupportedTransitionContextVersion(u32),
+    InvalidTransitionFeatureDim(u32),
+    InvalidTransitionFeatureOrder,
     InvalidNextStateShape { expected: u32, found: u32 },
     InvalidDriftHorizon(u32),
 }
@@ -510,6 +608,15 @@ impl fmt::Display for DynamicsLoadError {
             Self::InvalidSymbolicActionFeatureOrder => {
                 write!(f, "invalid dynamics symbolic action feature_order")
             }
+            Self::UnsupportedTransitionContextVersion(value) => {
+                write!(f, "unsupported TransitionContext version: {value}")
+            }
+            Self::InvalidTransitionFeatureDim(value) => {
+                write!(f, "invalid dynamics transition feature dim: {value}")
+            }
+            Self::InvalidTransitionFeatureOrder => {
+                write!(f, "invalid dynamics transition feature_order")
+            }
             Self::InvalidNextStateShape { expected, found } => write!(
                 f,
                 "invalid dynamics next-state shape: expected {expected} features, found {found}"
@@ -534,6 +641,9 @@ impl Error for DynamicsLoadError {
             | Self::UnsupportedSymbolicCandidateContextVersion(_)
             | Self::InvalidSymbolicActionFeatureDim(_)
             | Self::InvalidSymbolicActionFeatureOrder
+            | Self::UnsupportedTransitionContextVersion(_)
+            | Self::InvalidTransitionFeatureDim(_)
+            | Self::InvalidTransitionFeatureOrder
             | Self::InvalidNextStateShape { .. }
             | Self::InvalidDriftHorizon(_) => None,
         }
@@ -781,6 +891,14 @@ pub fn validate_dynamics_metadata(metadata: &DynamicsMetadata) -> Result<(), Dyn
             &symbolic.feature_order,
         )?;
     }
+    if let Some(transition) = metadata.input.action.transition.as_ref() {
+        validate_transition_context_contract(
+            transition.version,
+            transition.candidate_context_version,
+            transition.feature_dim,
+            &transition.feature_order,
+        )?;
+    }
 
     if metadata.outputs.next_state_shape.features != metadata.input.state.feature_dim {
         return Err(DynamicsLoadError::InvalidNextStateShape {
@@ -818,7 +936,7 @@ fn validate_candidate_context_contract(
     feature_dim: u32,
     feature_order: &[String],
 ) -> Result<(), ProposerLoadError> {
-    let expected = candidate_context_order(version)
+    let expected = proposer_candidate_context_order(version)
         .map_err(ProposerLoadError::UnsupportedSymbolicCandidateContextVersion)?;
     if feature_dim != expected.len() as u32 {
         return Err(ProposerLoadError::InvalidSymbolicCandidateFeatureDim(
@@ -829,6 +947,13 @@ fn validate_candidate_context_contract(
         return Err(ProposerLoadError::InvalidSymbolicCandidateFeatureOrder);
     }
     Ok(())
+}
+
+fn proposer_candidate_context_order(version: u32) -> Result<&'static [&'static str], u32> {
+    match version {
+        1 => Ok(CANDIDATE_CONTEXT_V1_ORDER),
+        other => Err(other),
+    }
 }
 
 fn validate_global_context_contract(
@@ -870,8 +995,36 @@ fn validate_dynamics_candidate_context_contract(
 fn candidate_context_order(version: u32) -> Result<&'static [&'static str], u32> {
     match version {
         1 => Ok(CANDIDATE_CONTEXT_V1_ORDER),
+        2 => Ok(CANDIDATE_CONTEXT_V2_ORDER),
         other => Err(other),
     }
+}
+
+fn validate_transition_context_contract(
+    version: u32,
+    candidate_context_version: u32,
+    feature_dim: u32,
+    feature_order: &[String],
+) -> Result<(), DynamicsLoadError> {
+    if version != 1 {
+        return Err(DynamicsLoadError::UnsupportedTransitionContextVersion(
+            version,
+        ));
+    }
+    if candidate_context_version != 2 {
+        return Err(
+            DynamicsLoadError::UnsupportedSymbolicCandidateContextVersion(
+                candidate_context_version,
+            ),
+        );
+    }
+    if feature_dim != TRANSITION_CONTEXT_V1_ORDER.len() as u32 {
+        return Err(DynamicsLoadError::InvalidTransitionFeatureDim(feature_dim));
+    }
+    if !matches_expected_order(feature_order, TRANSITION_CONTEXT_V1_ORDER) {
+        return Err(DynamicsLoadError::InvalidTransitionFeatureOrder);
+    }
+    Ok(())
 }
 
 fn global_context_order(version: u32) -> Result<&'static [&'static str], u32> {
@@ -1328,7 +1481,7 @@ mod tests {
         validate_proposer_metadata, DynamicsLoadError, ProposerLoadError,
         CANDIDATE_CONTEXT_V1_ORDER, GLOBAL_CONTEXT_V1_ORDER, SYMBOLIC_CANDIDATE_FEATURE_DIM,
         SYMBOLIC_GLOBAL_FEATURE_DIM, SYMBOLIC_MAX_LEGAL_CANDIDATES, SYMBOLIC_RUNTIME_MAGIC,
-        SYMBOLIC_RUNTIME_VERSION,
+        SYMBOLIC_RUNTIME_VERSION, TRANSITION_CONTEXT_V1_ORDER,
     };
     use position::Position;
     use rules::legal_moves;
@@ -1523,6 +1676,52 @@ mod tests {
         assert!(matches!(
             error,
             DynamicsLoadError::InvalidSymbolicActionFeatureOrder
+        ));
+    }
+
+    #[test]
+    fn validate_dynamics_metadata_accepts_transition_context_v1() {
+        let mut metadata = valid_dynamics_metadata();
+        metadata["input"]["action"]["transition"] = json!({
+            "version": 1,
+            "candidate_context_version": 2,
+            "feature_dim": TRANSITION_CONTEXT_V1_ORDER.len(),
+            "feature_order": TRANSITION_CONTEXT_V1_ORDER.iter().copied().collect::<Vec<_>>(),
+            "post_move_feature_order": [
+                "opponent_in_check_after_move",
+                "destination_attacked_after_move",
+                "destination_defended_after_move",
+                "halfmove_reset",
+                "white_kingside_castling_cleared",
+                "white_queenside_castling_cleared",
+                "black_kingside_castling_cleared",
+                "black_queenside_castling_cleared",
+                "en_passant_created",
+                "en_passant_cleared"
+            ]
+        });
+
+        let parsed = serde_json::from_value(metadata).expect("metadata parses");
+        validate_dynamics_metadata(&parsed).expect("metadata should be accepted");
+    }
+
+    #[test]
+    fn validate_dynamics_metadata_rejects_invalid_transition_feature_dim() {
+        let mut metadata = valid_dynamics_metadata();
+        metadata["input"]["action"]["transition"] = json!({
+            "version": 1,
+            "candidate_context_version": 2,
+            "feature_dim": 7,
+            "feature_order": ["wrong"],
+            "post_move_feature_order": []
+        });
+
+        let parsed = serde_json::from_value(metadata).expect("metadata parses");
+        let error = validate_dynamics_metadata(&parsed).expect_err("metadata should be rejected");
+
+        assert!(matches!(
+            error,
+            DynamicsLoadError::InvalidTransitionFeatureDim(7)
         ));
     }
 

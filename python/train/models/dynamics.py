@@ -12,6 +12,7 @@ from train.datasets.artifacts import (
     RULE_FEATURE_SIZE,
     SQUARE_FEATURE_SIZE,
     SYMBOLIC_PROPOSER_CANDIDATE_FEATURE_SIZE,
+    TRANSITION_CONTEXT_FEATURE_SIZE,
 )
 
 try:
@@ -79,9 +80,21 @@ if torch is not None and nn is not None:
                     ),
                     nn.ReLU(),
                 )
+                self.transition_context_projection = None
+                action_context_dim = action_embedding_dim * 2
+            elif architecture == "structured_v6":
+                self.symbolic_action_projection = None
+                self.transition_context_projection = nn.Sequential(
+                    nn.Linear(
+                        TRANSITION_CONTEXT_FEATURE_SIZE,
+                        action_embedding_dim,
+                    ),
+                    nn.ReLU(),
+                )
                 action_context_dim = action_embedding_dim * 2
             else:
                 self.symbolic_action_projection = None
+                self.transition_context_projection = None
                 action_context_dim = action_embedding_dim
             self.transition_input_dim = latent_dim + action_context_dim
             self.transition = _build_mlp(
@@ -105,7 +118,7 @@ if torch is not None and nn is not None:
                 self.piece_delta_decoder = None
                 self.square_delta_decoder = None
                 self.rule_delta_decoder = None
-            elif architecture in {"structured_v2", "structured_v5"}:
+            elif architecture in {"structured_v2", "structured_v5", "structured_v6"}:
                 self.decoder = None
                 self.piece_decoder = _build_mlp(
                     input_dim=latent_dim,
@@ -226,13 +239,20 @@ if torch is not None and nn is not None:
             """Map flat state features to a latent vector."""
             return self.encoder(features)
 
-        def step(self, latent: Any, action_indices: Any, action_features: Any | None = None) -> Any:
+        def step(
+            self,
+            latent: Any,
+            action_indices: Any,
+            action_features: Any | None = None,
+            transition_features: Any | None = None,
+        ) -> Any:
             """Apply one residual action-conditioned latent transition."""
             action_embedding = self.action_embedding(action_indices)
             return self.step_from_action_embedding(
                 latent,
                 action_embedding,
                 action_features=action_features,
+                transition_features=transition_features,
             )
 
         def step_from_action_embedding(
@@ -241,11 +261,13 @@ if torch is not None and nn is not None:
             action_embedding: Any,
             *,
             action_features: Any | None = None,
+            transition_features: Any | None = None,
         ) -> Any:
             """Apply one residual action-conditioned latent transition from a precomputed embedding."""
             action_context = self._build_action_context(
                 action_embedding,
                 action_features=action_features,
+                transition_features=transition_features,
             )
             transition_input = torch.cat((latent, action_context), dim=1)
             return self.step_from_transition_input(latent, transition_input)
@@ -260,6 +282,7 @@ if torch is not None and nn is not None:
             features: Any,
             action_indices: Any,
             action_features: Any | None = None,
+            transition_features: Any | None = None,
         ) -> DynamicsPrediction:
             """Predict structured next-state sections for one action-conditioned transition."""
             latent = self.encode(features)
@@ -267,6 +290,7 @@ if torch is not None and nn is not None:
             action_context = self._build_action_context(
                 action_embedding,
                 action_features=action_features,
+                transition_features=transition_features,
             )
             transition_input = torch.cat((latent, action_context), dim=1)
             next_latent = self.step_from_transition_input(latent, transition_input)
@@ -312,13 +336,21 @@ if torch is not None and nn is not None:
             action_embedding: Any,
             *,
             action_features: Any | None = None,
+            transition_features: Any | None = None,
         ) -> Any:
-            if self.architecture != "structured_v5":
+            if self.architecture == "structured_v5":
+                if action_features is None:
+                    raise ValueError("structured_v5 requires symbolic action_features")
+                symbolic_context = self.symbolic_action_projection(action_features)
+                return torch.cat((action_embedding, symbolic_context), dim=1)
+            if self.architecture == "structured_v6":
+                if transition_features is None:
+                    raise ValueError("structured_v6 requires transition_features")
+                transition_context = self.transition_context_projection(transition_features)
+                return torch.cat((action_embedding, transition_context), dim=1)
+            if self.architecture not in {"structured_v5", "structured_v6"}:
                 return action_embedding
-            if action_features is None:
-                raise ValueError("structured_v5 requires symbolic action_features")
-            symbolic_context = self.symbolic_action_projection(action_features)
-            return torch.cat((action_embedding, symbolic_context), dim=1)
+            raise AssertionError("unreachable action-context branch")
 
         def decode(self, latent: Any) -> DynamicsPrediction:
             """Decode a latent state into structured next-state sections."""
@@ -353,12 +385,14 @@ if torch is not None and nn is not None:
             features: Any,
             action_indices: Any,
             action_features: Any | None = None,
+            transition_features: Any | None = None,
         ) -> Any:
             """Predict packed next-state features for one action-conditioned transition."""
             return self.predict(
                 features,
                 action_indices,
                 action_features=action_features,
+                transition_features=transition_features,
             ).next_features
 
 
