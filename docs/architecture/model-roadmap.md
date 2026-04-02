@@ -258,6 +258,18 @@ The next model experiments should be ordered like this:
 4. explore richer symbolic proposer candidate features only if downstream modules need them
 5. only then resume broader proposer exploration if Phase-6/7 pressure points point back at representation quality
 
+The first three offline search-workflow layers are now in place:
+
+- `search_teacher_<split>.jsonl`
+- `search_traces_<split>.jsonl`
+- `search_disagreements_<split>.jsonl`
+
+That means the next workflow pressure is no longer raw label generation alone. It is to use those artifacts for:
+
+- curriculum buckets
+- proposer failure clustering
+- later opponent/planner supervision
+
 ## Current Contract Work
 
 The next concrete contract definitions should be:

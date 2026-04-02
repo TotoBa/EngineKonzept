@@ -203,3 +203,5 @@ The first concrete workflow attachment is now implemented:
 - explicitly offline and teacher-only
 - `search_traces_<split>.jsonl` root-plus-PV trace datasets over the same exact legal candidate set
 - explicitly offline and suitable for later opponent/planner supervision
+- `search_disagreements_<split>.jsonl` proposer-vs-teacher disagreement datasets over the same exact legal candidate set
+- intentionally aligned by exact action index so current proposer-side `CandidateContextV1` inputs can still be compared cleanly against `CandidateContextV2` teacher workflows

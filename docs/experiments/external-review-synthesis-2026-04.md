@@ -134,6 +134,7 @@ Status now:
 
 - `search_teacher_<split>.jsonl` is implemented
 - `search_traces_<split>.jsonl` is implemented as the next offline workflow layer
+- `search_disagreements_<split>.jsonl` is implemented as the first proposer-vs-teacher mining layer
 
 ### Disagreement Mining
 
@@ -157,5 +158,5 @@ Use later for:
 2. unify symbolic feature authority or add golden Python/Rust identity tests
 3. keep improving Phase 6 on top of large-corpus `structured_v5`
 4. add granular exactness metrics beyond the current all-or-nothing exact next-state metric
-5. build the offline alpha-beta teacher/trace/disagreement layer
+5. use the now-implemented offline alpha-beta teacher/trace/disagreement layer for curriculum and later opponent/planner supervision
 6. only then expand opponent/planner code

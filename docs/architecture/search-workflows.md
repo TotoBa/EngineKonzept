@@ -74,6 +74,7 @@ Status now:
 
 - the first `search_teacher_<split>.jsonl` workflow is implemented
 - the second `search_traces_<split>.jsonl` workflow is implemented
+- the third `search_disagreements_<split>.jsonl` workflow is implemented
 - it is explicitly an offline UCI-teacher workflow
 - it uses the exact legal candidate set plus `CandidateContextV2`
 - it does not modify the runtime move-selection path
@@ -147,6 +148,31 @@ The repo should explicitly mine positions where:
 - special-move or mobility edge cases cause large ranking errors
 
 These positions should become regression fixtures and curriculum buckets, not one-off analysis files.
+
+Suggested dataset family:
+
+- `search_disagreements_train.jsonl`
+- `search_disagreements_validation.jsonl`
+- `search_disagreements_test.jsonl`
+
+The current repo implementation builds these with:
+
+- [build_search_disagreement_dataset.py](/home/torsten/EngineKonzept/python/scripts/build_search_disagreement_dataset.py)
+- [search_disagreements.py](/home/torsten/EngineKonzept/python/train/datasets/search_disagreements.py)
+
+The first implementation is intentionally proposer-centric:
+
+- it consumes a `search_teacher_<split>.jsonl` artifact plus a symbolic proposer checkpoint
+- it rebuilds current proposer-side `CandidateContextV1` inputs from the exact dataset split
+- it aligns teacher and proposer rankings by exact flat action index, not by candidate-row position
+- it records full proposer candidate scores and proposer policy over the exact legal set
+- it records disagreement severity signals such as rank mismatch, top-1 mismatch, teacher top-1 advantage, and policy L1 distance
+
+That keeps the workflow useful for:
+
+- targeted proposer retraining
+- later curriculum bucketing
+- future planner and opponent regression suites
 
 ## Baseline Rule For Phase 7
 
