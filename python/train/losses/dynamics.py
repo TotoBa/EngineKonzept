@@ -22,8 +22,6 @@ class DynamicsLossBreakdown:
     piece: Any
     square: Any
     rule: Any
-
-
 def compute_dynamics_losses(
     predicted_next_features: Any,
     next_feature_targets: Any,

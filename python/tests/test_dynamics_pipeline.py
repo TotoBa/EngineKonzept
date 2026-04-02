@@ -66,6 +66,59 @@ def test_load_dynamics_train_config_accepts_phase6_schema(tmp_path: Path) -> Non
     assert config.evaluation.drift_horizon == 2
 
 
+def test_load_dynamics_train_config_accepts_explicit_drift_dataset(tmp_path: Path) -> None:
+    config_path = tmp_path / "config_drift.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "seed": 7,
+                "output_dir": "artifacts/phase6/test-drift",
+                "data": {
+                    "dataset_path": "artifacts/datasets/test",
+                    "train_split": "train",
+                    "validation_split": "validation",
+                },
+                "model": {
+                    "architecture": "structured_v2",
+                    "latent_dim": 64,
+                    "hidden_dim": 128,
+                    "hidden_layers": 2,
+                    "action_embedding_dim": 32,
+                    "dropout": 0.1,
+                },
+                "optimization": {
+                    "epochs": 1,
+                    "batch_size": 2,
+                    "learning_rate": 1e-3,
+                    "weight_decay": 0.0,
+                    "reconstruction_loss_weight": 1.0,
+                    "piece_loss_weight": 1.0,
+                    "square_loss_weight": 1.0,
+                    "rule_loss_weight": 2.0,
+                },
+                "evaluation": {
+                    "drift_horizon": 2,
+                    "drift_dataset_path": "artifacts/datasets/drift",
+                    "drift_split": "test"
+                },
+                "runtime": {"torch_threads": 0, "dataloader_workers": 0},
+                "export": {
+                    "bundle_dir": "models/dynamics/test-drift",
+                    "checkpoint_name": "checkpoint.pt",
+                    "exported_program_name": "dynamics.pt2",
+                    "metadata_name": "metadata.json",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_dynamics_train_config(config_path)
+
+    assert config.evaluation.drift_dataset_path == "artifacts/datasets/drift"
+    assert config.evaluation.drift_split == "test"
+
+
 def test_load_dynamics_examples_builds_from_full_dataset(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

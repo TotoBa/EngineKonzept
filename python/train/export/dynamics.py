@@ -64,6 +64,8 @@ def build_dynamics_export_metadata(
             "square_loss_weight": config.optimization.square_loss_weight,
             "rule_loss_weight": config.optimization.rule_loss_weight,
             "drift_horizon": config.evaluation.drift_horizon,
+            "drift_dataset_path": config.evaluation.drift_dataset_path,
+            "drift_split": config.evaluation.drift_split,
         },
         "validation_metrics": dict(validation_metrics),
     }

@@ -66,8 +66,9 @@ if torch is not None and nn is not None:
                 dropout=dropout,
             )
             self.action_embedding = nn.Embedding(ACTION_SPACE_SIZE, action_embedding_dim)
+            self.transition_input_dim = latent_dim + action_embedding_dim
             self.transition = _build_mlp(
-                input_dim=latent_dim + action_embedding_dim,
+                input_dim=self.transition_input_dim,
                 hidden_dim=hidden_dim,
                 hidden_layers=hidden_layers,
                 output_dim=latent_dim,
@@ -117,14 +118,21 @@ if torch is not None and nn is not None:
         def step(self, latent: Any, action_indices: Any) -> Any:
             """Apply one residual action-conditioned latent transition."""
             action_embedding = self.action_embedding(action_indices)
-            delta = self.transition(torch.cat((latent, action_embedding), dim=1))
+            transition_input = torch.cat((latent, action_embedding), dim=1)
+            delta = self.transition(transition_input)
             return latent + delta
 
         def predict(self, features: Any, action_indices: Any) -> DynamicsPrediction:
             """Predict structured next-state sections for one action-conditioned transition."""
             latent = self.encode(features)
             next_latent = self.step(latent, action_indices)
-            return self.decode(next_latent)
+            decoded = self.decode(next_latent)
+            return DynamicsPrediction(
+                next_features=decoded.next_features,
+                piece_features=decoded.piece_features,
+                square_features=decoded.square_features,
+                rule_features=decoded.rule_features,
+            )
 
         def decode(self, latent: Any) -> DynamicsPrediction:
             """Decode a latent state into structured next-state sections."""

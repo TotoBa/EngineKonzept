@@ -110,6 +110,7 @@ class DynamicsTrainingRun:
     history: list[dict[str, Any]]
     best_epoch: int
     best_validation: dict[str, float | int]
+    best_drift_validation: dict[str, float | int] | None
     export_paths: dict[str, str]
     summary_path: str
     model_parameter_count: int
@@ -120,6 +121,7 @@ class DynamicsTrainingRun:
             "history": self.history,
             "best_epoch": self.best_epoch,
             "best_validation": self.best_validation,
+            "best_drift_validation": self.best_drift_validation,
             "export_paths": self.export_paths,
             "summary_path": self.summary_path,
             "model_parameter_count": self.model_parameter_count,
@@ -155,6 +157,16 @@ def train_dynamics(config: DynamicsTrainConfig, *, repo_root: Path) -> DynamicsT
         raise ValueError("training split has no action-conditioned transitions")
     if not validation_examples:
         raise ValueError("validation split has no action-conditioned transitions")
+    drift_dataset_path = (
+        dataset_path
+        if config.evaluation.drift_dataset_path is None
+        else resolve_repo_path(repo_root, config.evaluation.drift_dataset_path)
+    )
+    drift_examples = load_dynamics_examples(
+        drift_dataset_path,
+        config.evaluation.drift_split,
+        repo_root=repo_root,
+    )
 
     model = LatentDynamicsModel(
         architecture=config.model.architecture,
@@ -189,6 +201,7 @@ def train_dynamics(config: DynamicsTrainConfig, *, repo_root: Path) -> DynamicsT
     history: list[dict[str, Any]] = []
     best_epoch = 1
     best_validation: DynamicsMetrics | None = None
+    best_drift_validation: dict[str, float | int] | None = None
     best_state = {name: tensor.detach().clone() for name, tensor in model.state_dict().items()}
 
     for epoch in range(1, config.optimization.epochs + 1):
@@ -216,6 +229,11 @@ def train_dynamics(config: DynamicsTrainConfig, *, repo_root: Path) -> DynamicsT
             rule_weight=config.optimization.rule_loss_weight,
             drift_horizon=config.evaluation.drift_horizon,
         )
+        drift_validation_metrics = _evaluate_multistep_slice(
+            model,
+            drift_examples,
+            horizon=config.evaluation.drift_horizon,
+        )
 
         history.append(
             {
@@ -223,12 +241,19 @@ def train_dynamics(config: DynamicsTrainConfig, *, repo_root: Path) -> DynamicsT
                 "examples_per_second": round(train_metrics.examples_per_second, 3),
                 "train": train_metrics.to_dict(),
                 "validation": validation_metrics.to_dict(),
+                "drift_validation": drift_validation_metrics,
             }
         )
 
-        if best_validation is None or _is_better_validation(validation_metrics, best_validation):
+        if best_validation is None or _is_better_validation(
+            validation_metrics,
+            best_validation,
+            current_drift=drift_validation_metrics,
+            best_drift=best_drift_validation,
+        ):
             best_epoch = epoch
             best_validation = validation_metrics
+            best_drift_validation = drift_validation_metrics
             best_state = {
                 name: tensor.detach().clone() for name, tensor in model.state_dict().items()
             }
@@ -247,6 +272,7 @@ def train_dynamics(config: DynamicsTrainConfig, *, repo_root: Path) -> DynamicsT
         "history": history,
         "best_epoch": best_epoch,
         "best_validation": best_validation.to_dict(),
+        "best_drift_validation": best_drift_validation,
         "export_paths": export_paths,
         "model_parameter_count": model_parameter_count,
     }
@@ -257,6 +283,7 @@ def train_dynamics(config: DynamicsTrainConfig, *, repo_root: Path) -> DynamicsT
         history=history,
         best_epoch=best_epoch,
         best_validation=best_validation.to_dict(),
+        best_drift_validation=best_drift_validation,
         export_paths=export_paths,
         summary_path=str(summary_path),
         model_parameter_count=model_parameter_count,
@@ -543,14 +570,42 @@ def _is_contiguous_chain(chain: list[DynamicsTrainingExample]) -> bool:
     return True
 
 
-def _is_better_validation(current: DynamicsMetrics, best: DynamicsMetrics) -> bool:
+def _is_better_validation(
+    current: DynamicsMetrics,
+    best: DynamicsMetrics,
+    *,
+    current_drift: dict[str, float | int],
+    best_drift: dict[str, float | int] | None,
+) -> bool:
     if current.exact_next_feature_accuracy != best.exact_next_feature_accuracy:
         return current.exact_next_feature_accuracy > best.exact_next_feature_accuracy
-    if current.drift_exact_next_feature_accuracy != best.drift_exact_next_feature_accuracy:
-        return current.drift_exact_next_feature_accuracy > best.drift_exact_next_feature_accuracy
+    if best_drift is not None:
+        current_drift_exact = float(current_drift["drift_exact_next_feature_accuracy"])
+        best_drift_exact = float(best_drift["drift_exact_next_feature_accuracy"])
+        if current_drift_exact != best_drift_exact:
+            return current_drift_exact > best_drift_exact
     if current.feature_l1_error != best.feature_l1_error:
         return current.feature_l1_error < best.feature_l1_error
-    return current.drift_feature_l1_error < best.drift_feature_l1_error
+    if best_drift is not None:
+        current_drift_l1 = float(current_drift["drift_feature_l1_error"])
+        best_drift_l1 = float(best_drift["drift_feature_l1_error"])
+        if current_drift_l1 != best_drift_l1:
+            return current_drift_l1 < best_drift_l1
+    return current.rule_feature_l1_error < best.rule_feature_l1_error
+
+
+def _evaluate_multistep_slice(
+    model: Any,
+    examples: list[DynamicsTrainingExample],
+    *,
+    horizon: int,
+) -> dict[str, float | int]:
+    metrics = _evaluate_multistep_drift(model, examples, horizon=horizon)
+    return {
+        "drift_examples": int(metrics["count"]),
+        "drift_feature_l1_error": float(metrics["feature_l1_error"]),
+        "drift_exact_next_feature_accuracy": float(metrics["exact_next_feature_accuracy"]),
+    }
 
 
 def _exact_feature_match_mask(predicted_next: Any, next_features: Any) -> Any:

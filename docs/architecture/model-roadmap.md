@@ -152,6 +152,13 @@ The first result is useful, but still weak:
 
 That means the plumbing direction is now validated, while model quality is still open.
 
+The next structured follow-up already clarified two Phase-6 decisions:
+
+- separate piece/square/rule decoding is better than the flat `v1` decoder
+- explicit held-out drift-slice checkpoint selection is worth keeping
+
+An initial explicit special-move-conditioned transition experiment was tried locally and rejected because it worsened both one-step and drift metrics. That pressure remains real, but the next answer should be gentler than a large gated residual branch.
+
 ### Why
 
 This fits the exactness constraints and the planned Phase-6 measurements better than a diffuse global reconstructor.

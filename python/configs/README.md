@@ -56,7 +56,9 @@ These remain useful as small-corpus regression baselines, but they are no longer
 
 ## Phase 6 Baseline
 
-- [phase6_dynamics_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_v1.json)
-  First action-conditioned latent-dynamics baseline over the current standard `10,240 / 2,048` Pi-labeled corpus.
+- [phase6_dynamics_structured_v2_drift_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v2_drift_v1.json)
+  Current preferred Phase-6 config: structured piece/square/rule decoder plus explicit held-out drift-slice checkpoint selection.
 - [phase6_dynamics_structured_v2_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v2_v1.json)
   First structured dynamics follow-up with separate piece/square/rule decoder heads and section-wise reconstruction weights.
+- [phase6_dynamics_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_v1.json)
+  Original flat decoder baseline for the first action-conditioned latent-dynamics plumbing.

@@ -29,6 +29,13 @@ The first structured follow-up run is:
 - summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_v1/summary.json)
 - verify: [dynamics_structured_v2_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_v1_verify.json)
 
+The current preferred drift-aware follow-up run is:
+
+- config: [phase6_dynamics_structured_v2_drift_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v2_drift_v1.json)
+- bundle: [structured_v2_drift_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v2_drift_v1)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_drift_v1/summary.json)
+- verify: [dynamics_structured_v2_drift_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_drift_v1_verify.json)
+
 ## What this baseline does
 
 - encodes packed current-state features into a latent vector
@@ -57,6 +64,11 @@ The structured `v2` follow-up is the first real modeling improvement:
 - lower validation and verify feature-L1 error
 - lower verify drift error
 - separate piece/square/rule reconstruction losses now visible
+
+The drift-aware `structured_v2_drift_v1` follow-up is the current preferred Phase-6 reference because it adds an explicit held-out drift slice for checkpoint choice and improves the main verify soft metrics over `structured_v2_v1`:
+
+- verify `feature_l1_error`: `1.433716 -> 1.425823`
+- verify `drift_feature_l1_error`: `1.595053 -> 1.557198`
 
 But it still does **not** recover exact packed next states.
 

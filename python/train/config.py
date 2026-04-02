@@ -236,7 +236,6 @@ class DynamicsOptimizationConfig:
     piece_loss_weight: float = 1.0
     square_loss_weight: float = 1.0
     rule_loss_weight: float = 1.0
-
     def __post_init__(self) -> None:
         if self.epochs <= 0:
             raise ValueError("optimization.epochs must be positive")
@@ -261,10 +260,14 @@ class DynamicsEvaluationConfig:
     """Held-out evaluation settings for dynamics training."""
 
     drift_horizon: int = 2
+    drift_dataset_path: str | None = None
+    drift_split: str = "test"
 
     def __post_init__(self) -> None:
         if self.drift_horizon < 2:
             raise ValueError("evaluation.drift_horizon must be at least 2")
+        if self.drift_split not in SUPPORTED_SPLITS:
+            raise ValueError(f"unsupported drift split: {self.drift_split}")
 
 
 @dataclass(frozen=True)

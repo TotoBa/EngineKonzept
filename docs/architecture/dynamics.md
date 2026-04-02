@@ -24,6 +24,8 @@ Materialized bundles:
   Flat decoder baseline.
 - [structured_v2_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v2_v1)
   Piece-/square-/rule-decoder follow-up with section-wise losses.
+- [structured_v2_drift_v1](/home/torsten/EngineKonzept/models/dynamics/structured_v2_drift_v1)
+  Same structured decoder, but with checkpoint selection against an explicit held-out drift slice.
 
 ## Training Contract
 
@@ -57,6 +59,9 @@ The current materialized runs are:
 - verify: [dynamics_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_v1_verify.json)
 - summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_v1/summary.json)
 - verify: [dynamics_structured_v2_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_v1_verify.json)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_drift_v1/summary.json)
+- verify: [dynamics_structured_v2_drift_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_drift_v1_verify.json)
+- comparison: [dynamics_structured_v2_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_compare_v1.json)
 
 ## Current Reading Of The Results
 
@@ -69,6 +74,12 @@ The first structured follow-up `structured_v2_v1` materially improves the soft m
 - verify `drift_feature_l1_error`: `1.902871 -> 1.595053`
 - rule-section validation `feature_l1_error`: `1.161234`
 
+The drift-aware `structured_v2_drift_v1` run improves the main held-out soft metrics again:
+
+- verify `feature_l1_error`: `1.433716 -> 1.425823`
+- verify `drift_feature_l1_error`: `1.595053 -> 1.557198`
+- verify `square_feature_l1_error`: `1.382824 -> 1.28254`
+
 But the hard limit is unchanged:
 
 - exact next-state accuracy is still `0.0`
@@ -80,8 +91,8 @@ This is enough to establish the Phase-6 dataset, training, export, and Rust-boun
 
 The obvious next pressures are now:
 
-- explicit special-move treatment inside the transition path or loss
-- more explicit handling of special-move transitions
+- a better special-move treatment that does not destabilize drift
 - potentially partial-state or tokenized reconstruction instead of one flat feature regression target
+- stronger multi-step drift supervision beyond the current short held-out slice
 
 Those changes should stay action-conditioned and must not drift toward any hidden symbolic search or fallback evaluator.
