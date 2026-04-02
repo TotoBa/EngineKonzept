@@ -23,6 +23,7 @@ from train.datasets import (
 from train.datasets.artifacts import to_proposer_example
 from train.datasets.schema import DatasetExample
 from train.export.proposer import build_export_metadata
+from train.models.proposer import LegalityPolicyProposer
 from train.trainers import train_proposer
 
 
@@ -135,12 +136,72 @@ def test_config_loading_and_export_metadata_are_repo_relative(tmp_path: Path) ->
 
     assert resolve_repo_path(tmp_path, config.output_dir) == tmp_path / "artifacts/phase5/test-run"
     assert metadata["schema_version"] == 2
+    assert metadata["training"]["architecture"] == "mlp_v1"
     assert metadata["action_space"]["flat_size"] == ACTION_SPACE_SIZE
     assert metadata["input"]["feature_dim"] == POSITION_FEATURE_SIZE
     assert metadata["outputs"]["legality_threshold"] == 0.4
     assert metadata["artifacts"]["exported_program_file"] == "proposer.pt2"
     assert config.runtime.torch_threads == 0
     assert config.runtime.dataloader_workers == 0
+
+
+def test_config_accepts_multistream_v2_architecture(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "seed": 7,
+                "output_dir": "artifacts/phase5/test-run",
+                "data": {
+                    "dataset_path": "artifacts/datasets/phase4",
+                    "train_split": "train",
+                    "validation_split": "validation",
+                },
+                "model": {
+                    "architecture": "multistream_v2",
+                    "hidden_dim": 64,
+                    "hidden_layers": 2,
+                    "dropout": 0.0,
+                },
+                "optimization": {
+                    "epochs": 1,
+                    "batch_size": 2,
+                    "learning_rate": 0.001,
+                    "weight_decay": 0.0,
+                    "legality_loss_weight": 1.0,
+                    "policy_loss_weight": 1.0,
+                },
+                "evaluation": {"legality_threshold": 0.4},
+                "export": {
+                    "bundle_dir": "models/proposer/test",
+                    "checkpoint_name": "checkpoint.pt",
+                    "exported_program_name": "proposer.pt2",
+                    "metadata_name": "metadata.json",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_proposer_train_config(config_path)
+
+    assert config.model.architecture == "multistream_v2"
+
+
+def test_multistream_v2_forward_matches_action_space_shape() -> None:
+    torch = pytest.importorskip("torch")
+    model = LegalityPolicyProposer(
+        architecture="multistream_v2",
+        hidden_dim=32,
+        hidden_layers=2,
+        dropout=0.0,
+    )
+    features = torch.zeros((3, POSITION_FEATURE_SIZE), dtype=torch.float32)
+
+    legality_logits, policy_logits = model(features)
+
+    assert tuple(legality_logits.shape) == (3, ACTION_SPACE_SIZE)
+    assert tuple(policy_logits.shape) == (3, ACTION_SPACE_SIZE)
 
 
 def test_config_rejects_non_default_metadata_filename(tmp_path: Path) -> None:
@@ -245,6 +306,72 @@ def test_train_proposer_exports_bundle_when_torch_is_available(tmp_path: Path) -
     assert (tmp_path / "models/proposer/test/proposer.pt2").exists()
     assert (tmp_path / "models/proposer/test/metadata.json").exists()
     assert (tmp_path / "artifacts/phase5/test-run/summary.json").exists()
+
+
+def test_train_proposer_supports_multistream_v2(tmp_path: Path) -> None:
+    pytest.importorskip("torch")
+
+    dataset_dir = tmp_path / "artifacts" / "datasets" / "phase4"
+    dataset_dir.mkdir(parents=True)
+    (dataset_dir / "train.jsonl").write_text(
+        "\n".join(
+            [
+                json.dumps(_dataset_example_dict(sample_id="train:1", split="train")),
+                json.dumps(_dataset_example_dict(sample_id="train:2", split="train")),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (dataset_dir / "validation.jsonl").write_text(
+        json.dumps(_dataset_example_dict(sample_id="validation:1", split="validation")) + "\n",
+        encoding="utf-8",
+    )
+
+    config_path = tmp_path / "python" / "configs" / "phase5_proposer_v2.json"
+    config_path.parent.mkdir(parents=True)
+    config_path.write_text(
+        json.dumps(
+            {
+                "seed": 3,
+                "output_dir": "artifacts/phase5/test-run-v2",
+                "data": {
+                    "dataset_path": "artifacts/datasets/phase4",
+                    "train_split": "train",
+                    "validation_split": "validation",
+                },
+                "model": {
+                    "architecture": "multistream_v2",
+                    "hidden_dim": 32,
+                    "hidden_layers": 1,
+                    "dropout": 0.0,
+                },
+                "optimization": {
+                    "epochs": 1,
+                    "batch_size": 2,
+                    "learning_rate": 0.001,
+                    "weight_decay": 0.0,
+                    "legality_loss_weight": 1.0,
+                    "policy_loss_weight": 1.0,
+                },
+                "evaluation": {"legality_threshold": 0.5},
+                "export": {
+                    "bundle_dir": "models/proposer/test-v2",
+                    "checkpoint_name": "checkpoint.pt",
+                    "exported_program_name": "proposer.pt2",
+                    "metadata_name": "metadata.json",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    run = train_proposer(load_proposer_train_config(config_path), repo_root=tmp_path)
+
+    assert run.best_epoch == 1
+    assert run.model_parameter_count > 0
+    assert (tmp_path / "models/proposer/test-v2/checkpoint.pt").exists()
+    assert (tmp_path / "models/proposer/test-v2/proposer.pt2").exists()
 
 
 def _dataset_example_dict(

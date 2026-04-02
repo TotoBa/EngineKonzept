@@ -50,6 +50,7 @@ def _load_run(spec: str) -> dict[str, Any]:
     return {
         "name": name,
         "config": {
+            "architecture": config["model"].get("architecture", "mlp_v1"),
             "dataset_path": config["data"]["dataset_path"],
             "hidden_dim": config["model"]["hidden_dim"],
             "hidden_layers": config["model"]["hidden_layers"],

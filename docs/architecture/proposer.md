@@ -31,9 +31,15 @@ This yields a flat input vector of size `230`.
 
 The packing order is exported in the bundle metadata so Rust can reconstruct the same view later.
 
+The `multistream_v2` arm is the first repo-local application of the broader architecture ideas captured in [arch.ideas.md](/home/torsten/EngineKonzept/docs/arch.ideas.md): preserve typed structure longer, fuse streams explicitly, and delay any more aggressive router/expert designs until the base representation itself is stronger.
+
 ## Model Shape
 
-The Phase-5 proposer is intentionally simple: a shared MLP backbone plus two flat heads.
+Phase 5 now carries two proposer architectures behind the same dataset and export contract.
+
+### `mlp_v1`
+
+The original proposer is intentionally simple: a shared MLP backbone plus two flat heads.
 
 For the currently used `hidden_dim=128`, `hidden_layers=2`, `dropout=0.1` configuration:
 
@@ -42,6 +48,33 @@ For the currently used `hidden_dim=128`, `hidden_layers=2`, `dropout=0.1` config
 - policy head: `Linear(128 -> 20480)`
 
 That configuration has `5,329,920` trainable parameters. Most of the size sits in the two `128 x 20480` output heads, not in the backbone.
+
+### `multistream_v2`
+
+The new architecture keeps the packed `230`-wide input contract but unpacks it back into three typed streams inside the model:
+
+- piece stream: `32 x 3`
+- square stream: `64 x 2`
+- rule stream: `6`
+
+It then applies:
+
+- separate projections for piece, square, and rule streams
+- one piece-to-square cross-attention block
+- one square-to-piece cross-attention block
+- masked pooling for pieces, dense pooling for squares, and rule-conditioned fusion
+- small head-specific towers before the flat legality and policy heads
+
+This keeps the current Phase-5 action-space contract intact while restoring some of the object-centric structure that was previously lost in the flat packing step.
+
+The choice of this direction is deliberate. For this repository state, a typed multi-stream encoder is a lower-risk fit than early mixture-of-experts routing because:
+
+- the Phase-3 encoder already exposes object-centric piece/square/rule structure
+- the current Phase-5 data budget is still modest
+- the main weakness is likely representational bias, not yet routing capacity
+- the runtime/export contract must remain stable while Phase 5 is still offline-training only
+
+This follows the same broad design pressure emphasized by work on permutation-aware set models and relational inductive biases, but keeps the actual Phase-5 implementation small enough to test and compare directly.
 
 ## Model Outputs
 
@@ -53,6 +86,8 @@ The model predicts two flat tensors over the joint action vocabulary:
 The flat action index matches the Phase-3 factorization:
 
 `((from_index * 64) + to_index) * 5 + promotion_index`
+
+The output contract remains identical across `mlp_v1` and `multistream_v2`, so existing datasets, metrics, export tooling, and Rust-side metadata validation remain compatible.
 
 ## Training Objective
 

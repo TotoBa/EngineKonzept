@@ -38,6 +38,7 @@ def build_export_metadata(
             "seed": config.seed,
             "train_split": config.data.train_split,
             "validation_split": config.data.validation_split,
+            "architecture": config.model.architecture,
             "hidden_dim": config.model.hidden_dim,
             "hidden_layers": config.model.hidden_layers,
             "dropout": config.model.dropout,

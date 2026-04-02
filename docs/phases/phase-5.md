@@ -26,6 +26,7 @@ Train and export the first legality/policy proposer without introducing dynamics
 - current default bundle: [stockfish_pgn_current_default_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_current_default_v1)
 - current default training summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_current_default_v1/summary.json)
 - current three-way comparison: [stockfish_pgn_10k_three_way_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_10k_three_way_compare_v1.json)
+- current four-way comparison with the structured multi-stream arm: [stockfish_pgn_10k_four_way_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_10k_four_way_compare_v1.json)
 - earlier small local baseline corpus: [phase5_stockfish_pgn_train_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_v1)
 - earlier small Pi baseline corpus: [phase5_stockfish_pgn_train_pi_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_pi_v1)
 - 10k comparison summary: [stockfish_pgn_pi_10k_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_pi_10k_compare_v1.json)
@@ -44,6 +45,7 @@ The same `current default` / `experimental variant` / `legacy baseline` split is
 - reducing batch size from `256` to `128` improved validation and verify quality on the same 10k corpus
 - increasing hidden width to `256` improved legal-set F1 further, but did not materially improve policy top-1 accuracy
 - increasing `policy_loss_weight` to `2.0` on the same 128-wide default backbone did not beat the current default on verify policy accuracy and regressed legal-set F1
+- the first structured `multistream_v2` arm slightly improved validation legal-set F1 over the `current_default` MLP, but it did not beat `h256` on legality, regressed policy accuracy, and was materially slower
 
 These findings suggest that raw capacity helps, but the current flat MLP is likely not sufficient by itself for strong policy learning.
 

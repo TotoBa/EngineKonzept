@@ -12,6 +12,8 @@ Use these first when reviewing the current standard proposer path:
   Full-vs-lean proposer artifact benchmark on the current `10k` corpus.
 - [stockfish_pgn_10k_three_way_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_10k_three_way_compare_v1.json)
   Three-way comparison between `current_default`, `h256`, and `policy_focus`.
+- [stockfish_pgn_10k_four_way_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_10k_four_way_compare_v1.json)
+  Four-way comparison that adds the structured `multistream_v2` arm.
 
 The current default config writes its training summary to:
 
@@ -29,6 +31,8 @@ These summaries correspond to the main `10k` proposer comparison runs:
 - [stockfish_pgn_pi_10k_h256_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_pi_10k_h256_v1_verify.json)
 - [stockfish_pgn_policy_focus_v1/summary.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_policy_focus_v1/summary.json)
 - [stockfish_pgn_policy_focus_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_policy_focus_v1_verify.json)
+- [stockfish_pgn_multistream_v2_v1/summary.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_multistream_v2_v1/summary.json)
+- [stockfish_pgn_multistream_v2_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_multistream_v2_v1_verify.json)
 
 ## Legacy Baselines
 

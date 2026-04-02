@@ -33,11 +33,14 @@ class ProposerDataConfig:
 class ProposerModelConfig:
     """Model hyperparameters for the first legality/policy proposer."""
 
+    architecture: str = "mlp_v1"
     hidden_dim: int = 256
     hidden_layers: int = 2
     dropout: float = 0.0
 
     def __post_init__(self) -> None:
+        if self.architecture not in {"mlp_v1", "multistream_v2"}:
+            raise ValueError("model.architecture must be 'mlp_v1' or 'multistream_v2'")
         if self.hidden_dim <= 0:
             raise ValueError("model.hidden_dim must be positive")
         if self.hidden_layers <= 0:

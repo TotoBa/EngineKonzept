@@ -48,6 +48,10 @@ Current proposer shape:
 - backbone: `230 -> hidden -> hidden` MLP with ReLU and optional dropout
 - heads: two flat `hidden -> 20480` heads for legality and policy
 
+There is now also one structured experimental arm:
+
+- `multistream_v2`: unpacks the same `230` features back into typed piece/square/rule streams, applies light cross-attention, then returns to the same flat legality/policy heads
+
 Reference model sizes:
 
 - `hidden_dim=128`: `5,329,920` parameters
@@ -62,6 +66,7 @@ Reference Phase-5 experiments on the `10,240` train / `2,048` verify Pi-labeled 
 - best speed/quality trade-off so far: [phase5_stockfish_pgn_pi_10k_bs128_v1.json](/home/torsten/EngineKonzept/python/configs/phase5_stockfish_pgn_pi_10k_bs128_v1.json)
 - best verify legal-set F1 so far: [phase5_stockfish_pgn_pi_10k_h256_v1.json](/home/torsten/EngineKonzept/python/configs/phase5_stockfish_pgn_pi_10k_h256_v1.json)
 - current three-way comparison: [stockfish_pgn_10k_three_way_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_10k_three_way_compare_v1.json)
+- current four-way comparison including the structured multi-stream arm: [stockfish_pgn_10k_four_way_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_10k_four_way_compare_v1.json)
 - comparison summary: [stockfish_pgn_pi_10k_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_pi_10k_compare_v1.json)
 - oracle transport benchmark: [oracle_transport_bench_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_transport_bench_v1.json)
 
@@ -72,6 +77,8 @@ For the same categorization on configs, model bundles, and Phase-5 summaries, se
 - [python/configs/README.md](/home/torsten/EngineKonzept/python/configs/README.md)
 - [models/proposer/README.md](/home/torsten/EngineKonzept/models/proposer/README.md)
 - [artifacts/phase5/README.md](/home/torsten/EngineKonzept/artifacts/phase5/README.md)
+
+The first architecture-extension notes beyond the flat MLP live in [docs/arch.ideas.md](/home/torsten/EngineKonzept/docs/arch.ideas.md). The current implementation applies only the low-risk part of that direction so far: typed multi-stream fusion before considering any heavier routing or expert machinery.
 
 ## Repository Layout
 

@@ -101,6 +101,7 @@ def train_proposer(config: ProposerTrainConfig, *, repo_root: Path) -> ProposerT
         raise ValueError("validation split is empty")
 
     model = LegalityPolicyProposer(
+        architecture=config.model.architecture,
         hidden_dim=config.model.hidden_dim,
         hidden_layers=config.model.hidden_layers,
         dropout=config.model.dropout,
@@ -216,6 +217,7 @@ def evaluate_proposer_checkpoint(
     payload = torch.load(checkpoint_path, map_location="cpu")
     config = ProposerTrainConfig.from_dict(dict(payload["training_config"]))
     model = LegalityPolicyProposer(
+        architecture=config.model.architecture,
         hidden_dim=config.model.hidden_dim,
         hidden_layers=config.model.hidden_layers,
         dropout=config.model.dropout,
