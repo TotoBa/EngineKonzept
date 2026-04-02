@@ -1,0 +1,126 @@
+{
+  "records": 2000,
+  "total_measured_seconds": 0.418663657,
+  "phases": [
+    [
+      "json_parse",
+      {
+        "seconds": 0.022892357,
+        "milliseconds_per_record": 0.0114461785,
+        "share_of_measured": 0.0546795897309042
+      }
+    ],
+    [
+      "fen_parse",
+      {
+        "seconds": 0.020015796,
+        "milliseconds_per_record": 0.010007898,
+        "share_of_measured": 0.04780877361896258
+      }
+    ],
+    [
+      "legal_generation",
+      {
+        "seconds": 0.187396109,
+        "milliseconds_per_record": 0.0936980545,
+        "share_of_measured": 0.4476053888766371
+      }
+    ],
+    [
+      "pseudo_legal_generation",
+      {
+        "seconds": 0.036792728,
+        "milliseconds_per_record": 0.018396364,
+        "share_of_measured": 0.08788135149739065
+      }
+    ],
+    [
+      "self_check_filter",
+      {
+        "seconds": 0.145311672,
+        "milliseconds_per_record": 0.072655836,
+        "share_of_measured": 0.3470845141927378
+      }
+    ],
+    [
+      "attack_check_local",
+      {
+        "seconds": 0.068391512,
+        "milliseconds_per_record": 0.034195756,
+        "share_of_measured": 0.16335669661434213
+      }
+    ],
+    [
+      "attack_check_slider",
+      {
+        "seconds": 0.057649486,
+        "milliseconds_per_record": 0.028824743,
+        "share_of_measured": 0.13769880675360363
+      }
+    ],
+    [
+      "legal_move_uci",
+      {
+        "seconds": 0.017902299,
+        "milliseconds_per_record": 0.0089511495,
+        "share_of_measured": 0.04276057570480735
+      }
+    ],
+    [
+      "legal_action_encoding",
+      {
+        "seconds": 0.036751176,
+        "milliseconds_per_record": 0.018375588,
+        "share_of_measured": 0.08778210237627576
+      }
+    ],
+    [
+      "selected_move_resolution",
+      {
+        "seconds": 0.010013175,
+        "milliseconds_per_record": 0.0050065875,
+        "share_of_measured": 0.023916991199453452
+      }
+    ],
+    [
+      "selected_move_apply",
+      {
+        "seconds": 0.002623047,
+        "milliseconds_per_record": 0.0013115235,
+        "share_of_measured": 0.006265284688897655
+      }
+    ],
+    [
+      "selected_action_encoding",
+      {
+        "seconds": 0.000377984,
+        "milliseconds_per_record": 0.000188992,
+        "share_of_measured": 0.0009028345156790143
+      }
+    ],
+    [
+      "position_encoding",
+      {
+        "seconds": 0.01868176,
+        "milliseconds_per_record": 0.00934088,
+        "share_of_measured": 0.0446223589930568
+      }
+    ],
+    [
+      "annotations",
+      {
+        "seconds": 0.017960913,
+        "milliseconds_per_record": 0.0089804565,
+        "share_of_measured": 0.04290057830359992
+      }
+    ],
+    [
+      "json_serialize",
+      {
+        "seconds": 0.08934075,
+        "milliseconds_per_record": 0.044670375,
+        "share_of_measured": 0.2133950451782348
+      }
+    ]
+  ]
+}

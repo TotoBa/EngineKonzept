@@ -85,7 +85,7 @@ The repository now also includes a profiling-only binary:
 
 - `cargo run --quiet -p tools --bin dataset-oracle-profile`
 
-It consumes the same newline-delimited oracle input as `dataset-oracle`, but instead of emitting labels it reports aggregated phase timings. The baseline profile is stored in [oracle_profile_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v1.json), the post-serialization-optimization profile is stored in [oracle_profile_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v2.json), the post-check-path profile is stored in [oracle_profile_v3.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v3.json), the first fine-grained split is stored in [oracle_profile_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v4.json), the board-snapshot profile is stored in [oracle_profile_v5.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v5.json), the king-square profile is stored in [oracle_profile_v6.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v6.json), the custom-json profile is stored in [oracle_profile_v7.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v7.json), and the current attack-split profile is stored in [oracle_profile_v8.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v8.json).
+It consumes the same newline-delimited oracle input as `dataset-oracle`, but instead of emitting labels it reports aggregated phase timings. The baseline profile is stored in [oracle_profile_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v1.json), the post-serialization-optimization profile is stored in [oracle_profile_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v2.json), the post-check-path profile is stored in [oracle_profile_v3.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v3.json), the first fine-grained split is stored in [oracle_profile_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v4.json), the board-snapshot profile is stored in [oracle_profile_v5.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v5.json), the king-square profile is stored in [oracle_profile_v6.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v6.json), the custom-json profile is stored in [oracle_profile_v7.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v7.json), the attack-split profile is stored in [oracle_profile_v8.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v8.json), and the current local-attack profile is stored in [oracle_profile_v9.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v9.json).
 
 The first profile showed:
 
@@ -160,6 +160,18 @@ The next profiling refinement split the remaining attack validation cost inside 
 - `attack_check_slider`: about `12.5%`
 
 That changes the next likely optimization target again: the larger remaining attack-check cost is now in pawn/knight/king detection, not in ray scans.
+
+That directly led to the next rules-kernel change: the local pawn, knight, and king attack checks now use direct board-index arithmetic instead of `Square::offset`-driven coordinate reconstruction. On the same 2000-record daemon benchmark, wall-clock time dropped from about `1.358s` to about `1.343s` on average across two runs. That measurement is stored in [oracle_e2e_localattack_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_e2e_localattack_v1.json).
+
+After that change, [oracle_profile_v9.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_v9.json) shifted to roughly:
+
+- `legal_generation`: about `44.8%`
+- `self_check_filter`: about `34.7%`
+- `attack_check_local`: about `16.3%`
+- `attack_check_slider`: about `13.8%`
+- `json_serialize`: about `21.3%`
+
+That is a more balanced end state for this low-risk series: the local attacker path is cheaper, but legality generation as a whole is still the clear primary target.
 
 ## Deferred Options
 

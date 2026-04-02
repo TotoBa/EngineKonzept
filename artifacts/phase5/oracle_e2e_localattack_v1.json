@@ -1,0 +1,30 @@
+{
+  "benchmark_input": {
+    "input": "/srv/schach/tmp/oracle-e2e/train_raw_2k.jsonl",
+    "source": "artifacts/datasets/phase5_stockfish_pgn_raw_pi_10k_v1/train_raw.jsonl",
+    "source_format": "jsonl",
+    "record_count": 2000,
+    "oracle_workers": 4,
+    "oracle_batch_size": 250
+  },
+  "results": {
+    "daemon_parallel_customjson_seconds": 1.3576315,
+    "daemon_parallel_localattack_seconds": 1.330597,
+    "daemon_parallel_localattack_repeat_seconds": 1.355568,
+    "localattack_mean_seconds": 1.343082,
+    "localattack_vs_customjson_speedup": 1.0108,
+    "localattack_repeat_vs_customjson_speedup": 1.0015,
+    "saved_vs_customjson_mean": 0.014549
+  },
+  "artifact_digests": {
+    "dataset_jsonl": "4c2af5e2ba5cd2009d5c4a59b361e600c4a98253e1b34a4f0c601129c6c0971f",
+    "summary_json": "e8be41f60ff8cd01bdb5c52bcebbfe3b0032fde588ea884cab7782491b069567",
+    "dataset_jsonl_repeat": "4c2af5e2ba5cd2009d5c4a59b361e600c4a98253e1b34a4f0c601129c6c0971f",
+    "summary_json_repeat": "e8be41f60ff8cd01bdb5c52bcebbfe3b0032fde588ea884cab7782491b069567"
+  },
+  "notes": [
+    "The local pawn, knight, and king attack checks now use direct board-index arithmetic instead of Square::offset-based coordinate reconstruction.",
+    "The benchmark keeps the same 2000-record daemon-backed dataset build and the same offline worker settings as the previous steps.",
+    "Artifact digests remain stable across repeated runs."
+  ]
+}

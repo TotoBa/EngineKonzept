@@ -110,10 +110,18 @@ fn is_square_attacked_on_board_profiled(
     mut profile: Option<&mut AttackCheckProfile>,
 ) -> bool {
     let local_started = Instant::now();
-    let pawn_source_rank_delta = -attacker.pawn_push_delta();
+    let square_index = square.index();
+    let square_file = (square_index % 8) as i8;
+    let square_rank = (square_index / 8) as i8;
+    let pawn_source_rank = square_rank - attacker.pawn_push_delta();
+    let pawn = Piece::new(attacker, PieceKind::Pawn);
+    let knight = Piece::new(attacker, PieceKind::Knight);
+    let king = Piece::new(attacker, PieceKind::King);
+
     for file_delta in [-1, 1] {
-        if let Some(source) = square.offset(file_delta, pawn_source_rank_delta) {
-            if board_piece_at(board, source) == Some(Piece::new(attacker, PieceKind::Pawn)) {
+        let file = square_file + file_delta;
+        if let Some(source_index) = board_index(file, pawn_source_rank) {
+            if board[source_index] == Some(pawn) {
                 if let Some(profile) = profile.as_deref_mut() {
                     profile.local += local_started.elapsed();
                 }
@@ -123,8 +131,10 @@ fn is_square_attacked_on_board_profiled(
     }
 
     for (file_delta, rank_delta) in KNIGHT_DELTAS {
-        if let Some(source) = square.offset(file_delta, rank_delta) {
-            if board_piece_at(board, source) == Some(Piece::new(attacker, PieceKind::Knight)) {
+        let file = square_file + file_delta;
+        let rank = square_rank + rank_delta;
+        if let Some(source_index) = board_index(file, rank) {
+            if board[source_index] == Some(knight) {
                 if let Some(profile) = profile.as_deref_mut() {
                     profile.local += local_started.elapsed();
                 }
@@ -134,8 +144,10 @@ fn is_square_attacked_on_board_profiled(
     }
 
     for (file_delta, rank_delta) in KING_DELTAS {
-        if let Some(source) = square.offset(file_delta, rank_delta) {
-            if board_piece_at(board, source) == Some(Piece::new(attacker, PieceKind::King)) {
+        let file = square_file + file_delta;
+        let rank = square_rank + rank_delta;
+        if let Some(source_index) = board_index(file, rank) {
+            if board[source_index] == Some(king) {
                 if let Some(profile) = profile.as_deref_mut() {
                     profile.local += local_started.elapsed();
                 }
@@ -337,6 +349,13 @@ fn king_square_on_board(board: &[Option<Piece>; 64], color: Color) -> Option<Squ
 
 fn board_piece_at(board: &[Option<Piece>; 64], square: Square) -> Option<Piece> {
     board[usize::from(square.index())]
+}
+
+fn board_index(file: i8, rank: i8) -> Option<usize> {
+    if !(0..=7).contains(&file) || !(0..=7).contains(&rank) {
+        return None;
+    }
+    Some((usize::from(rank as u8) * 8) + usize::from(file as u8))
 }
 
 fn set_board_piece_at(board: &mut [Option<Piece>; 64], square: Square, piece: Option<Piece>) {
