@@ -49,7 +49,7 @@ Current proposer shape:
 - backbone: `230 -> hidden -> hidden` MLP with ReLU and optional dropout
 - heads: two flat `hidden -> 20480` heads for legality and policy
 
-There is now also one structured experimental arm:
+There are now two proposer families:
 
 - `multistream_v2`: unpacks the same `230` features back into typed piece/square/rule streams, applies light cross-attention, then returns to the same flat legality/policy heads
 - `factorized_v6`: keeps the stronger conditional factorized legality path and adds explicit policy-side `from-to` coupling plus a low-rank residual
@@ -64,9 +64,9 @@ Reference model sizes:
 
 Reference Phase-5 experiments on the `10,240` train / `2,048` verify Pi-labeled corpus:
 
-- current default entry point: [phase5_stockfish_pgn_current_default_v1.json](/home/torsten/EngineKonzept/python/configs/phase5_stockfish_pgn_current_default_v1.json)
-- materialized current-default bundle: [stockfish_pgn_current_default_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_current_default_v1)
-- materialized current-default summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_current_default_v1/summary.json)
+- current default entry point: [phase5_stockfish_pgn_symbolic_v1_v1.json](/home/torsten/EngineKonzept/python/configs/phase5_stockfish_pgn_symbolic_v1_v1.json)
+- materialized current-default bundle: [stockfish_pgn_symbolic_v1_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1)
+- materialized current-default summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_symbolic_v1_v1/summary.json)
 - best speed/quality trade-off so far: [phase5_stockfish_pgn_pi_10k_bs128_v1.json](/home/torsten/EngineKonzept/python/configs/phase5_stockfish_pgn_pi_10k_bs128_v1.json)
 - best verify legal-set F1 so far: [phase5_stockfish_pgn_factorized_v6_v1.json](/home/torsten/EngineKonzept/python/configs/phase5_stockfish_pgn_factorized_v6_v1.json)
 - current three-way comparison: [stockfish_pgn_10k_three_way_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_10k_three_way_compare_v1.json)
@@ -75,7 +75,7 @@ Reference Phase-5 experiments on the `10,240` train / `2,048` verify Pi-labeled 
 - current six-way comparison including the conditional factorized decoder arm: [stockfish_pgn_10k_six_way_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_10k_six_way_compare_v1.json)
 - current seven-way comparison including the policy-stronger conditional decoder arm: [stockfish_pgn_10k_seven_way_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_10k_seven_way_compare_v1.json)
 - current nine-way comparison including `factorized_v6` and `relational_v1`: [stockfish_pgn_10k_nine_way_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_10k_nine_way_compare_v1.json)
-- current symbolic comparison against `current_default` and `factorized_v6`: [stockfish_pgn_symbolic_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_symbolic_compare_v1.json)
+- current symbolic comparison against the previous learned-legality default and `factorized_v6`: [stockfish_pgn_symbolic_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_symbolic_compare_v1.json)
 - direct checkpoint-selection comparison for `factorized_v5`: [stockfish_pgn_factorized_v5_selection_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_factorized_v5_selection_compare_v1.json)
 - comparison summary: [stockfish_pgn_pi_10k_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_pi_10k_compare_v1.json)
 - oracle transport benchmark: [oracle_transport_bench_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_transport_bench_v1.json)
@@ -91,7 +91,7 @@ For the same categorization on configs, model bundles, and Phase-5 summaries, se
 
 The first architecture-extension notes beyond the flat MLP live in [docs/arch.ideas.md](/home/torsten/EngineKonzept/docs/arch.ideas.md). The current implementation applies only the low-risk part of that direction so far: typed multi-stream fusion before considering any heavier routing or expert machinery.
 
-The newer proposer comparison now extends beyond the first three factorized decoder baselines. `factorized_v6` is the current best learned-legality arm on the `10k` corpus by a clear margin, while `relational_v1` improves policy over the earlier factorized runs without taking the policy lead from `current_default`. There is also an explicit checkpoint-selection comparison for `factorized_v5`, showing the expected tradeoff between legality-first and balanced selection. The new `symbolic_v1` arm goes one step further and removes learned legality entirely in favor of exact legal-candidate generation; on the current `10k` corpus it is the strongest proposer result so far, but it remains experimental because it is checkpoint-only and has not yet replaced the old Rust export/runtime path.
+The newer proposer comparison now extends beyond the first three factorized decoder baselines. `factorized_v6` is the current best learned-legality arm on the `10k` corpus by a clear margin, while `relational_v1` improves policy over the earlier factorized runs without taking the policy lead from the old learned-legality default. There is also an explicit checkpoint-selection comparison for `factorized_v5`, showing the expected tradeoff between legality-first and balanced selection. The `symbolic_v1` arm goes one step further and removes learned legality entirely in favor of exact legal-candidate generation; on the current `10k` corpus it is the strongest proposer result so far, and it now carries the official proposer export/runtime contract.
 
 ## Phase 6 Snapshot
 
@@ -220,8 +220,8 @@ Representative Phase-5 commands:
 
 ```bash
 TMPDIR=/srv/schach/tmp .venv/bin/python python/scripts/build_stockfish_pgn_dataset.py --help
-TMPDIR=/srv/schach/tmp .venv/bin/python python/scripts/train_legality.py --config python/configs/phase5_stockfish_pgn_current_default_v1.json
-TMPDIR=/srv/schach/tmp .venv/bin/python python/scripts/eval_suite.py --checkpoint models/proposer/stockfish_pgn_current_default_v1/checkpoint.pt --dataset-path artifacts/datasets/phase5_stockfish_pgn_verify_pi_10k_v1 --split test
+TMPDIR=/srv/schach/tmp .venv/bin/python python/scripts/train_legality.py --config python/configs/phase5_stockfish_pgn_symbolic_v1_v1.json
+TMPDIR=/srv/schach/tmp .venv/bin/python python/scripts/eval_suite.py --checkpoint models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt --dataset-path artifacts/datasets/phase5_stockfish_pgn_verify_pi_10k_v1 --split test
 cargo run --quiet -p tools --bin dataset-oracle-daemon --socket /tmp/enginekonzept-oracle.sock
 ENGINEKONZEPT_DATASET_ORACLE=unix:///tmp/enginekonzept-oracle.sock TMPDIR=/srv/schach/tmp .venv/bin/python python/scripts/build_stockfish_pgn_dataset.py --help
 TMPDIR=/srv/schach/tmp .venv/bin/python python/scripts/benchmark_dataset_oracle.py --input tests/positions/edge_cases.txt --source-format edge-cases --records 10000

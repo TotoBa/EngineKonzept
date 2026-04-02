@@ -6,11 +6,19 @@ use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use action_space::encode_move;
+use core_types::{Color, Move, MoveKind, PieceKind, Square};
+use encoder::{encode_position, EncodedPosition};
+use position::Position;
+use rules::{apply_move, is_in_check, is_square_attacked, legal_moves};
 use serde::{Deserialize, Serialize};
 
-pub const PROPOSER_SCHEMA_VERSION: u32 = 2;
+pub const PROPOSER_SCHEMA_VERSION: u32 = 3;
 pub const DYNAMICS_SCHEMA_VERSION: u32 = 1;
 pub const PROPOSER_METADATA_FILE: &str = "metadata.json";
+pub const SYMBOLIC_MAX_LEGAL_CANDIDATES: usize = 256;
+pub const SYMBOLIC_CANDIDATE_FEATURE_DIM: usize = 18;
+pub const SYMBOLIC_GLOBAL_FEATURE_DIM: usize = 9;
 
 /// Returns the current purpose of this crate.
 pub fn crate_purpose() -> &'static str {
@@ -49,6 +57,8 @@ pub struct ProposerArtifacts {
 pub struct ProposerInputSpec {
     pub feature_dim: u32,
     pub layout: ProposerInputLayout,
+    #[serde(default)]
+    pub symbolic: Option<ProposerSymbolicInputSpec>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -71,11 +81,22 @@ pub struct ProposerActionSpaceSpec {
     pub flatten_formula: String,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProposerSymbolicInputSpec {
+    pub max_legal_candidates: u32,
+    pub candidate_feature_dim: u32,
+    pub global_feature_dim: u32,
+    pub candidate_feature_order: Vec<String>,
+    pub global_feature_order: Vec<String>,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProposerOutputSpec {
     pub legality_logits_shape: TensorShapeSpec,
     pub policy_logits_shape: TensorShapeSpec,
     pub legality_threshold: f32,
+    #[serde(default)]
+    pub legality_source: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -214,6 +235,24 @@ pub struct DynamicsValidationMetrics {
     pub drift_exact_next_feature_accuracy: f32,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct SymbolicProposerCandidate {
+    pub chess_move: Move,
+    pub move_uci: String,
+    pub action_index: u32,
+    pub features: [f32; SYMBOLIC_CANDIDATE_FEATURE_DIM],
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SymbolicProposerInputs {
+    pub state_features: Vec<f32>,
+    pub global_features: [f32; SYMBOLIC_GLOBAL_FEATURE_DIM],
+    pub candidate_action_indices: Vec<i64>,
+    pub candidate_features: Vec<[f32; SYMBOLIC_CANDIDATE_FEATURE_DIM]>,
+    pub candidate_mask: Vec<bool>,
+    pub candidates: Vec<SymbolicProposerCandidate>,
+}
+
 /// Errors returned when loading an exported proposer bundle.
 #[derive(Debug)]
 pub enum ProposerLoadError {
@@ -235,6 +274,10 @@ pub enum ProposerLoadError {
         expected: u32,
     },
     InvalidLegalityThreshold(f32),
+    InvalidSymbolicMaxLegalCandidates(u32),
+    InvalidSymbolicCandidateFeatureDim(u32),
+    InvalidSymbolicGlobalFeatureDim(u32),
+    InvalidLegalitySource(String),
 }
 
 /// Errors returned when loading an exported dynamics bundle.
@@ -280,6 +323,18 @@ impl fmt::Display for ProposerLoadError {
             Self::InvalidLegalityThreshold(threshold) => {
                 write!(f, "invalid legality threshold: {threshold}")
             }
+            Self::InvalidSymbolicMaxLegalCandidates(value) => {
+                write!(f, "invalid symbolic max_legal_candidates: {value}")
+            }
+            Self::InvalidSymbolicCandidateFeatureDim(value) => {
+                write!(f, "invalid symbolic candidate_feature_dim: {value}")
+            }
+            Self::InvalidSymbolicGlobalFeatureDim(value) => {
+                write!(f, "invalid symbolic global_feature_dim: {value}")
+            }
+            Self::InvalidLegalitySource(source) => {
+                write!(f, "invalid proposer legality_source: {source}")
+            }
         }
     }
 }
@@ -294,7 +349,11 @@ impl Error for ProposerLoadError {
             | Self::InvalidFeatureDim { .. }
             | Self::InvalidActionSpaceFlatSize { .. }
             | Self::InvalidOutputShape { .. }
-            | Self::InvalidLegalityThreshold(_) => None,
+            | Self::InvalidLegalityThreshold(_)
+            | Self::InvalidSymbolicMaxLegalCandidates(_)
+            | Self::InvalidSymbolicCandidateFeatureDim(_)
+            | Self::InvalidSymbolicGlobalFeatureDim(_)
+            | Self::InvalidLegalitySource(_) => None,
         }
     }
 }
@@ -427,7 +486,7 @@ pub fn load_dynamics_metadata(
 
 /// Validate proposer metadata without touching the referenced artifact files.
 pub fn validate_proposer_metadata(metadata: &ProposerMetadata) -> Result<(), ProposerLoadError> {
-    if metadata.schema_version != PROPOSER_SCHEMA_VERSION {
+    if !(2..=PROPOSER_SCHEMA_VERSION).contains(&metadata.schema_version) {
         return Err(ProposerLoadError::UnsupportedSchemaVersion(
             metadata.schema_version,
         ));
@@ -469,6 +528,36 @@ pub fn validate_proposer_metadata(metadata: &ProposerMetadata) -> Result<(), Pro
         return Err(ProposerLoadError::InvalidLegalityThreshold(
             metadata.outputs.legality_threshold,
         ));
+    }
+
+    if let Some(symbolic) = &metadata.input.symbolic {
+        if symbolic.max_legal_candidates == 0
+            || symbolic.max_legal_candidates > SYMBOLIC_MAX_LEGAL_CANDIDATES as u32
+        {
+            return Err(ProposerLoadError::InvalidSymbolicMaxLegalCandidates(
+                symbolic.max_legal_candidates,
+            ));
+        }
+        if symbolic.candidate_feature_dim != SYMBOLIC_CANDIDATE_FEATURE_DIM as u32 {
+            return Err(ProposerLoadError::InvalidSymbolicCandidateFeatureDim(
+                symbolic.candidate_feature_dim,
+            ));
+        }
+        if symbolic.global_feature_dim != SYMBOLIC_GLOBAL_FEATURE_DIM as u32 {
+            return Err(ProposerLoadError::InvalidSymbolicGlobalFeatureDim(
+                symbolic.global_feature_dim,
+            ));
+        }
+    }
+
+    match metadata
+        .outputs
+        .legality_source
+        .as_deref()
+        .unwrap_or("learned_head")
+    {
+        "learned_head" | "symbolic_generator" => {}
+        other => return Err(ProposerLoadError::InvalidLegalitySource(other.to_string())),
     }
 
     Ok(())
@@ -541,6 +630,202 @@ fn validate_output_shape(
     Ok(())
 }
 
+/// Build the official symbolic proposer input contract for one exact position.
+pub fn build_symbolic_proposer_inputs(
+    position: &Position,
+) -> Result<SymbolicProposerInputs, action_space::ActionEncodeError> {
+    let encoded = encode_position(position);
+    let state_features = pack_position_features(&encoded);
+    let legal = legal_moves(position);
+    let own_attacks = attack_map(position, position.side_to_move());
+    let opponent = match position.side_to_move() {
+        Color::White => Color::Black,
+        Color::Black => Color::White,
+    };
+    let opponent_attacks = attack_map(position, opponent);
+
+    let mut candidates = Vec::with_capacity(legal.len());
+    for chess_move in legal {
+        let action_index = flatten_action_index(encode_move(chess_move)?);
+        let move_uci = chess_move.to_uci();
+        let features =
+            build_candidate_features(position, chess_move, &own_attacks, &opponent_attacks);
+        candidates.push(SymbolicProposerCandidate {
+            chess_move,
+            move_uci,
+            action_index,
+            features,
+        });
+    }
+    candidates.sort_by_key(|candidate| candidate.action_index);
+
+    let mut candidate_action_indices = vec![-1_i64; SYMBOLIC_MAX_LEGAL_CANDIDATES];
+    let mut candidate_features =
+        vec![[0.0; SYMBOLIC_CANDIDATE_FEATURE_DIM]; SYMBOLIC_MAX_LEGAL_CANDIDATES];
+    let mut candidate_mask = vec![false; SYMBOLIC_MAX_LEGAL_CANDIDATES];
+    for (index, candidate) in candidates.iter().enumerate() {
+        if index >= SYMBOLIC_MAX_LEGAL_CANDIDATES {
+            break;
+        }
+        candidate_action_indices[index] = i64::from(candidate.action_index);
+        candidate_features[index] = candidate.features;
+        candidate_mask[index] = true;
+    }
+
+    Ok(SymbolicProposerInputs {
+        state_features,
+        global_features: build_global_features(
+            position,
+            candidates.len(),
+            &own_attacks,
+            &opponent_attacks,
+        ),
+        candidate_action_indices,
+        candidate_features,
+        candidate_mask,
+        candidates,
+    })
+}
+
+fn pack_position_features(encoded: &EncodedPosition) -> Vec<f32> {
+    let mut features = Vec::with_capacity(
+        (encoded.piece_tokens.len() * 3) + (64 * 2) + 6 + ((32 - encoded.piece_tokens.len()) * 3),
+    );
+    for token in &encoded.piece_tokens {
+        for value in token.as_array() {
+            features.push(value as f32);
+        }
+    }
+    for _ in encoded.piece_tokens.len()..32 {
+        features.extend_from_slice(&[-1.0, -1.0, -1.0]);
+    }
+    for token in encoded.square_token_matrix() {
+        for value in token {
+            features.push(value as f32);
+        }
+    }
+    for value in encoded.rule_token_vector() {
+        features.push(value as f32);
+    }
+    features
+}
+
+fn build_global_features(
+    position: &Position,
+    legal_move_count: usize,
+    own_attacks: &[bool; 64],
+    opponent_attacks: &[bool; 64],
+) -> [f32; SYMBOLIC_GLOBAL_FEATURE_DIM] {
+    let legal = legal_moves(position);
+    let piece_count = position.iter_pieces().count();
+    [
+        bool_to_f32(is_in_check(position, position.side_to_move())),
+        bool_to_f32(legal.iter().any(|mv| {
+            matches!(
+                mv.kind,
+                MoveKind::CastleKingside | MoveKind::CastleQueenside
+            )
+        })),
+        bool_to_f32(
+            legal
+                .iter()
+                .any(|mv| matches!(mv.kind, MoveKind::EnPassant)),
+        ),
+        bool_to_f32(legal.iter().any(|mv| mv.kind.promotion_piece().is_some())),
+        bool_to_f32(piece_count <= 8),
+        (legal_move_count as f32) / 256.0,
+        (piece_count as f32) / 32.0,
+        (own_attacks.iter().filter(|attacked| **attacked).count() as f32) / 64.0,
+        (opponent_attacks
+            .iter()
+            .filter(|attacked| **attacked)
+            .count() as f32)
+            / 64.0,
+    ]
+}
+
+fn build_candidate_features(
+    position: &Position,
+    chess_move: Move,
+    own_attacks: &[bool; 64],
+    opponent_attacks: &[bool; 64],
+) -> [f32; SYMBOLIC_CANDIDATE_FEATURE_DIM] {
+    let moving_piece = position.board()[usize::from(chess_move.from.index())]
+        .expect("legal move source must contain a piece");
+    let captured_piece = captured_piece_for_move(position, chess_move);
+    let next_position = apply_move(position, chess_move).expect("legal move must apply");
+    let piece_type = moving_piece.kind;
+    [
+        bool_to_f32(chess_move.kind.is_capture()),
+        bool_to_f32(chess_move.kind.promotion_piece().is_some()),
+        bool_to_f32(matches!(
+            chess_move.kind,
+            MoveKind::CastleKingside | MoveKind::CastleQueenside
+        )),
+        bool_to_f32(matches!(chess_move.kind, MoveKind::EnPassant)),
+        bool_to_f32(is_in_check(&next_position, next_position.side_to_move())),
+        bool_to_f32(opponent_attacks[usize::from(chess_move.from.index())]),
+        bool_to_f32(opponent_attacks[usize::from(chess_move.to.index())]),
+        bool_to_f32(own_attacks[usize::from(chess_move.from.index())]),
+        bool_to_f32(own_attacks[usize::from(chess_move.to.index())]),
+        bool_to_f32(piece_type == PieceKind::Pawn),
+        bool_to_f32(piece_type == PieceKind::Knight),
+        bool_to_f32(piece_type == PieceKind::Bishop),
+        bool_to_f32(piece_type == PieceKind::Rook),
+        bool_to_f32(piece_type == PieceKind::Queen),
+        bool_to_f32(piece_type == PieceKind::King),
+        bool_to_f32(captured_piece.is_some()),
+        bool_to_f32(matches!(captured_piece, Some(piece) if piece.kind == PieceKind::Pawn)),
+        bool_to_f32(matches!(
+            captured_piece,
+            Some(piece)
+                if matches!(
+                    piece.kind,
+                    PieceKind::Knight | PieceKind::Bishop | PieceKind::Rook | PieceKind::Queen
+                )
+        )),
+    ]
+}
+
+fn attack_map(position: &Position, attacker: Color) -> [bool; 64] {
+    let mut attacked = [false; 64];
+    for index in 0..64_u8 {
+        let square = Square::new(index).expect("validated square index");
+        attacked[usize::from(index)] = is_square_attacked(position, square, attacker);
+    }
+    attacked
+}
+
+fn flatten_action_index(action: action_space::ActionEncoding) -> u32 {
+    let [from_index, to_index, promotion_index] = action.as_indices();
+    (((from_index * 64) + to_index) * 5 + promotion_index) as u32
+}
+
+fn bool_to_f32(value: bool) -> f32 {
+    if value {
+        1.0
+    } else {
+        0.0
+    }
+}
+
+fn captured_piece_for_move(position: &Position, chess_move: Move) -> Option<core_types::Piece> {
+    match chess_move.kind {
+        MoveKind::EnPassant => {
+            let rank_delta = if position.side_to_move() == Color::White {
+                -1
+            } else {
+                1
+            };
+            chess_move
+                .to
+                .offset(0, rank_delta)
+                .and_then(|square| position.board()[usize::from(square.index())])
+        }
+        _ => position.board()[usize::from(chess_move.to.index())],
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -550,9 +835,12 @@ mod tests {
     use tempfile::tempdir;
 
     use super::{
-        crate_purpose, load_dynamics_bundle, load_proposer_bundle, validate_dynamics_metadata,
-        validate_proposer_metadata, DynamicsLoadError, ProposerLoadError,
+        build_symbolic_proposer_inputs, crate_purpose, load_dynamics_bundle, load_proposer_bundle,
+        validate_dynamics_metadata, validate_proposer_metadata, DynamicsLoadError,
+        ProposerLoadError, SYMBOLIC_CANDIDATE_FEATURE_DIM, SYMBOLIC_GLOBAL_FEATURE_DIM,
+        SYMBOLIC_MAX_LEGAL_CANDIDATES,
     };
+    use position::Position;
 
     #[test]
     fn purpose_is_non_empty() {
@@ -566,7 +854,7 @@ mod tests {
 
         let bundle = load_proposer_bundle(bundle_dir.path()).expect("bundle loads");
 
-        assert_eq!(bundle.metadata.schema_version, 2);
+        assert_eq!(bundle.metadata.schema_version, 3);
         assert_eq!(bundle.metadata.input.feature_dim, 230);
         assert_eq!(bundle.metadata.action_space.flat_size, 20_480);
         assert!(bundle.checkpoint_path.ends_with("checkpoint.pt"));
@@ -588,6 +876,29 @@ mod tests {
                 found: 7,
             }
         ));
+    }
+
+    #[test]
+    fn build_symbolic_inputs_matches_runtime_contract() {
+        let position = Position::startpos();
+        let inputs = build_symbolic_proposer_inputs(&position).expect("symbolic inputs build");
+
+        assert_eq!(inputs.state_features.len(), 230);
+        assert_eq!(inputs.global_features.len(), SYMBOLIC_GLOBAL_FEATURE_DIM);
+        assert_eq!(
+            inputs.candidate_action_indices.len(),
+            SYMBOLIC_MAX_LEGAL_CANDIDATES
+        );
+        assert_eq!(
+            inputs.candidate_features.len(),
+            SYMBOLIC_MAX_LEGAL_CANDIDATES
+        );
+        assert_eq!(inputs.candidates.len(), 20);
+        assert_eq!(
+            inputs.candidate_features[0].len(),
+            SYMBOLIC_CANDIDATE_FEATURE_DIM
+        );
+        assert!(inputs.candidate_mask.iter().filter(|value| **value).count() == 20);
     }
 
     #[test]
@@ -651,7 +962,7 @@ mod tests {
 
     fn valid_metadata() -> serde_json::Value {
         json!({
-            "schema_version": 2,
+            "schema_version": 3,
             "model_name": "legality_policy_proposer_v1",
             "artifacts": {
                 "checkpoint_file": "checkpoint.pt",
@@ -671,7 +982,8 @@ mod tests {
                         "square_tokens[64][square_index, occupant_code]",
                         "rule_token[side_to_move, castling_bits, en_passant_square, halfmove_clock, fullmove_number, repetition_count]"
                     ]
-                }
+                },
+                "symbolic": null
             },
             "action_space": {
                 "from_head_size": 64,
@@ -689,7 +1001,8 @@ mod tests {
                     "batch": "dynamic",
                     "actions": 20480
                 },
-                "legality_threshold": 0.5
+                "legality_threshold": 0.5,
+                "legality_source": "learned_head"
             },
             "training": {
                 "seed": 5,

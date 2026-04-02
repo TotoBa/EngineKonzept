@@ -5,6 +5,7 @@ use std::error::Error;
 use std::fmt;
 use std::io::{self, BufRead, Write};
 
+use inference::build_symbolic_proposer_inputs;
 use position::Position;
 use rules::{apply_move, legal_moves, MoveError};
 use uci_protocol::{parse_command, ParseError, PositionSpec, UciCommand, UciResponse};
@@ -124,9 +125,21 @@ impl EngineSession {
 
     fn stub_bestmove(&self, go_args: &[String]) -> String {
         let searchmoves = searchmoves_from_args(go_args);
-        legal_moves(&self.current_position)
+        build_symbolic_proposer_inputs(&self.current_position)
+            .map(|inputs| inputs.candidates)
+            .unwrap_or_else(|_| {
+                legal_moves(&self.current_position)
+                    .into_iter()
+                    .map(|candidate| inference::SymbolicProposerCandidate {
+                        chess_move: candidate,
+                        move_uci: candidate.to_uci(),
+                        action_index: 0,
+                        features: [0.0; inference::SYMBOLIC_CANDIDATE_FEATURE_DIM],
+                    })
+                    .collect()
+            })
             .into_iter()
-            .map(|candidate| candidate.to_uci())
+            .map(|candidate| candidate.move_uci)
             .filter(|candidate| match &searchmoves {
                 Some(searchmoves) => searchmoves.contains(candidate),
                 None => true,

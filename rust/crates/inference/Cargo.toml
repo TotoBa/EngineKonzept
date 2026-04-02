@@ -9,6 +9,11 @@ publish = false
 path = "src/lib.rs"
 
 [dependencies]
+action-space = { path = "../action-space" }
+core-types = { path = "../core-types" }
+encoder = { path = "../encoder" }
+position = { path = "../position" }
+rules = { path = "../rules" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 

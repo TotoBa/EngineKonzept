@@ -29,8 +29,8 @@ Use these first when reviewing the current standard proposer path:
 
 The current default config writes its training summary to:
 
-- [stockfish_pgn_current_default_v1/summary.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_current_default_v1/summary.json)
-- [stockfish_pgn_current_default_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_current_default_v1_verify.json)
+- [stockfish_pgn_symbolic_v1_v1/summary.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_symbolic_v1_v1/summary.json)
+- [stockfish_pgn_symbolic_v1_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_symbolic_v1_v1_verify.json)
 
 ## Experimental Variants
 
@@ -57,8 +57,6 @@ These summaries correspond to the main `10k` proposer comparison runs:
 - [stockfish_pgn_factorized_v6_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_factorized_v6_v1_verify.json)
 - [stockfish_pgn_relational_v1_v1/summary.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_relational_v1_v1/summary.json)
 - [stockfish_pgn_relational_v1_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_relational_v1_v1_verify.json)
-- [stockfish_pgn_symbolic_v1_v1/summary.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_symbolic_v1_v1/summary.json)
-- [stockfish_pgn_symbolic_v1_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_symbolic_v1_v1_verify.json)
 
 ## Legacy Baselines
 

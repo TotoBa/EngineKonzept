@@ -168,6 +168,54 @@ def test_config_accepts_symbolic_v1_architecture(tmp_path: Path) -> None:
     assert config.export.enabled is False
 
 
+def test_export_metadata_marks_symbolic_legality_source(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "seed": 7,
+                "output_dir": "artifacts/phase5/test-run",
+                "data": {
+                    "dataset_path": "artifacts/datasets/phase4",
+                    "train_split": "train",
+                    "validation_split": "validation",
+                },
+                "model": {
+                    "architecture": "symbolic_v1",
+                    "hidden_dim": 64,
+                    "hidden_layers": 2,
+                    "dropout": 0.0,
+                },
+                "optimization": {
+                    "epochs": 1,
+                    "batch_size": 2,
+                    "learning_rate": 0.001,
+                    "weight_decay": 0.0,
+                    "legality_loss_weight": 1.0,
+                    "policy_loss_weight": 1.0,
+                },
+                "evaluation": {"legality_threshold": 0.4},
+                "export": {
+                    "enabled": True,
+                    "bundle_dir": "models/proposer/test-symbolic",
+                    "checkpoint_name": "checkpoint.pt",
+                    "exported_program_name": "proposer.pt2",
+                    "metadata_name": "metadata.json",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    metadata = build_export_metadata(
+        load_proposer_train_config(config_path),
+        validation_metrics={},
+    )
+
+    assert metadata["outputs"]["legality_source"] == "symbolic_generator"
+    assert metadata["input"]["symbolic"]["max_legal_candidates"] > 0
+
+
 def test_config_loading_and_export_metadata_are_repo_relative(tmp_path: Path) -> None:
     config_path = tmp_path / "config.json"
     config_path.write_text(
@@ -208,13 +256,14 @@ def test_config_loading_and_export_metadata_are_repo_relative(tmp_path: Path) ->
     )
 
     assert resolve_repo_path(tmp_path, config.output_dir) == tmp_path / "artifacts/phase5/test-run"
-    assert metadata["schema_version"] == 2
+    assert metadata["schema_version"] == 3
     assert metadata["training"]["architecture"] == "mlp_v1"
     assert metadata["action_space"]["flat_size"] == ACTION_SPACE_SIZE
     assert metadata["input"]["feature_dim"] == POSITION_FEATURE_SIZE
     assert metadata["outputs"]["legality_threshold"] == 0.4
     assert metadata["training"]["checkpoint_selection"] == "legality_first"
     assert metadata["artifacts"]["exported_program_file"] == "proposer.pt2"
+    assert metadata["outputs"]["legality_source"] == "learned_head"
     assert config.runtime.torch_threads == 0
     assert config.runtime.dataloader_workers == 0
 

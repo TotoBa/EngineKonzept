@@ -1,0 +1,122 @@
+{
+  "action_space": {
+    "flat_size": 20480,
+    "flatten_formula": "((from_index * 64) + to_index) * 5 + promotion_index",
+    "from_head_size": 64,
+    "promotion_head_size": 5,
+    "to_head_size": 64
+  },
+  "artifacts": {
+    "checkpoint_file": "checkpoint.pt",
+    "exported_program_file": "proposer.pt2"
+  },
+  "input": {
+    "feature_dim": 230,
+    "layout": {
+      "flatten_order": [
+        "piece_tokens padded to 32 rows with [-1, -1, -1]",
+        "square_tokens[64][square_index, occupant_code]",
+        "rule_token[side_to_move, castling_bits, en_passant_square, halfmove_clock, fullmove_number, repetition_count]"
+      ],
+      "piece_padding_value": -1,
+      "piece_token_capacity": 32,
+      "piece_token_width": 3,
+      "rule_token_width": 6,
+      "square_token_count": 64,
+      "square_token_width": 2
+    },
+    "sections": {
+      "piece": {
+        "offset": 0,
+        "size": 96
+      },
+      "rule": {
+        "offset": 224,
+        "size": 6
+      },
+      "square": {
+        "offset": 96,
+        "size": 128
+      }
+    },
+    "symbolic": {
+      "candidate_feature_dim": 18,
+      "candidate_feature_order": [
+        "is_capture",
+        "is_promotion",
+        "is_castle",
+        "is_en_passant",
+        "gives_check",
+        "from_attacked_by_opponent",
+        "to_attacked_by_opponent",
+        "from_defended_by_self",
+        "to_attacked_by_self",
+        "moving_piece_pawn",
+        "moving_piece_knight",
+        "moving_piece_bishop",
+        "moving_piece_rook",
+        "moving_piece_queen",
+        "moving_piece_king",
+        "captured_piece_present",
+        "captured_piece_pawn",
+        "captured_piece_minor_or_major"
+      ],
+      "global_feature_dim": 9,
+      "global_feature_order": [
+        "in_check",
+        "has_legal_castle",
+        "has_legal_en_passant",
+        "has_legal_promotion",
+        "is_low_material_endgame",
+        "legal_move_count_normalized",
+        "piece_count_normalized",
+        "self_attack_square_ratio",
+        "opponent_attack_square_ratio"
+      ],
+      "max_legal_candidates": 256
+    }
+  },
+  "model_name": "legality_policy_proposer",
+  "outputs": {
+    "legality_logits_shape": {
+      "actions": 20480,
+      "batch": "dynamic"
+    },
+    "legality_source": "symbolic_generator",
+    "legality_threshold": 0.5,
+    "policy_logits_shape": {
+      "actions": 20480,
+      "batch": "dynamic"
+    }
+  },
+  "schema_version": 3,
+  "training": {
+    "architecture": "symbolic_v1",
+    "batch_size": 256,
+    "checkpoint_selection": "legality_first",
+    "dropout": 0.1,
+    "epochs": 10,
+    "hidden_dim": 128,
+    "hidden_layers": 2,
+    "learning_rate": 0.001,
+    "legality_loss_weight": 1.0,
+    "policy_loss_weight": 1.0,
+    "seed": 29,
+    "selection_policy_weight": 1.0,
+    "train_split": "train",
+    "validation_split": "validation",
+    "weight_decay": 0.0001
+  },
+  "validation_metrics": {
+    "examples_per_second": 3114.803,
+    "labeled_policy_examples": 1024,
+    "legal_set_f1": 1.0,
+    "legal_set_precision": 1.0,
+    "legal_set_recall": 1.0,
+    "legality_loss": 0.0,
+    "policy_loss": 3.191331,
+    "policy_top1_accuracy": 0.158203,
+    "total_examples": 1024,
+    "total_loss": 3.191331
+  }
+}

@@ -8,17 +8,15 @@ Most model bundles contain:
 - `proposer.pt2`
 - `metadata.json`
 
-The current `symbolic_v1` arm is the explicit exception: it is checkpoint-only while the symbolic-candidate runtime contract is still experimental.
-
 ## Current Default
 
 Use this first for the current standard Phase-5 proposer path:
 
-- [phase5_stockfish_pgn_current_default_v1.json](/home/torsten/EngineKonzept/python/configs/phase5_stockfish_pgn_current_default_v1.json)
+- [phase5_stockfish_pgn_symbolic_v1_v1.json](/home/torsten/EngineKonzept/python/configs/phase5_stockfish_pgn_symbolic_v1_v1.json)
 
 Materialized current-default bundle:
 
-- [stockfish_pgn_current_default_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_current_default_v1)
+- [stockfish_pgn_symbolic_v1_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1)
 
 ## Experimental Variants
 
@@ -43,7 +41,7 @@ These bundles correspond to the main `10k` comparison grid:
 - [stockfish_pgn_relational_v1_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_relational_v1_v1)
   Typed relational backbone plus stronger factorized heads; current relational policy-path baseline.
 - [stockfish_pgn_symbolic_v1_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1)
-  Checkpoint-only symbolic-candidate proposer arm. Exact legal move generation plus learned policy scoring over legal candidates; not yet exported through the old Rust bundle path.
+  Symbolic-candidate proposer arm. Exact legal move generation plus learned policy scoring over legal candidates; now exported through the official Rust-loadable proposer bundle path.
 - [stockfish_pgn_pi_10k_h192_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_pi_10k_h192_v1)
   Wider hidden-layer experimental variant.
 - [stockfish_pgn_pi_10k_h256_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_pi_10k_h256_v1)

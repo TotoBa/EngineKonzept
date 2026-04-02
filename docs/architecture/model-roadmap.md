@@ -26,8 +26,8 @@ The current preferred direction is:
 
 That implies the following near-term sequence:
 
-1. stronger proposer structure
-2. factorized move decoding
+1. exact symbolic legality plus learned candidate scoring
+2. stronger proposer candidate scoring
 3. action-conditioned latent dynamics
 4. explicit opponent modeling
 5. bounded recurrent planning
@@ -77,14 +77,13 @@ That means:
 
 - the exact Rust legality authority
 - the current factorized move vocabulary
-- the current exported-bundle contract
 - the current Phase-5 dataset and evaluation harnesses
 
 ### Add next
 
-- conditional factorized proposer decoding over the existing move schema
-- more structured proposer backbones where they preserve the same export and evaluation contract
-- symbolic-candidate proposer arms that use exact legal move generation as a side input
+- richer symbolic candidate features over the exact legal move set
+- stronger candidate scorers over the current symbolic proposer contract
+- downstream dynamics and planner modules that consume the same symbolic candidate set
 
 ### Do not add yet
 
@@ -95,12 +94,13 @@ That means:
 
 ### Why
 
-The repo already has an object-centric encoder and a factorized move schema. The biggest architectural mismatch is that the current proposer still collapses this into large flat `20480` heads.
+The repo already has an object-centric encoder and a factorized move schema. The biggest Phase-5 mismatch was that the learned proposer spent capacity learning legality and scoring over the full flat `20480` action space instead of exact legal candidates.
 
 The next best repo-local step is therefore:
 
 - not "more routing"
-- but "decode the existing move structure in a way that matches the action space"
+- not "more learned legality"
+- but "score exact legal candidates with richer symbolic move context"
 
 The factorized decoder line now has three concrete lessons:
 
@@ -110,13 +110,13 @@ The factorized decoder line now has three concrete lessons:
 
 The remaining gap is now:
 
-- best policy still belongs to `current_default`
+- best policy among learned-legality arms still belongs to `current_default`
 - best legality now belongs to `factorized_v6`
 - best legality/policy balance among the newer factorized arms still does not beat `current_default` on policy
 - the typed-backbone `relational_v1` run is now the better policy result among the newer structured arms
-- the new symbolic-candidate `symbolic_v1` arm beats all of them on the `10k` corpus, but has not yet been integrated into the runtime/export contract
+- the new symbolic-candidate `symbolic_v1` arm beats all of them on the `10k` corpus and now carries the official runtime/export contract
 
-And there is now a separate method choice as well:
+Inside the learned-legality line there is still a useful method choice as well:
 
 - `legality_first` selection keeps the strongest legal-set F1
 - `balanced` selection lifts policy somewhat further, but gives up legality
@@ -233,14 +233,14 @@ These ideas are interesting for later phases, but they are not the current bottl
 
 The next model experiments should be ordered like this:
 
-1. improve the Phase-6 dynamics model until it beats the current plumbing baseline on exactness
-2. decide whether special-move structure belongs in the loss, decoder, or target format
-3. define the first explicit opponent-head contract before planner work
-4. only then resume broader proposer exploration if Phase-6 pressure points point back at representation quality
+1. improve the Phase-6 dynamics model over the symbolic proposer candidate contract
+2. define the first explicit opponent-head contract before planner work
+3. explore richer symbolic proposer candidate features only if downstream modules need them
+4. only then resume broader proposer exploration if Phase-6/7 pressure points point back at representation quality
 
 ## Success Criteria For The Next Step
 
-The next proposer experiment should count as successful only if it improves at least one of these without breaking the current contracts:
+The next proposer experiment should count as successful only if it improves at least one of these without breaking the current symbolic contracts:
 
 - verify `policy_top1_accuracy`
 - verify `legal_set_f1`

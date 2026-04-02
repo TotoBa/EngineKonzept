@@ -30,7 +30,7 @@
     "dataloader_workers": 0
   },
   "export": {
-    "enabled": false,
+    "enabled": true,
     "bundle_dir": "models/proposer/stockfish_pgn_symbolic_v1_v1",
     "checkpoint_name": "checkpoint.pt",
     "exported_program_name": "proposer.pt2",

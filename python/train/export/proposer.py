@@ -8,10 +8,10 @@ from typing import Any, Mapping
 
 from train.action_space import ACTION_SPACE_SIZE, action_space_metadata
 from train.config import ProposerTrainConfig
-from train.datasets.artifacts import position_feature_spec
+from train.datasets.artifacts import position_feature_spec, symbolic_proposer_feature_spec
 from train.models.proposer import MODEL_NAME, torch_is_available
 
-PROPOSER_EXPORT_SCHEMA_VERSION = 2
+PROPOSER_EXPORT_SCHEMA_VERSION = 3
 
 
 def build_export_metadata(
@@ -27,12 +27,24 @@ def build_export_metadata(
             "checkpoint_file": config.export.checkpoint_name,
             "exported_program_file": config.export.exported_program_name,
         },
-        "input": position_feature_spec(),
+        "input": {
+            **position_feature_spec(),
+            "symbolic": (
+                symbolic_proposer_feature_spec()
+                if config.model.architecture == "symbolic_v1"
+                else None
+            ),
+        },
         "action_space": action_space_metadata(),
         "outputs": {
             "legality_logits_shape": {"batch": "dynamic", "actions": ACTION_SPACE_SIZE},
             "policy_logits_shape": {"batch": "dynamic", "actions": ACTION_SPACE_SIZE},
             "legality_threshold": config.evaluation.legality_threshold,
+            "legality_source": (
+                "symbolic_generator"
+                if config.model.architecture == "symbolic_v1"
+                else "learned_head"
+            ),
         },
         "training": {
             "seed": config.seed,
@@ -87,11 +99,51 @@ def export_proposer_bundle(
     )
 
     export_input = torch.zeros((2, position_feature_spec()["feature_dim"]), dtype=torch.float32)
-    exported_program = torch.export.export(
-        model.cpu(),
-        (export_input,),
-        dynamic_shapes=({0: torch.export.Dim.DYNAMIC},),
-    )
+    if config.model.architecture == "symbolic_v1":
+        symbolic_spec = symbolic_proposer_feature_spec()
+        candidate_action_indices = torch.zeros(
+            (2, int(symbolic_spec["max_legal_candidates"])),
+            dtype=torch.int64,
+        )
+        candidate_features = torch.zeros(
+            (
+                2,
+                int(symbolic_spec["max_legal_candidates"]),
+                int(symbolic_spec["candidate_feature_dim"]),
+            ),
+            dtype=torch.float32,
+        )
+        candidate_mask = torch.zeros(
+            (2, int(symbolic_spec["max_legal_candidates"])),
+            dtype=torch.bool,
+        )
+        global_features = torch.zeros(
+            (2, int(symbolic_spec["global_feature_dim"])),
+            dtype=torch.float32,
+        )
+        exported_program = torch.export.export(
+            model.cpu(),
+            (
+                export_input,
+                candidate_action_indices,
+                candidate_features,
+                candidate_mask,
+                global_features,
+            ),
+            dynamic_shapes=(
+                {0: torch.export.Dim.DYNAMIC},
+                {0: torch.export.Dim.DYNAMIC},
+                {0: torch.export.Dim.DYNAMIC},
+                {0: torch.export.Dim.DYNAMIC},
+                {0: torch.export.Dim.DYNAMIC},
+            ),
+        )
+    else:
+        exported_program = torch.export.export(
+            model.cpu(),
+            (export_input,),
+            dynamic_shapes=({0: torch.export.Dim.DYNAMIC},),
+        )
     torch.export.save(exported_program, exported_program_path)
 
     metadata = build_export_metadata(config, validation_metrics=validation_metrics)

@@ -13,6 +13,7 @@ name = "engine-app"
 path = "src/main.rs"
 
 [dependencies]
+inference = { path = "../inference" }
 position = { path = "../position" }
 rules = { path = "../rules" }
 uci-protocol = { path = "../uci-protocol" }

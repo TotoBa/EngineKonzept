@@ -45,6 +45,7 @@ dependencies = [
 name = "engine-app"
 version = "0.1.0"
 dependencies = [
+ "inference",
  "position",
  "rules",
  "uci-protocol",
@@ -138,6 +139,11 @@ dependencies = [
 name = "inference"
 version = "0.1.0"
 dependencies = [
+ "action-space",
+ "core-types",
+ "encoder",
+ "position",
+ "rules",
  "serde",
  "serde_json",
  "tempfile",

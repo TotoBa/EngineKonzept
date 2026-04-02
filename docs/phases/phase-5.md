@@ -22,9 +22,9 @@ Train and export the first legality/policy proposer without introducing dynamics
 - small seed policy dataset: [policy_seed.jsonl](/home/torsten/EngineKonzept/tests/positions/policy_seed.jsonl)
 - current standard training corpus: [phase5_stockfish_pgn_train_pi_10k_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1)
 - current standard verify corpus: [phase5_stockfish_pgn_verify_pi_10k_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_verify_pi_10k_v1)
-- current default training config: [phase5_stockfish_pgn_current_default_v1.json](/home/torsten/EngineKonzept/python/configs/phase5_stockfish_pgn_current_default_v1.json)
-- current default bundle: [stockfish_pgn_current_default_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_current_default_v1)
-- current default training summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_current_default_v1/summary.json)
+- current default training config: [phase5_stockfish_pgn_symbolic_v1_v1.json](/home/torsten/EngineKonzept/python/configs/phase5_stockfish_pgn_symbolic_v1_v1.json)
+- current default bundle: [stockfish_pgn_symbolic_v1_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1)
+- current default training summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_symbolic_v1_v1/summary.json)
 - current three-way comparison: [stockfish_pgn_10k_three_way_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_10k_three_way_compare_v1.json)
 - current four-way comparison with the structured multi-stream arm: [stockfish_pgn_10k_four_way_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_10k_four_way_compare_v1.json)
 - current five-way comparison with the first factorized decoder arm: [stockfish_pgn_10k_five_way_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_10k_five_way_compare_v1.json)
@@ -61,16 +61,17 @@ The same `current default` / `experimental variant` / `legacy baseline` split is
 
 The current Phase-5 architecture decision is therefore:
 
-- keep `current_default` as the standard path
-- keep `h256` as the best legal-F1 reference
+- keep `symbolic_v1` as the standard path
+- keep the old learned `current_default` MLP as a legacy baseline
+- keep `h256` as the best old learned legal-F1 reference
 - keep `multistream_v2` as the first structured baseline
 - keep `factorized_v3` as an explicit negative baseline
 - keep `factorized_v6` as the best current legality arm
 - keep `factorized_v5` as the clearest checkpoint-selection tradeoff example inside the factorized line
 - keep `relational_v1` as the current typed-backbone policy-path reference
-- keep `symbolic_v1` as the first serious replacement arm for learned legality
+- treat the learned-legality proposer family as legacy experimental baselines
 - keep checkpoint selection explicit rather than implicit
-- accept the current learned-legality frontier as provisionally sufficient, but treat the symbolic-candidate proposer line as the strongest Phase-5 follow-up to integrate later if the runtime path is updated
+- accept the symbolic-candidate proposer line as the official proposer direction until a stronger replacement appears
 
 These findings suggest that raw capacity helps, but the current flat MLP is likely not sufficient by itself for strong policy learning.
 
