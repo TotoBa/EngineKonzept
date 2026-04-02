@@ -1,0 +1,228 @@
+{
+  "10k": {
+    "local": {
+      "runtime": null,
+      "input": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_raw_pi_10k_v1/train_raw.jsonl",
+      "repeats": 3,
+      "auto_w4_seconds": 6.378215,
+      "w4_b500_seconds": 6.221907,
+      "delta_seconds": 0.156308,
+      "delta_ratio": 1.025,
+      "auto_w4_schedule": {
+        "record_count": 10240,
+        "oracle_workers": 4,
+        "requested_batch_size": 0,
+        "effective_batch_size": 2560,
+        "batch_count": 4
+      },
+      "w4_b500_schedule": {
+        "record_count": 10240,
+        "oracle_workers": 4,
+        "requested_batch_size": 500,
+        "effective_batch_size": 500,
+        "batch_count": 21
+      },
+      "fastest": {
+        "name": "w4_b500",
+        "seconds": 6.221907,
+        "records_per_second": 1645.798
+      },
+      "digests": {
+        "dataset_jsonl": "d138797807bbbc1fba4a984685dde960621c14d7b69bee212465f5c80ecc6558",
+        "train_jsonl": "b8d028d932ce2ad8b3969db16c3fc2381954bf01a88e41a2b69b85aa2f611758",
+        "validation_jsonl": "c26182d2a34ee682a6659cbe9612d7dc79c1c36dc5645b12fff769e6b98d003d",
+        "test_jsonl": "e523759d3a6299f84c6aacea2742225bd46c8ba404565a45ab4733bfe5724f0c"
+      }
+    },
+    "raspberrypi": {
+      "runtime": null,
+      "input": "/home/toto/git/EngineKonzept.hostcmp/artifacts/datasets/phase5_stockfish_pgn_raw_pi_10k_v1/train_raw.jsonl",
+      "repeats": 3,
+      "auto_w4_seconds": 15.20112,
+      "w4_b500_seconds": 15.398508,
+      "delta_seconds": -0.197388,
+      "delta_ratio": 0.987,
+      "auto_w4_schedule": {
+        "record_count": 10240,
+        "oracle_workers": 4,
+        "requested_batch_size": 0,
+        "effective_batch_size": 500,
+        "batch_count": 21
+      },
+      "w4_b500_schedule": {
+        "record_count": 10240,
+        "oracle_workers": 4,
+        "requested_batch_size": 500,
+        "effective_batch_size": 500,
+        "batch_count": 21
+      },
+      "fastest": {
+        "name": "auto_w4",
+        "seconds": 15.20112,
+        "records_per_second": 673.635
+      },
+      "digests": {
+        "dataset_jsonl": "d138797807bbbc1fba4a984685dde960621c14d7b69bee212465f5c80ecc6558",
+        "train_jsonl": "b8d028d932ce2ad8b3969db16c3fc2381954bf01a88e41a2b69b85aa2f611758",
+        "validation_jsonl": "c26182d2a34ee682a6659cbe9612d7dc79c1c36dc5645b12fff769e6b98d003d",
+        "test_jsonl": "e523759d3a6299f84c6aacea2742225bd46c8ba404565a45ab4733bfe5724f0c"
+      }
+    }
+  },
+  "20k": {
+    "local": {
+      "runtime": null,
+      "input": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_raw_pi_10k_v1/train_raw.jsonl",
+      "repeats": 2,
+      "auto_w4_seconds": 13.336488,
+      "w4_b500_seconds": 10.642938,
+      "delta_seconds": 2.69355,
+      "delta_ratio": 1.253,
+      "auto_w4_schedule": {
+        "record_count": 20480,
+        "oracle_workers": 4,
+        "requested_batch_size": 0,
+        "effective_batch_size": 5120,
+        "batch_count": 4
+      },
+      "w4_b500_schedule": {
+        "record_count": 20480,
+        "oracle_workers": 4,
+        "requested_batch_size": 500,
+        "effective_batch_size": 500,
+        "batch_count": 41
+      },
+      "fastest": {
+        "name": "w4_b500",
+        "seconds": 10.642938,
+        "records_per_second": 1924.281
+      },
+      "digests": {
+        "dataset_jsonl": "64469db8dfbbe61d1b4fab2399fa62d30d11b7d303f290a3956179dc0ffdabf9",
+        "train_jsonl": "90c5f2935fe1a83cd982dbfa92ac7edc01a5d17df5753ab9ce332bd3fa0ef364",
+        "validation_jsonl": "819593f5015a296729fcee894430f4f4f0666d7903b3885b9fdd3ee83699a40c",
+        "test_jsonl": "03e3b0e47df0f3133d9124d03c72357e17f4b1ea80fe33ed154d5fe593d85221"
+      }
+    },
+    "raspberrypi": {
+      "runtime": null,
+      "input": "/home/toto/git/EngineKonzept.hostcmp/artifacts/datasets/phase5_stockfish_pgn_raw_pi_10k_v1/train_raw.jsonl",
+      "repeats": 2,
+      "auto_w4_seconds": 31.176064,
+      "w4_b500_seconds": 29.225835,
+      "delta_seconds": 1.950229,
+      "delta_ratio": 1.067,
+      "auto_w4_schedule": {
+        "record_count": 20480,
+        "oracle_workers": 4,
+        "requested_batch_size": 0,
+        "effective_batch_size": 500,
+        "batch_count": 41
+      },
+      "w4_b500_schedule": {
+        "record_count": 20480,
+        "oracle_workers": 4,
+        "requested_batch_size": 500,
+        "effective_batch_size": 500,
+        "batch_count": 41
+      },
+      "fastest": {
+        "name": "w4_b500",
+        "seconds": 29.225835,
+        "records_per_second": 700.75
+      },
+      "digests": {
+        "dataset_jsonl": "64469db8dfbbe61d1b4fab2399fa62d30d11b7d303f290a3956179dc0ffdabf9",
+        "train_jsonl": "90c5f2935fe1a83cd982dbfa92ac7edc01a5d17df5753ab9ce332bd3fa0ef364",
+        "validation_jsonl": "819593f5015a296729fcee894430f4f4f0666d7903b3885b9fdd3ee83699a40c",
+        "test_jsonl": "03e3b0e47df0f3133d9124d03c72357e17f4b1ea80fe33ed154d5fe593d85221"
+      }
+    }
+  },
+  "50k": {
+    "local": {
+      "runtime": {
+        "hostname": "chesstrainer",
+        "platform": "Linux-6.12.73+deb13-amd64-x86_64-with-glibc2.41",
+        "python_version": "3.13.5",
+        "cpu_count": 7
+      },
+      "input": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_raw_pi_10k_v1/train_raw.jsonl",
+      "repeats": 2,
+      "auto_w4_seconds": 23.149295,
+      "w4_b500_seconds": 23.860627,
+      "delta_seconds": -0.711332,
+      "delta_ratio": 0.97,
+      "auto_w4_schedule": {
+        "record_count": 51200,
+        "oracle_workers": 4,
+        "requested_batch_size": 0,
+        "effective_batch_size": 500,
+        "batch_count": 103
+      },
+      "w4_b500_schedule": {
+        "record_count": 51200,
+        "oracle_workers": 4,
+        "requested_batch_size": 500,
+        "effective_batch_size": 500,
+        "batch_count": 103
+      },
+      "fastest": {
+        "name": "auto_w4",
+        "seconds": 23.149295,
+        "records_per_second": 2211.73
+      },
+      "digests": {
+        "dataset_jsonl": "979098f79942691601b4d986bab0f3f774d77a7caa35c12edf5afcdb6a802ca7",
+        "train_jsonl": "32cddf6451b4771d0e98ee51dbb166a03ec4b987a14e95a6885d49ce1478e935",
+        "validation_jsonl": "7895967b1f8a0adc42f06d55ce20b5b3e341763b1a5058ee65ee75ad4a7bfe3c",
+        "test_jsonl": "7aacabde4d99ded5926f2448aa3bbc0ab40b150f6d7224cb9ecd4a8dab9f25c3"
+      }
+    },
+    "raspberrypi": {
+      "runtime": {
+        "hostname": "raspberrypi",
+        "platform": "Linux-6.12.47+rpt-rpi-v8-aarch64-with-glibc2.41",
+        "python_version": "3.13.5",
+        "cpu_count": 4
+      },
+      "input": "/home/toto/git/EngineKonzept.hostcmp/artifacts/datasets/phase5_stockfish_pgn_raw_pi_10k_v1/train_raw.jsonl",
+      "repeats": 2,
+      "auto_w4_seconds": 74.67893,
+      "w4_b500_seconds": 76.729287,
+      "delta_seconds": -2.050357,
+      "delta_ratio": 0.973,
+      "auto_w4_schedule": {
+        "record_count": 51200,
+        "oracle_workers": 4,
+        "requested_batch_size": 0,
+        "effective_batch_size": 500,
+        "batch_count": 103
+      },
+      "w4_b500_schedule": {
+        "record_count": 51200,
+        "oracle_workers": 4,
+        "requested_batch_size": 500,
+        "effective_batch_size": 500,
+        "batch_count": 103
+      },
+      "fastest": {
+        "name": "auto_w4",
+        "seconds": 74.67893,
+        "records_per_second": 685.602
+      },
+      "digests": {
+        "dataset_jsonl": "979098f79942691601b4d986bab0f3f774d77a7caa35c12edf5afcdb6a802ca7",
+        "train_jsonl": "32cddf6451b4771d0e98ee51dbb166a03ec4b987a14e95a6885d49ce1478e935",
+        "validation_jsonl": "7895967b1f8a0adc42f06d55ce20b5b3e341763b1a5058ee65ee75ad4a7bfe3c",
+        "test_jsonl": "7aacabde4d99ded5926f2448aa3bbc0ab40b150f6d7224cb9ecd4a8dab9f25c3"
+      }
+    }
+  },
+  "notes": [
+    "At 10k on raspberrypi, auto_w4 resolves to the same effective batch size as w4_b500.",
+    "At 20k on raspberrypi, auto_w4 resolves to the same effective batch size as w4_b500.",
+    "At 50k on local, auto_w4 resolves to the same effective batch size as w4_b500.",
+    "At 50k on raspberrypi, auto_w4 resolves to the same effective batch size as w4_b500."
+  ]
+}

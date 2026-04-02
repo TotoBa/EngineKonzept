@@ -148,6 +148,15 @@ So the current evidence is now stable across `10k`, `20k`, and `50k`:
 - the `500` cap remains the right default guardrail
 - once the auto heuristic resolves to the same `500`-sized batches, explicit `w4_b500` and `auto_w4` are effectively the same schedule and should be treated as measurement noise rather than separate operating points
 
+After the move-label-path optimization in [oracle_pair_50k_encode_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_50k_encode_v4.json), the same 50k host comparison was rerun on `raspberrypi` and stored in [oracle_pair_50k_pi_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_50k_pi_v4.json). The corresponding regenerated roll-up is [oracle_host_compare_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_host_compare_v4.json).
+
+That follow-up keeps the same conclusion while confirming that the `v4` move-label-path gain is not just a workstation artifact:
+
+- local `50k` after `v4`: `auto_w4` at about `23.149s`, `w4_b500` at about `23.861s`
+- `raspberrypi` `50k` after `v4`: `auto_w4` at about `74.679s`, `w4_b500` at about `76.729s`
+
+Both hosts now resolve `auto_w4` to the same effective `500`-record batch size at `50k`, and both still produce identical output digests across the two schedule labels.
+
 When the Python wrapper uses the one-shot subprocess oracle path, it now prefers a prebuilt local binary at `rust/target/debug/dataset-oracle` before falling back to `cargo run`. On a warmed 250-record one-shot benchmark, that reduced wall-clock time from about `0.117s` to about `0.076s`, or about `1.53x` faster, with identical output digests. That measurement is stored in [oracle_one_shot_binary_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_one_shot_binary_v1.json).
 
 Current end-to-end measurement on a 2000-record JSONL build:

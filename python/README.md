@@ -29,6 +29,11 @@ The finer attack-check breakdown now lives in [oracle_profile_50k_v3.json](/home
 
 The next move-label-path follow-up is captured in [oracle_profile_50k_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_profile_50k_v4.json) and [oracle_pair_50k_encode_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_50k_encode_v4.json). It reuses preformatted legal UCI strings for `selected_move_resolution` and splits `legal_action_encoding` into `encode` and `sort`. On the current 50k run, that is a real step forward, not just a profiling refinement.
 
+That `v4` 50k result was also rerun on `raspberrypi` and fetched back as [oracle_pair_50k_pi_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_50k_pi_v4.json). The regenerated cross-host roll-up is [oracle_host_compare_v4.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_host_compare_v4.json). On both hosts, `auto_w4` remains the fastest label for the same effective `500`-record schedule:
+
+- local `50k`: `auto_w4` about `23.149s`, `w4_b500` about `23.861s`
+- `raspberrypi` `50k`: `auto_w4` about `74.679s`, `w4_b500` about `76.729s`
+
 The dataset builders also support offline oracle parallelism:
 
 - `--oracle-workers`
