@@ -1,0 +1,84 @@
+{
+  "input": "/home/toto/git/EngineKonzept.hostcmp/artifacts/datasets/phase5_stockfish_pgn_raw_pi_10k_v1/train_raw.jsonl",
+  "record_count": 51200,
+  "repeats": 2,
+  "results": [
+    {
+      "name": "auto_w4",
+      "oracle_workers": 4,
+      "oracle_batch_size": 0,
+      "seconds": 76.293361,
+      "repeat_seconds": [
+        77.348121,
+        75.2386
+      ],
+      "records_per_second": 671.094,
+      "oracle_schedule": {
+        "record_count": 51200,
+        "oracle_workers": 4,
+        "requested_batch_size": 0,
+        "effective_batch_size": 500,
+        "batch_count": 103
+      },
+      "digests": {
+        "dataset_jsonl": "979098f79942691601b4d986bab0f3f774d77a7caa35c12edf5afcdb6a802ca7",
+        "train_jsonl": "32cddf6451b4771d0e98ee51dbb166a03ec4b987a14e95a6885d49ce1478e935",
+        "validation_jsonl": "7895967b1f8a0adc42f06d55ce20b5b3e341763b1a5058ee65ee75ad4a7bfe3c",
+        "test_jsonl": "7aacabde4d99ded5926f2448aa3bbc0ab40b150f6d7224cb9ecd4a8dab9f25c3"
+      }
+    },
+    {
+      "name": "w4_b500",
+      "oracle_workers": 4,
+      "oracle_batch_size": 500,
+      "seconds": 76.329566,
+      "repeat_seconds": [
+        75.378363,
+        77.280768
+      ],
+      "records_per_second": 670.775,
+      "oracle_schedule": {
+        "record_count": 51200,
+        "oracle_workers": 4,
+        "requested_batch_size": 500,
+        "effective_batch_size": 500,
+        "batch_count": 103
+      },
+      "digests": {
+        "dataset_jsonl": "979098f79942691601b4d986bab0f3f774d77a7caa35c12edf5afcdb6a802ca7",
+        "train_jsonl": "32cddf6451b4771d0e98ee51dbb166a03ec4b987a14e95a6885d49ce1478e935",
+        "validation_jsonl": "7895967b1f8a0adc42f06d55ce20b5b3e341763b1a5058ee65ee75ad4a7bfe3c",
+        "test_jsonl": "7aacabde4d99ded5926f2448aa3bbc0ab40b150f6d7224cb9ecd4a8dab9f25c3"
+      }
+    },
+    {
+      "name": "w2_auto",
+      "oracle_workers": 2,
+      "oracle_batch_size": 0,
+      "seconds": 88.787397,
+      "repeat_seconds": [
+        85.045353,
+        92.529441
+      ],
+      "records_per_second": 576.658,
+      "oracle_schedule": {
+        "record_count": 51200,
+        "oracle_workers": 2,
+        "requested_batch_size": 0,
+        "effective_batch_size": 500,
+        "batch_count": 103
+      },
+      "digests": {
+        "dataset_jsonl": "979098f79942691601b4d986bab0f3f774d77a7caa35c12edf5afcdb6a802ca7",
+        "train_jsonl": "32cddf6451b4771d0e98ee51dbb166a03ec4b987a14e95a6885d49ce1478e935",
+        "validation_jsonl": "7895967b1f8a0adc42f06d55ce20b5b3e341763b1a5058ee65ee75ad4a7bfe3c",
+        "test_jsonl": "7aacabde4d99ded5926f2448aa3bbc0ab40b150f6d7224cb9ecd4a8dab9f25c3"
+      }
+    }
+  ],
+  "fastest": {
+    "name": "auto_w4",
+    "seconds": 76.293361,
+    "records_per_second": 671.094
+  }
+}

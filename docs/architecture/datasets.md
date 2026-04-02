@@ -127,12 +127,26 @@ A follow-up host check against `raspberrypi` is stored in:
 - [oracle_pair_10k_pi_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_10k_pi_v1.json)
 - [oracle_pair_20k_pi_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_20k_pi_v1.json)
 - [oracle_host_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_host_compare_v1.json)
+- [oracle_pair_50k_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_50k_v1.json)
+- [oracle_pair_50k_pi_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_50k_pi_v1.json)
+- [oracle_host_compare_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_host_compare_v2.json)
 
 That roll-up is now generated reproducibly by:
 
 - `python/scripts/compare_dataset_build_benchmarks.py`
 
 That comparison is mainly a regression check for the new default on the slower host. Because `auto_w4` already resolves to `effective_batch_size = 500` under the new heuristic, the Pi run is not a second old-vs-new comparison; it is a confirmation that the capped default remains viable off the local workstation. On the 20k run, `w4_b500` still lands slightly ahead (`29.226s` vs. `31.176s`), while the 10k difference is small enough to treat as noise on that host.
+
+The newer 50k sweep keeps that conclusion intact on both hosts:
+
+- local `50k`: `w4_b500` at about `26.547s`, `auto_w4` at about `26.577s`, `w2_auto` at about `29.535s`
+- `raspberrypi` `50k`: `auto_w4` at about `76.293s`, `w4_b500` at about `76.330s`, `w2_auto` at about `88.787s`
+
+So the current evidence is now stable across `10k`, `20k`, and `50k`:
+
+- keeping `4` workers is still clearly better than dropping to `2`
+- the `500` cap remains the right default guardrail
+- once the auto heuristic resolves to the same `500`-sized batches, explicit `w4_b500` and `auto_w4` are effectively the same schedule and should be treated as measurement noise rather than separate operating points
 
 When the Python wrapper uses the one-shot subprocess oracle path, it now prefers a prebuilt local binary at `rust/target/debug/dataset-oracle` before falling back to `cargo run`. On a warmed 250-record one-shot benchmark, that reduced wall-clock time from about `0.117s` to about `0.076s`, or about `1.53x` faster, with identical output digests. That measurement is stored in [oracle_one_shot_binary_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_one_shot_binary_v1.json).
 

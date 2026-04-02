@@ -40,6 +40,8 @@ The same pair runner was also executed on `raspberrypi`; the fetched artifacts a
 
 To regenerate that host roll-up from raw pair artifacts, use [compare_dataset_build_benchmarks.py](/home/torsten/EngineKonzept/python/scripts/compare_dataset_build_benchmarks.py).
 
+The larger 50k follow-up artifacts are [oracle_pair_50k_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_50k_v1.json), [oracle_pair_50k_pi_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_pair_50k_pi_v1.json), and [oracle_host_compare_v2.json](/home/torsten/EngineKonzept/artifacts/phase5/oracle_host_compare_v2.json). Those runs keep the same conclusion: `4` workers remain clearly better than `2`, and once the auto heuristic resolves to `effective_batch_size = 500`, `auto_w4` and explicit `w4_b500` should be treated as the same schedule.
+
 The proposer config also accepts a `runtime` object for CPU tuning:
 
 - `torch_threads` to cap PyTorch CPU threads

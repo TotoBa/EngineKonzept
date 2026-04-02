@@ -20,15 +20,19 @@ main = _MODULE.main
 def test_main_writes_rollup_and_notes(tmp_path: Path) -> None:
     left_10k = tmp_path / "left_10k.json"
     left_20k = tmp_path / "left_20k.json"
+    left_50k = tmp_path / "left_50k.json"
     right_10k = tmp_path / "right_10k.json"
     right_20k = tmp_path / "right_20k.json"
+    right_50k = tmp_path / "right_50k.json"
     out = tmp_path / "nested" / "compare.json"
 
     for path, record_count, auto_seconds, explicit_seconds, effective_batch_size in [
         (left_10k, 10240, 6.0, 5.5, 2560),
         (left_20k, 20480, 12.0, 10.0, 5120),
+        (left_50k, 51200, 26.5, 26.4, 500),
         (right_10k, 10240, 15.0, 15.2, 500),
         (right_20k, 20480, 31.0, 29.0, 500),
+        (right_50k, 51200, 80.0, 79.8, 500),
     ]:
         path.write_text(
             json.dumps(
@@ -65,9 +69,9 @@ def test_main_writes_rollup_and_notes(tmp_path: Path) -> None:
     exit_code = main(
         [
             "--series",
-            f"local:{left_10k}:{left_20k}",
+            f"local:{left_10k}:{left_20k}:{left_50k}",
             "--series",
-            f"raspberrypi:{right_10k}:{right_20k}",
+            f"raspberrypi:{right_10k}:{right_20k}:{right_50k}",
             "--artifact-out",
             str(out),
         ]
@@ -77,5 +81,6 @@ def test_main_writes_rollup_and_notes(tmp_path: Path) -> None:
     rendered = json.loads(out.read_text(encoding="utf-8"))
     assert rendered["10k"]["local"]["delta_seconds"] == 0.5
     assert rendered["20k"]["raspberrypi"]["delta_ratio"] == round(31.0 / 29.0, 3)
+    assert rendered["50k"]["local"]["runtime"]["hostname"] == "left_50k"
     assert rendered["10k"]["raspberrypi"]["runtime"]["hostname"] == "right_10k"
     assert any("same effective batch size" in note for note in rendered["notes"])

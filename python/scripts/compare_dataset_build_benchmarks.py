@@ -20,9 +20,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     compared = [_parse_series(value) for value in args.series]
+    record_counts = _shared_record_counts(compared)
     summary = {
-        "10k": _summarize_record_count(compared, expected_count=10_240),
-        "20k": _summarize_record_count(compared, expected_count=20_480),
+        _record_count_label(record_count): _summarize_record_count(
+            compared,
+            expected_count=record_count,
+        )
+        for record_count in record_counts
     }
     notes = _notes(summary)
     if notes:
@@ -36,12 +40,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     return 0
 
 
-def _parse_series(value: str) -> tuple[str, dict[str, Any], dict[str, Any]]:
-    label, path_10k, path_20k = value.split(":", maxsplit=2)
+def _parse_series(value: str) -> tuple[str, list[dict[str, Any]]]:
+    label, *paths = value.split(":")
+    if len(paths) < 2:
+        raise ValueError("--series expects at least two artifact paths per label")
     return (
         label,
-        _load_artifact(Path(path_10k)),
-        _load_artifact(Path(path_20k)),
+        [_load_artifact(Path(path)) for path in paths],
     )
 
 
@@ -49,15 +54,37 @@ def _load_artifact(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _shared_record_counts(compared: Sequence[tuple[str, list[dict[str, Any]]]]) -> list[int]:
+    counts_per_label = []
+    for label, artifacts in compared:
+        counts = {int(artifact["record_count"]) for artifact in artifacts}
+        if len(counts) != len(artifacts):
+            raise ValueError(f"duplicate record_count values in series {label!r}")
+        counts_per_label.append(counts)
+    shared = sorted(set.intersection(*counts_per_label))
+    if len(shared) < 2:
+        raise ValueError("comparison needs at least two shared record counts")
+    return shared
+
+
 def _summarize_record_count(
-    compared: Sequence[tuple[str, dict[str, Any], dict[str, Any]]],
+    compared: Sequence[tuple[str, list[dict[str, Any]]]],
     *,
     expected_count: int,
 ) -> dict[str, Any]:
     per_label: dict[str, Any] = {}
     reference_digests: dict[str, str] | None = None
-    for label, artifact_10k, artifact_20k in compared:
-        artifact = artifact_10k if expected_count == 10_240 else artifact_20k
+    for label, artifacts in compared:
+        artifact = next(
+            (
+                candidate
+                for candidate in artifacts
+                if int(candidate["record_count"]) == expected_count
+            ),
+            None,
+        )
+        if artifact is None:
+            raise ValueError(f"missing record_count {expected_count} in series {label!r}")
         if int(artifact["record_count"]) != expected_count:
             raise ValueError(
                 f"artifact for {label!r} expected {expected_count} records, "
@@ -88,24 +115,25 @@ def _summarize_record_count(
     return per_label
 
 
+def _record_count_label(record_count: int) -> str:
+    if record_count % 1000 == 0:
+        return f"{record_count // 1000}k"
+    if record_count % 1024 == 0:
+        return f"{record_count // 1024}k"
+    return str(record_count)
+
+
 def _notes(summary: dict[str, Any]) -> list[str]:
     notes: list[str] = []
-    for label, compared in summary["10k"].items():
-        if compared["auto_w4_schedule"]["effective_batch_size"] == compared["w4_b500_schedule"][
-            "effective_batch_size"
-        ]:
-            notes.append(
-                f"At 10k on {label}, auto_w4 resolves to the same effective batch size as "
-                "w4_b500."
-            )
-    for label, compared in summary["20k"].items():
-        if compared["auto_w4_schedule"]["effective_batch_size"] == compared["w4_b500_schedule"][
-            "effective_batch_size"
-        ]:
-            notes.append(
-                f"At 20k on {label}, auto_w4 resolves to the same effective batch size as "
-                "w4_b500."
-            )
+    for record_count_label, summary_by_label in summary.items():
+        for label, compared in summary_by_label.items():
+            if compared["auto_w4_schedule"]["effective_batch_size"] == compared[
+                "w4_b500_schedule"
+            ]["effective_batch_size"]:
+                notes.append(
+                    f"At {record_count_label} on {label}, auto_w4 resolves to the same "
+                    "effective batch size as w4_b500."
+                )
     return notes
 
 
