@@ -122,13 +122,13 @@ These remain useful as small-corpus regression baselines, but they are no longer
 - [phase8_planner_corpus_suite_recurrent_v1_10k_122k_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_recurrent_v1_10k_122k_expanded_v1.json)
   First bounded recurrent planner follow-up on the same filtered `10k + 122k` slice. It keeps the existing planner-head contract intact and adds small configurable `memory_slots` plus `deliberation_steps`, so recurrence can be tested without another workflow-schema break. The first held-out rerun makes recurrence a real reusable capability, but it does not beat the filtered `set_v2` reference on `top1` or `MRR`.
 - [phase8_planner_corpus_suite_set_v6_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v6_expanded_v1.json)
-  First 400k-ready score-aux expanded rerun config. It now points at the single current `planner_workflow_fulltargets_expanded_v2` contract so the large next planner run can start without rebuilding variant-specific planner-head roots.
+  First 400k-ready score-aux expanded rerun config. It now points at the single current `planner_workflow_fulltargets_expanded_v2` contract and is the current best `top1` arm on the materialized full expanded `10k + 122k + 400k` verify suite.
 - [phase8_planner_corpus_suite_set_v6_margin_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v6_margin_expanded_v1.json)
-  400k-ready margin-aux expanded rerun config over the same full-target workflow root.
+  400k-ready margin-aux expanded rerun config over the same full-target workflow root. On the materialized full expanded suite it is effectively tied for best `MRR` and is the strongest `top3` rerun.
 - [phase8_planner_corpus_suite_set_v6_rank_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v6_rank_expanded_v1.json)
-  400k-ready rank-aux expanded rerun config over the same full-target workflow root.
+  400k-ready rank-aux expanded rerun config over the same full-target workflow root. On the materialized full expanded suite it is the current best `MRR` rerun.
 - [phase8_planner_corpus_suite_recurrent_v1_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_recurrent_v1_expanded_v1.json)
-  400k-ready recurrent expanded rerun config over the same full-target workflow root.
+  400k-ready recurrent expanded rerun config over the same full-target workflow root. It now materializes a real expanded recurrent baseline, but still trails the stronger non-recurrent `set_v6` family on the same full expanded holdout.
 
 ## Phase 9 Agent Specs
 
@@ -145,7 +145,7 @@ These remain useful as small-corpus regression baselines, but they are no longer
 - [phase9_agent_planner_recurrent_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_recurrent_v1.json)
   Experimental recurrent selfplay agent over the same bounded planner contract.
 - [phase9_agent_planner_set_v2_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v2_expanded_v1.json)
-  Post-400k active selfplay agent spec. Points at the future expanded `set_v2` planner checkpoint location.
+  Post-400k baseline selfplay agent spec. It still points at the older expanded `set_v2` planner checkpoint and now serves as the launch baseline, not the strongest full expanded rerun.
 - [phase9_agent_planner_set_v6_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v6_expanded_v1.json)
   Post-400k experimental score-aux selfplay agent spec.
 - [phase9_agent_planner_set_v6_margin_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v6_margin_expanded_v1.json)

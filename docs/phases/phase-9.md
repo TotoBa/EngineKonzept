@@ -147,6 +147,20 @@ That launch plan already encodes the intended next large step:
   - experimental `recurrent_v1_expanded`
 - then the full active-plus-experimental selfplay arena over the expanded bundle set
 
+That prerequisite planner step is now complete as well:
+
+- current expanded suite summary: [planner_active_experimental_expanded_v1_summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_active_experimental_expanded_v1_summary.json)
+- current expanded suite comparison: [planner_active_experimental_expanded_v1_compare.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_active_experimental_expanded_v1_compare.json)
+
+Current full expanded leaderboard before arena promotion:
+
+- `set_v6_expanded`: best `top1` on the full `10k + 122k + 400k` verify suite
+- `set_v6_rank_expanded`: best `MRR` on the same suite
+- `set_v6_margin_expanded`: effectively tied with the `MRR` leader and best `top3`
+- `set_v2_expanded`: still useful as the older active launch reference, but no longer the strongest full expanded rerun
+
+So the next Phase-9 step is no longer "prepare" the expanded planner family, but run the arena over the now-materialized expanded planner family and use that result to decide active-vs-experimental promotion.
+
 That means Phase 9 now has:
 
 - a stable agent-spec contract

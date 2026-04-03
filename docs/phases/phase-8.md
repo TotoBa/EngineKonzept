@@ -86,6 +86,7 @@ The repo now also has an expanded-data rerun:
 The next full three-tier reruns now use a single current workflow contract:
 
 - builder: [build_phase8_fulltargets_expanded_workflow.py](/home/torsten/EngineKonzept/python/scripts/build_phase8_fulltargets_expanded_workflow.py)
+- suite orchestrator: [materialize_phase8_expanded_suite.py](/home/torsten/EngineKonzept/python/scripts/materialize_phase8_expanded_suite.py)
 - repo-copied summary: [planner_workflow_fulltargets_expanded_v2_summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_fulltargets_expanded_v2_summary.json)
 
 That contract exists so all future expanded planner arms can consume the same planner-head schema:
@@ -95,6 +96,19 @@ That contract exists so all future expanded planner arms can consume the same pl
 - discrete `teacher_candidate_rank_bucket_targets`
 
 This avoids rebuilding separate expanded workflow roots per experimental head and keeps the launch path flexible for later architecture changes without changing the underlying workflow semantics again.
+
+Those full three-tier reruns are now fully materialized as well:
+
+- suite summary: [planner_active_experimental_expanded_v1_summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_active_experimental_expanded_v1_summary.json)
+- suite comparison: [planner_active_experimental_expanded_v1_compare.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_active_experimental_expanded_v1_compare.json)
+- expanded `set_v6` summary: [planner_corpus_suite_set_v6_expanded_v1_summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_expanded_v1_summary.json)
+- expanded `set_v6` verify: [planner_corpus_suite_set_v6_expanded_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_expanded_v1_verify.json)
+- expanded `set_v6_margin` summary: [planner_corpus_suite_set_v6_margin_expanded_v1_summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_margin_expanded_v1_summary.json)
+- expanded `set_v6_margin` verify: [planner_corpus_suite_set_v6_margin_expanded_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_margin_expanded_v1_verify.json)
+- expanded `set_v6_rank` summary: [planner_corpus_suite_set_v6_rank_expanded_v1_summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_rank_expanded_v1_summary.json)
+- expanded `set_v6_rank` verify: [planner_corpus_suite_set_v6_rank_expanded_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_rank_expanded_v1_verify.json)
+- expanded `recurrent_v1` summary: [planner_corpus_suite_recurrent_v1_expanded_v1_summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_recurrent_v1_expanded_v1_summary.json)
+- expanded `recurrent_v1` verify: [planner_corpus_suite_recurrent_v1_expanded_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_recurrent_v1_expanded_v1_verify.json)
 
 The repo now also has a filtered latent-state validation slice over just the `10k` and `122k` tiers:
 
@@ -325,3 +339,19 @@ Interpretation:
 - it keeps the existing planner-head contract intact, so future recurrence changes do not require another workflow-schema break
 - but it does not beat the current filtered `set_v2` reference on the main held-out metrics
 - so recurrence is now available as infrastructure for the next phase, not yet the preferred bounded Phase-8 model
+
+The newer full three-tier expanded reruns over the current full-target workflow contract now add one more important conclusion on top of the filtered `10k + 122k` picture:
+
+- `set_v2_expanded`: `top1=0.797163`, `top3=0.965957`, `MRR=0.879433`
+- `set_v6_expanded`: `top1=0.810638`, `top3=0.964539`, `MRR=0.885816`
+- `set_v6_margin_expanded`: `top1=0.80922`, `top3=0.970922`, `MRR=0.887175`
+- `set_v6_rank_expanded`: `top1=0.808511`, `top3=0.965957`, `MRR=0.887234`
+- `recurrent_v1_expanded`: `top1=0.804965`, `top3=0.964539`, `MRR=0.884279`
+
+Interpretation:
+
+- on the full `10k + 122k + 400k` verify suite, all newly rerun experimental arms now beat the older expanded `set_v2` rerun
+- `set_v6_expanded` is the current best `top1` arm on that full expanded suite
+- `set_v6_rank_expanded` is the current best `MRR` arm on that full expanded suite, with `set_v6_margin_expanded` effectively tied
+- this does not overturn the filtered `10k + 122k` conclusion, where `set_v2_10k_122k_expanded` remains the preferred reference
+- but it does mean the full expanded Phase-8 stack is now materially stronger than the earlier `set_v2_expanded` launch assumption

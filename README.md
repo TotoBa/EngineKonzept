@@ -260,10 +260,13 @@ Full three-tier planner references:
 
 - workflow suite: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_v1/summary.json)
 - full-target expanded workflow suite: [planner_workflow_fulltargets_expanded_v2_summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_fulltargets_expanded_v2_summary.json)
+- expanded-suite orchestrator: [materialize_phase8_expanded_suite.py](/home/torsten/EngineKonzept/python/scripts/materialize_phase8_expanded_suite.py)
 - first materialized planner config: [phase8_planner_corpus_suite_set_v2_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v2_v1.json)
 - expanded-data planner config: [phase8_planner_corpus_suite_set_v2_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v2_expanded_v1.json)
 - repo-copied expanded summary: [planner_corpus_suite_set_v2_expanded_v1_summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v2_expanded_v1_summary.json)
 - repo-copied expanded verify eval: [planner_corpus_suite_set_v2_expanded_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v2_expanded_v1_verify.json)
+- expanded suite summary: [planner_active_experimental_expanded_v1_summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_active_experimental_expanded_v1_summary.json)
+- expanded suite comparison: [planner_active_experimental_expanded_v1_compare.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_active_experimental_expanded_v1_compare.json)
 - original direct comparison: [planner_corpus_suite_compare_v2.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_compare_v2.json)
 
 Aggregate verify result over `1,410` held-out planner examples:
@@ -290,6 +293,11 @@ Aggregate verify result over `1,410` held-out planner examples:
   - `best validation root_top1_accuracy=0.813702`
   - `best validation teacher_root_mean_reciprocal_rank=0.891489`
   - held-out per-tier verify stays in the `0.7927 .. 0.8047` top-1 band
+- full-target expanded reruns over the same `10k + 122k + 400k` verify suite:
+  - `set_v6_expanded`: `root_top1_accuracy=0.810638`, `MRR=0.885816`
+  - `set_v6_margin_expanded`: `root_top1_accuracy=0.80922`, `MRR=0.887175`
+  - `set_v6_rank_expanded`: `root_top1_accuracy=0.808511`, `MRR=0.887234`
+  - `recurrent_v1_expanded`: `root_top1_accuracy=0.804965`, `MRR=0.884279`
 
 There is now also a filtered `10k + 122k` validation slice for planner-facing Phase-6 and planner-architecture checks:
 
@@ -317,6 +325,8 @@ Result on `1,024` held-out planner examples:
 The important current conclusion is:
 
 - more mixed workflow data helps the three-tier training/validation picture
+- on the full three-tier expanded holdout, every newly rerun experimental arm now beats the older expanded `set_v2` rerun
+- among those expanded full-suite reruns, `set_v6_expanded` is the current `top1` leader and `set_v6_rank_expanded` is the current `MRR` leader
 - but the real gain on the preferred `10k + 122k` validation slice came only after removing the `400k` tier again during planner training
 - faster latent materialization from existing planner-head artifacts is now reproducible and cheap enough to rerun
 - the new preferred launch contract for future full `10k + 122k + 400k` reruns is now a single current full-target workflow root, so `set_v6`, `margin`, `rank`, and `recurrent` all consume the same expanded planner-head schema

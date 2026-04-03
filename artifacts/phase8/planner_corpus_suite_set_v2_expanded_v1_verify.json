@@ -1,47 +1,108 @@
 {
-  "checkpoint": "/srv/schach/engine_training/models/planner/corpus_suite_set_v2_expanded_v1/checkpoint.pt",
-  "comparison_v1": {
-    "note": "v1 used 7168 train examples with 64 Stockfish nodes",
-    "v1_combined_verify": {
-      "root_top1_accuracy": 0.795035,
-      "root_top3_accuracy": 0.968085,
-      "teacher_root_mean_reciprocal_rank": 0.875355
-    }
+  "aggregate": {
+    "examples_per_second": 838.46,
+    "root_gap_examples": 1402,
+    "root_gap_loss": 57.272128,
+    "root_gap_mae_cp": 262.343685,
+    "root_top1_accuracy": 0.797163,
+    "root_top3_accuracy": 0.965957,
+    "root_value_loss": 0.383535,
+    "root_value_mae_cp": 104.896564,
+    "supervised_examples": 1410,
+    "teacher_kl_loss": 0.823538,
+    "teacher_margin_examples": 2800,
+    "teacher_margin_loss": 0.0,
+    "teacher_margin_mae_cp": 0.0,
+    "teacher_policy_loss": 0.919318,
+    "teacher_rank_accuracy": 0.0,
+    "teacher_rank_examples": 0,
+    "teacher_rank_loss": 0.0,
+    "teacher_root_mean_probability": 0.693195,
+    "teacher_root_mean_reciprocal_rank": 0.879433,
+    "teacher_score_loss": 0.0,
+    "teacher_score_mae_cp": 0.0,
+    "total_examples": 1410,
+    "total_loss": 4.007986
   },
-  "model": "set_v2_expanded_v1",
+  "checkpoint": "/srv/schach/engine_training/models/planner/corpus_suite_set_v2_expanded_v1/checkpoint.pt",
+  "config_path": "/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v2_expanded_v1.json",
+  "model": "planner_set_v2_expanded_v1",
   "tiers": {
     "merged_unique_122k": {
+      "examples_per_second": 1224.525,
+      "root_gap_examples": 510,
+      "root_gap_loss": 2.250191,
+      "root_gap_mae_cp": 239.61588,
       "root_top1_accuracy": 0.792969,
       "root_top3_accuracy": 0.966797,
+      "root_value_loss": 0.186877,
       "root_value_mae_cp": 84.283993,
-      "teacher_root_mean_reciprocal_rank": 0.876139
+      "supervised_examples": 512,
+      "teacher_kl_loss": 0.75944,
+      "teacher_margin_examples": 1019,
+      "teacher_margin_loss": 0.0,
+      "teacher_margin_mae_cp": 0.0,
+      "teacher_policy_loss": 0.764983,
+      "teacher_rank_accuracy": 0.0,
+      "teacher_rank_examples": 0,
+      "teacher_rank_loss": 0.0,
+      "teacher_root_mean_probability": 0.695458,
+      "teacher_root_mean_reciprocal_rank": 0.876139,
+      "teacher_score_loss": 0.0,
+      "teacher_score_mae_cp": 0.0,
+      "total_examples": 512,
+      "total_loss": 1.076697
     },
     "pgn_10k": {
+      "examples_per_second": 4063.418,
+      "root_gap_examples": 510,
+      "root_gap_loss": 2.238162,
+      "root_gap_mae_cp": 238.817543,
       "root_top1_accuracy": 0.804688,
       "root_top3_accuracy": 0.966797,
+      "root_value_loss": 0.182911,
       "root_value_mae_cp": 84.229204,
-      "teacher_root_mean_reciprocal_rank": 0.883301
+      "supervised_examples": 512,
+      "teacher_kl_loss": 0.760293,
+      "teacher_margin_examples": 1019,
+      "teacher_margin_loss": 0.0,
+      "teacher_margin_mae_cp": 0.0,
+      "teacher_policy_loss": 0.73735,
+      "teacher_rank_accuracy": 0.0,
+      "teacher_rank_examples": 0,
+      "teacher_rank_loss": 0.0,
+      "teacher_root_mean_probability": 0.703248,
+      "teacher_root_mean_reciprocal_rank": 0.883301,
+      "teacher_score_loss": 0.0,
+      "teacher_score_mae_cp": 0.0,
+      "total_examples": 512,
+      "total_loss": 1.048477
     },
     "unique_pi_400k": {
+      "examples_per_second": 3891.069,
+      "root_gap_examples": 382,
+      "root_gap_loss": 203.253014,
+      "root_gap_mae_cp": 324.096339,
       "root_top1_accuracy": 0.792746,
       "root_top3_accuracy": 0.963731,
+      "root_value_loss": 0.910499,
       "root_value_mae_cp": 159.65129,
-      "teacher_root_mean_reciprocal_rank": 0.87867
+      "supervised_examples": 386,
+      "teacher_kl_loss": 0.992452,
+      "teacher_margin_examples": 762,
+      "teacher_margin_loss": 0.0,
+      "teacher_margin_mae_cp": 0.0,
+      "teacher_policy_loss": 1.365399,
+      "teacher_rank_accuracy": 0.0,
+      "teacher_rank_examples": 0,
+      "teacher_rank_loss": 0.0,
+      "teacher_root_mean_probability": 0.676857,
+      "teacher_root_mean_reciprocal_rank": 0.87867,
+      "teacher_score_loss": 0.0,
+      "teacher_score_mae_cp": 0.0,
+      "total_examples": 386,
+      "total_loss": 11.821689
     }
   },
-  "training_data": "53248 train examples (7.4x v1), 256 Stockfish nodes (4x v1)",
-  "validation_comparison": {
-    "delta": {
-      "MRR": "+0.9pp",
-      "top1": "+1.2pp"
-    },
-    "expanded_best_validation": {
-      "MRR": 0.891489,
-      "root_top1_accuracy": 0.813702
-    },
-    "v1_best_validation": {
-      "MRR": 0.882812,
-      "root_top1_accuracy": 0.801897
-    }
-  }
+  "workflow_summary": "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/summary.json"
 }

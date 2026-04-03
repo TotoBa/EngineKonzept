@@ -342,6 +342,19 @@ So the next Planner lever is not "more width". The new evidence says:
 - mixing the `400k` tier into planner training did not help the preferred filtered slice
 - the next open question is now whether a different latent-state integration path or better teacher targets can move this stronger filtered `set_v2` reference again
 
+The later full-target expanded reruns refine that one more time:
+
+- they reuse one current full workflow contract over `10k + 122k + 400k`
+- they make the expanded three-tier comparison directly fair across `set_v2`, `set_v6`, `margin`, `rank`, and `recurrent`
+- on that full three-tier verify suite, every newly rerun experimental arm now beats the older expanded `set_v2` rerun
+- `set_v6_expanded` becomes the current full-suite `top1` leader
+- `set_v6_rank_expanded` becomes the current full-suite `MRR` leader, with `set_v6_margin_expanded` essentially tied and stronger on `top3`
+
+So the planner decision stack now has two valid views instead of one:
+
+- preferred filtered validation view: keep `set_v2_10k_122k_expanded` as the Phase-8 reference
+- full expanded selfplay-launch view: treat `set_v6`/`margin`/`rank` as the currently strongest family to test next in arena
+
 That richer-target question now has a first real answer as well:
 
 - filtered score-target workflow: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_score_10k_122k_expanded_v1/summary.json)
