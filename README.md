@@ -291,9 +291,12 @@ Aggregate verify result over `1,410` held-out planner examples:
 
 There is now also a filtered `10k + 122k` validation slice for planner-facing Phase-6 and planner-architecture checks:
 
-- workflow suite: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_two_tier_v1/summary.json)
-- latent-state config: [phase8_planner_corpus_suite_set_v3_two_tier_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v3_two_tier_v1.json)
-- comparison: [planner_corpus_suite_two_tier_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_two_tier_compare_v1.json)
+- first latent workflow suite: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_two_tier_v1/summary.json)
+- faster expanded latent workflow suite: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_10k_122k_expanded_v1/summary.json)
+- first latent-state config: [phase8_planner_corpus_suite_set_v3_two_tier_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v3_two_tier_v1.json)
+- stronger latent-state config: [phase8_planner_corpus_suite_set_v3_10k_122k_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v3_10k_122k_expanded_v1.json)
+- first latent comparison: [planner_corpus_suite_two_tier_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_two_tier_compare_v1.json)
+- stronger latent comparison: [planner_corpus_suite_latent_two_tier_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_latent_two_tier_compare_v1.json)
 - expanded-data comparison: [planner_corpus_suite_expanded_two_tier_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_expanded_two_tier_compare_v1.json)
 
 Result on `1,024` held-out planner examples:
@@ -304,11 +307,14 @@ Result on `1,024` held-out planner examples:
 - expanded-data `set_v2_wide`: `root_top1_accuracy=0.790039`, `MRR=0.874837`
 - expanded-data `set_v5`: `root_top1_accuracy=0.798828`, `MRR=0.880534`
 - `10k + 122k`-only expanded `set_v2`: `root_top1_accuracy=0.819336`, `MRR=0.889811`
+- `10k + 122k`-only expanded latent `set_v3`: `root_top1_accuracy=0.797852`, `MRR=0.880778`
 
 The important current conclusion is:
 
 - more mixed workflow data helps the three-tier training/validation picture
 - but the real gain on the preferred `10k + 122k` validation slice came only after removing the `400k` tier again during planner training
+- faster latent materialization from existing planner-head artifacts is now reproducible and cheap enough to rerun
+- but the planner-facing latent channel still does not beat the current filtered `set_v2` reference, even on the stronger `10k + 122k` workflow material
 - wider `set_v2` does not help
 - `set_v5` becomes competitive again on the filtered slice, but still does not beat the new `10k + 122k`-only expanded `set_v2`
 

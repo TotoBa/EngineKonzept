@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import json
 from pathlib import Path
 from typing import Any, Sequence
@@ -18,6 +18,7 @@ from train.datasets import (
     move_uci_for_action,
     pack_position_features,
 )
+from train.datasets.contracts import project_candidate_context_to_v1
 from train.datasets.oracle import label_records_with_oracle
 from train.datasets.schema import DatasetExample, RawPositionRecord, SUPPORTED_SPLITS
 from train.eval.opponent import (
@@ -344,6 +345,48 @@ def build_planner_head_examples(
             )
         )
     return built
+
+
+def materialize_planner_latent_features(
+    examples: Sequence[PlannerHeadExample],
+    *,
+    dynamics_model: Any,
+    latent_state_version: int = PLANNER_LATENT_STATE_VERSION,
+    predictor: Any = None,
+) -> list[PlannerHeadExample]:
+    """Attach latent successor features to existing planner-head artifacts."""
+    if predictor is None:
+        predictor = predict_dynamics_latent
+    materialized: list[PlannerHeadExample] = []
+    for example in examples:
+        latent_rows: list[list[float]] = []
+        for action_index, candidate_row, transition_row in zip(
+            example.candidate_action_indices,
+            example.candidate_features,
+            example.transition_features,
+            strict=True,
+        ):
+            action_features = project_candidate_context_to_v1(
+                candidate_row,
+                version=example.candidate_context_version,
+            )
+            latent_rows.append(
+                predictor(
+                    dynamics_model,
+                    feature_vector=example.feature_vector,
+                    action_index=int(action_index),
+                    action_features=action_features,
+                    transition_features=transition_row,
+                )
+            )
+        materialized.append(
+            replace(
+                example,
+                latent_state_version=latent_state_version,
+                latent_features=latent_rows,
+            )
+        )
+    return materialized
 
 
 def load_planner_head_examples_for_split(dataset_dir: Path, split: str) -> list[PlannerHeadExample]:

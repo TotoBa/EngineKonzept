@@ -145,6 +145,50 @@ def candidate_context_feature_dim(version: int = DEFAULT_CANDIDATE_CONTEXT_VERSI
     return len(_candidate_context_feature_order(version))
 
 
+def project_candidate_context_to_v1(
+    feature_values: list[float] | tuple[float, ...],
+    *,
+    version: int,
+) -> list[float]:
+    """Project a versioned candidate-context row onto the V1 dynamics contract."""
+    values = [float(value) for value in feature_values]
+    if version == 1:
+        expected_width = candidate_context_feature_dim(1)
+        if len(values) != expected_width:
+            raise ValueError(
+                f"CandidateContextV1 row must have width {expected_width}, got {len(values)}"
+            )
+        return values
+    if version != 2:
+        raise ValueError(f"unsupported CandidateContext version: {version}")
+    expected_width = candidate_context_feature_dim(2)
+    if len(values) != expected_width:
+        raise ValueError(
+            f"CandidateContextV2 row must have width {expected_width}, got {len(values)}"
+        )
+    captured_piece_minor_or_major = max(values[17:21]) if values[15] > 0.0 else 0.0
+    return [
+        values[0],
+        values[1],
+        values[2],
+        values[3],
+        values[4],
+        values[5],
+        values[6],
+        values[7],
+        values[8],
+        values[9],
+        values[10],
+        values[11],
+        values[12],
+        values[13],
+        values[14],
+        values[15],
+        values[16],
+        float(captured_piece_minor_or_major),
+    ]
+
+
 def global_context_feature_order(
     version: int = DEFAULT_GLOBAL_CONTEXT_VERSION,
 ) -> tuple[str, ...]:

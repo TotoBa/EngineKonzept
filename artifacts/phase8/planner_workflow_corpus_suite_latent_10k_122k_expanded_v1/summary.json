@@ -1,0 +1,93 @@
+{
+  "dynamics_checkpoint": "/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v6_v1/checkpoint.pt",
+  "output_root": "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_10k_122k_expanded_v1",
+  "tiers": {
+    "merged_unique_122k": {
+      "train": {
+        "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_merged_unique_train_v1",
+        "planner_head_path": "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_10k_122k_expanded_v1/merged_unique_122k_train_v1/planner_head_train.jsonl",
+        "summary": {
+          "example_count": 16384,
+          "input_path": "/srv/schach/engine_training/phase8/planner_workflow_expanded_v1/merged_unique_122k_train_v1/planner_head_train.jsonl",
+          "latent_state_version": 1,
+          "output_path": "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_10k_122k_expanded_v1/merged_unique_122k_train_v1/planner_head_train.jsonl"
+        },
+        "workflow_dir": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/merged_unique_122k_train_v1"
+      },
+      "validation": {
+        "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_merged_unique_train_v1",
+        "planner_head_path": "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_10k_122k_expanded_v1/merged_unique_122k_validation_v1/planner_head_validation.jsonl",
+        "summary": {
+          "example_count": 4096,
+          "input_path": "/srv/schach/engine_training/phase8/planner_workflow_expanded_v1/merged_unique_122k_validation_v1/planner_head_validation.jsonl",
+          "latent_state_version": 1,
+          "output_path": "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_10k_122k_expanded_v1/merged_unique_122k_validation_v1/planner_head_validation.jsonl"
+        },
+        "workflow_dir": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/merged_unique_122k_validation_v1"
+      },
+      "verify": {
+        "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_merged_unique_verify_v1",
+        "planner_head_path": "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_10k_122k_expanded_v1/merged_unique_122k_verify_v1/planner_head_test.jsonl",
+        "summary": {
+          "example_count": 512,
+          "input_path": "/srv/schach/engine_training/phase8/planner_workflow_expanded_v1/merged_unique_122k_verify_v1/planner_head_test.jsonl",
+          "latent_state_version": 1,
+          "output_path": "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_10k_122k_expanded_v1/merged_unique_122k_verify_v1/planner_head_test.jsonl"
+        },
+        "workflow_dir": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/merged_unique_122k_verify_v1"
+      }
+    },
+    "pgn_10k": {
+      "train": {
+        "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1",
+        "planner_head_path": "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_10k_122k_expanded_v1/pgn_10k_train_v1/planner_head_train.jsonl",
+        "summary": {
+          "example_count": 4096,
+          "input_path": "/srv/schach/engine_training/phase8/planner_workflow_expanded_v1/pgn_10k_train_v1/planner_head_train.jsonl",
+          "latent_state_version": 1,
+          "output_path": "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_10k_122k_expanded_v1/pgn_10k_train_v1/planner_head_train.jsonl"
+        },
+        "workflow_dir": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/pgn_10k_train_v1"
+      },
+      "validation": {
+        "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1",
+        "planner_head_path": "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_10k_122k_expanded_v1/pgn_10k_validation_v1/planner_head_validation.jsonl",
+        "summary": {
+          "example_count": 1024,
+          "input_path": "/srv/schach/engine_training/phase8/planner_workflow_expanded_v1/pgn_10k_validation_v1/planner_head_validation.jsonl",
+          "latent_state_version": 1,
+          "output_path": "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_10k_122k_expanded_v1/pgn_10k_validation_v1/planner_head_validation.jsonl"
+        },
+        "workflow_dir": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/pgn_10k_validation_v1"
+      },
+      "verify": {
+        "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_verify_pi_10k_v1",
+        "planner_head_path": "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_10k_122k_expanded_v1/pgn_10k_verify_v1/planner_head_test.jsonl",
+        "summary": {
+          "example_count": 512,
+          "input_path": "/srv/schach/engine_training/phase8/planner_workflow_expanded_v1/pgn_10k_verify_v1/planner_head_test.jsonl",
+          "latent_state_version": 1,
+          "output_path": "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_10k_122k_expanded_v1/pgn_10k_verify_v1/planner_head_test.jsonl"
+        },
+        "workflow_dir": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/pgn_10k_verify_v1"
+      }
+    }
+  },
+  "tiers_requested": [
+    "merged_unique_122k",
+    "pgn_10k"
+  ],
+  "train_paths": [
+    "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_10k_122k_expanded_v1/merged_unique_122k_train_v1/planner_head_train.jsonl",
+    "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_10k_122k_expanded_v1/pgn_10k_train_v1/planner_head_train.jsonl"
+  ],
+  "validation_paths": [
+    "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_10k_122k_expanded_v1/merged_unique_122k_validation_v1/planner_head_validation.jsonl",
+    "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_10k_122k_expanded_v1/pgn_10k_validation_v1/planner_head_validation.jsonl"
+  ],
+  "verify_paths": [
+    "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_10k_122k_expanded_v1/merged_unique_122k_verify_v1/planner_head_test.jsonl",
+    "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_10k_122k_expanded_v1/pgn_10k_verify_v1/planner_head_test.jsonl"
+  ],
+  "workflow_summary": "/srv/schach/engine_training/phase8/planner_workflow_expanded_v1/summary.json"
+}

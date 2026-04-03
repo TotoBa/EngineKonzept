@@ -166,10 +166,27 @@ The repo now also has a filtered comparison of the expanded-data planner reruns 
 - expanded-data `set_v5`: `root_top1_accuracy=0.798828`, `MRR=0.880534`
 - `10k + 122k`-only expanded `set_v2`: `root_top1_accuracy=0.819336`, `MRR=0.889811`
 
+The next follow-up now adds a faster latent rerun on top of that stronger filtered workflow:
+
+- latent workflow suite: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_10k_122k_expanded_v1/summary.json)
+- latent config: [phase8_planner_corpus_suite_set_v3_10k_122k_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v3_10k_122k_expanded_v1.json)
+- latent summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v3_10k_122k_expanded_v1/summary.json)
+- latent verify: [planner_corpus_suite_set_v3_10k_122k_expanded_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v3_10k_122k_expanded_v1_verify.json)
+- latent comparison: [planner_corpus_suite_latent_two_tier_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_latent_two_tier_compare_v1.json)
+
+Result on the same filtered `10k + 122k` verify slice:
+
+- `set_v2_10k_122k_expanded`: `root_top1_accuracy=0.819336`, `MRR=0.889811`
+- latent `set_v3_10k_122k_expanded`: `root_top1_accuracy=0.797852`, `MRR=0.880778`
+- latent `set_v3_10k_122k_expanded` does recover `root_top3_accuracy=0.973633`
+- but it still loses the more important `top1` and `MRR` comparison to the stronger filtered `set_v2`
+
 This is the current important Phase-8 conclusion:
 
 - more mixed three-tier data helps the global training and validation story
 - but on the preferred `10k + 122k` slice, the actual win comes from stronger `10k + 122k` workflow material without the `400k` tier mixed into planner training
+- latent planner-head materialization is now reproducible directly from existing planner-head artifacts, so future latent reruns no longer require rebuilding the whole workflow from Phase 7
+- even with that stronger filtered workflow, the current direct latent-state planner path is still not the best planner arm
 - increasing width does not help
 - `set_v5` re-enters the conversation on the filtered slice, but not strongly enough to replace the new `10k + 122k`-only `set_v2` rerun
 
@@ -178,5 +195,5 @@ This is the current important Phase-8 conclusion:
 The next useful Phase-8 steps are now:
 
 1. re-test planner-facing latent-state or contract upgrades on top of the new `10k + 122k`-only `set_v2` reference
-2. decide whether latent planner state needs a richer contract or a different integration path before it can help
+2. focus on a different latent integration path or richer planner targets rather than another direct `set_v3`-style concatenation rerun
 3. only then revisit richer bounded recurrence over the same exact candidate slice

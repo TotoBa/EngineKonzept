@@ -300,7 +300,7 @@ Aggregate held-out verify result:
 
 So Phase 8 is now past pure bounded baselines and has a first refined planner line, not just a one-off trained reference.
 
-The next contract test has now been run as well:
+The next contract tests have now been run as well:
 
 - filtered latent-state workflow: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_two_tier_v1/summary.json)
 - latent-state config: [phase8_planner_corpus_suite_set_v3_two_tier_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v3_two_tier_v1.json)
@@ -312,6 +312,19 @@ Result on the filtered `10k + 122k` verify slice (`1,024` examples):
 - latent `set_v3`: `root_top1_accuracy=0.708008`, `MRR=0.825521`
 
 So the planner-facing latent-state channel is now implemented and reproducible, but the first direct concatenation path is not yet the right refinement.
+
+There is now also a faster latent rerun directly over the stronger filtered expanded workflow:
+
+- latent workflow suite: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_10k_122k_expanded_v1/summary.json)
+- latent-state config: [phase8_planner_corpus_suite_set_v3_10k_122k_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v3_10k_122k_expanded_v1.json)
+- latent comparison: [planner_corpus_suite_latent_two_tier_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_latent_two_tier_compare_v1.json)
+
+Result on the same preferred filtered verify slice:
+
+- `set_v2_10k_122k_expanded`: `top1=0.819336`, `MRR=0.889811`
+- `set_v3_10k_122k_expanded`: `top1=0.797852`, `MRR=0.880778`
+
+So even with the stronger `10k + 122k` workflow material, the current direct planner-latent concatenation path still loses to the filtered `set_v2` reference. The important practical change is that the repo now has a cheap latent-materialization path from existing planner-head artifacts, which lowers the cost of future latent contract experiments without re-running the whole Phase-7-to-Phase-8 workflow.
 
 The expanded-data planner reruns refine that again:
 
@@ -327,7 +340,7 @@ So the next Planner lever is not "more width". The new evidence says:
 
 - stronger `10k + 122k` workflow material does help
 - mixing the `400k` tier into planner training did not help the preferred filtered slice
-- the next open question is now whether better latent-state integration or better teacher targets can move this stronger filtered `set_v2` reference again
+- the next open question is now whether a different latent-state integration path or better teacher targets can move this stronger filtered `set_v2` reference again
 
 ## Deferred Architecture Ideas
 
