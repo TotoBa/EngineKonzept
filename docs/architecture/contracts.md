@@ -131,7 +131,7 @@ Current measured status:
 
 - `structured_v6_v1` is the first experimental Phase-6 arm that consumes `TransitionContextV1`
 - on the `10k` corpus it improves both one-step `feature_l1_error` and `drift_feature_l1_error` over `structured_v5_v1`
-- the current large-corpus default remains `dynamics_merged_unique_structured_v5_v1` until the same contract is rerun on the merged unique corpus
+- the large-corpus rerun now also exists and promotes `dynamics_merged_unique_structured_v6_v1` to the current Phase-6 default
 
 ## LatentStateV1
 

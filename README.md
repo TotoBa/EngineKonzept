@@ -107,11 +107,11 @@ The current `engine-app` binary will use that symbolic proposer bundle automatic
 
 The proposer is now accepted as a temporary frontier, and the repository includes a checkable latent-dynamics baseline plus larger-corpus Phase-6 follow-ups:
 
-- current Phase-6 config: [phase6_dynamics_merged_unique_structured_v5_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_merged_unique_structured_v5_v1.json)
-- current Phase-6 bundle: [dynamics_merged_unique_structured_v5_v1](/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v5_v1)
-- current Phase-6 summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v5_v1/summary.json)
-- current Phase-6 verify eval: [dynamics_merged_unique_structured_v5_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v5_v1_verify.json)
-- direct large-corpus comparison: [dynamics_merged_unique_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_compare_v1.json)
+- current Phase-6 config: [phase6_dynamics_merged_unique_structured_v6_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_merged_unique_structured_v6_v1.json)
+- current Phase-6 bundle: [dynamics_merged_unique_structured_v6_v1](/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v6_v1)
+- current Phase-6 summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v6_v1/summary.json)
+- current Phase-6 verify eval: [dynamics_merged_unique_structured_v6_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v6_v1_verify.json)
+- direct large-corpus comparison: [dynamics_merged_unique_compare_v2.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_compare_v2.json)
 - architecture note: [dynamics.md](/home/torsten/EngineKonzept/docs/architecture/dynamics.md)
 - phase note: [phase-6.md](/home/torsten/EngineKonzept/docs/phases/phase-6.md)
 
@@ -195,8 +195,9 @@ The large `merged_unique` reruns change that decision on the `110,570 / 12,286 /
 - large `structured_v2_latent_v1`: verify `feature_l1_error=1.067843`, `drift_feature_l1_error=6.305117`
 - large `structured_v3_v1`: verify `feature_l1_error=1.02784`, `drift_feature_l1_error=6.18409`
 - large `structured_v5_v1`: verify `feature_l1_error=0.924808`, `drift_feature_l1_error=1.548861`
+- large `structured_v6_v1`: verify `feature_l1_error=0.923791`, `drift_feature_l1_error=1.464848`
 
-That makes `dynamics_merged_unique_structured_v5_v1` the new preferred Phase-6 reference. The symbolic selected-move features do not just help one-step reconstruction at this scale; on the larger corpus they also become the best measured drift path so far.
+That makes `dynamics_merged_unique_structured_v6_v1` the new preferred Phase-6 reference. The richer `TransitionContextV1` contract now carries through at scale: it edges out the large symbolic-action `structured_v5` run on one-step reconstruction and improves drift materially on the same corpus.
 
 Exact next-state accuracy still remains `0.0`.
 

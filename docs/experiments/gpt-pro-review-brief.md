@@ -39,20 +39,21 @@ Meaning:
 
 Current preferred dynamics path:
 
-- config: [phase6_dynamics_merged_unique_structured_v5_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_merged_unique_structured_v5_v1.json)
-- bundle: [dynamics_merged_unique_structured_v5_v1](/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v5_v1)
-- comparison: [dynamics_merged_unique_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_compare_v1.json)
+- config: [phase6_dynamics_merged_unique_structured_v6_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_merged_unique_structured_v6_v1.json)
+- bundle: [dynamics_merged_unique_structured_v6_v1](/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v6_v1)
+- comparison: [dynamics_merged_unique_compare_v2.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_compare_v2.json)
 
 Current large-corpus verify metrics:
 
 - `structured_v2_latent`: `feature_l1_error=1.067843`, `drift_feature_l1_error=6.305117`
 - `structured_v3`: `feature_l1_error=1.02784`, `drift_feature_l1_error=6.18409`
 - `structured_v5`: `feature_l1_error=0.924808`, `drift_feature_l1_error=1.548861`
+- `structured_v6`: `feature_l1_error=0.923791`, `drift_feature_l1_error=1.464848`
 
 Interpretation:
 
-- symbolic move-side features now clearly help Phase 6 at larger scale
-- `structured_v5` is the best current Phase-6 arm
+- symbolic move-side features clearly help Phase 6 at larger scale
+- the richer `TransitionContextV1` contract improves on that symbolic-action baseline when rerun at the same scale
 - exact next-state accuracy remains `0.0`
 
 ## Current Pressures

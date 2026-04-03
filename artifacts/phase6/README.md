@@ -4,12 +4,12 @@ This directory stores materialized latent-dynamics runs and held-out evaluation 
 
 ## Current Default
 
-- [dynamics_merged_unique_structured_v5_v1](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v5_v1)
-  Training summary for the current preferred large-corpus symbolic-action Phase-6 run.
-- [dynamics_merged_unique_structured_v5_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v5_v1_verify.json)
+- [dynamics_merged_unique_structured_v6_v1](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v6_v1)
+  Training summary for the current preferred large-corpus `TransitionContextV1` Phase-6 run.
+- [dynamics_merged_unique_structured_v6_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v6_v1_verify.json)
   Held-out verify evaluation for the current preferred large-corpus bundle on the merged unique verify corpus.
-- [dynamics_merged_unique_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_compare_v1.json)
-  Direct comparison between the large-corpus `structured_v2_latent`, `structured_v3`, and `structured_v5` runs.
+- [dynamics_merged_unique_compare_v2.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_compare_v2.json)
+  Direct comparison between the large-corpus `structured_v2_latent`, `structured_v3`, `structured_v5`, and `structured_v6` runs.
 - [dynamics_structured_v2_latent_v1](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_latent_v1)
   Training summary for the previous smaller-corpus preferred structured Phase-6 run with auxiliary latent-consistency supervision.
 - [dynamics_structured_v2_latent_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v2_latent_v1_verify.json)
@@ -35,6 +35,10 @@ This directory stores materialized latent-dynamics runs and held-out evaluation 
   Training summary for the large-corpus delta-auxiliary rerun.
 - [dynamics_merged_unique_structured_v3_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v3_v1_verify.json)
   Held-out verify evaluation for the same rerun.
+- [dynamics_merged_unique_structured_v5_v1](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v5_v1)
+  Training summary for the previous large-corpus symbolic-action default.
+- [dynamics_merged_unique_structured_v5_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v5_v1_verify.json)
+  Held-out verify evaluation for the same run. It remained the strongest large-corpus Phase-6 arm until the `TransitionContextV1` rerun.
 - [dynamics_structured_v3_v1](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v3_v1)
   Training summary for the latent-stable plus delta-auxiliary follow-up.
 - [dynamics_structured_v3_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_structured_v3_v1_verify.json)

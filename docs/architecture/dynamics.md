@@ -40,7 +40,9 @@ Materialized bundles:
 - [dynamics_merged_unique_structured_v3_v1](/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v3_v1)
   Large-corpus rerun of the delta-auxiliary structured arm over the merged unique `110,570 / 12,286 / 2,169` dataset.
 - [dynamics_merged_unique_structured_v5_v1](/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v5_v1)
-  Large-corpus symbolic-action rerun over the same merged unique dataset. This is now the preferred Phase-6 bundle.
+  Large-corpus symbolic-action rerun over the same merged unique dataset. It is now the strongest purely symbolic-action reference, but no longer the overall default.
+- [dynamics_merged_unique_structured_v6_v1](/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v6_v1)
+  Large-corpus transition-context rerun over the same merged unique dataset. This is now the preferred Phase-6 bundle.
 - [edit_v1](/home/torsten/EngineKonzept/models/dynamics/edit_v1)
   Experimental local edit-target arm that reconstructs delta sections relative to the current state.
 
@@ -63,7 +65,7 @@ These files are backfilled with [materialize_dynamics_artifacts.py](/home/torste
 
 ## Contract Pressure
 
-The current preferred large-corpus `structured_v5` result changes the next design pressure.
+The current preferred large-corpus `structured_v6` result changes the next design pressure.
 
 The main bottleneck is no longer “find another generic model family.” It is:
 
@@ -76,8 +78,9 @@ The current state already has the ingredients:
 - exact legal candidates from the symbolic proposer path
 - symbolic candidate features with named order in bundle metadata
 - a dynamics model that benefits from those selected-move symbolic features at scale
+- a dynamics model that now benefits even more from the richer `TransitionContextV1` contract at scale
 
-The next step should therefore be contract refinement rather than a blind architecture reset.
+The next step should therefore stay on contract refinement rather than a blind architecture reset.
 
 ### CandidateContextV2
 
@@ -116,7 +119,7 @@ That contract now also exists in code on the dataset side and has a first experi
 - `transition_features` now materialize `CandidateContextV2` plus exact post-move tags
 - `structured_v6_v1` consumes `TransitionContextV1` end-to-end through training, export metadata, and Rust-side bundle validation
 
-The current default large-corpus `structured_v5` bundle still uses only the existing selected-move symbolic row. `TransitionContextV1` is now a validated experimental bridge for future dynamics and opponent heads, but not yet the default large-corpus runtime-facing contract.
+`TransitionContextV1` is now the preferred large-corpus training-side contract for the active Phase-6 arm. The current shipped runtime bundle boundary still remains intentionally narrow and metadata-first; the contract pressure is now on using the same richer transition input consistently in later opponent/planner workflows.
 
 ### LatentStateV1
 
@@ -170,7 +173,9 @@ The current materialized runs are:
 - verify: [dynamics_merged_unique_structured_v3_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v3_v1_verify.json)
 - summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v5_v1/summary.json)
 - verify: [dynamics_merged_unique_structured_v5_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v5_v1_verify.json)
-- comparison: [dynamics_merged_unique_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_compare_v1.json)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v6_v1/summary.json)
+- verify: [dynamics_merged_unique_structured_v6_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v6_v1_verify.json)
+- comparison: [dynamics_merged_unique_compare_v2.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_compare_v2.json)
 - summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_edit_v1/summary.json)
 - verify: [dynamics_edit_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_edit_v1_verify.json)
 - comparison: [dynamics_phase6_parallel_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_phase6_parallel_compare_v1.json)
@@ -241,13 +246,15 @@ The large merged-unique reruns change that reading substantially:
 - `structured_v2_latent_v1` on the merged unique corpus: verify `feature_l1_error=1.067843`, `drift_feature_l1_error=6.305117`
 - `structured_v3_v1` on the same corpus: verify `feature_l1_error=1.02784`, `drift_feature_l1_error=6.18409`
 - `structured_v5_v1` on the same corpus: verify `feature_l1_error=0.924808`, `drift_feature_l1_error=1.548861`
+- `structured_v6_v1` on the same corpus: verify `feature_l1_error=0.923791`, `drift_feature_l1_error=1.464848`
 
 That means two things are now externally checked:
 
 - the larger corpus helps the delta-auxiliary `structured_v3` line enough to beat the old large `structured_v2_latent` baseline on both main soft metrics
-- the symbolic action side input is not merely a one-step helper at scale; on the large merged unique corpus it also becomes the best measured drift path so far
+- the symbolic action side input is not merely a one-step helper at scale; on the large merged unique corpus it becomes a strong bridge into the richer transition contract
+- the richer `TransitionContextV1` contract then improves on the large symbolic-action run itself, especially on drift
 
-So the current preferred Phase-6 reference is now [dynamics_merged_unique_structured_v5_v1](/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v5_v1).
+So the current preferred Phase-6 reference is now [dynamics_merged_unique_structured_v6_v1](/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v6_v1).
 
 The parallel local edit-target arm `edit_v1` shows the opposite tradeoff:
 
@@ -267,7 +274,8 @@ This is enough to establish the Phase-6 dataset, training, export, and Rust-boun
 
 The obvious next pressures are now:
 
-- a better local-transition target that keeps `structured_v3_v1`'s one-step gains without giving back drift
+- better planner-facing use of the now validated large-corpus `TransitionContextV1` path
+- more granular transition-tag metrics and section exactness on top of the current large-corpus default
 - a better way to use multi-step supervision than the current `structured_v4_v1` rollout-loss formulation
 - potentially partial-state or tokenized reconstruction instead of one flat feature regression target
 - stronger multi-step drift supervision beyond the current short held-out slice

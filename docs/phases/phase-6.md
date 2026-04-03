@@ -75,11 +75,11 @@ The next transition-context experimental run is:
 
 The larger-corpus reruns now provide the preferred Phase-6 reference:
 
-- config: [phase6_dynamics_merged_unique_structured_v5_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_merged_unique_structured_v5_v1.json)
-- bundle: [dynamics_merged_unique_structured_v5_v1](/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v5_v1)
-- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v5_v1/summary.json)
-- verify: [dynamics_merged_unique_structured_v5_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v5_v1_verify.json)
-- direct comparison: [dynamics_merged_unique_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_compare_v1.json)
+- config: [phase6_dynamics_merged_unique_structured_v6_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_merged_unique_structured_v6_v1.json)
+- bundle: [dynamics_merged_unique_structured_v6_v1](/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v6_v1)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v6_v1/summary.json)
+- verify: [dynamics_merged_unique_structured_v6_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_structured_v6_v1_verify.json)
+- direct comparison: [dynamics_merged_unique_compare_v2.json](/home/torsten/EngineKonzept/artifacts/phase6/dynamics_merged_unique_compare_v2.json)
 
 The parallel local edit-target experimental run is:
 
@@ -161,8 +161,9 @@ The larger `merged_unique` reruns overturn that smaller-corpus conclusion:
 - `structured_v2_latent_v1` on `110,570 / 12,286 / 2,169`: verify `feature_l1_error=1.067843`, `drift_feature_l1_error=6.305117`
 - `structured_v3_v1` on the same corpus: verify `feature_l1_error=1.02784`, `drift_feature_l1_error=6.18409`
 - `structured_v5_v1` on the same corpus: verify `feature_l1_error=0.924808`, `drift_feature_l1_error=1.548861`
+- `structured_v6_v1` on the same corpus: verify `feature_l1_error=0.923791`, `drift_feature_l1_error=1.464848`
 
-So the current preferred Phase-6 reference is now the large-corpus symbolic-action run [dynamics_merged_unique_structured_v5_v1](/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v5_v1), not the earlier `10k`-corpus `structured_v2_latent_v1`.
+So the current preferred Phase-6 reference is now the large-corpus transition-context run [dynamics_merged_unique_structured_v6_v1](/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v6_v1), not the earlier `10k`-corpus `structured_v2_latent_v1` and not the earlier large-corpus `structured_v5` symbolic-action default.
 
 The parallel `edit_v1` arm is informative but remains experimental:
 

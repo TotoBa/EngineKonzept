@@ -189,9 +189,10 @@ The next `structured_v6_v1` follow-up refines the selected-action contract quest
 The larger merged-unique reruns refine that again:
 
 - the large `structured_v3` rerun beats the old large `structured_v2_latent` baseline on both verify feature error and verify drift
-- the large symbolic-action `structured_v5` rerun becomes the best measured Phase-6 arm overall on the merged unique corpus
+- the large symbolic-action `structured_v5` rerun becomes the first strong large-corpus Phase-6 arm
+- the large transition-context `structured_v6` rerun then edges out `structured_v5` on one-step reconstruction and improves drift materially on the same corpus
 
-So the current preferred Phase-6 path is now the symbolic-action dynamics line on the larger corpus, not the earlier smaller-corpus `structured_v2_latent` reference.
+So the current preferred Phase-6 path is now the large-corpus transition-context dynamics line, not the earlier smaller-corpus `structured_v2_latent` reference and not the earlier large `structured_v5` default.
 
 ### Why
 

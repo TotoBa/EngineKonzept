@@ -60,8 +60,8 @@ These remain useful as small-corpus regression baselines, but they are no longer
 
 ## Phase 6 Baseline
 
-- [phase6_dynamics_merged_unique_structured_v5_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_merged_unique_structured_v5_v1.json)
-  Current preferred Phase-6 config. Runs the symbolic-action dynamics arm on the merged unique `110,570 / 12,286 / 2,169` corpus and is the best measured large-corpus dynamics path so far.
+- [phase6_dynamics_merged_unique_structured_v6_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_merged_unique_structured_v6_v1.json)
+  Current preferred Phase-6 config. Runs the `TransitionContextV1` dynamics arm on the merged unique `110,570 / 12,286 / 2,169` corpus and is the best measured large-corpus dynamics path so far.
 - [phase6_dynamics_structured_v2_latent_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v2_latent_v1.json)
   Previous smaller-corpus preferred Phase-6 config: drift-aware structured decoder plus auxiliary latent-consistency supervision.
 - [phase6_dynamics_structured_v2_drift_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v2_drift_v1.json)
@@ -75,6 +75,8 @@ These remain useful as small-corpus regression baselines, but they are no longer
 
 - [phase6_dynamics_merged_unique_structured_v3_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_merged_unique_structured_v3_v1.json)
   Large-corpus rerun of the delta-auxiliary structured arm. On the merged unique corpus it beats the old large `structured_v2_latent` baseline on both one-step and drift, but still trails the new symbolic-action large-corpus default.
+- [phase6_dynamics_merged_unique_structured_v5_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_merged_unique_structured_v5_v1.json)
+  Previous large-corpus symbolic-action default. Still a strong reference point, but now slightly behind the large `structured_v6` transition-context run on both one-step error and drift.
 - [phase6_dynamics_structured_v3_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v3_v1.json)
   Latent-stable structured follow-up with auxiliary delta supervision. Better one-step reconstruction than the current default, but slightly worse drift.
 - [phase6_dynamics_structured_v4_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v4_v1.json)
@@ -82,7 +84,7 @@ These remain useful as small-corpus regression baselines, but they are no longer
 - [phase6_dynamics_structured_v5_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v5_v1.json)
   Symbolic-action follow-up. Keeps the latent-consistency baseline and adds exact selected-move symbolic features aligned with the current symbolic proposer contract.
 - [phase6_dynamics_structured_v6_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_structured_v6_v1.json)
-  First `TransitionContextV1` follow-up. Replaces the selected-move symbolic side path with the richer versioned transition contract. On the `10k` corpus it improves both feature-L1 and drift over `structured_v5_v1`, but it is still not the large-corpus default.
+  First `TransitionContextV1` follow-up on the smaller `10k` corpus. It improves both feature-L1 and drift over `structured_v5_v1` there and is now backed by the promoted large-corpus `structured_v6` default.
 - [phase6_dynamics_edit_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_edit_v1.json)
   Local edit-target dynamics arm. Very strong one-step reconstruction, but currently unacceptable drift.
 
