@@ -253,11 +253,11 @@ That moves the repo past the old Phase-7 bar: the learned opponent head now beat
 The repository now also has the first trained bounded planner arm over the same `10k`, `122k`, and `400k` workflow tiers:
 
 - workflow suite: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_v1/summary.json)
-- current planner config: [phase8_planner_corpus_suite_set_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v1.json)
-- current planner bundle: [corpus_suite_set_v1](/home/torsten/EngineKonzept/models/planner/corpus_suite_set_v1)
-- current planner summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v1/summary.json)
-- current planner verify eval: [planner_corpus_suite_set_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v1_verify.json)
-- direct comparison: [planner_corpus_suite_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_compare_v1.json)
+- current planner config: [phase8_planner_corpus_suite_set_v2_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v2_v1.json)
+- current planner bundle: [corpus_suite_set_v2_v1](/home/torsten/EngineKonzept/models/planner/corpus_suite_set_v2_v1)
+- current planner summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v2_v1/summary.json)
+- current planner verify eval: [planner_corpus_suite_set_v2_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v2_v1_verify.json)
+- direct comparison: [planner_corpus_suite_compare_v2.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_compare_v2.json)
 
 Aggregate verify result over `1,410` held-out planner examples:
 
@@ -270,12 +270,17 @@ Aggregate verify result over `1,410` held-out planner examples:
 - learned-reply bounded baseline:
   - `root_top1_accuracy=0.142553`
   - `teacher_root_mean_reciprocal_rank=0.224232`
-- trained planner `set_v1`:
+- first trained planner `set_v1`:
   - `root_top1_accuracy=0.788652`
   - `root_top3_accuracy=0.958156`
   - `teacher_root_mean_reciprocal_rank=0.872636`
+- current planner `set_v2`:
+  - `root_top1_accuracy=0.795035`
+  - `root_top3_accuracy=0.968085`
+  - `teacher_root_mean_reciprocal_rank=0.875355`
+  - `teacher_root_mean_probability=0.685788`
 
-These are still bounded offline planner artifacts, not runtime search, but Phase 8 is now past pure baselines and has its first real trainable planner reference.
+These are still bounded offline planner artifacts, not runtime search, but Phase 8 is now past pure baselines and has a second richer-target planner arm that edges out the first `set_v1` reference on the same multi-corpus holdout.
 
 ## Repository Layout
 

@@ -16,6 +16,8 @@ def main() -> int:
     parser.add_argument("--symbolic-reply", type=Path, required=True)
     parser.add_argument("--learned-reply", type=Path, required=True)
     parser.add_argument("--trained-planner", type=Path, required=True)
+    parser.add_argument("--reference-planner", type=Path)
+    parser.add_argument("--reference-planner-name", default="reference_planner")
     parser.add_argument("--output-path", type=Path, required=True)
     args = parser.parse_args()
 
@@ -23,14 +25,15 @@ def main() -> int:
     symbolic_reply = _load_aggregate(args.symbolic_reply)
     learned_reply = _load_aggregate(args.learned_reply)
     trained_planner = _load_metrics(args.trained_planner)
-    comparison = {
-        "runs": {
-            "root_only": root_only,
-            "symbolic_reply": symbolic_reply,
-            "learned_reply": learned_reply,
-            "trained_planner": trained_planner,
-        }
+    runs = {
+        "root_only": root_only,
+        "symbolic_reply": symbolic_reply,
+        "learned_reply": learned_reply,
+        "trained_planner": trained_planner,
     }
+    if args.reference_planner is not None:
+        runs[str(args.reference_planner_name)] = _load_metrics(args.reference_planner)
+    comparison = {"runs": runs}
     output_path = _resolve_repo_path(args.output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(comparison, indent=2, sort_keys=True) + "\n", encoding="utf-8")

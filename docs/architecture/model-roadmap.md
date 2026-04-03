@@ -287,7 +287,16 @@ Aggregate held-out verify result over `1,410` examples:
 - learned-reply bounded baseline: `0.142553`, `MRR=0.224232`
 - trained planner `set_v1`: `0.788652`, `MRR=0.872636`
 
-So Phase 8 is now past pure bounded baselines and has a first measurable trained planner reference.
+The richer-target follow-up now exists as well:
+
+- planner config: [phase8_planner_corpus_suite_set_v2_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v2_v1.json)
+- verify comparison: [planner_corpus_suite_compare_v2.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_compare_v2.json)
+
+Aggregate held-out verify result:
+
+- trained planner `set_v2`: `root_top1_accuracy=0.795035`, `MRR=0.875355`
+
+So Phase 8 is now past pure bounded baselines and has a first refined planner line, not just a one-off trained reference.
 
 ## Deferred Architecture Ideas
 
@@ -306,11 +315,11 @@ These ideas are interesting for later phases, but they are not the current bottl
 
 The next model experiments should now be ordered like this:
 
-1. strengthen the trained planner targets and planner-facing state contract
-2. improve the Phase-6 dynamics model over the symbolic proposer candidate contract
+1. bring stronger Phase-6 latent-state information into the planner-facing contract
+2. test whether better opponent uncertainty signals improve planner calibration more than raw reply accuracy alone
 3. use alpha-beta/MCTS-supported offline workflows for richer opponent/planner targets without making them the runtime path
 4. explore richer symbolic proposer candidate features only if downstream modules need them
-5. only then decide whether the next gain should come from richer planner recurrence or better target structure
+5. only then decide whether the next gain should come from richer planner recurrence or better planner-state structure
 
 The first three offline search-workflow layers are now in place:
 

@@ -98,4 +98,6 @@ These remain useful as small-corpus regression baselines, but they are no longer
 ## Phase 8 Baseline
 
 - [phase8_planner_corpus_suite_set_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v1.json)
-  Current preferred Phase-8 config. Trains the first bounded planner head over the `10k`, `122k`, and `400k` planner-workflow tiers and is the first materialized trained planner reference in the repo.
+  First materialized Phase-8 planner config. Trains the initial bounded planner head over the `10k`, `122k`, and `400k` planner-workflow tiers.
+- [phase8_planner_corpus_suite_set_v2_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v2_v1.json)
+  Current preferred Phase-8 config. Keeps the same bounded multi-corpus workflow suite but adds richer teacher-value and teacher-gap auxiliary targets on top of the planner ranking objective.

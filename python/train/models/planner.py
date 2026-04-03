@@ -21,7 +21,7 @@ except ModuleNotFoundError:  # pragma: no cover - exercised when torch is absent
     nn = None
 
 
-PLANNER_MODEL_NAME = "planner_head_v1"
+PLANNER_MODEL_NAME = "planner_head"
 PLANNER_CANDIDATE_FEATURE_SIZE = candidate_context_feature_dim(2)
 
 
@@ -59,7 +59,7 @@ if torch is not None and nn is not None:
             dropout: float,
         ) -> None:
             super().__init__()
-            if architecture != "set_v1":
+            if architecture not in {"set_v1", "set_v2"}:
                 raise ValueError(f"unsupported planner architecture: {architecture}")
             self.architecture = architecture
             self.state_backbone = _build_mlp(
@@ -89,14 +89,31 @@ if torch is not None and nn is not None:
             self.set_query = nn.Linear(hidden_dim, hidden_dim)
             self.set_key = nn.Linear(hidden_dim, hidden_dim)
             self.set_value = nn.Linear(hidden_dim, hidden_dim)
+            candidate_factor_count = 5 if architecture == "set_v1" else 6
             self.candidate_mlp = nn.Sequential(
-                nn.Linear(hidden_dim * 5, hidden_dim),
+                nn.Linear(hidden_dim * candidate_factor_count, hidden_dim),
                 nn.ReLU(),
                 nn.Dropout(dropout) if dropout > 0.0 else nn.Identity(),
                 nn.Linear(hidden_dim, hidden_dim // 2),
                 nn.ReLU(),
                 nn.Linear(hidden_dim // 2, 1),
             )
+            if architecture == "set_v2":
+                self.root_value_head = nn.Sequential(
+                    nn.Linear(hidden_dim * 3, hidden_dim),
+                    nn.ReLU(),
+                    nn.Dropout(dropout) if dropout > 0.0 else nn.Identity(),
+                    nn.Linear(hidden_dim, 1),
+                )
+                self.root_gap_head = nn.Sequential(
+                    nn.Linear(hidden_dim * 3, hidden_dim),
+                    nn.ReLU(),
+                    nn.Dropout(dropout) if dropout > 0.0 else nn.Identity(),
+                    nn.Linear(hidden_dim, 1),
+                )
+            else:
+                self.root_value_head = None
+                self.root_gap_head = None
 
         def forward(
             self,
@@ -146,18 +163,29 @@ if torch is not None and nn is not None:
             repeated_context = state_hidden.unsqueeze(1).expand_as(candidate_token)
             repeated_attended = attended.unsqueeze(1).expand_as(candidate_token)
             repeated_summary = summary.unsqueeze(1).expand_as(candidate_token)
-            candidate_hidden = torch.cat(
-                [
-                    candidate_token,
-                    repeated_context,
-                    repeated_attended,
-                    repeated_summary,
-                    candidate_token * repeated_context,
-                ],
-                dim=2,
-            )
+            candidate_hidden_parts = [
+                candidate_token,
+                repeated_context,
+                repeated_attended,
+                repeated_summary,
+                candidate_token * repeated_context,
+            ]
+            if self.architecture == "set_v2":
+                candidate_hidden_parts.append(candidate_token * repeated_attended)
+            candidate_hidden = torch.cat(candidate_hidden_parts, dim=2)
             logits = self.candidate_mlp(candidate_hidden).squeeze(-1)
-            return logits.masked_fill(~candidate_mask, -20.0)
+            root_summary = torch.cat([state_hidden, attended, summary], dim=1)
+            root_value_prediction = None
+            root_gap_prediction = None
+            if self.root_value_head is not None:
+                root_value_prediction = self.root_value_head(root_summary).squeeze(-1)
+            if self.root_gap_head is not None:
+                root_gap_prediction = self.root_gap_head(root_summary).squeeze(-1)
+            return {
+                "logits": logits.masked_fill(~candidate_mask, -20.0),
+                "root_value_prediction": root_value_prediction,
+                "root_gap_prediction": root_gap_prediction,
+            }
 
 else:  # pragma: no cover - exercised when torch is absent
 

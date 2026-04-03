@@ -1,0 +1,376 @@
+{
+  "best_epoch": 6,
+  "best_validation": {
+    "examples_per_second": 4630.776,
+    "root_gap_examples": 1790,
+    "root_gap_loss": 2.300262,
+    "root_gap_mae_cp": 269.306079,
+    "root_top1_accuracy": 0.801897,
+    "root_top3_accuracy": 0.972098,
+    "root_value_loss": 0.20755,
+    "root_value_mae_cp": 80.849056,
+    "supervised_examples": 1792,
+    "teacher_kl_loss": 0.847328,
+    "teacher_policy_loss": 0.845887,
+    "teacher_root_mean_probability": 0.680764,
+    "teacher_root_mean_reciprocal_rank": 0.882812,
+    "total_examples": 1792,
+    "total_loss": 1.18311
+  },
+  "config": {
+    "data": {
+      "additional_train_paths": [
+        "artifacts/phase8/planner_workflow_corpus_suite_v1/merged_unique_122k_train_v1/planner_head_train.jsonl",
+        "artifacts/phase8/planner_workflow_corpus_suite_v1/unique_pi_400k_train_v1/planner_head_train.jsonl"
+      ],
+      "additional_validation_paths": [
+        "artifacts/phase8/planner_workflow_corpus_suite_v1/merged_unique_122k_validation_v1/planner_head_validation.jsonl",
+        "artifacts/phase8/planner_workflow_corpus_suite_v1/unique_pi_400k_validation_v1/planner_head_validation.jsonl"
+      ],
+      "train_path": "artifacts/phase8/planner_workflow_corpus_suite_v1/pgn_10k_train_v1/planner_head_train.jsonl",
+      "validation_path": "artifacts/phase8/planner_workflow_corpus_suite_v1/pgn_10k_validation_v1/planner_head_validation.jsonl"
+    },
+    "evaluation": {
+      "top_k": 3
+    },
+    "export": {
+      "bundle_dir": "models/planner/corpus_suite_set_v2_v1",
+      "checkpoint_name": "checkpoint.pt"
+    },
+    "model": {
+      "action_embedding_dim": 64,
+      "architecture": "set_v2",
+      "dropout": 0.1,
+      "hidden_dim": 256,
+      "hidden_layers": 2
+    },
+    "optimization": {
+      "batch_size": 64,
+      "curriculum_priority_weight": 0.1,
+      "epochs": 8,
+      "learning_rate": 0.001,
+      "root_gap_loss_weight": 0.05,
+      "root_value_loss_weight": 0.05,
+      "teacher_kl_loss_weight": 0.25,
+      "teacher_policy_loss_weight": 1.0,
+      "weight_decay": 0.0001
+    },
+    "output_dir": "artifacts/phase8/planner_corpus_suite_set_v2_v1",
+    "runtime": {
+      "dataloader_workers": 0,
+      "torch_threads": 6
+    },
+    "seed": 11
+  },
+  "export_paths": {
+    "checkpoint": "/home/torsten/EngineKonzept/models/planner/corpus_suite_set_v2_v1/checkpoint.pt"
+  },
+  "history": [
+    {
+      "epoch": 1,
+      "examples_per_second": 1649.716,
+      "train": {
+        "examples_per_second": 1649.716,
+        "root_gap_examples": 7149,
+        "root_gap_loss": 11.898657,
+        "root_gap_mae_cp": 130.653945,
+        "root_top1_accuracy": 0.614816,
+        "root_top3_accuracy": 0.892439,
+        "root_value_loss": 5.716778,
+        "root_value_mae_cp": 102.208821,
+        "supervised_examples": 7168,
+        "teacher_kl_loss": 0.720891,
+        "teacher_policy_loss": 1.41419,
+        "teacher_root_mean_probability": 0.473361,
+        "teacher_root_mean_reciprocal_rank": 0.760591,
+        "total_examples": 7168,
+        "total_loss": 2.475185
+      },
+      "validation": {
+        "examples_per_second": 4499.018,
+        "root_gap_examples": 1790,
+        "root_gap_loss": 2.362439,
+        "root_gap_mae_cp": 276.212397,
+        "root_top1_accuracy": 0.710938,
+        "root_top3_accuracy": 0.921317,
+        "root_value_loss": 0.277977,
+        "root_value_mae_cp": 88.284062,
+        "supervised_examples": 1792,
+        "teacher_kl_loss": 0.762701,
+        "teacher_policy_loss": 1.101793,
+        "teacher_root_mean_probability": 0.568875,
+        "teacher_root_mean_reciprocal_rank": 0.819801,
+        "total_examples": 1792,
+        "total_loss": 1.424489
+      }
+    },
+    {
+      "epoch": 2,
+      "examples_per_second": 1649.153,
+      "train": {
+        "examples_per_second": 1649.153,
+        "root_gap_examples": 7149,
+        "root_gap_loss": 11.869106,
+        "root_gap_mae_cp": 126.936289,
+        "root_top1_accuracy": 0.718192,
+        "root_top3_accuracy": 0.921735,
+        "root_value_loss": 5.695593,
+        "root_value_mae_cp": 95.420555,
+        "supervised_examples": 7168,
+        "teacher_kl_loss": 0.774106,
+        "teacher_policy_loss": 1.044425,
+        "teacher_root_mean_probability": 0.579097,
+        "teacher_root_mean_reciprocal_rank": 0.826253,
+        "total_examples": 7168,
+        "total_loss": 2.116187
+      },
+      "validation": {
+        "examples_per_second": 4794.45,
+        "root_gap_examples": 1790,
+        "root_gap_loss": 2.360691,
+        "root_gap_mae_cp": 281.146581,
+        "root_top1_accuracy": 0.732143,
+        "root_top3_accuracy": 0.933036,
+        "root_value_loss": 0.234283,
+        "root_value_mae_cp": 96.230547,
+        "supervised_examples": 1792,
+        "teacher_kl_loss": 0.69562,
+        "teacher_policy_loss": 1.012683,
+        "teacher_root_mean_probability": 0.587246,
+        "teacher_root_mean_reciprocal_rank": 0.834821,
+        "total_examples": 1792,
+        "total_loss": 1.316337
+      }
+    },
+    {
+      "epoch": 3,
+      "examples_per_second": 1596.21,
+      "train": {
+        "examples_per_second": 1596.21,
+        "root_gap_examples": 7149,
+        "root_gap_loss": 11.862147,
+        "root_gap_mae_cp": 126.535566,
+        "root_top1_accuracy": 0.75572,
+        "root_top3_accuracy": 0.947824,
+        "root_value_loss": 5.687594,
+        "root_value_mae_cp": 93.853764,
+        "supervised_examples": 7168,
+        "teacher_kl_loss": 0.764209,
+        "teacher_policy_loss": 0.917296,
+        "teacher_root_mean_probability": 0.61955,
+        "teacher_root_mean_reciprocal_rank": 0.852423,
+        "total_examples": 7168,
+        "total_loss": 1.985836
+      },
+      "validation": {
+        "examples_per_second": 4606.994,
+        "root_gap_examples": 1790,
+        "root_gap_loss": 2.344405,
+        "root_gap_mae_cp": 278.21352,
+        "root_top1_accuracy": 0.754464,
+        "root_top3_accuracy": 0.955357,
+        "root_value_loss": 0.221757,
+        "root_value_mae_cp": 78.273682,
+        "supervised_examples": 1792,
+        "teacher_kl_loss": 0.816424,
+        "teacher_policy_loss": 0.93152,
+        "teacher_root_mean_probability": 0.630662,
+        "teacher_root_mean_reciprocal_rank": 0.853237,
+        "total_examples": 1792,
+        "total_loss": 1.263934
+      }
+    },
+    {
+      "epoch": 4,
+      "examples_per_second": 1577.759,
+      "train": {
+        "examples_per_second": 1577.759,
+        "root_gap_examples": 7149,
+        "root_gap_loss": 11.853006,
+        "root_gap_mae_cp": 126.487879,
+        "root_top1_accuracy": 0.780971,
+        "root_top3_accuracy": 0.959682,
+        "root_value_loss": 5.676348,
+        "root_value_mae_cp": 94.580984,
+        "supervised_examples": 7168,
+        "teacher_kl_loss": 0.737675,
+        "teacher_policy_loss": 0.824662,
+        "teacher_root_mean_probability": 0.651068,
+        "teacher_root_mean_reciprocal_rank": 0.869641,
+        "total_examples": 7168,
+        "total_loss": 1.885549
+      },
+      "validation": {
+        "examples_per_second": 4648.333,
+        "root_gap_examples": 1790,
+        "root_gap_loss": 2.347002,
+        "root_gap_mae_cp": 285.77409,
+        "root_top1_accuracy": 0.77846,
+        "root_top3_accuracy": 0.963728,
+        "root_value_loss": 0.201257,
+        "root_value_mae_cp": 81.685566,
+        "supervised_examples": 1792,
+        "teacher_kl_loss": 0.982589,
+        "teacher_policy_loss": 0.833053,
+        "teacher_root_mean_probability": 0.671715,
+        "teacher_root_mean_reciprocal_rank": 0.867513,
+        "total_examples": 1792,
+        "total_loss": 1.206113
+      }
+    },
+    {
+      "epoch": 5,
+      "examples_per_second": 1567.269,
+      "train": {
+        "examples_per_second": 1567.269,
+        "root_gap_examples": 7149,
+        "root_gap_loss": 11.844175,
+        "root_gap_mae_cp": 127.0788,
+        "root_top1_accuracy": 0.806083,
+        "root_top3_accuracy": 0.971819,
+        "root_value_loss": 5.665009,
+        "root_value_mae_cp": 95.047362,
+        "supervised_examples": 7168,
+        "teacher_kl_loss": 0.762015,
+        "teacher_policy_loss": 0.744318,
+        "teacher_root_mean_probability": 0.674692,
+        "teacher_root_mean_reciprocal_rank": 0.886882,
+        "total_examples": 7168,
+        "total_loss": 1.81028
+      },
+      "validation": {
+        "examples_per_second": 4574.511,
+        "root_gap_examples": 1790,
+        "root_gap_loss": 2.318991,
+        "root_gap_mae_cp": 266.751226,
+        "root_top1_accuracy": 0.801897,
+        "root_top3_accuracy": 0.967634,
+        "root_value_loss": 0.202258,
+        "root_value_mae_cp": 76.943024,
+        "supervised_examples": 1792,
+        "teacher_kl_loss": 0.593871,
+        "teacher_policy_loss": 0.968796,
+        "teacher_root_mean_probability": 0.61806,
+        "teacher_root_mean_reciprocal_rank": 0.882533,
+        "total_examples": 1792,
+        "total_loss": 1.243326
+      }
+    },
+    {
+      "epoch": 6,
+      "examples_per_second": 1530.224,
+      "train": {
+        "examples_per_second": 1530.224,
+        "root_gap_examples": 7149,
+        "root_gap_loss": 11.83159,
+        "root_gap_mae_cp": 125.759758,
+        "root_top1_accuracy": 0.830636,
+        "root_top3_accuracy": 0.978655,
+        "root_value_loss": 5.648628,
+        "root_value_mae_cp": 94.551222,
+        "supervised_examples": 7168,
+        "teacher_kl_loss": 0.763083,
+        "teacher_policy_loss": 0.682447,
+        "teacher_root_mean_probability": 0.700455,
+        "teacher_root_mean_reciprocal_rank": 0.902495,
+        "total_examples": 7168,
+        "total_loss": 1.747229
+      },
+      "validation": {
+        "examples_per_second": 4630.776,
+        "root_gap_examples": 1790,
+        "root_gap_loss": 2.300262,
+        "root_gap_mae_cp": 269.306079,
+        "root_top1_accuracy": 0.801897,
+        "root_top3_accuracy": 0.972098,
+        "root_value_loss": 0.20755,
+        "root_value_mae_cp": 80.849056,
+        "supervised_examples": 1792,
+        "teacher_kl_loss": 0.847328,
+        "teacher_policy_loss": 0.845887,
+        "teacher_root_mean_probability": 0.680764,
+        "teacher_root_mean_reciprocal_rank": 0.882812,
+        "total_examples": 1792,
+        "total_loss": 1.18311
+      }
+    },
+    {
+      "epoch": 7,
+      "examples_per_second": 1496.181,
+      "train": {
+        "examples_per_second": 1496.181,
+        "root_gap_examples": 7149,
+        "root_gap_loss": 11.811041,
+        "root_gap_mae_cp": 127.726444,
+        "root_top1_accuracy": 0.849609,
+        "root_top3_accuracy": 0.982701,
+        "root_value_loss": 5.604607,
+        "root_value_mae_cp": 97.765095,
+        "supervised_examples": 7168,
+        "teacher_kl_loss": 0.760099,
+        "teacher_policy_loss": 0.612004,
+        "teacher_root_mean_probability": 0.721534,
+        "teacher_root_mean_reciprocal_rank": 0.913946,
+        "total_examples": 7168,
+        "total_loss": 1.672811
+      },
+      "validation": {
+        "examples_per_second": 4388.114,
+        "root_gap_examples": 1790,
+        "root_gap_loss": 2.314524,
+        "root_gap_mae_cp": 270.365149,
+        "root_top1_accuracy": 0.787946,
+        "root_top3_accuracy": 0.962054,
+        "root_value_loss": 0.210381,
+        "root_value_mae_cp": 78.749814,
+        "supervised_examples": 1792,
+        "teacher_kl_loss": 0.883886,
+        "teacher_policy_loss": 0.843419,
+        "teacher_root_mean_probability": 0.689444,
+        "teacher_root_mean_reciprocal_rank": 0.874535,
+        "total_examples": 1792,
+        "total_loss": 1.190635
+      }
+    },
+    {
+      "epoch": 8,
+      "examples_per_second": 1476.088,
+      "train": {
+        "examples_per_second": 1476.088,
+        "root_gap_examples": 7149,
+        "root_gap_loss": 11.764831,
+        "root_gap_mae_cp": 128.43773,
+        "root_top1_accuracy": 0.868025,
+        "root_top3_accuracy": 0.988142,
+        "root_value_loss": 5.526084,
+        "root_value_mae_cp": 101.976743,
+        "supervised_examples": 7168,
+        "teacher_kl_loss": 0.76616,
+        "teacher_policy_loss": 0.557102,
+        "teacher_root_mean_probability": 0.742701,
+        "teacher_root_mean_reciprocal_rank": 0.925072,
+        "total_examples": 7168,
+        "total_loss": 1.613188
+      },
+      "validation": {
+        "examples_per_second": 4622.999,
+        "root_gap_examples": 1790,
+        "root_gap_loss": 2.312567,
+        "root_gap_mae_cp": 271.84748,
+        "root_top1_accuracy": 0.796875,
+        "root_top3_accuracy": 0.968192,
+        "root_value_loss": 0.227044,
+        "root_value_mae_cp": 79.710463,
+        "supervised_examples": 1792,
+        "teacher_kl_loss": 0.851841,
+        "teacher_policy_loss": 0.891138,
+        "teacher_root_mean_probability": 0.68916,
+        "teacher_root_mean_reciprocal_rank": 0.879604,
+        "total_examples": 1792,
+        "total_loss": 1.231079
+      }
+    }
+  ],
+  "model_name": "planner_head",
+  "model_parameter_count": 2625795
+}

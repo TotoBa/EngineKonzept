@@ -583,8 +583,8 @@ class PlannerModelConfig:
     dropout: float = 0.0
 
     def __post_init__(self) -> None:
-        if self.architecture != "set_v1":
-            raise ValueError("model.architecture must be 'set_v1'")
+        if self.architecture not in {"set_v1", "set_v2"}:
+            raise ValueError("model.architecture must be 'set_v1' or 'set_v2'")
         if self.hidden_dim <= 0:
             raise ValueError("model.hidden_dim must be positive")
         if self.hidden_layers <= 0:
@@ -606,6 +606,8 @@ class PlannerOptimizationConfig:
     teacher_policy_loss_weight: float = 1.0
     teacher_kl_loss_weight: float = 0.25
     curriculum_priority_weight: float = 0.0
+    root_value_loss_weight: float = 0.0
+    root_gap_loss_weight: float = 0.0
 
     def __post_init__(self) -> None:
         if self.epochs <= 0:
@@ -622,6 +624,10 @@ class PlannerOptimizationConfig:
             raise ValueError("optimization.teacher_kl_loss_weight must be non-negative")
         if self.curriculum_priority_weight < 0.0:
             raise ValueError("optimization.curriculum_priority_weight must be non-negative")
+        if self.root_value_loss_weight < 0.0:
+            raise ValueError("optimization.root_value_loss_weight must be non-negative")
+        if self.root_gap_loss_weight < 0.0:
+            raise ValueError("optimization.root_gap_loss_weight must be non-negative")
 
 
 @dataclass(frozen=True)

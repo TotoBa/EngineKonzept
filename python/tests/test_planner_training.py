@@ -12,7 +12,7 @@ from train.datasets.planner_head import PlannerHeadExample, write_planner_head_a
 from train.trainers import evaluate_planner_checkpoint, train_planner
 
 
-def test_load_planner_train_config_accepts_set_v1(tmp_path: Path) -> None:
+def test_load_planner_train_config_accepts_set_v2(tmp_path: Path) -> None:
     config_path = tmp_path / "planner_config.json"
     config_path.write_text(
         json.dumps(
@@ -24,7 +24,7 @@ def test_load_planner_train_config_accepts_set_v1(tmp_path: Path) -> None:
                     "validation_path": "planner_head_validation.jsonl",
                 },
                 "model": {
-                    "architecture": "set_v1",
+                    "architecture": "set_v2",
                     "hidden_dim": 64,
                     "hidden_layers": 1,
                     "action_embedding_dim": 16,
@@ -37,6 +37,8 @@ def test_load_planner_train_config_accepts_set_v1(tmp_path: Path) -> None:
                     "weight_decay": 0.0,
                     "teacher_policy_loss_weight": 1.0,
                     "teacher_kl_loss_weight": 0.25,
+                    "root_value_loss_weight": 0.1,
+                    "root_gap_loss_weight": 0.05,
                 },
                 "evaluation": {"top_k": 3},
                 "runtime": {"torch_threads": 1, "dataloader_workers": 0},
@@ -48,8 +50,9 @@ def test_load_planner_train_config_accepts_set_v1(tmp_path: Path) -> None:
 
     config = load_planner_train_config(config_path)
 
-    assert config.model.architecture == "set_v1"
+    assert config.model.architecture == "set_v2"
     assert config.runtime.torch_threads == 1
+    assert config.optimization.root_value_loss_weight == 0.1
 
 
 def test_train_and_evaluate_planner_checkpoint(tmp_path: Path) -> None:
@@ -120,7 +123,7 @@ def test_train_and_evaluate_planner_checkpoint(tmp_path: Path) -> None:
                     "validation_path": str(validation_path),
                 },
                 "model": {
-                    "architecture": "set_v1",
+                    "architecture": "set_v2",
                     "hidden_dim": 32,
                     "hidden_layers": 1,
                     "action_embedding_dim": 16,
@@ -134,6 +137,8 @@ def test_train_and_evaluate_planner_checkpoint(tmp_path: Path) -> None:
                     "teacher_policy_loss_weight": 1.0,
                     "teacher_kl_loss_weight": 0.25,
                     "curriculum_priority_weight": 0.1,
+                    "root_value_loss_weight": 0.1,
+                    "root_gap_loss_weight": 0.1,
                 },
                 "evaluation": {"top_k": 3},
                 "runtime": {"torch_threads": 1, "dataloader_workers": 0},
@@ -159,6 +164,7 @@ def test_train_and_evaluate_planner_checkpoint(tmp_path: Path) -> None:
     assert metrics.total_examples == 2
     assert 0.0 <= metrics.root_top1_accuracy <= 1.0
     assert 0.0 <= metrics.root_top3_accuracy <= 1.0
+    assert metrics.root_value_mae_cp >= 0.0
 
 
 def _planner_example(

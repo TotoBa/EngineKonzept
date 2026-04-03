@@ -59,7 +59,7 @@ That trainable arm keeps the project boundary:
 3. opponent-side signals still come from a bounded reply module
 4. the learned planner only scores a bounded candidate set; it does not become hidden tree search
 
-The first materialized planner reference is now:
+The first materialized planner reference was:
 
 - config: [phase8_planner_corpus_suite_set_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v1.json)
 - workflow suite: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_v1/summary.json)
@@ -67,6 +67,14 @@ The first materialized planner reference is now:
 - summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v1/summary.json)
 - verify: [planner_corpus_suite_set_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v1_verify.json)
 - comparison: [planner_corpus_suite_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_compare_v1.json)
+
+The current preferred planner reference is now:
+
+- config: [phase8_planner_corpus_suite_set_v2_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v2_v1.json)
+- bundle: [corpus_suite_set_v2_v1](/home/torsten/EngineKonzept/models/planner/corpus_suite_set_v2_v1)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v2_v1/summary.json)
+- verify: [planner_corpus_suite_set_v2_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v2_v1_verify.json)
+- comparison: [planner_corpus_suite_compare_v2.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_compare_v2.json)
 
 ## Current result
 
@@ -94,18 +102,25 @@ Aggregate held-out verify result over `1,410` planner examples:
 - learned-reply bounded baseline:
   - `root_top1_accuracy=0.142553`
   - `teacher_root_mean_reciprocal_rank=0.224232`
-- trained planner `set_v1`:
+- first trained planner `set_v1`:
   - `root_top1_accuracy=0.788652`
   - `root_top3_accuracy=0.958156`
   - `teacher_root_mean_reciprocal_rank=0.872636`
   - `teacher_root_mean_probability=0.616233`
+- current planner `set_v2`:
+  - `root_top1_accuracy=0.795035`
+  - `root_top3_accuracy=0.968085`
+  - `teacher_root_mean_reciprocal_rank=0.875355`
+  - `teacher_root_mean_probability=0.685788`
+  - `root_value_mae_cp=90.521303`
+  - `root_gap_mae_cp=264.01746`
 
-That means the repository is now past pure planner baselines. The first trained bounded planner is materially stronger than the current bounded hand-aggregation baselines on the same multi-corpus verify suite.
+That means the repository is now past pure planner baselines. The richer-target `set_v2` arm stays comfortably above all bounded hand-aggregation baselines and improves modestly over the first `set_v1` planner on the same multi-corpus verify suite.
 
 ## Next pressure
 
 The next useful Phase-8 steps are now:
 
-1. add richer planner targets than teacher top-1 plus restricted teacher policy
-2. bring stronger Phase-6 latent-state information into the planner-facing dataset contract
-3. test whether better opponent uncertainty signals improve planner calibration more than raw reply accuracy alone
+1. bring stronger Phase-6 latent-state information into the planner-facing dataset contract
+2. test whether better opponent uncertainty signals improve planner calibration more than raw reply accuracy alone
+3. decide whether the next gain should come from better planner state or richer planner recurrence
