@@ -60,7 +60,7 @@ if torch is not None and nn is not None:
             dropout: float,
         ) -> None:
             super().__init__()
-            if architecture not in {"set_v1", "set_v2", "set_v3"}:
+            if architecture not in {"set_v1", "set_v2", "set_v3", "set_v5"}:
                 raise ValueError(f"unsupported planner architecture: {architecture}")
             self.architecture = architecture
             self.latent_feature_dim = latent_feature_dim
@@ -89,9 +89,27 @@ if torch is not None and nn is not None:
                 nn.ReLU(),
                 nn.Dropout(dropout) if dropout > 0.0 else nn.Identity(),
             )
-            self.set_query = nn.Linear(hidden_dim, hidden_dim)
-            self.set_key = nn.Linear(hidden_dim, hidden_dim)
-            self.set_value = nn.Linear(hidden_dim, hidden_dim)
+            if architecture == "set_v5":
+                num_heads = 4
+                self.self_attention = nn.MultiheadAttention(
+                    hidden_dim, num_heads, dropout=dropout, batch_first=True,
+                )
+                self.self_attn_norm = nn.LayerNorm(hidden_dim)
+                self.cross_attention = nn.MultiheadAttention(
+                    hidden_dim, num_heads, dropout=dropout, batch_first=True,
+                )
+                self.cross_attn_norm = nn.LayerNorm(hidden_dim)
+                self.set_query = None
+                self.set_key = None
+                self.set_value = None
+            else:
+                self.self_attention = None
+                self.self_attn_norm = None
+                self.cross_attention = None
+                self.cross_attn_norm = None
+                self.set_query = nn.Linear(hidden_dim, hidden_dim)
+                self.set_key = nn.Linear(hidden_dim, hidden_dim)
+                self.set_value = nn.Linear(hidden_dim, hidden_dim)
             candidate_factor_count = 5 if architecture == "set_v1" else 6
             self.candidate_mlp = nn.Sequential(
                 nn.Linear(hidden_dim * candidate_factor_count, hidden_dim),
@@ -101,7 +119,7 @@ if torch is not None and nn is not None:
                 nn.ReLU(),
                 nn.Linear(hidden_dim // 2, 1),
             )
-            if architecture in {"set_v2", "set_v3"}:
+            if architecture in {"set_v2", "set_v3", "set_v5"}:
                 self.root_value_head = nn.Sequential(
                     nn.Linear(hidden_dim * 3, hidden_dim),
                     nn.ReLU(),
@@ -159,17 +177,38 @@ if torch is not None and nn is not None:
                     dim=2,
                 )
             )
-            query = self.set_query(state_hidden).unsqueeze(1)
-            keys = self.set_key(candidate_token)
-            values = self.set_value(candidate_token)
-            attention_logits = (query * keys).sum(dim=2) / math.sqrt(float(keys.shape[2]))
-            attention_logits = attention_logits.masked_fill(~candidate_mask, -1e9)
-            attention_weights = torch.softmax(attention_logits, dim=1)
-            attention_weights = attention_weights.masked_fill(~candidate_mask, 0.0)
-            attended = torch.sum(attention_weights.unsqueeze(-1) * values, dim=1)
-            mask = candidate_mask.unsqueeze(2).to(candidate_token.dtype)
-            candidate_count = mask.sum(dim=1).clamp_min(1.0)
-            summary = torch.sum(candidate_token * mask, dim=1) / candidate_count
+            if self.architecture == "set_v5":
+                key_padding_mask = ~candidate_mask
+                residual = candidate_token
+                candidate_token = self.self_attn_norm(candidate_token)
+                self_attended, _ = self.self_attention(
+                    candidate_token, candidate_token, candidate_token,
+                    key_padding_mask=key_padding_mask,
+                )
+                candidate_token = residual + self_attended
+                state_seq = state_hidden.unsqueeze(1).expand(-1, candidate_token.size(1), -1)
+                residual2 = candidate_token
+                candidate_token = self.cross_attn_norm(candidate_token)
+                cross_attended, _ = self.cross_attention(
+                    candidate_token, state_seq, state_seq,
+                )
+                candidate_token = residual2 + cross_attended
+                mask = candidate_mask.unsqueeze(2).to(candidate_token.dtype)
+                candidate_count = mask.sum(dim=1).clamp_min(1.0)
+                attended = torch.sum(candidate_token * mask, dim=1) / candidate_count
+                summary = attended
+            else:
+                query = self.set_query(state_hidden).unsqueeze(1)
+                keys = self.set_key(candidate_token)
+                values = self.set_value(candidate_token)
+                attention_logits = (query * keys).sum(dim=2) / math.sqrt(float(keys.shape[2]))
+                attention_logits = attention_logits.masked_fill(~candidate_mask, -1e9)
+                attention_weights = torch.softmax(attention_logits, dim=1)
+                attention_weights = attention_weights.masked_fill(~candidate_mask, 0.0)
+                attended = torch.sum(attention_weights.unsqueeze(-1) * values, dim=1)
+                mask = candidate_mask.unsqueeze(2).to(candidate_token.dtype)
+                candidate_count = mask.sum(dim=1).clamp_min(1.0)
+                summary = torch.sum(candidate_token * mask, dim=1) / candidate_count
             repeated_context = state_hidden.unsqueeze(1).expand_as(candidate_token)
             repeated_attended = attended.unsqueeze(1).expand_as(candidate_token)
             repeated_summary = summary.unsqueeze(1).expand_as(candidate_token)
@@ -180,7 +219,7 @@ if torch is not None and nn is not None:
                 repeated_summary,
                 candidate_token * repeated_context,
             ]
-            if self.architecture in {"set_v2", "set_v3"}:
+            if self.architecture in {"set_v2", "set_v3", "set_v5"}:
                 candidate_hidden_parts.append(candidate_token * repeated_attended)
             candidate_hidden = torch.cat(candidate_hidden_parts, dim=2)
             logits = self.candidate_mlp(candidate_hidden).squeeze(-1)
