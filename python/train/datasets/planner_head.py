@@ -220,6 +220,7 @@ def build_planner_head_examples(
     repo_root: Path,
 ) -> list[PlannerHeadExample]:
     """Build bounded root-planning examples from the current workflow artifacts."""
+
     if root_top_k <= 0:
         raise ValueError("root_top_k must be positive")
     if opponent_mode not in {"none", "symbolic", "learned"}:

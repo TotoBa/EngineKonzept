@@ -78,13 +78,6 @@ from train.datasets.opponent_head import (
     opponent_head_artifact_name,
     write_opponent_head_artifact,
 )
-from train.datasets.planner_head import (
-    PlannerHeadExample,
-    build_planner_head_examples,
-    load_planner_head_examples,
-    planner_head_artifact_name,
-    write_planner_head_artifact,
-)
 from train.datasets.search_traces import (
     SearchTraceExample,
     build_search_trace_example_from_analysis,
@@ -187,3 +180,21 @@ __all__ = [
     "write_search_trace_artifact",
     "write_dataset_artifacts",
 ]
+
+_PLANNER_HEAD_NAMES = {
+    "PlannerHeadExample",
+    "build_planner_head_examples",
+    "load_planner_head_examples",
+    "planner_head_artifact_name",
+    "write_planner_head_artifact",
+}
+
+
+def __getattr__(name: str):  # type: ignore[misc]
+    if name in _PLANNER_HEAD_NAMES:
+        from train.datasets import planner_head as _ph
+
+        value = getattr(_ph, name)
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

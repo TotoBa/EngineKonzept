@@ -56,6 +56,38 @@ DEFAULT_TIERS: tuple[WorkflowTierSpec, ...] = (
     ),
 )
 
+EXPANDED_TIERS: tuple[WorkflowTierSpec, ...] = (
+    WorkflowTierSpec(
+        name="pgn_10k",
+        train_dataset_dir=Path("artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1"),
+        verify_dataset_dir=Path("artifacts/datasets/phase5_stockfish_pgn_verify_pi_10k_v1"),
+        train_examples=4096,
+        validation_examples=1024,
+        verify_examples=512,
+    ),
+    WorkflowTierSpec(
+        name="merged_unique_122k",
+        train_dataset_dir=Path("artifacts/datasets/phase5_stockfish_merged_unique_train_v1"),
+        verify_dataset_dir=Path("artifacts/datasets/phase5_stockfish_merged_unique_verify_v1"),
+        train_examples=16384,
+        validation_examples=4096,
+        verify_examples=512,
+    ),
+    WorkflowTierSpec(
+        name="unique_pi_400k",
+        train_dataset_dir=Path("artifacts/datasets/phase5_stockfish_unique_pi_400k_train_v1"),
+        verify_dataset_dir=Path("artifacts/datasets/phase5_stockfish_unique_pi_400k_verify_v1"),
+        train_examples=32768,
+        validation_examples=8192,
+        verify_examples=386,
+    ),
+)
+
+_TIER_VERSIONS: dict[str, tuple[WorkflowTierSpec, ...]] = {
+    "default": DEFAULT_TIERS,
+    "expanded": EXPANDED_TIERS,
+}
+
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -71,20 +103,26 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--policy-temperature-cp", type=float, default=100.0)
     parser.add_argument("--top-k", type=int, default=8)
     parser.add_argument(
+        "--tier-version",
+        choices=sorted(_TIER_VERSIONS),
+        default="default",
+        help="Tier specification version: 'default' (v1 counts) or 'expanded' (7x more data).",
+    )
+    parser.add_argument(
         "--tier",
         action="append",
-        choices=[tier.name for tier in DEFAULT_TIERS],
         help="Restrict the build to one or more named corpus tiers.",
     )
     args = parser.parse_args(argv)
 
+    tier_specs = _TIER_VERSIONS[args.tier_version]
     checkpoint_path = _resolve_repo_path(args.checkpoint)
     teacher_engine = _resolve_repo_path(args.teacher_engine)
     output_root = _resolve_repo_path(args.output_root)
     output_root.mkdir(parents=True, exist_ok=True)
 
-    selected_names = set(args.tier or [tier.name for tier in DEFAULT_TIERS])
-    selected_tiers = [tier for tier in DEFAULT_TIERS if tier.name in selected_names]
+    selected_names = set(args.tier or [tier.name for tier in tier_specs])
+    selected_tiers = [tier for tier in tier_specs if tier.name in selected_names]
 
     summary: dict[str, Any] = {
         "checkpoint": str(checkpoint_path),
