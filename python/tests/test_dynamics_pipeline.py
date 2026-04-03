@@ -12,9 +12,10 @@ from train.datasets.artifacts import (
     DynamicsTrainingExample,
     POSITION_FEATURE_SIZE,
     SYMBOLIC_PROPOSER_CANDIDATE_FEATURE_SIZE,
-    dynamics_artifact_name,
     build_transition_context_features,
+    dynamics_artifact_name,
     load_dynamics_examples,
+    materialize_dynamics_artifacts,
 )
 from train.datasets import (
     DatasetExample,
@@ -24,6 +25,53 @@ from train.datasets import (
 from train.models.dynamics import LatentDynamicsModel
 from train.trainers import dynamics as dynamics_trainer
 from train.trainers import evaluate_dynamics_checkpoint, train_dynamics
+
+
+def test_materialize_dynamics_artifacts_streams_from_split_files(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dataset_dir = tmp_path / "dataset"
+    dataset_dir.mkdir()
+    (dataset_dir / "train.jsonl").write_text(
+        _dataset_jsonl(
+            [
+                _dataset_example_payload("sample-a", "train", next_fen="fen-a", ply=1),
+                _dataset_example_payload("sample-b", "train", next_fen="fen-b", ply=2),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (dataset_dir / "validation.jsonl").write_text("", encoding="utf-8")
+    (dataset_dir / "test.jsonl").write_text("", encoding="utf-8")
+
+    def fake_build(
+        examples: list[DatasetExample],
+        *,
+        repo_root: Path | None = None,
+        oracle_command: list[str] | None = None,
+    ) -> list[DynamicsTrainingExample]:
+        del repo_root, oracle_command
+        return [
+            DynamicsTrainingExample.from_dict(
+                _dynamics_example_payload(
+                    example.sample_id,
+                    example.split,
+                    action_index=12,
+                    offset=index,
+                    ply=index + 1,
+                )
+            )
+            for index, example in enumerate(examples)
+        ]
+
+    monkeypatch.setattr("train.datasets.artifacts._build_dynamics_examples", fake_build)
+
+    counts = materialize_dynamics_artifacts(dataset_dir, chunk_size=1)
+
+    assert counts == {"test": 0, "train": 2, "validation": 0}
+    rendered = load_dynamics_examples(dataset_dir, "train")
+    assert [example.sample_id for example in rendered] == ["sample-a", "sample-b"]
 
 
 def test_load_dynamics_train_config_accepts_phase6_schema(tmp_path: Path) -> None:

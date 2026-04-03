@@ -1,0 +1,267 @@
+{
+  "tiers": {
+    "merged_unique_122k": {
+      "train_dataset_dir": "artifacts/datasets/phase5_stockfish_merged_unique_train_v1",
+      "train_summary": {
+        "annotation_counts": {
+          "checkmate": 0,
+          "has_legal_castle": 10645,
+          "has_legal_en_passant": 132,
+          "has_legal_promotion": 161,
+          "in_check": 4466,
+          "is_low_material_endgame": 91,
+          "stalemate": 0
+        },
+        "legal_move_count": {
+          "max": 64,
+          "mean": 33.407,
+          "min": 1
+        },
+        "next_state_count": 122856,
+        "oracle_schedule": {
+          "batch_count": 246,
+          "effective_batch_size": 500,
+          "oracle_workers": 4,
+          "record_count": 122856,
+          "requested_batch_size": 500
+        },
+        "piece_count": {
+          "max": 32,
+          "mean": 23.84,
+          "min": 5
+        },
+        "selected_move_count": 122856,
+        "source_counts": {
+          "stockfish-pgn": 10180,
+          "stockfish-unique-pgn": 112676
+        },
+        "split_counts": {
+          "train": 110570,
+          "validation": 12286
+        },
+        "total_examples": 122856,
+        "unique_fens": 122856,
+        "wdl_counts": {
+          "draw": 51498,
+          "loss": 43387,
+          "win": 27971
+        }
+      },
+      "verify_dataset_dir": "artifacts/datasets/phase5_stockfish_merged_unique_verify_v1",
+      "verify_summary": {
+        "annotation_counts": {
+          "checkmate": 0,
+          "has_legal_castle": 161,
+          "has_legal_en_passant": 2,
+          "has_legal_promotion": 6,
+          "in_check": 53,
+          "is_low_material_endgame": 3,
+          "stalemate": 0
+        },
+        "legal_move_count": {
+          "max": 62,
+          "mean": 34.8976,
+          "min": 1
+        },
+        "next_state_count": 2169,
+        "oracle_schedule": {
+          "batch_count": 5,
+          "effective_batch_size": 500,
+          "oracle_workers": 4,
+          "record_count": 2169,
+          "requested_batch_size": 500
+        },
+        "piece_count": {
+          "max": 32,
+          "mean": 24.6814,
+          "min": 7
+        },
+        "selected_move_count": 2169,
+        "source_counts": {
+          "stockfish-pgn": 2064,
+          "stockfish-unique-pgn": 105
+        },
+        "split_counts": {
+          "test": 2169
+        },
+        "total_examples": 2169,
+        "unique_fens": 2169,
+        "wdl_counts": {
+          "draw": 1258,
+          "loss": 479,
+          "win": 432
+        }
+      }
+    },
+    "pgn_10k": {
+      "train_dataset_dir": "artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1",
+      "train_summary": {
+        "annotation_counts": {
+          "checkmate": 0,
+          "has_legal_castle": 857,
+          "has_legal_en_passant": 17,
+          "has_legal_promotion": 18,
+          "in_check": 291,
+          "is_low_material_endgame": 5,
+          "stalemate": 0
+        },
+        "legal_move_count": {
+          "max": 61,
+          "mean": 34.7115,
+          "min": 1
+        },
+        "next_state_count": 10240,
+        "piece_count": {
+          "max": 32,
+          "mean": 24.5926,
+          "min": 7
+        },
+        "selected_move_count": 10240,
+        "source_counts": {
+          "stockfish-pgn": 10240
+        },
+        "split_counts": {
+          "train": 9216,
+          "validation": 1024
+        },
+        "total_examples": 10240,
+        "unique_fens": 10117,
+        "wdl_counts": {
+          "draw": 6112,
+          "loss": 2052,
+          "win": 2076
+        }
+      },
+      "verify_dataset_dir": "artifacts/datasets/phase5_stockfish_pgn_verify_pi_10k_v1",
+      "verify_summary": {
+        "annotation_counts": {
+          "checkmate": 0,
+          "has_legal_castle": 154,
+          "has_legal_en_passant": 2,
+          "has_legal_promotion": 6,
+          "in_check": 49,
+          "is_low_material_endgame": 3,
+          "stalemate": 0
+        },
+        "legal_move_count": {
+          "max": 62,
+          "mean": 35.0229,
+          "min": 1
+        },
+        "next_state_count": 2048,
+        "piece_count": {
+          "max": 32,
+          "mean": 24.8052,
+          "min": 7
+        },
+        "selected_move_count": 2048,
+        "source_counts": {
+          "stockfish-pgn": 2048
+        },
+        "split_counts": {
+          "test": 2048
+        },
+        "total_examples": 2048,
+        "unique_fens": 2040,
+        "wdl_counts": {
+          "draw": 1200,
+          "loss": 443,
+          "win": 405
+        }
+      }
+    },
+    "unique_pi_400k": {
+      "raw_dir": "artifacts/datasets/phase5_stockfish_unique_pi_400k_v1",
+      "train_dataset_dir": "artifacts/datasets/phase5_stockfish_unique_pi_400k_train_v1",
+      "train_summary": {
+        "annotation_counts": {
+          "checkmate": 0,
+          "has_legal_castle": 40725,
+          "has_legal_en_passant": 471,
+          "has_legal_promotion": 670,
+          "in_check": 20122,
+          "is_low_material_endgame": 451,
+          "stalemate": 0
+        },
+        "legal_move_count": {
+          "max": 69,
+          "mean": 32.7221,
+          "min": 1
+        },
+        "next_state_count": 429901,
+        "oracle_schedule": {
+          "batch_count": 860,
+          "effective_batch_size": 500,
+          "oracle_workers": 6,
+          "record_count": 429901,
+          "requested_batch_size": 0
+        },
+        "piece_count": {
+          "max": 32,
+          "mean": 23.1881,
+          "min": 4
+        },
+        "selected_move_count": 429901,
+        "source_counts": {
+          "stockfish-unique-pgn": 429901
+        },
+        "split_counts": {
+          "train": 386911,
+          "validation": 42990
+        },
+        "total_examples": 429901,
+        "unique_fens": 429901,
+        "wdl_counts": {
+          "draw": 128458,
+          "loss": 156643,
+          "missing": 33,
+          "win": 144767
+        }
+      },
+      "verify_dataset_dir": "artifacts/datasets/phase5_stockfish_unique_pi_400k_verify_v1",
+      "verify_summary": {
+        "annotation_counts": {
+          "checkmate": 0,
+          "has_legal_castle": 27,
+          "has_legal_en_passant": 0,
+          "has_legal_promotion": 1,
+          "in_check": 15,
+          "is_low_material_endgame": 0,
+          "stalemate": 0
+        },
+        "legal_move_count": {
+          "max": 60,
+          "mean": 32.5648,
+          "min": 1
+        },
+        "next_state_count": 386,
+        "oracle_schedule": {
+          "batch_count": 6,
+          "effective_batch_size": 65,
+          "oracle_workers": 6,
+          "record_count": 386,
+          "requested_batch_size": 0
+        },
+        "piece_count": {
+          "max": 32,
+          "mean": 22.8653,
+          "min": 9
+        },
+        "selected_move_count": 386,
+        "source_counts": {
+          "stockfish-unique-pgn": 386
+        },
+        "split_counts": {
+          "test": 386
+        },
+        "total_examples": 386,
+        "unique_fens": 386,
+        "wdl_counts": {
+          "draw": 115,
+          "loss": 149,
+          "win": 122
+        }
+      }
+    }
+  }
+}

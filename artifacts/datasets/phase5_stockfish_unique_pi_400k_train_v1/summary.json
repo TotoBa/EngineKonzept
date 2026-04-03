@@ -1,0 +1,45 @@
+{
+  "annotation_counts": {
+    "checkmate": 0,
+    "has_legal_castle": 40725,
+    "has_legal_en_passant": 471,
+    "has_legal_promotion": 670,
+    "in_check": 20122,
+    "is_low_material_endgame": 451,
+    "stalemate": 0
+  },
+  "legal_move_count": {
+    "max": 69,
+    "mean": 32.7221,
+    "min": 1
+  },
+  "next_state_count": 429901,
+  "oracle_schedule": {
+    "batch_count": 860,
+    "effective_batch_size": 500,
+    "oracle_workers": 6,
+    "record_count": 429901,
+    "requested_batch_size": 0
+  },
+  "piece_count": {
+    "max": 32,
+    "mean": 23.1881,
+    "min": 4
+  },
+  "selected_move_count": 429901,
+  "source_counts": {
+    "stockfish-unique-pgn": 429901
+  },
+  "split_counts": {
+    "train": 386911,
+    "validation": 42990
+  },
+  "total_examples": 429901,
+  "unique_fens": 429901,
+  "wdl_counts": {
+    "draw": 128458,
+    "loss": 156643,
+    "missing": 33,
+    "win": 144767
+  }
+}

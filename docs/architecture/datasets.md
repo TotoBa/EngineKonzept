@@ -138,6 +138,25 @@ For repository conventions, the current standard Stockfish-supervised Phase-5 co
 - [phase5_stockfish_pgn_train_pi_10k_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1)
 - [phase5_stockfish_pgn_verify_pi_10k_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_verify_pi_10k_v1)
 
+The repo now also has two larger current-format tiers for later Phase-6/7/8 work:
+
+- [phase5_stockfish_merged_unique_train_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_merged_unique_train_v1) plus [phase5_stockfish_merged_unique_verify_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_merged_unique_verify_v1)
+- [phase5_stockfish_unique_pi_400k_train_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_unique_pi_400k_train_v1) plus [phase5_stockfish_unique_pi_400k_verify_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_unique_pi_400k_verify_v1)
+
+The small tracked inventory for those three tiers is:
+
+- [phase5_current_corpus_suite_v1.json](/home/torsten/EngineKonzept/artifacts/datasets/phase5_current_corpus_suite_v1.json)
+
+To validate existing current-format dataset tiers and materialize missing ones from raw unique-corpus exports, use:
+
+- `python/scripts/build_phase5_corpus_suite.py`
+
+That helper exists because the later phases now need a stable progression of dataset scales:
+
+- `10k` for fast iteration
+- `122,856` merged unique positions for medium-scale checks
+- `429,901` train / `386` verify positions imported from the earlier Pi unique-corpus run for larger local experiments
+
 The smaller `phase5_stockfish_pgn_*_v1` and `phase5_stockfish_pgn_*_pi_v1` directories remain tracked as early baseline and regression datasets. They now also carry `proposer_<split>.jsonl`, but they are no longer the preferred starting point for larger proposer experiments.
 
 For existing datasets that were built before this optional path existed, the repository now also includes:

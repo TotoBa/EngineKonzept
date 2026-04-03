@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Iterator, Sequence
 
 from train.action_space import flatten_action, flatten_legal_actions
 from train.datasets.contracts import (
@@ -378,9 +378,21 @@ def materialize_proposer_artifacts(dataset_path: Path) -> dict[str, int]:
 
     written_counts: dict[str, int] = {}
     for split in sorted(SUPPORTED_SPLITS):
+        split_path = dataset_path / f"{split}.jsonl"
+        output_path = dataset_path / proposer_artifact_name(split)
+        if split_path.exists():
+            written_counts[split] = _stream_write_jsonl(
+                output_path,
+                (
+                    to_proposer_example(example)
+                    for example in _iter_dataset_examples_from_jsonl(split_path)
+                ),
+            )
+            continue
+
         split_examples = load_split_examples(dataset_path, split)
         proposer_examples = [to_proposer_example(example) for example in split_examples]
-        _write_jsonl(path=dataset_path / proposer_artifact_name(split), records=proposer_examples)
+        _write_jsonl(path=output_path, records=proposer_examples)
         written_counts[split] = len(proposer_examples)
     return written_counts
 
@@ -397,6 +409,22 @@ def materialize_symbolic_proposer_artifacts(
 
     written_counts: dict[str, int] = {}
     for split in sorted(SUPPORTED_SPLITS):
+        split_path = dataset_path / f"{split}.jsonl"
+        output_path = dataset_path / symbolic_proposer_artifact_name(split)
+        if split_path.exists():
+            written_counts[split] = _stream_write_jsonl(
+                output_path,
+                (
+                    build_symbolic_proposer_example(
+                        example,
+                        candidate_context_version=candidate_context_version,
+                        global_context_version=global_context_version,
+                    )
+                    for example in _iter_dataset_examples_from_jsonl(split_path)
+                ),
+            )
+            continue
+
         split_examples = load_split_examples(dataset_path, split)
         symbolic_examples = [
             build_symbolic_proposer_example(
@@ -406,10 +434,7 @@ def materialize_symbolic_proposer_artifacts(
             )
             for example in split_examples
         ]
-        _write_jsonl(
-            path=dataset_path / symbolic_proposer_artifact_name(split),
-            records=symbolic_examples,
-        )
+        _write_jsonl(path=output_path, records=symbolic_examples)
         written_counts[split] = len(symbolic_examples)
     return written_counts
 
@@ -419,20 +444,35 @@ def materialize_dynamics_artifacts(
     *,
     repo_root: Path | None = None,
     oracle_command: Sequence[str] | None = None,
+    chunk_size: int = 5000,
 ) -> dict[str, int]:
     """Write dynamics_<split>.jsonl files next to full dataset split artifacts."""
     if not dataset_path.is_dir():
         raise ValueError("dataset_path must be a directory")
+    if chunk_size <= 0:
+        raise ValueError("chunk_size must be positive")
 
     written_counts: dict[str, int] = {}
     for split in sorted(SUPPORTED_SPLITS):
+        split_path = dataset_path / f"{split}.jsonl"
+        output_path = dataset_path / dynamics_artifact_name(split)
+        if split_path.exists():
+            written_counts[split] = _stream_write_dynamics_jsonl(
+                split_path,
+                output_path=output_path,
+                repo_root=repo_root,
+                oracle_command=oracle_command,
+                chunk_size=chunk_size,
+            )
+            continue
+
         split_examples = load_split_examples(dataset_path, split)
         dynamics_examples = _build_dynamics_examples(
             split_examples,
             repo_root=repo_root,
             oracle_command=oracle_command,
         )
-        _write_jsonl(path=dataset_path / dynamics_artifact_name(split), records=dynamics_examples)
+        _write_jsonl(path=output_path, records=dynamics_examples)
         written_counts[split] = len(dynamics_examples)
     return written_counts
 
@@ -647,6 +687,18 @@ def _load_examples_from_jsonl(path: Path) -> list[DatasetExample]:
     return examples
 
 
+def _iter_dataset_examples_from_jsonl(path: Path) -> Iterator[DatasetExample]:
+    if not path.exists():
+        raise FileNotFoundError(f"dataset artifact not found: {path}")
+
+    with path.open(encoding="utf-8") as handle:
+        for line_number, raw_line in enumerate(handle, 1):
+            line = raw_line.strip()
+            if not line:
+                continue
+            yield DatasetExample.from_json(line, source=f"{path}:{line_number}")
+
+
 def _load_proposer_examples_from_jsonl(path: Path) -> list[ProposerTrainingExample]:
     if not path.exists():
         raise FileNotFoundError(f"dataset artifact not found: {path}")
@@ -691,6 +743,66 @@ def _load_dynamics_examples_from_jsonl(path: Path) -> list[DynamicsTrainingExamp
 def _write_jsonl(path: Path, records: Sequence[object]) -> None:
     lines = [json.dumps(record.to_dict(), sort_keys=True) for record in records]
     path.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
+
+
+def _stream_write_jsonl(path: Path, records: Any) -> int:
+    count = 0
+    with path.open("w", encoding="utf-8") as handle:
+        for record in records:
+            handle.write(json.dumps(record.to_dict(), sort_keys=True) + "\n")
+            count += 1
+    return count
+
+
+def _stream_write_dynamics_jsonl(
+    split_path: Path,
+    *,
+    output_path: Path,
+    repo_root: Path | None,
+    oracle_command: Sequence[str] | None,
+    chunk_size: int,
+) -> int:
+    written = 0
+    buffered_examples: list[DatasetExample] = []
+    with output_path.open("w", encoding="utf-8") as handle:
+        for example in _iter_dataset_examples_from_jsonl(split_path):
+            if example.selected_action_encoding is None or example.next_fen is None:
+                continue
+            buffered_examples.append(example)
+            if len(buffered_examples) < chunk_size:
+                continue
+            written += _flush_dynamics_chunk(
+                buffered_examples,
+                handle=handle,
+                repo_root=repo_root,
+                oracle_command=oracle_command,
+            )
+            buffered_examples = []
+        if buffered_examples:
+            written += _flush_dynamics_chunk(
+                buffered_examples,
+                handle=handle,
+                repo_root=repo_root,
+                oracle_command=oracle_command,
+            )
+    return written
+
+
+def _flush_dynamics_chunk(
+    examples: Sequence[DatasetExample],
+    *,
+    handle: Any,
+    repo_root: Path | None,
+    oracle_command: Sequence[str] | None,
+) -> int:
+    dynamics_examples = _build_dynamics_examples(
+        examples,
+        repo_root=repo_root,
+        oracle_command=oracle_command,
+    )
+    for record in dynamics_examples:
+        handle.write(json.dumps(record.to_dict(), sort_keys=True) + "\n")
+    return len(dynamics_examples)
 
 
 def _symbolic_global_features(
