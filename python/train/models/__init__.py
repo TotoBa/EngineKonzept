@@ -1,12 +1,13 @@
 """Model definitions for learned EngineKonzept components."""
 
 from train.models.dynamics import DYNAMICS_MODEL_NAME, LatentDynamicsModel
+from train.models.opponent import OPPONENT_MODEL_NAME, OpponentHeadModel
 from train.models.proposer import LegalityPolicyProposer, MODEL_NAME, torch_is_available
 
 
 def module_purpose() -> str:
     """Describe the current responsibility of the model package."""
-    return "Legality/policy proposer and latent dynamics model definitions"
+    return "Legality/policy proposer, latent dynamics, and opponent-head model definitions"
 
 
 __all__ = [
@@ -14,6 +15,8 @@ __all__ = [
     "LegalityPolicyProposer",
     "LatentDynamicsModel",
     "MODEL_NAME",
+    "OPPONENT_MODEL_NAME",
+    "OpponentHeadModel",
     "module_purpose",
     "torch_is_available",
 ]

@@ -1,4 +1,4 @@
-# Phase 5/6 Config Guide
+# Phase 5/6/7 Config Guide
 
 This directory contains the externally checkable proposer-training and dynamics-training configs.
 
@@ -85,3 +85,8 @@ These remain useful as small-corpus regression baselines, but they are no longer
   First `TransitionContextV1` follow-up. Replaces the selected-move symbolic side path with the richer versioned transition contract. On the `10k` corpus it improves both feature-L1 and drift over `structured_v5_v1`, but it is still not the large-corpus default.
 - [phase6_dynamics_edit_v1.json](/home/torsten/EngineKonzept/python/configs/phase6_dynamics_edit_v1.json)
   Local edit-target dynamics arm. Very strong one-step reconstruction, but currently unacceptable drift.
+
+## Phase 7 Baseline
+
+- [phase7_opponent_merged_unique_mlp_v1.json](/home/torsten/EngineKonzept/python/configs/phase7_opponent_merged_unique_mlp_v1.json)
+  First explicit learned `OpponentHeadV1` run over the merged-unique workflow slices. It is the current trained Phase-7 reference, but it remains below the symbolic reply-scorer baseline on held-out reply ranking.

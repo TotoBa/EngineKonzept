@@ -91,6 +91,24 @@ Current result on the `128`-example verify slice:
 - `reply_top3_accuracy=0.4`
 - `teacher_reply_mean_reciprocal_rank=0.419262`
 
+## First Trained Head
+
+The repo now also has the first trained `OpponentHeadV1` model:
+
+- config: [phase7_opponent_merged_unique_mlp_v1.json](/home/torsten/EngineKonzept/python/configs/phase7_opponent_merged_unique_mlp_v1.json)
+- bundle: [merged_unique_mlp_v1](/home/torsten/EngineKonzept/models/opponent/merged_unique_mlp_v1)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_merged_unique_mlp_v1/summary.json)
+- verify eval: [opponent_merged_unique_mlp_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_merged_unique_mlp_v1_verify.json)
+- direct comparison: [opponent_merged_unique_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_merged_unique_compare_v1.json)
+
+Current verify result on the `128`-example merged slice:
+
+- `reply_top1_accuracy=0.066667`
+- `reply_top3_accuracy=0.333333`
+- `teacher_reply_mean_reciprocal_rank=0.272664`
+
+This means the first learned opponent head is measurable and reproducible, but it is still below the symbolic baseline on reply ranking.
+
 ## Why This Contract
 
 This contract is deliberately narrow and useful:

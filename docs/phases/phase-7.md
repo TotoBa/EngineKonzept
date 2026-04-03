@@ -13,7 +13,7 @@ The architectural intent remains:
 
 ## Current repository state
 
-The repository does not yet have a trained Phase-7 opponent model.
+The repository now has the first trained Phase-7 opponent model, but it is still below the symbolic reply-scorer baseline.
 
 It now does have the first explicit Phase-7 preparation artifacts:
 
@@ -24,10 +24,19 @@ It now does have the first explicit Phase-7 preparation artifacts:
   - `search_traces_<split>.jsonl`
   - `search_disagreements_<split>.jsonl`
   - `search_curriculum_<split>.jsonl`
-- and the first exact symbolic baseline probe:
+- larger merged-unique workflow slices:
+  - [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_merged_unique_train_v1/summary.json)
+  - [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_merged_unique_validation_v1/summary.json)
+  - [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_merged_unique_verify_v1/summary.json)
+- the symbolic baseline artifacts:
   - [README.md](/home/torsten/EngineKonzept/artifacts/phase7/README.md)
   - [opponent_head_verify_probe_v1.jsonl](/home/torsten/EngineKonzept/artifacts/phase7/opponent_head_verify_probe_v1.jsonl)
   - [opponent_symbolic_baseline_verify_probe_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_symbolic_baseline_verify_probe_v1.json)
+- and the first trained head:
+  - [phase7_opponent_merged_unique_mlp_v1.json](/home/torsten/EngineKonzept/python/configs/phase7_opponent_merged_unique_mlp_v1.json)
+  - [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_merged_unique_mlp_v1/summary.json)
+  - [opponent_merged_unique_mlp_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_merged_unique_mlp_v1_verify.json)
+  - [opponent_merged_unique_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_merged_unique_compare_v1.json)
 
 The repo also now has larger end-to-end workflow slices over the merged unique corpus:
 
@@ -50,7 +59,6 @@ That gives the repo a real, inspectable contract for opponent modeling without h
 
 ## What it does not do yet
 
-- no trained opponent head
 - no Rust runtime opponent inference
 - no planner integration
 - no full reply-distribution supervision beyond the current best-reply-focused v1 target
@@ -80,10 +88,18 @@ The larger merged-verify workflow slice now gives a more useful baseline target:
 - `reply_top3_accuracy=0.4`
 - `teacher_reply_mean_reciprocal_rank=0.419262`
 
+The first trained `mlp_v1` opponent head on that same verify slice currently scores:
+
+- `reply_top1_accuracy=0.066667`
+- `reply_top3_accuracy=0.333333`
+- `teacher_reply_mean_reciprocal_rank=0.272664`
+
+So the first learned head is a real experimental reference, but it does not yet clear the symbolic baseline bar.
+
 ## Next pressure
 
 The next useful Phase-7 steps are:
 
-1. train the first explicit opponent head against the symbolic reply-scorer baseline
-2. compare it against the documented baseline artifact before any planner integration
-3. use the trained head as the first planner-facing reply model
+1. use the trained head as an experimental planner-facing reply model
+2. keep the symbolic reply scorer as the Phase-7 default until a learned head beats it
+3. grow the workflow corpus and supervision richness before treating Phase 7 as solved

@@ -12,7 +12,11 @@ Current contents:
 - [opponent_symbolic_baseline_verify_probe_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_symbolic_baseline_verify_probe_v1.json)
 - [opponent_symbolic_baseline_merged_unique_verify_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_symbolic_baseline_merged_unique_verify_v1.json)
 - [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_merged_unique_train_v1/summary.json)
+- [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_merged_unique_validation_v1/summary.json)
 - [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_merged_unique_verify_v1/summary.json)
+- [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_merged_unique_mlp_v1/summary.json)
+- [opponent_merged_unique_mlp_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_merged_unique_mlp_v1_verify.json)
+- [opponent_merged_unique_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_merged_unique_compare_v1.json)
 
 Probe setup:
 
@@ -49,3 +53,19 @@ These artifacts capture the full offline stack:
 - `search_disagreements_<split>.jsonl`
 - `search_curriculum_<split>.jsonl`
 - `opponent_head_<split>.jsonl`
+
+The first trained opponent-head reference is now also present:
+
+- config: [phase7_opponent_merged_unique_mlp_v1.json](/home/torsten/EngineKonzept/python/configs/phase7_opponent_merged_unique_mlp_v1.json)
+- verify metrics:
+  - `reply_top1_accuracy=0.066667`
+  - `reply_top3_accuracy=0.333333`
+  - `teacher_reply_mean_reciprocal_rank=0.272664`
+
+Against the current larger symbolic baseline:
+
+- `reply_top1_accuracy=0.3`
+- `reply_top3_accuracy=0.4`
+- `teacher_reply_mean_reciprocal_rank=0.419262`
+
+So the trained `mlp_v1` arm is now a real Phase-7 model artifact, but still an experimental under-baseline reference.

@@ -25,6 +25,7 @@ The repository now covers Phase 6 foundations:
 - a local-first Unix-domain-socket oracle daemon for faster reproducible dataset builds
 - a first action-conditioned latent dynamics baseline with held-out reconstruction and drift metrics
 - the first explicit Phase-7 dataset contract for opponent-reply supervision
+- the first trained Phase-7 opponent-head baseline
 - CI, lint, and test wiring
 - architecture and phase documentation
 
@@ -32,7 +33,7 @@ It still does **not** implement:
 
 - full planner-driven runtime inference
 - any search or evaluation runtime
-- any opponent or planner model
+- any planner model
 - any classical engine/search machinery
 
 ## Phase 5 Snapshot
@@ -200,12 +201,17 @@ Exact next-state accuracy still remains `0.0`.
 
 ## Phase 7 Preparation
 
-The repository does not yet have a trained opponent model, but it now has the first explicit Phase-7 dataset contract:
+The repository now has the first explicit trained Phase-7 opponent-head baseline, but the symbolic reply-scorer baseline is still stronger:
 
 - architecture note: [opponent.md](/home/torsten/EngineKonzept/docs/architecture/opponent.md)
 - phase note: [phase-7.md](/home/torsten/EngineKonzept/docs/phases/phase-7.md)
+- workflow artifacts: [README.md](/home/torsten/EngineKonzept/artifacts/phase7/README.md)
+- opponent config: [phase7_opponent_merged_unique_mlp_v1.json](/home/torsten/EngineKonzept/python/configs/phase7_opponent_merged_unique_mlp_v1.json)
+- trained bundle: [merged_unique_mlp_v1](/home/torsten/EngineKonzept/models/opponent/merged_unique_mlp_v1)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_merged_unique_mlp_v1/summary.json)
+- verify comparison: [opponent_merged_unique_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_merged_unique_compare_v1.json)
 
-The new `OpponentHeadV1` dataset builder derives:
+The `OpponentHeadV1` workflow derives:
 
 - the teacher-chosen root move
 - the exact successor state after that move
@@ -216,19 +222,18 @@ The new `OpponentHeadV1` dataset builder derives:
 
 That is the intended bridge between the offline search-workflow layer and an explicit Phase-7 opponent model.
 
-The repository now also has the first real symbolic Phase-7 baseline probe on held-out verify data:
+Current larger merged-unique verify result:
 
-- workflow artifacts: [README.md](/home/torsten/EngineKonzept/artifacts/phase7/README.md)
-- opponent dataset probe: [opponent_head_verify_probe_v1.jsonl](/home/torsten/EngineKonzept/artifacts/phase7/opponent_head_verify_probe_v1.jsonl)
-- baseline metrics: [opponent_symbolic_baseline_verify_probe_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_symbolic_baseline_verify_probe_v1.json)
+- symbolic baseline:
+  - `reply_top1_accuracy=0.3`
+  - `reply_top3_accuracy=0.4`
+  - `teacher_reply_mean_reciprocal_rank=0.419262`
+- first trained `mlp_v1` opponent head:
+  - `reply_top1_accuracy=0.066667`
+  - `reply_top3_accuracy=0.333333`
+  - `teacher_reply_mean_reciprocal_rank=0.272664`
 
-That probe currently scores:
-
-- `reply_top1_accuracy=0.25`
-- `reply_top3_accuracy=0.25`
-- `teacher_reply_mean_reciprocal_rank=0.364583`
-
-on the `16`-example verify slice generated with `/usr/games/stockfish18` at `64` nodes.
+So the first trained head is now a real repo baseline, but it does not yet beat the symbolic reply scorer.
 
 ## Repository Layout
 

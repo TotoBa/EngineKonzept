@@ -1,4 +1,4 @@
-"""Configuration schemas for proposer and dynamics training."""
+"""Configuration schemas for proposer, dynamics, and opponent-head training."""
 
 from __future__ import annotations
 
@@ -369,6 +369,149 @@ class DynamicsTrainConfig:
         )
 
 
+@dataclass(frozen=True)
+class OpponentDataConfig:
+    """Artifact-path selection for Phase-7 opponent-head training."""
+
+    train_path: str
+    validation_path: str
+
+    def __post_init__(self) -> None:
+        if not self.train_path:
+            raise ValueError("data.train_path must be non-empty")
+        if not self.validation_path:
+            raise ValueError("data.validation_path must be non-empty")
+
+
+@dataclass(frozen=True)
+class OpponentModelConfig:
+    """Model hyperparameters for the first explicit opponent head."""
+
+    architecture: str = "mlp_v1"
+    hidden_dim: int = 256
+    hidden_layers: int = 2
+    action_embedding_dim: int = 64
+    dropout: float = 0.0
+
+    def __post_init__(self) -> None:
+        if self.architecture != "mlp_v1":
+            raise ValueError("model.architecture must be 'mlp_v1'")
+        if self.hidden_dim <= 0:
+            raise ValueError("model.hidden_dim must be positive")
+        if self.hidden_layers <= 0:
+            raise ValueError("model.hidden_layers must be positive")
+        if self.action_embedding_dim <= 0:
+            raise ValueError("model.action_embedding_dim must be positive")
+        if not 0.0 <= self.dropout < 1.0:
+            raise ValueError("model.dropout must be in [0.0, 1.0)")
+
+
+@dataclass(frozen=True)
+class OpponentOptimizationConfig:
+    """Optimizer and loss weighting settings for opponent-head training."""
+
+    epochs: int = 5
+    batch_size: int = 64
+    learning_rate: float = 1e-3
+    weight_decay: float = 0.0
+    reply_policy_loss_weight: float = 1.0
+    pressure_loss_weight: float = 0.25
+    uncertainty_loss_weight: float = 0.25
+
+    def __post_init__(self) -> None:
+        if self.epochs <= 0:
+            raise ValueError("optimization.epochs must be positive")
+        if self.batch_size <= 0:
+            raise ValueError("optimization.batch_size must be positive")
+        if self.learning_rate <= 0.0:
+            raise ValueError("optimization.learning_rate must be positive")
+        if self.weight_decay < 0.0:
+            raise ValueError("optimization.weight_decay must be non-negative")
+        if self.reply_policy_loss_weight <= 0.0:
+            raise ValueError("optimization.reply_policy_loss_weight must be positive")
+        if self.pressure_loss_weight < 0.0:
+            raise ValueError("optimization.pressure_loss_weight must be non-negative")
+        if self.uncertainty_loss_weight < 0.0:
+            raise ValueError("optimization.uncertainty_loss_weight must be non-negative")
+
+
+@dataclass(frozen=True)
+class OpponentEvaluationConfig:
+    """Held-out evaluation settings for opponent-head training."""
+
+    top_k: int = 3
+
+    def __post_init__(self) -> None:
+        if self.top_k <= 0:
+            raise ValueError("evaluation.top_k must be positive")
+
+
+@dataclass(frozen=True)
+class OpponentRuntimeConfig:
+    """Runtime knobs for CPU-bound opponent-head training and evaluation."""
+
+    torch_threads: int = 0
+    dataloader_workers: int = 0
+
+    def __post_init__(self) -> None:
+        if self.torch_threads < 0:
+            raise ValueError("runtime.torch_threads must be non-negative")
+        if self.dataloader_workers < 0:
+            raise ValueError("runtime.dataloader_workers must be non-negative")
+
+
+@dataclass(frozen=True)
+class OpponentExportConfig:
+    """Checkpoint bundle paths for the trained opponent head."""
+
+    bundle_dir: str
+    checkpoint_name: str = "checkpoint.pt"
+
+    def __post_init__(self) -> None:
+        if not self.bundle_dir:
+            raise ValueError("export.bundle_dir must be non-empty")
+        if not self.checkpoint_name:
+            raise ValueError("export.checkpoint_name must be non-empty")
+
+
+@dataclass(frozen=True)
+class OpponentTrainConfig:
+    """Full training configuration for the Phase-7 opponent head."""
+
+    seed: int
+    output_dir: str
+    data: OpponentDataConfig
+    model: OpponentModelConfig
+    optimization: OpponentOptimizationConfig
+    evaluation: OpponentEvaluationConfig
+    runtime: OpponentRuntimeConfig
+    export: OpponentExportConfig
+
+    def __post_init__(self) -> None:
+        if self.seed < 0:
+            raise ValueError("seed must be non-negative")
+        if not self.output_dir:
+            raise ValueError("output_dir must be non-empty")
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return the JSON-friendly representation."""
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "OpponentTrainConfig":
+        """Parse the training config from a JSON object."""
+        return cls(
+            seed=int(payload.get("seed", 0)),
+            output_dir=str(payload["output_dir"]),
+            data=OpponentDataConfig(**_mapping(payload, "data")),
+            model=OpponentModelConfig(**_mapping(payload, "model")),
+            optimization=OpponentOptimizationConfig(**_mapping(payload, "optimization")),
+            evaluation=OpponentEvaluationConfig(**_mapping(payload, "evaluation")),
+            runtime=OpponentRuntimeConfig(**dict(payload.get("runtime", {}))),
+            export=OpponentExportConfig(**_mapping(payload, "export")),
+        )
+
+
 def load_proposer_train_config(path: Path) -> ProposerTrainConfig:
     """Load a proposer training config from JSON."""
     payload = json.loads(path.read_text(encoding="utf-8"))
@@ -383,6 +526,14 @@ def load_dynamics_train_config(path: Path) -> DynamicsTrainConfig:
     if not isinstance(payload, dict):
         raise ValueError(f"{path}: training config root must be an object")
     return DynamicsTrainConfig.from_dict(payload)
+
+
+def load_opponent_train_config(path: Path) -> OpponentTrainConfig:
+    """Load an opponent-head training config from JSON."""
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"{path}: training config root must be an object")
+    return OpponentTrainConfig.from_dict(payload)
 
 
 def resolve_repo_path(repo_root: Path, configured_path: str) -> Path:

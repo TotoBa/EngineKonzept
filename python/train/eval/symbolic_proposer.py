@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Sequence
+from typing import TYPE_CHECKING, Sequence
 
-from train.config import ProposerTrainConfig
 from train.models.proposer import LegalityPolicyProposer, torch_is_available
+
+if TYPE_CHECKING:
+    from train.config import ProposerTrainConfig
 
 try:
     import torch
@@ -16,12 +18,14 @@ except ModuleNotFoundError:  # pragma: no cover - exercised when torch is absent
 
 def load_symbolic_proposer_checkpoint(
     checkpoint_path: Path,
-) -> tuple[LegalityPolicyProposer, ProposerTrainConfig]:
+) -> tuple[LegalityPolicyProposer, "ProposerTrainConfig"]:
     """Load a symbolic proposer checkpoint for exact-candidate scoring workflows."""
     if torch is None or not torch_is_available():  # pragma: no cover - torch absent
         raise RuntimeError(
             "PyTorch is required for symbolic proposer evaluation. Install the 'train' extra or torch."
         )
+    from train.config import ProposerTrainConfig
+
     payload = torch.load(checkpoint_path, map_location="cpu")
     config = ProposerTrainConfig.from_dict(dict(payload["training_config"]))
     if config.model.architecture != "symbolic_v1":

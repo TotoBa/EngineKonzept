@@ -1,0 +1,15 @@
+{
+  "examples_per_second": 2319.541,
+  "pressure_loss": 0.056602,
+  "pressure_mae": 0.097784,
+  "reply_policy_loss": 2.719104,
+  "reply_top1_accuracy": 0.066667,
+  "reply_top3_accuracy": 0.333333,
+  "supervised_examples": 30,
+  "teacher_reply_mean_probability": 0.100286,
+  "teacher_reply_mean_reciprocal_rank": 0.272664,
+  "total_examples": 128,
+  "total_loss": 2.772099,
+  "uncertainty_loss": 0.155378,
+  "uncertainty_mae": 0.251552
+}

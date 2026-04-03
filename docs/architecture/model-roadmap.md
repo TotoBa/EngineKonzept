@@ -224,6 +224,18 @@ The repo now also has the first exact symbolic Phase-7 baseline probe:
 
 That gives Phase 7 a real minimum bar before any learned opponent head is treated as progress.
 
+The repo now also has the first trained `OpponentHeadV1` reference on merged-unique workflow slices.
+
+Current decision:
+
+- keep the trained `mlp_v1` head as an explicit experimental reference
+- keep the symbolic reply scorer as the active Phase-7 baseline
+
+Why:
+
+- the learned head is now measurable and planner-usable as an experiment
+- but on the larger held-out verify slice it is still below the symbolic baseline on reply ranking quality
+
 ## Phase 8
 
 ### Preferred Planner Shape

@@ -1,0 +1,14 @@
+{
+  "checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+  "curriculum_priority_mean": 4.9210620625,
+  "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_merged_unique_train_v1",
+  "disagreement_rate": 0.796875,
+  "example_count": 128,
+  "output_dir": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_merged_unique_validation_v1",
+  "reply_supervised_count": 22,
+  "split": "validation",
+  "teacher_coverage_ratio": 0.24221557947573724,
+  "teacher_engine": "/usr/games/stockfish18",
+  "teacher_multipv": 8,
+  "teacher_nodes": 64
+}

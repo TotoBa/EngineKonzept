@@ -1,0 +1,35 @@
+{
+  "seed": 7,
+  "output_dir": "artifacts/phase7/opponent_merged_unique_mlp_v1",
+  "data": {
+    "train_path": "artifacts/phase7/opponent_workflow_merged_unique_train_v1/opponent_head_train.jsonl",
+    "validation_path": "artifacts/phase7/opponent_workflow_merged_unique_validation_v1/opponent_head_validation.jsonl"
+  },
+  "model": {
+    "architecture": "mlp_v1",
+    "hidden_dim": 256,
+    "hidden_layers": 2,
+    "action_embedding_dim": 64,
+    "dropout": 0.0
+  },
+  "optimization": {
+    "epochs": 20,
+    "batch_size": 64,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "reply_policy_loss_weight": 1.0,
+    "pressure_loss_weight": 0.25,
+    "uncertainty_loss_weight": 0.25
+  },
+  "evaluation": {
+    "top_k": 3
+  },
+  "runtime": {
+    "torch_threads": 6,
+    "dataloader_workers": 0
+  },
+  "export": {
+    "bundle_dir": "models/opponent/merged_unique_mlp_v1",
+    "checkpoint_name": "checkpoint.pt"
+  }
+}
