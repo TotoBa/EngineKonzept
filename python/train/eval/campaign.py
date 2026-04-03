@@ -86,6 +86,7 @@ class SelfplayReplayCampaignSpec:
     opponent_checkpoint: str | None = None
     root_top_k: int = 4
     replay_split: str = "train"
+    include_unfinished_replay: bool = False
     verify_dataset_paths: tuple[str, ...] = ()
     baseline_metrics: dict[str, str] = field(default_factory=dict)
     reference_run_name: str | None = None
@@ -143,6 +144,7 @@ class SelfplayReplayCampaignSpec:
             ),
             root_top_k=int(payload.get("root_top_k", 4)),
             replay_split=str(payload.get("replay_split", "train")),
+            include_unfinished_replay=bool(payload.get("include_unfinished_replay", False)),
             verify_dataset_paths=tuple(
                 str(path) for path in list(payload.get("verify_dataset_paths") or [])
             ),
@@ -191,7 +193,7 @@ def build_planner_verify_matrix(
 ) -> dict[str, Any]:
     """Build a ranking/delta payload from multiple planner verify metrics."""
     runs = {
-        str(name): dict(metrics)
+        str(name): _normalize_metrics_payload(metrics)
         for name, metrics in sorted(run_metrics.items())
     }
     ranking_by_top1 = _ranking(
@@ -263,9 +265,12 @@ def run_selfplay_replay_campaign(
     max_replay_head_examples: int | None = None,
     selected_runs: Sequence[str] | None = None,
     skip_existing: bool = False,
+    include_unfinished_replay_override: bool | None = None,
 ) -> dict[str, Any]:
     """Run the full replay campaign and return the campaign summary."""
-    plan = load_selfplay_curriculum_plan(_resolve_repo_path(repo_root, spec.curriculum_plan))
+    plan = load_selfplay_curriculum_plan(
+        _resolve_repo_path(repo_root, Path(spec.curriculum_plan))
+    )
     arena_spec = build_curriculum_stage_arena_spec(
         repo_root=repo_root,
         plan=plan,
@@ -278,7 +283,7 @@ def run_selfplay_replay_campaign(
             max_plies=max_plies_override,
         )
 
-    output_root = _resolve_repo_path(repo_root, spec.output_root)
+    output_root = _resolve_repo_path(repo_root, Path(spec.output_root))
     output_root.mkdir(parents=True, exist_ok=True)
 
     arena_root = output_root / "arena"
@@ -296,7 +301,7 @@ def run_selfplay_replay_campaign(
             output_root=arena_root,
         )
         arena_summary_payload = {
-            "curriculum_plan": str(_resolve_repo_path(repo_root, spec.curriculum_plan)),
+            "curriculum_plan": str(_resolve_repo_path(repo_root, Path(spec.curriculum_plan))),
             "stage_name": spec.stage_name,
             "resolved_arena_spec": str(resolved_path),
             **arena_summary,
@@ -341,9 +346,17 @@ def run_selfplay_replay_campaign(
     replay_examples = build_planner_replay_examples(
         load_replay_buffer_entries(replay_path),
         split=spec.replay_split,
-        include_unfinished=False,
+        include_unfinished=(
+            spec.include_unfinished_replay
+            if include_unfinished_replay_override is None
+            else include_unfinished_replay_override
+        ),
         max_examples=max_replay_examples,
     )
+    if not replay_examples:
+        raise ValueError(
+            "campaign replay supervision is empty; raise games/max_plies or use a more decisive stage"
+        )
     replay_supervision_path = replay_supervision_root / planner_replay_artifact_name(spec.replay_split)
     write_planner_replay_artifact(replay_supervision_path, replay_examples)
     replay_supervision_summary = {
@@ -377,6 +390,8 @@ def run_selfplay_replay_campaign(
         max_examples=max_replay_head_examples,
         repo_root=repo_root,
     )
+    if not replay_head_examples:
+        raise ValueError("campaign replay-head artifact is empty")
     replay_head_train_path = replay_head_root / planner_head_artifact_name("train")
     write_planner_head_artifact(replay_head_train_path, replay_head_examples)
     replay_head_summary_path = replay_head_root / "summary.json"
@@ -508,6 +523,15 @@ def _ranking(
         )
     )
     return ranking
+
+
+def _normalize_metrics_payload(
+    payload: Mapping[str, Any],
+) -> dict[str, float | int]:
+    aggregate = payload.get("aggregate")
+    if isinstance(aggregate, Mapping):
+        return dict(aggregate)
+    return dict(payload)
 
 
 def _override_arena_spec(

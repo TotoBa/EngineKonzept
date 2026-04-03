@@ -202,3 +202,26 @@ It is intended to drive, in one reproducible pass:
 - replay-mirror planner reruns
 - held-out planner verify comparison
 - arena full-matrix export
+
+The current startable long-run entry point is:
+
+- config:
+  [phase9_replay_campaign_active_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_replay_campaign_active_expanded_v1.json)
+- replay-aware curriculum plan:
+  [curriculum_active_experimental_replay_expanded_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/curriculum_active_experimental_replay_expanded_v1.json)
+- launcher:
+  [run_phase9_replay_campaign_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase9_replay_campaign_longrun.sh)
+
+That path is intended to produce:
+
+- a replay-aware expanded arena summary
+- a replay-aware expanded arena full matrix
+- replay-buffer and replay-head artifacts
+- replay-mirror planner reruns
+- a planner verify matrix against the current active reference
+
+For tiny smoke runs, the intended override is:
+
+```bash
+python/scripts/run_phase9_replay_campaign_longrun.sh --output-root .tmp/phase9_replay_campaign_smoke_v1 --games-per-matchup 2 --max-plies 24 --max-replay-examples 128 --max-replay-head-examples 32 --include-unfinished-replay --run planner_set_v6_margin_replay_campaign_v1
+```

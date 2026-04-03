@@ -351,3 +351,24 @@ So later architecture changes should only need:
 - updated campaign manifests
 
 rather than another orchestration rewrite.
+
+The repo now also has the first directly startable long-run entry point for that campaign:
+
+- campaign config:
+  [phase9_replay_campaign_active_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_replay_campaign_active_expanded_v1.json)
+- replay-aware curriculum plan:
+  [curriculum_active_experimental_replay_expanded_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/curriculum_active_experimental_replay_expanded_v1.json)
+- launcher:
+  [run_phase9_replay_campaign_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase9_replay_campaign_longrun.sh)
+
+That is the preferred one-command entry point for a future large run:
+
+```bash
+python/scripts/run_phase9_replay_campaign_longrun.sh
+```
+
+Useful override examples:
+
+```bash
+python/scripts/run_phase9_replay_campaign_longrun.sh --output-root /srv/schach/engine_training/phase9/replay_campaign_debug --games-per-matchup 1 --max-plies 16 --include-unfinished-replay --run planner_set_v6_margin_replay_campaign_v1
+```

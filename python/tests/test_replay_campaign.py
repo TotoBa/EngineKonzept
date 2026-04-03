@@ -22,6 +22,7 @@ def test_replay_campaign_spec_round_trip(tmp_path: Path) -> None:
         proposer_checkpoint="models/proposer/checkpoint.pt",
         opponent_mode="learned",
         opponent_checkpoint="models/opponent/checkpoint.pt",
+        include_unfinished_replay=True,
         verify_dataset_paths=("artifacts/phase8/verify_a.jsonl",),
         baseline_metrics={"active": "artifacts/phase8/active.json"},
         reference_run_name="active",
@@ -38,6 +39,7 @@ def test_replay_campaign_spec_round_trip(tmp_path: Path) -> None:
     loaded = load_selfplay_replay_campaign_spec(path)
     assert loaded.name == spec.name
     assert loaded.reference_run_name == "active"
+    assert loaded.include_unfinished_replay is True
     assert loaded.planner_runs[0].compare_name == "run_a_compare"
 
 

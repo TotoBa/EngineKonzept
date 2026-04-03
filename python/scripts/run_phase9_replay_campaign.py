@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 from train.eval.campaign import (
+    SelfplayReplayCampaignSpec,
     load_selfplay_replay_campaign_spec,
     run_selfplay_replay_campaign,
 )
@@ -18,15 +19,21 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
+    parser.add_argument("--output-root", type=Path)
     parser.add_argument("--games-per-matchup", type=int)
     parser.add_argument("--max-plies", type=int)
     parser.add_argument("--max-replay-examples", type=int)
     parser.add_argument("--max-replay-head-examples", type=int)
+    parser.add_argument("--include-unfinished-replay", action="store_true")
     parser.add_argument("--run", action="append", default=[])
     parser.add_argument("--skip-existing", action="store_true")
     args = parser.parse_args()
 
     spec = load_selfplay_replay_campaign_spec(_resolve_repo_path(args.config))
+    if args.output_root is not None:
+        spec_payload = spec.to_dict()
+        spec_payload["output_root"] = str(_resolve_repo_path(args.output_root))
+        spec = SelfplayReplayCampaignSpec.from_dict(spec_payload)
     summary = run_selfplay_replay_campaign(
         spec=spec,
         repo_root=REPO_ROOT,
@@ -36,6 +43,9 @@ def main() -> int:
         max_replay_head_examples=args.max_replay_head_examples,
         selected_runs=args.run or None,
         skip_existing=bool(args.skip_existing),
+        include_unfinished_replay_override=(
+            True if args.include_unfinished_replay else None
+        ),
     )
     print(json.dumps(summary, indent=2, sort_keys=True))
     return 0
