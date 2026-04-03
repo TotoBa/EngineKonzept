@@ -125,6 +125,22 @@ def __getattr__(name: str) -> Any:
             "write_selfplay_arena_spec": write_selfplay_arena_spec,
         }[name]
     if name in {
+        "build_selfplay_arena_matrix",
+        "load_selfplay_arena_summary",
+        "write_selfplay_arena_matrix",
+    }:
+        from train.eval.matrix import (
+            build_selfplay_arena_matrix,
+            load_selfplay_arena_summary,
+            write_selfplay_arena_matrix,
+        )
+
+        return {
+            "build_selfplay_arena_matrix": build_selfplay_arena_matrix,
+            "load_selfplay_arena_summary": load_selfplay_arena_summary,
+            "write_selfplay_arena_matrix": write_selfplay_arena_matrix,
+        }[name]
+    if name in {
         "PlannerRunSpec",
         "SelfplayCurriculumPlan",
         "SelfplayCurriculumStage",
@@ -176,11 +192,13 @@ __all__ = [
     "build_planner_runtime",
     "build_planner_runtime_from_spec",
     "build_phase9_expanded_curriculum_plan",
+    "build_selfplay_arena_matrix",
     "evaluate_symbolic_opponent_baseline",
     "evaluate_two_ply_planner_baseline",
     "load_dynamics_checkpoint",
     "load_opponent_head_checkpoint",
     "load_planner_head_checkpoint",
+    "load_selfplay_arena_summary",
     "load_selfplay_arena_spec",
     "load_planner_runtime_from_spec_path",
     "load_selfplay_agent_spec",
@@ -191,6 +209,7 @@ __all__ = [
     "run_selfplay_session",
     "score_opponent_candidates",
     "score_symbolic_candidates",
+    "write_selfplay_arena_matrix",
     "write_selfplay_arena_spec",
     "write_selfplay_curriculum_plan",
     "write_selfplay_agent_spec",

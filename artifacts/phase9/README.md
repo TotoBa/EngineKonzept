@@ -181,3 +181,9 @@ The promoted active expanded agent is also smoke-verified here:
 - `1` game
 - `12` legal plies
 - termination reason: `max_plies`
+
+Pairwise selfplay summaries can now also be converted into a full matrix artifact with:
+
+- [build_selfplay_arena_matrix.py](/home/torsten/EngineKonzept/python/scripts/build_selfplay_arena_matrix.py)
+
+That matrix is row-agent-centric and aggregates both color directions, so it is the intended basis for later long-run selfplay campaign comparisons.

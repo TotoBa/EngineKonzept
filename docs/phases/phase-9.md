@@ -319,3 +319,12 @@ The promoted active expanded agent is also smoke-verified in direct selfplay:
 - `1` game
 - `12` legal plies
 - termination reason: `max_plies`
+
+The arena side now also has a reusable full-matrix export path:
+
+- builder:
+  [build_selfplay_arena_matrix.py](/home/torsten/EngineKonzept/python/scripts/build_selfplay_arena_matrix.py)
+- helper:
+  [matrix.py](/home/torsten/EngineKonzept/python/train/eval/matrix.py)
+
+This keeps pairwise selfplay analysis separate from the campaign runner itself, so future agent or planner changes can still reuse the same row-vs-column arena summary contract.
