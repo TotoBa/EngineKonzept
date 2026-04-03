@@ -197,3 +197,9 @@ The next useful Phase-8 steps are now:
 1. re-test planner-facing latent-state or contract upgrades on top of the new `10k + 122k`-only `set_v2` reference
 2. focus on a different latent integration path or richer planner targets rather than another direct `set_v3`-style concatenation rerun
 3. only then revisit richer bounded recurrence over the same exact candidate slice
+
+The first richer-target follow-up is now prepared at the artifact-contract level:
+
+- `PlannerHeadV1` rows can now carry restricted `teacher_candidate_scores_cp` aligned to the bounded candidate slice
+- the field is backward-compatible and remains optional for older artifacts
+- this keeps the current workflow semantics intact while making the next score-aux planner arm possible without another contract break

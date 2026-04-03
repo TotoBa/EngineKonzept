@@ -65,6 +65,7 @@ class PlannerHeadExample:
     teacher_policy: list[float]
     teacher_root_value_cp: float
     teacher_top1_minus_top2_cp: float | None
+    teacher_candidate_scores_cp: list[float] | None = None
     latent_state_version: int | None = None
     latent_features: list[list[float]] | None = None
 
@@ -92,6 +93,7 @@ class PlannerHeadExample:
             "teacher_top1_action_index": self.teacher_top1_action_index,
             "teacher_top1_candidate_index": self.teacher_top1_candidate_index,
             "teacher_policy": self.teacher_policy,
+            "teacher_candidate_scores_cp": self.teacher_candidate_scores_cp,
             "teacher_root_value_cp": self.teacher_root_value_cp,
             "teacher_top1_minus_top2_cp": self.teacher_top1_minus_top2_cp,
         }
@@ -122,6 +124,7 @@ class PlannerHeadExample:
         pressures = [float(value) for value in list(payload["pressures"])]
         uncertainties = [float(value) for value in list(payload["uncertainties"])]
         teacher_policy = [float(value) for value in list(payload["teacher_policy"])]
+        teacher_candidate_scores_cp = _optional_float_list(payload.get("teacher_candidate_scores_cp"))
         expected_length = len(candidate_action_indices)
         for name, values in (
             ("candidate_features", candidate_features),
@@ -136,6 +139,10 @@ class PlannerHeadExample:
                 raise ValueError(
                     f"{name} must have the same length as candidate_action_indices"
                 )
+        if teacher_candidate_scores_cp is not None and len(teacher_candidate_scores_cp) != expected_length:
+            raise ValueError(
+                "teacher_candidate_scores_cp must have the same length as candidate_action_indices"
+            )
         if latent_features is not None and len(latent_features) != expected_length:
             raise ValueError(
                 "latent_features must have the same length as candidate_action_indices"
@@ -168,6 +175,7 @@ class PlannerHeadExample:
             teacher_top1_action_index=int(payload["teacher_top1_action_index"]),
             teacher_top1_candidate_index=teacher_top1_candidate_index,
             teacher_policy=teacher_policy,
+            teacher_candidate_scores_cp=teacher_candidate_scores_cp,
             teacher_root_value_cp=float(payload["teacher_root_value_cp"]),
             teacher_top1_minus_top2_cp=_optional_float(payload.get("teacher_top1_minus_top2_cp")),
         )
@@ -295,6 +303,10 @@ def build_planner_head_examples(
             considered_indices=considered_indices,
             teacher_top1_candidate_index=teacher_top1_candidate_index,
         )
+        teacher_candidate_scores_cp = _restricted_teacher_candidate_scores(
+            teacher_example.teacher_candidate_scores_cp,
+            considered_indices=considered_indices,
+        )
         built.append(
             PlannerHeadExample(
                 sample_id=teacher_example.sample_id,
@@ -338,6 +350,7 @@ def build_planner_head_examples(
                 teacher_top1_action_index=teacher_top1_action_index,
                 teacher_top1_candidate_index=teacher_top1_candidate_index,
                 teacher_policy=teacher_policy,
+                teacher_candidate_scores_cp=teacher_candidate_scores_cp,
                 teacher_root_value_cp=float(teacher_example.teacher_root_value_cp),
                 teacher_top1_minus_top2_cp=_optional_float(
                     getattr(curriculum_example, "teacher_top1_minus_top2_cp", None)
@@ -556,6 +569,14 @@ def _restricted_teacher_policy(
     return [value / total for value in restricted]
 
 
+def _restricted_teacher_candidate_scores(
+    teacher_candidate_scores_cp: Sequence[float],
+    *,
+    considered_indices: Sequence[int],
+) -> list[float]:
+    return [float(teacher_candidate_scores_cp[index]) for index in considered_indices]
+
+
 def _pressure_from_candidate_features(candidate_features: Sequence[float]) -> float:
     if not candidate_features:
         return 0.0
@@ -572,6 +593,12 @@ def _optional_float(value: object | None) -> float | None:
     if value is None:
         return None
     return float(value)
+
+
+def _optional_float_list(value: object | None) -> list[float] | None:
+    if value is None:
+        return None
+    return [float(entry) for entry in list(value)]
 
 
 def _optional_int(value: object | None) -> int | None:

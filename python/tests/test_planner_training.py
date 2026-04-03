@@ -246,6 +246,29 @@ def test_set_v1_ignores_latent_features_in_artifacts(tmp_path: Path) -> None:
     assert 0.0 <= metrics.root_top1_accuracy <= 1.0
 
 
+def test_planner_head_example_accepts_optional_teacher_candidate_scores() -> None:
+    candidate_dim = candidate_context_feature_dim(2)
+    transition_dim = transition_context_feature_dim(1)
+    global_dim = SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE
+
+    example = _planner_example(
+        sample_id="train-1",
+        teacher_index=0,
+        candidate_dim=candidate_dim,
+        transition_dim=transition_dim,
+        global_dim=global_dim,
+    )
+    payload = example.to_dict()
+
+    roundtrip = PlannerHeadExample.from_dict(payload)
+    legacy_roundtrip = PlannerHeadExample.from_dict(
+        {key: value for key, value in payload.items() if key != "teacher_candidate_scores_cp"}
+    )
+
+    assert roundtrip.teacher_candidate_scores_cp == [25.0, -55.0]
+    assert legacy_roundtrip.teacher_candidate_scores_cp is None
+
+
 def _planner_example(
     *,
     sample_id: str,
@@ -291,4 +314,5 @@ def _planner_example(
         teacher_policy=teacher_policy,
         teacher_root_value_cp=25.0,
         teacher_top1_minus_top2_cp=80.0,
+        teacher_candidate_scores_cp=[25.0, -55.0],
     )
