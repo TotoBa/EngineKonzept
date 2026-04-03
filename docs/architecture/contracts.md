@@ -28,6 +28,7 @@ The intended next contracts are:
 2. `TransitionContextV1`
 3. `LatentStateV1`
 4. `OpponentHeadV1`
+5. `PlannerHeadV1`
 
 ## Feature Authority
 
@@ -178,6 +179,31 @@ The first strong baseline should be:
 3. reuse the current symbolic proposer as the opponent reply scorer
 
 An explicit opponent head should only count as progress if it beats that baseline.
+
+## PlannerHeadV1
+
+The first explicit planner module should stay bounded and inspectable.
+
+It should consume:
+
+- exact root candidates
+- proposer scores over those candidates
+- exact successor-derived `TransitionContextV1` features for each bounded root
+- bounded opponent-side reply summaries
+- optional workflow-derived curriculum metadata
+
+Status now:
+
+- the first dataset-level `PlannerHeadV1` contract is implemented
+- it is materialized in `planner_head_<split>.jsonl`
+- it now has the first trained bounded planner reference over the `10k`, `122k`, and `400k` workflow suite
+
+The current trained reference keeps the repo boundary:
+
+1. exact legal root candidates still come from the symbolic proposer contract
+2. successor states are still exact symbolic apply results
+3. opponent information is still bounded and explicit
+4. the planner still scores a bounded candidate slice, not a hidden tree
 
 ## Metrics Pressure
 

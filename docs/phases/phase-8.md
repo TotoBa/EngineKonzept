@@ -12,9 +12,9 @@ without crossing the project boundary into classical search.
 
 ## Current repository state
 
-The repository now has the first trainable planner contract and code path, but no materialized trained planner run yet.
+The repository now has the first materialized trained bounded planner run over the current multi-corpus workflow suite.
 
-It first gained the planner-facing offline baseline:
+It first gained the planner-facing offline baselines:
 
 - [eval_planner_baseline.py](/home/torsten/EngineKonzept/python/scripts/eval_planner_baseline.py)
 - [planner.py](/home/torsten/EngineKonzept/python/train/eval/planner.py)
@@ -40,10 +40,12 @@ That baseline is explicitly bounded and symbolic-contract-aware:
 
 It is an offline evaluation baseline that proves the proposer/opponent contracts can already be composed into a first planner-like decision layer.
 
-The repo now also has the first trainable planner-arm plumbing:
+The repo now also has the first trainable planner-arm stack:
 
 - [build_planner_head_dataset.py](/home/torsten/EngineKonzept/python/scripts/build_planner_head_dataset.py)
 - [build_phase8_workflow_suite.py](/home/torsten/EngineKonzept/python/scripts/build_phase8_workflow_suite.py)
+- [eval_planner_suite_baseline.py](/home/torsten/EngineKonzept/python/scripts/eval_planner_suite_baseline.py)
+- [compare_planner_suite_runs.py](/home/torsten/EngineKonzept/python/scripts/compare_planner_suite_runs.py)
 - [planner_head.py](/home/torsten/EngineKonzept/python/train/datasets/planner_head.py)
 - [planner.py](/home/torsten/EngineKonzept/python/train/models/planner.py)
 - [planner.py](/home/torsten/EngineKonzept/python/train/trainers/planner.py)
@@ -57,26 +59,53 @@ That trainable arm keeps the project boundary:
 3. opponent-side signals still come from a bounded reply module
 4. the learned planner only scores a bounded candidate set; it does not become hidden tree search
 
-## Current baseline result
+The first materialized planner reference is now:
 
-On the current `128`-example merged verify slice:
+- config: [phase8_planner_corpus_suite_set_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v1.json)
+- workflow suite: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_v1/summary.json)
+- bundle: [corpus_suite_set_v1](/home/torsten/EngineKonzept/models/planner/corpus_suite_set_v1)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v1/summary.json)
+- verify: [planner_corpus_suite_set_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v1_verify.json)
+- comparison: [planner_corpus_suite_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_compare_v1.json)
 
-- root-only symbolic proposer:
-  - `root_top1_accuracy=0.148438`
-  - `teacher_root_mean_reciprocal_rank=0.213542`
-- symbolic-reply aggregation:
-  - `root_top1_accuracy=0.15625`
-  - `teacher_root_mean_reciprocal_rank=0.216797`
-- learned-reply aggregation:
-  - `root_top1_accuracy=0.15625`
-  - `teacher_root_mean_reciprocal_rank=0.21875`
+## Current result
 
-That means the first planner-facing composition is real and slightly better than root-only ranking on this slice, but it is still far from a mature planner.
+Planner workflow suite:
+
+- `10k` tier
+- merged unique `122k` tier
+- imported unique `400k` tier
+
+Training summary:
+
+- `best_epoch=5`
+- validation `root_top1_accuracy=0.799107`
+- validation `root_top3_accuracy=0.967634`
+- validation `teacher_root_mean_reciprocal_rank=0.880952`
+
+Aggregate held-out verify result over `1,410` planner examples:
+
+- root-only bounded baseline:
+  - `root_top1_accuracy=0.153901`
+  - `teacher_root_mean_reciprocal_rank=0.230615`
+- symbolic-reply bounded baseline:
+  - `root_top1_accuracy=0.159574`
+  - `teacher_root_mean_reciprocal_rank=0.232861`
+- learned-reply bounded baseline:
+  - `root_top1_accuracy=0.142553`
+  - `teacher_root_mean_reciprocal_rank=0.224232`
+- trained planner `set_v1`:
+  - `root_top1_accuracy=0.788652`
+  - `root_top3_accuracy=0.958156`
+  - `teacher_root_mean_reciprocal_rank=0.872636`
+  - `teacher_root_mean_probability=0.616233`
+
+That means the repository is now past pure planner baselines. The first trained bounded planner is materially stronger than the current bounded hand-aggregation baselines on the same multi-corpus verify suite.
 
 ## Next pressure
 
 The next useful Phase-8 steps are now:
 
-1. materialize the first trained planner run on the current multi-corpus workflow suite
-2. compare it directly against the current offline bounded baselines
-3. only then decide whether the next planner gain should come from stronger root scoring or richer dynamics/opponent context
+1. add richer planner targets than teacher top-1 plus restricted teacher policy
+2. bring stronger Phase-6 latent-state information into the planner-facing dataset contract
+3. test whether better opponent uncertainty signals improve planner calibration more than raw reply accuracy alone

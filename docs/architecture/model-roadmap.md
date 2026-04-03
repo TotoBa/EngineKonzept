@@ -274,9 +274,20 @@ Current status on the larger verify slice:
 - symbolic-reply bounded aggregation: `0.15625`
 - learned-reply bounded aggregation: `0.15625`
 
-So the first planner-facing contract is now real and measurable, even though the repo still has no trained planner.
+The repo now also has the first trained bounded planner over the current three-tier workflow suite:
 
-The next planner measurements should now switch from the old merged-unique `mlp_v1` reply model to the stronger Phase-7 `set_v2` default.
+- workflow suite: `10k`, `122k`, `400k`
+- planner config: [phase8_planner_corpus_suite_set_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v1.json)
+- verify comparison: [planner_corpus_suite_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_compare_v1.json)
+
+Aggregate held-out verify result over `1,410` examples:
+
+- root-only bounded baseline: `root_top1_accuracy=0.153901`, `MRR=0.230615`
+- symbolic-reply bounded baseline: `0.159574`, `MRR=0.232861`
+- learned-reply bounded baseline: `0.142553`, `MRR=0.224232`
+- trained planner `set_v1`: `0.788652`, `MRR=0.872636`
+
+So Phase 8 is now past pure bounded baselines and has a first measurable trained planner reference.
 
 ## Deferred Architecture Ideas
 
@@ -295,11 +306,11 @@ These ideas are interesting for later phases, but they are not the current bottl
 
 The next model experiments should now be ordered like this:
 
-1. switch Phase-8 bounded planner baselines to the new learned `set_v2` opponent default
+1. strengthen the trained planner targets and planner-facing state contract
 2. improve the Phase-6 dynamics model over the symbolic proposer candidate contract
 3. use alpha-beta/MCTS-supported offline workflows for richer opponent/planner targets without making them the runtime path
-4. move from bounded planner baselines to a trained planner module
-5. explore richer symbolic proposer candidate features only if downstream modules need them
+4. explore richer symbolic proposer candidate features only if downstream modules need them
+5. only then decide whether the next gain should come from richer planner recurrence or better target structure
 
 The first three offline search-workflow layers are now in place:
 

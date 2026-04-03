@@ -1,0 +1,12 @@
+{
+  "examples_per_second": 4848.047,
+  "root_top1_accuracy": 0.788652,
+  "root_top3_accuracy": 0.958156,
+  "supervised_examples": 1410,
+  "teacher_kl_loss": 0.561402,
+  "teacher_policy_loss": 0.933441,
+  "teacher_root_mean_probability": 0.616233,
+  "teacher_root_mean_reciprocal_rank": 0.872636,
+  "total_examples": 1410,
+  "total_loss": 1.073792
+}

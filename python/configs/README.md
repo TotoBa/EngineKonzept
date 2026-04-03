@@ -1,4 +1,4 @@
-# Phase 5/6/7 Config Guide
+# Phase 5/6/7/8 Config Guide
 
 This directory contains the externally checkable proposer-training and dynamics-training configs.
 
@@ -94,3 +94,8 @@ These remain useful as small-corpus regression baselines, but they are no longer
   First explicit learned `OpponentHeadV1` run over the merged-unique workflow slices. It is the current trained Phase-7 reference, but it remains below the symbolic reply-scorer baseline on held-out reply ranking.
 - [phase7_opponent_corpus_suite_set_v2_v1.json](/home/torsten/EngineKonzept/python/configs/phase7_opponent_corpus_suite_set_v2_v1.json)
   Current preferred Phase-7 config. Trains the stronger `set_v2` opponent head over the `10k`, `122k`, and `400k` workflow tiers together and is the first learned opponent arm that beats the symbolic reply baseline on the current multi-corpus holdout.
+
+## Phase 8 Baseline
+
+- [phase8_planner_corpus_suite_set_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v1.json)
+  Current preferred Phase-8 config. Trains the first bounded planner head over the `10k`, `122k`, and `400k` planner-workflow tiers and is the first materialized trained planner reference in the repo.

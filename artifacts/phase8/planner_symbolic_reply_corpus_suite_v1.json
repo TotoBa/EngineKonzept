@@ -1,0 +1,56 @@
+{
+  "aggregate": {
+    "examples_per_second": 7.753508,
+    "mean_pressure": 0.18156,
+    "mean_reply_peak_probability": 0.172556,
+    "mean_uncertainty": 0.827444,
+    "root_top1_accuracy": 0.159574,
+    "teacher_covered_examples": 1410,
+    "teacher_root_mean_probability": 0.117058,
+    "teacher_root_mean_reciprocal_rank": 0.232861,
+    "total_examples": 1410
+  },
+  "opponent_checkpoint": null,
+  "opponent_mode": "symbolic",
+  "per_tier": {
+    "merged_unique_122k": {
+      "examples_per_second": 5.997,
+      "mean_pressure": 0.180664,
+      "mean_reply_peak_probability": 0.176626,
+      "mean_uncertainty": 0.823374,
+      "root_top1_accuracy": 0.158203,
+      "teacher_covered_examples": 512,
+      "teacher_root_mean_probability": 0.111622,
+      "teacher_root_mean_reciprocal_rank": 0.224284,
+      "total_examples": 512
+    },
+    "pgn_10k": {
+      "examples_per_second": 9.444,
+      "mean_pressure": 0.175781,
+      "mean_reply_peak_probability": 0.176077,
+      "mean_uncertainty": 0.823923,
+      "root_top1_accuracy": 0.158203,
+      "teacher_covered_examples": 512,
+      "teacher_root_mean_probability": 0.111346,
+      "teacher_root_mean_reciprocal_rank": 0.221354,
+      "total_examples": 512
+    },
+    "unique_pi_400k": {
+      "examples_per_second": 9.491,
+      "mean_pressure": 0.190415,
+      "mean_reply_peak_probability": 0.162486,
+      "mean_uncertainty": 0.837514,
+      "root_top1_accuracy": 0.163212,
+      "teacher_covered_examples": 386,
+      "teacher_root_mean_probability": 0.131846,
+      "teacher_root_mean_reciprocal_rank": 0.259499,
+      "total_examples": 386
+    }
+  },
+  "pressure_weight": 0.25,
+  "proposer_checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+  "reply_peak_weight": 0.5,
+  "root_top_k": 4,
+  "uncertainty_weight": 0.25,
+  "workflow_summary": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/summary.json"
+}

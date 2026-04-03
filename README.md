@@ -9,7 +9,7 @@ The target runtime path is:
 
 ## Current Scope
 
-The repository now covers Phase 6 foundations:
+The repository now covers Phase 8 foundations:
 
 - root project rules and execution plans
 - Rust workspace boundaries and placeholder future crates
@@ -26,7 +26,7 @@ The repository now covers Phase 6 foundations:
 - a first action-conditioned latent dynamics baseline with held-out reconstruction and drift metrics
 - the first explicit Phase-7 dataset contract for opponent-reply supervision
 - the first trained Phase-7 opponent-head baseline
-- the first bounded opponent-aware planner baseline
+- the first trained bounded planner arm over a multi-corpus workflow suite
 - CI, lint, and test wiring
 - architecture and phase documentation
 
@@ -34,7 +34,6 @@ It still does **not** implement:
 
 - full planner-driven runtime inference
 - any search or evaluation runtime
-- any planner model
 - any classical engine/search machinery
 
 ## Phase 5 Snapshot
@@ -249,24 +248,34 @@ Aggregate verify result over the `10k`, `122k`, and `400k` workflow slices:
 
 That moves the repo past the old Phase-7 bar: the learned opponent head now beats the symbolic reply scorer on the current multi-corpus holdout.
 
-The repo now also has the first bounded planner-style comparison on the same verify slice:
+## Phase 8 Snapshot
 
-- root-only symbolic proposer:
-  - `root_top1_accuracy=0.148438`
-  - `teacher_root_mean_reciprocal_rank=0.213542`
-- symbolic-reply aggregation:
-  - `root_top1_accuracy=0.15625`
-  - `teacher_root_mean_reciprocal_rank=0.216797`
-- learned-reply aggregation:
-  - `root_top1_accuracy=0.15625`
-  - `teacher_root_mean_reciprocal_rank=0.21875`
+The repository now also has the first trained bounded planner arm over the same `10k`, `122k`, and `400k` workflow tiers:
 
-Those runs are bounded offline planner baselines, not runtime search:
+- workflow suite: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_v1/summary.json)
+- current planner config: [phase8_planner_corpus_suite_set_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v1.json)
+- current planner bundle: [corpus_suite_set_v1](/home/torsten/EngineKonzept/models/planner/corpus_suite_set_v1)
+- current planner summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v1/summary.json)
+- current planner verify eval: [planner_corpus_suite_set_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v1_verify.json)
+- direct comparison: [planner_corpus_suite_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_compare_v1.json)
 
-- [planner_symbolic_root_only_verify_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/planner_symbolic_root_only_verify_v1.json)
-- [planner_symbolic_reply_verify_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/planner_symbolic_reply_verify_v1.json)
-- [planner_learned_reply_verify_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/planner_learned_reply_verify_v1.json)
-- [planner_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/planner_compare_v1.json)
+Aggregate verify result over `1,410` held-out planner examples:
+
+- root-only bounded baseline:
+  - `root_top1_accuracy=0.153901`
+  - `teacher_root_mean_reciprocal_rank=0.230615`
+- symbolic-reply bounded baseline:
+  - `root_top1_accuracy=0.159574`
+  - `teacher_root_mean_reciprocal_rank=0.232861`
+- learned-reply bounded baseline:
+  - `root_top1_accuracy=0.142553`
+  - `teacher_root_mean_reciprocal_rank=0.224232`
+- trained planner `set_v1`:
+  - `root_top1_accuracy=0.788652`
+  - `root_top3_accuracy=0.958156`
+  - `teacher_root_mean_reciprocal_rank=0.872636`
+
+These are still bounded offline planner artifacts, not runtime search, but Phase 8 is now past pure baselines and has its first real trainable planner reference.
 
 ## Repository Layout
 

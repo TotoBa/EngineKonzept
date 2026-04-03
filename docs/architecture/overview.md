@@ -68,7 +68,7 @@ The repository now additionally includes the first action-conditioned latent-dyn
 The larger merged-unique reruns now show a clearer direction inside the same Phase-6 contract:
 
 - the large-corpus `structured_v3` rerun beats the old large `structured_v2_latent` baseline on both one-step and drift
-- the large-corpus symbolic-action `structured_v5` rerun is now the best measured Phase-6 path so far
+- the large-corpus `structured_v6` rerun is now the best measured Phase-6 path so far
 
 Exact packed next-state accuracy is still `0.0`, so the next pressure is still model quality rather than more plumbing, but the action-conditioned symbolic move-side contract now looks materially more promising than it did on the earlier `10k` corpus alone.
 
@@ -83,3 +83,13 @@ The repository now additionally includes the first explicit Phase-7 dataset cont
 - first pressure and uncertainty targets
 
 The current preferred Phase-7 reference is now the larger-corpus `set_v2` arm over the `10k`, `122k`, and `400k` workflow tiers. Details live in [opponent.md](/home/torsten/EngineKonzept/docs/architecture/opponent.md) and [phase-7.md](/home/torsten/EngineKonzept/docs/phases/phase-7.md).
+
+## Phase 8 Status
+
+The repository now additionally includes the first trained bounded planner arm over the same `10k`, `122k`, and `400k` workflow tiers:
+
+- bounded planner-head datasets derived from exact root candidates, exact successor states, and bounded opponent signals
+- a trainable `set_v1` planner head in Python
+- aggregate held-out comparison against root-only, symbolic-reply, and learned-reply bounded baselines
+
+The current preferred Phase-8 reference is [phase8_planner_corpus_suite_set_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v1.json), with results summarized in [planner_corpus_suite_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_compare_v1.json) and the phase note [phase-8.md](/home/torsten/EngineKonzept/docs/phases/phase-8.md).

@@ -1,0 +1,43 @@
+{
+  "seed": 11,
+  "output_dir": "artifacts/phase8/planner_corpus_suite_set_v1",
+  "data": {
+    "train_path": "artifacts/phase8/planner_workflow_corpus_suite_v1/pgn_10k_train_v1/planner_head_train.jsonl",
+    "validation_path": "artifacts/phase8/planner_workflow_corpus_suite_v1/pgn_10k_validation_v1/planner_head_validation.jsonl",
+    "additional_train_paths": [
+      "artifacts/phase8/planner_workflow_corpus_suite_v1/merged_unique_122k_train_v1/planner_head_train.jsonl",
+      "artifacts/phase8/planner_workflow_corpus_suite_v1/unique_pi_400k_train_v1/planner_head_train.jsonl"
+    ],
+    "additional_validation_paths": [
+      "artifacts/phase8/planner_workflow_corpus_suite_v1/merged_unique_122k_validation_v1/planner_head_validation.jsonl",
+      "artifacts/phase8/planner_workflow_corpus_suite_v1/unique_pi_400k_validation_v1/planner_head_validation.jsonl"
+    ]
+  },
+  "model": {
+    "architecture": "set_v1",
+    "hidden_dim": 256,
+    "hidden_layers": 2,
+    "action_embedding_dim": 64,
+    "dropout": 0.1
+  },
+  "optimization": {
+    "epochs": 8,
+    "batch_size": 64,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "teacher_policy_loss_weight": 1.0,
+    "teacher_kl_loss_weight": 0.25,
+    "curriculum_priority_weight": 0.1
+  },
+  "evaluation": {
+    "top_k": 3
+  },
+  "runtime": {
+    "torch_threads": 6,
+    "dataloader_workers": 0
+  },
+  "export": {
+    "bundle_dir": "models/planner/corpus_suite_set_v1",
+    "checkpoint_name": "checkpoint.pt"
+  }
+}
