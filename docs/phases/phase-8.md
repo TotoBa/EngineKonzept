@@ -68,13 +68,20 @@ The first materialized planner reference was:
 - verify: [planner_corpus_suite_set_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v1_verify.json)
 - comparison: [planner_corpus_suite_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_compare_v1.json)
 
-The current preferred planner reference is now:
+The first preferred planner reference was:
 
 - config: [phase8_planner_corpus_suite_set_v2_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v2_v1.json)
 - bundle: [corpus_suite_set_v2_v1](/home/torsten/EngineKonzept/models/planner/corpus_suite_set_v2_v1)
 - summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v2_v1/summary.json)
 - verify: [planner_corpus_suite_set_v2_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v2_v1_verify.json)
 - comparison: [planner_corpus_suite_compare_v2.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_compare_v2.json)
+
+The repo now also has an expanded-data rerun:
+
+- config: [phase8_planner_corpus_suite_set_v2_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v2_expanded_v1.json)
+- repo-copied summary: [planner_corpus_suite_set_v2_expanded_v1_summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v2_expanded_v1_summary.json)
+- repo-copied verify: [planner_corpus_suite_set_v2_expanded_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v2_expanded_v1_verify.json)
+- filtered expanded comparison: [planner_corpus_suite_expanded_two_tier_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_expanded_two_tier_compare_v1.json)
 
 The repo now also has a filtered latent-state validation slice over just the `10k` and `122k` tiers:
 
@@ -123,7 +130,7 @@ Aggregate held-out verify result over `1,410` planner examples:
   - `root_value_mae_cp=90.521303`
   - `root_gap_mae_cp=264.01746`
 
-That means the repository is now past pure planner baselines. The richer-target `set_v2` arm stays comfortably above all bounded hand-aggregation baselines and improves modestly over the first `set_v1` planner on the same multi-corpus verify suite.
+That means the repository is now past pure planner baselines. The richer-target `set_v2` arm stays comfortably above all bounded hand-aggregation baselines and improves modestly over the first `set_v1` planner on the same multi-corpus verify suite. The later expanded-data rerun improves the full mixed training and validation picture further.
 
 ## Latent-state validation slice
 
@@ -151,10 +158,24 @@ Filtered verify result over `1,024` held-out planner examples:
 
 That is a clear negative result for the first latent-state planner arm: `PlannerHeadV1` can now carry Phase-6 latent successor vectors, but the first direct `set_v3` integration loses clearly to `set_v2`.
 
+The repo now also has a filtered comparison of the expanded-data planner reruns on the same preferred `10k + 122k` slice:
+
+- prior two-tier `set_v2`: `root_top1_accuracy=0.80957`, `MRR=0.883382`
+- expanded-data `set_v2`: `root_top1_accuracy=0.798828`, `MRR=0.87972`
+- expanded-data `set_v2_wide`: `root_top1_accuracy=0.790039`, `MRR=0.874837`
+- expanded-data `set_v5`: `root_top1_accuracy=0.798828`, `MRR=0.880534`
+
+This is the current important Phase-8 conclusion:
+
+- more mixed three-tier data helps the global training and validation story
+- but on the preferred `10k + 122k` slice, the old two-tier `set_v2` reference is still best
+- increasing width does not help
+- `set_v5` re-enters the conversation on the filtered slice, but not strongly enough to replace `set_v2`
+
 ## Next pressure
 
 The next useful Phase-8 steps are now:
 
-1. test whether better opponent uncertainty signals improve planner calibration more than raw reply accuracy alone
+1. rerun the best planner contract on stronger `10k + 122k`-only workflow material instead of assuming the `400k` tier helps the filtered slice
 2. decide whether latent planner state needs a richer contract or a different integration path before it can help
-3. then try richer bounded recurrence over the same exact candidate slice
+3. only then revisit richer bounded recurrence over the same exact candidate slice

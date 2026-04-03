@@ -291,6 +291,8 @@ The richer-target follow-up now exists as well:
 
 - planner config: [phase8_planner_corpus_suite_set_v2_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v2_v1.json)
 - verify comparison: [planner_corpus_suite_compare_v2.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_compare_v2.json)
+- expanded rerun config: [phase8_planner_corpus_suite_set_v2_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v2_expanded_v1.json)
+- expanded filtered comparison: [planner_corpus_suite_expanded_two_tier_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_expanded_two_tier_compare_v1.json)
 
 Aggregate held-out verify result:
 
@@ -309,7 +311,18 @@ Result on the filtered `10k + 122k` verify slice (`1,024` examples):
 - `set_v2`: `root_top1_accuracy=0.80957`, `MRR=0.883382`
 - latent `set_v3`: `root_top1_accuracy=0.708008`, `MRR=0.825521`
 
-So the planner-facing latent-state channel is now implemented and reproducible, but the first direct concatenation path is not yet the right refinement. The next gain should come from better opponent uncertainty signals or a different planner-state integration strategy before bounded recurrence is made richer.
+So the planner-facing latent-state channel is now implemented and reproducible, but the first direct concatenation path is not yet the right refinement.
+
+The expanded-data planner reruns refine that again:
+
+- full mixed-suite `set_v2_expanded` improves validation to `top1=0.813702`, `MRR=0.891489`
+- but on the preferred filtered `10k + 122k` slice:
+  - old `set_v2`: `top1=0.80957`, `MRR=0.883382`
+  - `set_v2_expanded`: `top1=0.798828`, `MRR=0.87972`
+  - `set_v2_wide_expanded`: `top1=0.790039`, `MRR=0.874837`
+  - `set_v5_expanded`: `top1=0.798828`, `MRR=0.880534`
+
+So the next Planner lever is not "more width". The open question is whether the filtered `10k + 122k` workflow needs better targets and contracts rather than more mixed `400k` data.
 
 ## Deferred Architecture Ideas
 

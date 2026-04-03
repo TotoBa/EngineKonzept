@@ -250,14 +250,19 @@ That moves the repo past the old Phase-7 bar: the learned opponent head now beat
 
 ## Phase 8 Snapshot
 
-The repository now also has the first trained bounded planner arm over the same `10k`, `122k`, and `400k` workflow tiers:
+Phase 8 now has two useful reference views:
+
+- a full three-tier workflow view over `10k`, `122k`, and `400k`
+- a preferred filtered validation view over `10k + 122k`
+
+Full three-tier planner references:
 
 - workflow suite: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_v1/summary.json)
-- current planner config: [phase8_planner_corpus_suite_set_v2_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v2_v1.json)
-- current planner bundle: [corpus_suite_set_v2_v1](/home/torsten/EngineKonzept/models/planner/corpus_suite_set_v2_v1)
-- current planner summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v2_v1/summary.json)
-- current planner verify eval: [planner_corpus_suite_set_v2_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v2_v1_verify.json)
-- direct comparison: [planner_corpus_suite_compare_v2.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_compare_v2.json)
+- first materialized planner config: [phase8_planner_corpus_suite_set_v2_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v2_v1.json)
+- expanded-data planner config: [phase8_planner_corpus_suite_set_v2_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v2_expanded_v1.json)
+- repo-copied expanded summary: [planner_corpus_suite_set_v2_expanded_v1_summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v2_expanded_v1_summary.json)
+- repo-copied expanded verify eval: [planner_corpus_suite_set_v2_expanded_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v2_expanded_v1_verify.json)
+- original direct comparison: [planner_corpus_suite_compare_v2.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_compare_v2.json)
 
 Aggregate verify result over `1,410` held-out planner examples:
 
@@ -274,26 +279,39 @@ Aggregate verify result over `1,410` held-out planner examples:
   - `root_top1_accuracy=0.788652`
   - `root_top3_accuracy=0.958156`
   - `teacher_root_mean_reciprocal_rank=0.872636`
-- current planner `set_v2`:
+- first materialized planner `set_v2`:
   - `root_top1_accuracy=0.795035`
   - `root_top3_accuracy=0.968085`
   - `teacher_root_mean_reciprocal_rank=0.875355`
   - `teacher_root_mean_probability=0.685788`
+- expanded-data `set_v2` validation reference:
+  - `best validation root_top1_accuracy=0.813702`
+  - `best validation teacher_root_mean_reciprocal_rank=0.891489`
+  - held-out per-tier verify stays in the `0.7927 .. 0.8047` top-1 band
 
-There is now also a filtered `10k + 122k` latent-state validation slice for planner-facing Phase-6 signals:
+There is now also a filtered `10k + 122k` validation slice for planner-facing Phase-6 and planner-architecture checks:
 
 - workflow suite: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_two_tier_v1/summary.json)
 - latent-state config: [phase8_planner_corpus_suite_set_v3_two_tier_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v3_two_tier_v1.json)
 - comparison: [planner_corpus_suite_two_tier_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_two_tier_compare_v1.json)
+- expanded-data comparison: [planner_corpus_suite_expanded_two_tier_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_expanded_two_tier_compare_v1.json)
 
 Result on `1,024` held-out planner examples:
 
 - reference planner `set_v2`: `root_top1_accuracy=0.80957`, `MRR=0.883382`
 - latent-state planner `set_v3`: `root_top1_accuracy=0.708008`, `MRR=0.825521`
+- expanded-data `set_v2`: `root_top1_accuracy=0.798828`, `MRR=0.87972`
+- expanded-data `set_v2_wide`: `root_top1_accuracy=0.790039`, `MRR=0.874837`
+- expanded-data `set_v5`: `root_top1_accuracy=0.798828`, `MRR=0.880534`
 
-So planner-facing latent-state plumbing is now in place, but the first direct `set_v3` integration is not yet better than the current `set_v2` planner line.
+The important current conclusion is:
 
-These are still bounded offline planner artifacts, not runtime search, but Phase 8 is now past pure baselines and has a second richer-target planner arm that edges out the first `set_v1` reference on the same multi-corpus holdout.
+- more mixed workflow data helps the three-tier training/validation picture
+- but on the preferred `10k + 122k` validation slice, the older two-tier `set_v2` reference still remains best
+- wider `set_v2` does not help
+- `set_v5` becomes competitive again on the filtered slice, but still does not clearly beat the older two-tier `set_v2`
+
+These are still bounded offline planner artifacts, not runtime search, but Phase 8 is now far enough along to separate data-scale effects from real planner-contract or architecture effects.
 
 ## Repository Layout
 

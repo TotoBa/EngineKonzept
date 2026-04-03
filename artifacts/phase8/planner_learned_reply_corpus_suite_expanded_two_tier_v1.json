@@ -1,0 +1,49 @@
+{
+  "aggregate": {
+    "examples_per_second": 6.951803,
+    "mean_pressure": 0.070033,
+    "mean_reply_peak_probability": 0.67217,
+    "mean_uncertainty": 0.761411,
+    "root_top1_accuracy": 0.136719,
+    "teacher_covered_examples": 1024,
+    "teacher_root_mean_probability": 0.110816,
+    "teacher_root_mean_reciprocal_rank": 0.21224,
+    "total_examples": 1024
+  },
+  "opponent_checkpoint": "/home/torsten/EngineKonzept/models/opponent/corpus_suite_set_v2_v1/checkpoint.pt",
+  "opponent_mode": "learned",
+  "per_tier": {
+    "merged_unique_122k": {
+      "examples_per_second": 4.176,
+      "mean_pressure": 0.070281,
+      "mean_reply_peak_probability": 0.673466,
+      "mean_uncertainty": 0.76093,
+      "root_top1_accuracy": 0.138672,
+      "teacher_covered_examples": 512,
+      "teacher_root_mean_probability": 0.111332,
+      "teacher_root_mean_reciprocal_rank": 0.215169,
+      "total_examples": 512
+    },
+    "pgn_10k": {
+      "examples_per_second": 22.235,
+      "mean_pressure": 0.069784,
+      "mean_reply_peak_probability": 0.670874,
+      "mean_uncertainty": 0.761892,
+      "root_top1_accuracy": 0.134766,
+      "teacher_covered_examples": 512,
+      "teacher_root_mean_probability": 0.1103,
+      "teacher_root_mean_reciprocal_rank": 0.20931,
+      "total_examples": 512
+    }
+  },
+  "pressure_weight": 0.25,
+  "proposer_checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+  "reply_peak_weight": 0.5,
+  "root_top_k": 4,
+  "tiers_requested": [
+    "merged_unique_122k",
+    "pgn_10k"
+  ],
+  "uncertainty_weight": 0.25,
+  "workflow_summary": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/summary.json"
+}
