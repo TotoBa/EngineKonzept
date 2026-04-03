@@ -237,3 +237,26 @@ The next narrower follow-up is now prepared as well:
 - keep the filtered `10k + 122k` suite
 - reduce raw bounded score-regression pressure
 - add explicit `top1-vs-top2/top3` margin supervision over the bounded candidate slice
+
+That margin rerun has now also been executed on the same filtered suite:
+
+- workflow summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_margin_10k_122k_expanded_v1/summary.json)
+- config: [phase8_planner_corpus_suite_set_v6_margin_10k_122k_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v6_margin_10k_122k_expanded_v1.json)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_margin_10k_122k_expanded_v1/summary.json)
+- verify: [planner_corpus_suite_set_v6_margin_10k_122k_expanded_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_margin_10k_122k_expanded_v1_verify.json)
+- comparison: [planner_corpus_suite_margin_two_tier_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_margin_two_tier_compare_v1.json)
+
+Held-out result on the same `10k + 122k` slice:
+
+- `set_v2_10k_122k_expanded`: `top1=0.819336`, `top3=0.960938`, `MRR=0.889811`
+- `set_v6_10k_122k_expanded`: `top1=0.817383`, `top3=0.964844`, `MRR=0.890625`
+- `set_v6_margin_10k_122k_expanded`: `top1=0.8125`, `top3=0.96582`, `MRR=0.889079`
+
+Interpretation:
+
+- the margin arm sharply stabilizes the score-target side of the problem:
+  - `teacher_score_loss`: `78.46875 -> 0.277589`
+  - `teacher_score_mae_cp`: `242.310951 -> 55.99959`
+- but it does not translate into a planner-quality gain on the most important held-out metrics
+- `set_v2_10k_122k_expanded` remains the preferred Phase-8 reference
+- `set_v6_margin_10k_122k_expanded` stays as a useful negative/diagnostic result, not a new default

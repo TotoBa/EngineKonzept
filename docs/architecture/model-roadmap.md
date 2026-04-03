@@ -366,6 +366,19 @@ The next Planner lever is therefore narrower than before:
 - treat richer teacher targets as a promising auxiliary direction
 - do not yet spend another round on wider or more complex planner backbones
 
+The first explicit margin follow-up narrows that further:
+
+- `set_v6_margin_10k_122k_expanded` keeps the same backbone
+- it lowers raw score-regression pressure and adds `top1-vs-top2/top3` margin supervision
+- on held-out verify it sharpens the score-target metrics strongly, but still underperforms `set_v2` on `top1`
+
+So the next useful Phase-8 change is probably not "more ranking losses" in the abstract.
+The evidence now says:
+
+- the filtered `10k + 122k` workflow is the right evaluation slice
+- score-target contracts are worth refining
+- but planner gains still depend more on the core ranking contract than on simply adding more auxiliary score structure
+
 ## Deferred Architecture Ideas
 
 The following ideas remain relevant and are intentionally being kept in view, but they are deferred until the dense single-path stack is stronger:
