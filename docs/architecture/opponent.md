@@ -70,6 +70,27 @@ Current probe result on `16` verify examples with `/usr/games/stockfish18` at `6
 - `teacher_reply_mean_reciprocal_rank=0.364583`
 - `teacher_reply_mean_probability=0.201552`
 
+The repo now also has the first larger workflow slices over the merged unique corpus:
+
+- [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_merged_unique_train_v1/summary.json)
+- [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_merged_unique_verify_v1/summary.json)
+
+These are still workflow artifacts, not trained opponent-head runs, but they show that the full offline stack now scales beyond the small probe:
+
+- merged-train slice: `256` examples, `61` reply-supervised
+- merged-verify slice: `128` examples, `30` reply-supervised
+- disagreement rate stays high at about `0.85` to `0.87`
+
+The larger verify slice also has a fresh symbolic baseline artifact:
+
+- [opponent_symbolic_baseline_merged_unique_verify_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_symbolic_baseline_merged_unique_verify_v1.json)
+
+Current result on the `128`-example verify slice:
+
+- `reply_top1_accuracy=0.3`
+- `reply_top3_accuracy=0.4`
+- `teacher_reply_mean_reciprocal_rank=0.419262`
+
 ## Why This Contract
 
 This contract is deliberately narrow and useful:

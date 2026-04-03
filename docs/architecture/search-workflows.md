@@ -218,6 +218,10 @@ The first concrete downstream consumer is now the `OpponentHeadV1` dataset workf
 
 - it joins root traces with curriculum buckets
 - it exact-applies the teacher root move
+- it now also scales to larger merged-unique slices through:
+  - [build_opponent_workflow_dataset.py](/home/torsten/EngineKonzept/python/scripts/build_opponent_workflow_dataset.py)
+  - [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_merged_unique_train_v1/summary.json)
+  - [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_merged_unique_verify_v1/summary.json)
 - it exact-generates opponent replies from the successor state
 - it exposes the teacher best reply plus simple pressure and uncertainty targets
 

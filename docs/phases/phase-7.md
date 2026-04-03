@@ -29,6 +29,11 @@ It now does have the first explicit Phase-7 preparation artifacts:
   - [opponent_head_verify_probe_v1.jsonl](/home/torsten/EngineKonzept/artifacts/phase7/opponent_head_verify_probe_v1.jsonl)
   - [opponent_symbolic_baseline_verify_probe_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_symbolic_baseline_verify_probe_v1.json)
 
+The repo also now has larger end-to-end workflow slices over the merged unique corpus:
+
+- [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_merged_unique_train_v1/summary.json)
+- [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_merged_unique_verify_v1/summary.json)
+
 ## What the first dataset does
 
 For one root position it builds:
@@ -68,10 +73,17 @@ The current verify probe on `16` held-out examples scored:
 
 with `/usr/games/stockfish18` at `64` nodes.
 
+The larger merged-verify workflow slice now gives a more useful baseline target:
+
+- [opponent_symbolic_baseline_merged_unique_verify_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_symbolic_baseline_merged_unique_verify_v1.json)
+- `reply_top1_accuracy=0.3`
+- `reply_top3_accuracy=0.4`
+- `teacher_reply_mean_reciprocal_rank=0.419262`
+
 ## Next pressure
 
 The next useful Phase-7 steps are:
 
-1. scale the `OpponentHeadV1` workflow beyond the current verify probe
-2. train the first explicit opponent head against the symbolic reply-scorer baseline
-3. compare it against the documented baseline artifact before any planner integration
+1. train the first explicit opponent head against the symbolic reply-scorer baseline
+2. compare it against the documented baseline artifact before any planner integration
+3. use the trained head as the first planner-facing reply model

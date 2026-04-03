@@ -1,0 +1,11 @@
+{
+  "examples_per_second": 1968.706,
+  "pressure_mae": 0.199219,
+  "reply_top1_accuracy": 0.3,
+  "reply_top3_accuracy": 0.4,
+  "supervised_examples": 30,
+  "teacher_reply_mean_probability": 0.156668,
+  "teacher_reply_mean_reciprocal_rank": 0.419262,
+  "total_examples": 128,
+  "uncertainty_mae": 0.250954
+}
