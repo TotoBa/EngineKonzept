@@ -264,6 +264,10 @@ The first three offline search-workflow layers are now in place:
 - `search_traces_<split>.jsonl`
 - `search_disagreements_<split>.jsonl`
 
+The next curriculum layer is now in place as well:
+
+- `search_curriculum_<split>.jsonl`
+
 That means the next workflow pressure is no longer raw label generation alone. It is to use those artifacts for:
 
 - curriculum buckets

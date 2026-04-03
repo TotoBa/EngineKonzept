@@ -135,6 +135,7 @@ Status now:
 - `search_teacher_<split>.jsonl` is implemented
 - `search_traces_<split>.jsonl` is implemented as the next offline workflow layer
 - `search_disagreements_<split>.jsonl` is implemented as the first proposer-vs-teacher mining layer
+- `search_curriculum_<split>.jsonl` is implemented as the first reusable curriculum and hard-example bucketing layer
 
 ### Disagreement Mining
 

@@ -75,6 +75,7 @@ Status now:
 - the first `search_teacher_<split>.jsonl` workflow is implemented
 - the second `search_traces_<split>.jsonl` workflow is implemented
 - the third `search_disagreements_<split>.jsonl` workflow is implemented
+- the fourth `search_curriculum_<split>.jsonl` workflow is implemented
 - it is explicitly an offline UCI-teacher workflow
 - it uses the exact legal candidate set plus `CandidateContextV2`
 - it does not modify the runtime move-selection path
@@ -173,6 +174,45 @@ That keeps the workflow useful for:
 - targeted proposer retraining
 - later curriculum bucketing
 - future planner and opponent regression suites
+
+### Curriculum Buckets
+
+The next useful workflow layer is to turn raw disagreement and trace artifacts into stable bucketed curriculum records.
+
+Suggested dataset family:
+
+- `search_curriculum_train.jsonl`
+- `search_curriculum_validation.jsonl`
+- `search_curriculum_test.jsonl`
+
+The current repo implementation builds these with:
+
+- [build_search_curriculum_dataset.py](/home/torsten/EngineKonzept/python/scripts/build_search_curriculum_dataset.py)
+- [search_curriculum.py](/home/torsten/EngineKonzept/python/train/datasets/search_curriculum.py)
+
+The first implementation is intentionally simple and root-centric:
+
+- it joins `search_traces_<split>.jsonl` and `search_disagreements_<split>.jsonl` by `sample_id`
+- it assigns stable bucket labels such as:
+  - `forced_teacher`
+  - `unstable_teacher`
+  - `reply_supervised`
+  - `top1_disagreement`
+  - `large_rank_mismatch`
+  - `teacher_punishes_proposer`
+  - `policy_shape_mismatch`
+  - `capture_line`
+  - `promotion_line`
+  - `checking_line`
+  - fallback `stable_agreement`
+- it writes a single numeric `curriculum_priority` for easy later sampling and bucketing
+
+That keeps the output directly usable for:
+
+- proposer hard-example replay
+- opponent-dataset filtering
+- planner regression suites
+- later curriculum schedulers without re-running search
 
 ## Baseline Rule For Phase 7
 

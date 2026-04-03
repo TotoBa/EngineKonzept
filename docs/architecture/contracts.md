@@ -205,3 +205,5 @@ The first concrete workflow attachment is now implemented:
 - explicitly offline and suitable for later opponent/planner supervision
 - `search_disagreements_<split>.jsonl` proposer-vs-teacher disagreement datasets over the same exact legal candidate set
 - intentionally aligned by exact action index so current proposer-side `CandidateContextV1` inputs can still be compared cleanly against `CandidateContextV2` teacher workflows
+- `search_curriculum_<split>.jsonl` bucketed hard-example and trace-priority datasets derived from disagreement and trace artifacts
+- intended as the immediate bridge from offline search workflows into OpponentHead and later planner curriculum
