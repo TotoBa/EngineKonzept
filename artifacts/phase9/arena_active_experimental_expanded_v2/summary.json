@@ -1,0 +1,641 @@
+{
+  "aggregate": {
+    "game_count": 180,
+    "matchup_count": 30,
+    "mean_games_per_matchup": 6.0
+  },
+  "arena_name": "phase9_active_experimental_expanded_v1:active_experimental_expanded_round_robin",
+  "arena_spec_version": 1,
+  "curriculum_plan": "/home/torsten/EngineKonzept/artifacts/phase9/curriculum_active_experimental_expanded_v2.json",
+  "matchups": [
+    {
+      "black_agent": "planner_set_v2_expanded_v1",
+      "black_score": 2.5,
+      "game_count": 6,
+      "mean_move_count": 81.333,
+      "name": "planner_recurrent_expanded_v1_vs_planner_set_v2_expanded_v1",
+      "result_counts": {
+        "*": 4,
+        "1-0": 1,
+        "1/2-1/2": 1
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/sessions/01_planner_recurrent_expanded_v1_vs_planner_set_v2_expanded_v1.json",
+      "termination_counts": {
+        "checkmate": 1,
+        "max_plies": 4,
+        "threefold_repetition": 1
+      },
+      "white_agent": "planner_recurrent_expanded_v1",
+      "white_score": 3.5
+    },
+    {
+      "black_agent": "planner_set_v6_expanded_v1",
+      "black_score": 3.5,
+      "game_count": 6,
+      "mean_move_count": 60.667,
+      "name": "planner_recurrent_expanded_v1_vs_planner_set_v6_expanded_v1",
+      "result_counts": {
+        "*": 2,
+        "0-1": 1,
+        "1/2-1/2": 3
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/sessions/02_planner_recurrent_expanded_v1_vs_planner_set_v6_expanded_v1.json",
+      "termination_counts": {
+        "checkmate": 1,
+        "max_plies": 2,
+        "threefold_repetition": 3
+      },
+      "white_agent": "planner_recurrent_expanded_v1",
+      "white_score": 2.5
+    },
+    {
+      "black_agent": "planner_set_v6_margin_expanded_v1",
+      "black_score": 3.0,
+      "game_count": 6,
+      "mean_move_count": 67.833,
+      "name": "planner_recurrent_expanded_v1_vs_planner_set_v6_margin_expanded_v1",
+      "result_counts": {
+        "1/2-1/2": 6
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/sessions/03_planner_recurrent_expanded_v1_vs_planner_set_v6_margin_expanded_v1.json",
+      "termination_counts": {
+        "threefold_repetition": 6
+      },
+      "white_agent": "planner_recurrent_expanded_v1",
+      "white_score": 3.0
+    },
+    {
+      "black_agent": "planner_set_v6_rank_expanded_v1",
+      "black_score": 4.5,
+      "game_count": 6,
+      "mean_move_count": 79.667,
+      "name": "planner_recurrent_expanded_v1_vs_planner_set_v6_rank_expanded_v1",
+      "result_counts": {
+        "*": 2,
+        "0-1": 3,
+        "1/2-1/2": 1
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/sessions/04_planner_recurrent_expanded_v1_vs_planner_set_v6_rank_expanded_v1.json",
+      "termination_counts": {
+        "checkmate": 3,
+        "max_plies": 2,
+        "threefold_repetition": 1
+      },
+      "white_agent": "planner_recurrent_expanded_v1",
+      "white_score": 1.5
+    },
+    {
+      "black_agent": "symbolic_root_v1",
+      "black_score": 3.0,
+      "game_count": 6,
+      "mean_move_count": 63.0,
+      "name": "planner_recurrent_expanded_v1_vs_symbolic_root_v1",
+      "result_counts": {
+        "*": 1,
+        "1/2-1/2": 5
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/sessions/05_planner_recurrent_expanded_v1_vs_symbolic_root_v1.json",
+      "termination_counts": {
+        "max_plies": 1,
+        "threefold_repetition": 5
+      },
+      "white_agent": "planner_recurrent_expanded_v1",
+      "white_score": 3.0
+    },
+    {
+      "black_agent": "planner_recurrent_expanded_v1",
+      "black_score": 3.5,
+      "game_count": 6,
+      "mean_move_count": 68.5,
+      "name": "planner_set_v2_expanded_v1_vs_planner_recurrent_expanded_v1",
+      "result_counts": {
+        "0-1": 1,
+        "1/2-1/2": 5
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/sessions/06_planner_set_v2_expanded_v1_vs_planner_recurrent_expanded_v1.json",
+      "termination_counts": {
+        "checkmate": 1,
+        "threefold_repetition": 5
+      },
+      "white_agent": "planner_set_v2_expanded_v1",
+      "white_score": 2.5
+    },
+    {
+      "black_agent": "planner_set_v6_expanded_v1",
+      "black_score": 3.0,
+      "game_count": 6,
+      "mean_move_count": 58.833,
+      "name": "planner_set_v2_expanded_v1_vs_planner_set_v6_expanded_v1",
+      "result_counts": {
+        "*": 2,
+        "0-1": 1,
+        "1-0": 1,
+        "1/2-1/2": 2
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/sessions/07_planner_set_v2_expanded_v1_vs_planner_set_v6_expanded_v1.json",
+      "termination_counts": {
+        "checkmate": 2,
+        "max_plies": 2,
+        "threefold_repetition": 2
+      },
+      "white_agent": "planner_set_v2_expanded_v1",
+      "white_score": 3.0
+    },
+    {
+      "black_agent": "planner_set_v6_margin_expanded_v1",
+      "black_score": 3.0,
+      "game_count": 6,
+      "mean_move_count": 67.167,
+      "name": "planner_set_v2_expanded_v1_vs_planner_set_v6_margin_expanded_v1",
+      "result_counts": {
+        "*": 3,
+        "1/2-1/2": 3
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/sessions/08_planner_set_v2_expanded_v1_vs_planner_set_v6_margin_expanded_v1.json",
+      "termination_counts": {
+        "max_plies": 3,
+        "threefold_repetition": 3
+      },
+      "white_agent": "planner_set_v2_expanded_v1",
+      "white_score": 3.0
+    },
+    {
+      "black_agent": "planner_set_v6_rank_expanded_v1",
+      "black_score": 4.0,
+      "game_count": 6,
+      "mean_move_count": 85.167,
+      "name": "planner_set_v2_expanded_v1_vs_planner_set_v6_rank_expanded_v1",
+      "result_counts": {
+        "*": 1,
+        "0-1": 2,
+        "1/2-1/2": 3
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/sessions/09_planner_set_v2_expanded_v1_vs_planner_set_v6_rank_expanded_v1.json",
+      "termination_counts": {
+        "checkmate": 2,
+        "max_plies": 1,
+        "threefold_repetition": 3
+      },
+      "white_agent": "planner_set_v2_expanded_v1",
+      "white_score": 2.0
+    },
+    {
+      "black_agent": "symbolic_root_v1",
+      "black_score": 2.5,
+      "game_count": 6,
+      "mean_move_count": 78.0,
+      "name": "planner_set_v2_expanded_v1_vs_symbolic_root_v1",
+      "result_counts": {
+        "*": 3,
+        "1-0": 1,
+        "1/2-1/2": 2
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/sessions/10_planner_set_v2_expanded_v1_vs_symbolic_root_v1.json",
+      "termination_counts": {
+        "checkmate": 1,
+        "max_plies": 3,
+        "threefold_repetition": 2
+      },
+      "white_agent": "planner_set_v2_expanded_v1",
+      "white_score": 3.5
+    },
+    {
+      "black_agent": "planner_recurrent_expanded_v1",
+      "black_score": 3.5,
+      "game_count": 6,
+      "mean_move_count": 60.833,
+      "name": "planner_set_v6_expanded_v1_vs_planner_recurrent_expanded_v1",
+      "result_counts": {
+        "*": 3,
+        "0-1": 1,
+        "1/2-1/2": 2
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/sessions/11_planner_set_v6_expanded_v1_vs_planner_recurrent_expanded_v1.json",
+      "termination_counts": {
+        "checkmate": 1,
+        "max_plies": 3,
+        "threefold_repetition": 2
+      },
+      "white_agent": "planner_set_v6_expanded_v1",
+      "white_score": 2.5
+    },
+    {
+      "black_agent": "planner_set_v2_expanded_v1",
+      "black_score": 3.0,
+      "game_count": 6,
+      "mean_move_count": 72.833,
+      "name": "planner_set_v6_expanded_v1_vs_planner_set_v2_expanded_v1",
+      "result_counts": {
+        "*": 4,
+        "0-1": 1,
+        "1-0": 1
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/sessions/12_planner_set_v6_expanded_v1_vs_planner_set_v2_expanded_v1.json",
+      "termination_counts": {
+        "checkmate": 2,
+        "max_plies": 4
+      },
+      "white_agent": "planner_set_v6_expanded_v1",
+      "white_score": 3.0
+    },
+    {
+      "black_agent": "planner_set_v6_margin_expanded_v1",
+      "black_score": 3.0,
+      "game_count": 6,
+      "mean_move_count": 74.167,
+      "name": "planner_set_v6_expanded_v1_vs_planner_set_v6_margin_expanded_v1",
+      "result_counts": {
+        "1/2-1/2": 6
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/sessions/13_planner_set_v6_expanded_v1_vs_planner_set_v6_margin_expanded_v1.json",
+      "termination_counts": {
+        "threefold_repetition": 6
+      },
+      "white_agent": "planner_set_v6_expanded_v1",
+      "white_score": 3.0
+    },
+    {
+      "black_agent": "planner_set_v6_rank_expanded_v1",
+      "black_score": 2.5,
+      "game_count": 6,
+      "mean_move_count": 78.833,
+      "name": "planner_set_v6_expanded_v1_vs_planner_set_v6_rank_expanded_v1",
+      "result_counts": {
+        "*": 2,
+        "1-0": 1,
+        "1/2-1/2": 3
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/sessions/14_planner_set_v6_expanded_v1_vs_planner_set_v6_rank_expanded_v1.json",
+      "termination_counts": {
+        "checkmate": 1,
+        "max_plies": 2,
+        "threefold_repetition": 3
+      },
+      "white_agent": "planner_set_v6_expanded_v1",
+      "white_score": 3.5
+    },
+    {
+      "black_agent": "symbolic_root_v1",
+      "black_score": 3.0,
+      "game_count": 6,
+      "mean_move_count": 91.333,
+      "name": "planner_set_v6_expanded_v1_vs_symbolic_root_v1",
+      "result_counts": {
+        "*": 5,
+        "1/2-1/2": 1
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/sessions/15_planner_set_v6_expanded_v1_vs_symbolic_root_v1.json",
+      "termination_counts": {
+        "max_plies": 5,
+        "stalemate": 1
+      },
+      "white_agent": "planner_set_v6_expanded_v1",
+      "white_score": 3.0
+    },
+    {
+      "black_agent": "planner_recurrent_expanded_v1",
+      "black_score": 3.0,
+      "game_count": 6,
+      "mean_move_count": 75.333,
+      "name": "planner_set_v6_margin_expanded_v1_vs_planner_recurrent_expanded_v1",
+      "result_counts": {
+        "*": 2,
+        "1/2-1/2": 4
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/sessions/16_planner_set_v6_margin_expanded_v1_vs_planner_recurrent_expanded_v1.json",
+      "termination_counts": {
+        "max_plies": 2,
+        "stalemate": 1,
+        "threefold_repetition": 3
+      },
+      "white_agent": "planner_set_v6_margin_expanded_v1",
+      "white_score": 3.0
+    },
+    {
+      "black_agent": "planner_set_v2_expanded_v1",
+      "black_score": 3.0,
+      "game_count": 6,
+      "mean_move_count": 71.667,
+      "name": "planner_set_v6_margin_expanded_v1_vs_planner_set_v2_expanded_v1",
+      "result_counts": {
+        "*": 2,
+        "1/2-1/2": 4
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/sessions/17_planner_set_v6_margin_expanded_v1_vs_planner_set_v2_expanded_v1.json",
+      "termination_counts": {
+        "max_plies": 2,
+        "threefold_repetition": 4
+      },
+      "white_agent": "planner_set_v6_margin_expanded_v1",
+      "white_score": 3.0
+    },
+    {
+      "black_agent": "planner_set_v6_expanded_v1",
+      "black_score": 3.5,
+      "game_count": 6,
+      "mean_move_count": 63.0,
+      "name": "planner_set_v6_margin_expanded_v1_vs_planner_set_v6_expanded_v1",
+      "result_counts": {
+        "*": 2,
+        "0-1": 1,
+        "1/2-1/2": 3
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/sessions/18_planner_set_v6_margin_expanded_v1_vs_planner_set_v6_expanded_v1.json",
+      "termination_counts": {
+        "checkmate": 1,
+        "max_plies": 2,
+        "stalemate": 1,
+        "threefold_repetition": 2
+      },
+      "white_agent": "planner_set_v6_margin_expanded_v1",
+      "white_score": 2.5
+    },
+    {
+      "black_agent": "planner_set_v6_rank_expanded_v1",
+      "black_score": 3.0,
+      "game_count": 6,
+      "mean_move_count": 78.667,
+      "name": "planner_set_v6_margin_expanded_v1_vs_planner_set_v6_rank_expanded_v1",
+      "result_counts": {
+        "*": 2,
+        "1/2-1/2": 4
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/sessions/19_planner_set_v6_margin_expanded_v1_vs_planner_set_v6_rank_expanded_v1.json",
+      "termination_counts": {
+        "max_plies": 2,
+        "threefold_repetition": 4
+      },
+      "white_agent": "planner_set_v6_margin_expanded_v1",
+      "white_score": 3.0
+    },
+    {
+      "black_agent": "symbolic_root_v1",
+      "black_score": 1.5,
+      "game_count": 6,
+      "mean_move_count": 57.167,
+      "name": "planner_set_v6_margin_expanded_v1_vs_symbolic_root_v1",
+      "result_counts": {
+        "1-0": 3,
+        "1/2-1/2": 3
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/sessions/20_planner_set_v6_margin_expanded_v1_vs_symbolic_root_v1.json",
+      "termination_counts": {
+        "checkmate": 3,
+        "threefold_repetition": 3
+      },
+      "white_agent": "planner_set_v6_margin_expanded_v1",
+      "white_score": 4.5
+    },
+    {
+      "black_agent": "planner_recurrent_expanded_v1",
+      "black_score": 3.0,
+      "game_count": 6,
+      "mean_move_count": 96.0,
+      "name": "planner_set_v6_rank_expanded_v1_vs_planner_recurrent_expanded_v1",
+      "result_counts": {
+        "*": 6
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/sessions/21_planner_set_v6_rank_expanded_v1_vs_planner_recurrent_expanded_v1.json",
+      "termination_counts": {
+        "max_plies": 6
+      },
+      "white_agent": "planner_set_v6_rank_expanded_v1",
+      "white_score": 3.0
+    },
+    {
+      "black_agent": "planner_set_v2_expanded_v1",
+      "black_score": 3.0,
+      "game_count": 6,
+      "mean_move_count": 80.5,
+      "name": "planner_set_v6_rank_expanded_v1_vs_planner_set_v2_expanded_v1",
+      "result_counts": {
+        "*": 3,
+        "1/2-1/2": 3
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/sessions/22_planner_set_v6_rank_expanded_v1_vs_planner_set_v2_expanded_v1.json",
+      "termination_counts": {
+        "max_plies": 3,
+        "threefold_repetition": 3
+      },
+      "white_agent": "planner_set_v6_rank_expanded_v1",
+      "white_score": 3.0
+    },
+    {
+      "black_agent": "planner_set_v6_expanded_v1",
+      "black_score": 3.0,
+      "game_count": 6,
+      "mean_move_count": 73.333,
+      "name": "planner_set_v6_rank_expanded_v1_vs_planner_set_v6_expanded_v1",
+      "result_counts": {
+        "*": 2,
+        "1/2-1/2": 4
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/sessions/23_planner_set_v6_rank_expanded_v1_vs_planner_set_v6_expanded_v1.json",
+      "termination_counts": {
+        "max_plies": 2,
+        "threefold_repetition": 4
+      },
+      "white_agent": "planner_set_v6_rank_expanded_v1",
+      "white_score": 3.0
+    },
+    {
+      "black_agent": "planner_set_v6_margin_expanded_v1",
+      "black_score": 3.0,
+      "game_count": 6,
+      "mean_move_count": 95.667,
+      "name": "planner_set_v6_rank_expanded_v1_vs_planner_set_v6_margin_expanded_v1",
+      "result_counts": {
+        "*": 4,
+        "1/2-1/2": 2
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/sessions/24_planner_set_v6_rank_expanded_v1_vs_planner_set_v6_margin_expanded_v1.json",
+      "termination_counts": {
+        "max_plies": 4,
+        "threefold_repetition": 2
+      },
+      "white_agent": "planner_set_v6_rank_expanded_v1",
+      "white_score": 3.0
+    },
+    {
+      "black_agent": "symbolic_root_v1",
+      "black_score": 3.0,
+      "game_count": 6,
+      "mean_move_count": 76.167,
+      "name": "planner_set_v6_rank_expanded_v1_vs_symbolic_root_v1",
+      "result_counts": {
+        "*": 3,
+        "1/2-1/2": 3
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/sessions/25_planner_set_v6_rank_expanded_v1_vs_symbolic_root_v1.json",
+      "termination_counts": {
+        "max_plies": 3,
+        "threefold_repetition": 3
+      },
+      "white_agent": "planner_set_v6_rank_expanded_v1",
+      "white_score": 3.0
+    },
+    {
+      "black_agent": "planner_recurrent_expanded_v1",
+      "black_score": 4.0,
+      "game_count": 6,
+      "mean_move_count": 73.667,
+      "name": "symbolic_root_v1_vs_planner_recurrent_expanded_v1",
+      "result_counts": {
+        "*": 1,
+        "0-1": 2,
+        "1/2-1/2": 3
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/sessions/26_symbolic_root_v1_vs_planner_recurrent_expanded_v1.json",
+      "termination_counts": {
+        "checkmate": 2,
+        "max_plies": 1,
+        "threefold_repetition": 3
+      },
+      "white_agent": "symbolic_root_v1",
+      "white_score": 2.0
+    },
+    {
+      "black_agent": "planner_set_v2_expanded_v1",
+      "black_score": 4.0,
+      "game_count": 6,
+      "mean_move_count": 67.5,
+      "name": "symbolic_root_v1_vs_planner_set_v2_expanded_v1",
+      "result_counts": {
+        "*": 1,
+        "0-1": 2,
+        "1/2-1/2": 3
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/sessions/27_symbolic_root_v1_vs_planner_set_v2_expanded_v1.json",
+      "termination_counts": {
+        "checkmate": 2,
+        "max_plies": 1,
+        "threefold_repetition": 3
+      },
+      "white_agent": "symbolic_root_v1",
+      "white_score": 2.0
+    },
+    {
+      "black_agent": "planner_set_v6_expanded_v1",
+      "black_score": 3.5,
+      "game_count": 6,
+      "mean_move_count": 54.5,
+      "name": "symbolic_root_v1_vs_planner_set_v6_expanded_v1",
+      "result_counts": {
+        "*": 2,
+        "0-1": 1,
+        "1/2-1/2": 3
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/sessions/28_symbolic_root_v1_vs_planner_set_v6_expanded_v1.json",
+      "termination_counts": {
+        "checkmate": 1,
+        "max_plies": 2,
+        "threefold_repetition": 3
+      },
+      "white_agent": "symbolic_root_v1",
+      "white_score": 2.5
+    },
+    {
+      "black_agent": "planner_set_v6_margin_expanded_v1",
+      "black_score": 4.5,
+      "game_count": 6,
+      "mean_move_count": 56.167,
+      "name": "symbolic_root_v1_vs_planner_set_v6_margin_expanded_v1",
+      "result_counts": {
+        "*": 1,
+        "0-1": 3,
+        "1/2-1/2": 2
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/sessions/29_symbolic_root_v1_vs_planner_set_v6_margin_expanded_v1.json",
+      "termination_counts": {
+        "checkmate": 3,
+        "max_plies": 1,
+        "threefold_repetition": 2
+      },
+      "white_agent": "symbolic_root_v1",
+      "white_score": 1.5
+    },
+    {
+      "black_agent": "planner_set_v6_rank_expanded_v1",
+      "black_score": 3.5,
+      "game_count": 6,
+      "mean_move_count": 55.167,
+      "name": "symbolic_root_v1_vs_planner_set_v6_rank_expanded_v1",
+      "result_counts": {
+        "0-1": 1,
+        "1/2-1/2": 5
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/sessions/30_symbolic_root_v1_vs_planner_set_v6_rank_expanded_v1.json",
+      "termination_counts": {
+        "checkmate": 1,
+        "threefold_repetition": 5
+      },
+      "white_agent": "symbolic_root_v1",
+      "white_score": 2.5
+    }
+  ],
+  "metadata": {
+    "curriculum_plan": "phase9_active_experimental_expanded_v2",
+    "curriculum_stage": "active_experimental_expanded_round_robin",
+    "initial_fen_count": 6,
+    "initial_fen_suite": "artifacts/phase9/initial_fens_active_experimental_expanded_v1.json",
+    "purpose": "post-400k full active plus experimental selfplay suite",
+    "stage_tags": [
+      "full_suite",
+      "active_plus_experimental",
+      "expanded_400k"
+    ]
+  },
+  "resolved_arena_spec": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/arena_spec.resolved.json",
+  "schedule_mode": "round_robin",
+  "stage_name": "active_experimental_expanded_round_robin",
+  "standings": {
+    "planner_recurrent_expanded_v1": {
+      "draws": 30,
+      "games": 60,
+      "losses": 4,
+      "score": 30.5,
+      "unfinished": 21,
+      "wins": 5
+    },
+    "planner_set_v2_expanded_v1": {
+      "draws": 26,
+      "games": 60,
+      "losses": 6,
+      "score": 29.5,
+      "unfinished": 23,
+      "wins": 5
+    },
+    "planner_set_v6_expanded_v1": {
+      "draws": 27,
+      "games": 60,
+      "losses": 3,
+      "score": 31.5,
+      "unfinished": 24,
+      "wins": 6
+    },
+    "planner_set_v6_margin_expanded_v1": {
+      "draws": 37,
+      "games": 60,
+      "losses": 1,
+      "score": 32.5,
+      "unfinished": 16,
+      "wins": 6
+    },
+    "planner_set_v6_rank_expanded_v1": {
+      "draws": 28,
+      "games": 60,
+      "losses": 1,
+      "score": 32.5,
+      "unfinished": 25,
+      "wins": 6
+    },
+    "symbolic_root_v1": {
+      "draws": 30,
+      "games": 60,
+      "losses": 13,
+      "score": 23.5,
+      "unfinished": 17,
+      "wins": 0
+    }
+  }
+}

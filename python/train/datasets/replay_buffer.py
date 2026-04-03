@@ -6,9 +6,10 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 from dataclasses import replace
-from typing import Sequence
+from typing import TYPE_CHECKING, Sequence
 
-from train.eval.selfplay import SelfplayGameRecord, SelfplaySessionRecord
+if TYPE_CHECKING:
+    from train.eval.selfplay import SelfplayGameRecord, SelfplaySessionRecord
 
 
 @dataclass(frozen=True)

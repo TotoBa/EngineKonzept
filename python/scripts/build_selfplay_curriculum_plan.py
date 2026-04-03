@@ -32,12 +32,48 @@ def main() -> int:
         type=Path,
         default=Path("artifacts/phase9/curriculum_active_experimental_expanded_v1.json"),
     )
+    parser.add_argument(
+        "--expanded-initial-fen-suite",
+        type=str,
+        default=None,
+    )
+    parser.add_argument(
+        "--plan-name",
+        type=str,
+        default="phase9_active_experimental_expanded_v1",
+    )
+    parser.add_argument(
+        "--probe-replay-buffer-output-root",
+        type=str,
+        default="artifacts/phase9/replay_buffer_active_expanded_probe_v1",
+    )
+    parser.add_argument(
+        "--expanded-replay-buffer-output-root",
+        type=str,
+        default="artifacts/phase9/replay_buffer_active_experimental_expanded_v1",
+    )
+    parser.add_argument(
+        "--expanded-games-per-matchup",
+        type=int,
+        default=2,
+    )
+    parser.add_argument(
+        "--expanded-max-plies",
+        type=int,
+        default=64,
+    )
     args = parser.parse_args()
 
     plan = build_phase9_expanded_curriculum_plan(
         repo_root=REPO_ROOT,
         source_arena_summary_path=_resolve_repo_path(args.source_arena_summary),
         corpus_suite_manifest_path=_resolve_repo_path(args.corpus_suite_manifest),
+        plan_name=args.plan_name,
+        probe_replay_buffer_output_root=args.probe_replay_buffer_output_root,
+        expanded_replay_buffer_output_root=args.expanded_replay_buffer_output_root,
+        expanded_initial_fen_suite=args.expanded_initial_fen_suite,
+        expanded_games_per_matchup=args.expanded_games_per_matchup,
+        expanded_max_plies=args.expanded_max_plies,
     )
     output_path = _resolve_repo_path(args.output_path)
     write_selfplay_curriculum_plan(output_path, plan)

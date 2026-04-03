@@ -1,0 +1,45 @@
+{
+  "entry_count": 6,
+  "output_path": "/home/torsten/EngineKonzept/artifacts/phase9/initial_fens_active_experimental_expanded_v1.json",
+  "tiers": [
+    {
+      "sample_ids": [
+        "stockfish-pgn:TCEC_Cup_3_Round32:1757:52",
+        "stockfish-pgn:TCEC_Cup_2_Round32_1:1517:22"
+      ],
+      "selected_count": 2,
+      "selection_scores": [
+        7.59,
+        7.49
+      ],
+      "source_path": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_verify_pi_10k_v1/test.jsonl",
+      "tier": "pgn_10k"
+    },
+    {
+      "sample_ids": [
+        "stockfish-pgn:TCEC_Cup_3_Round32:1757:52",
+        "stockfish-pgn:TCEC_Cup_2_Round32_1:1517:22"
+      ],
+      "selected_count": 2,
+      "selection_scores": [
+        7.59,
+        7.49
+      ],
+      "source_path": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_merged_unique_verify_v1/test.jsonl",
+      "tier": "merged_unique_122k"
+    },
+    {
+      "sample_ids": [
+        "stockfish-unique:Alekhine4Pawns:14382:58:fe52d51dbf78",
+        "stockfish-unique:Alekhine4Pawns:14427:40:07227d8eb001"
+      ],
+      "selected_count": 2,
+      "selection_scores": [
+        7.68,
+        7.58
+      ],
+      "source_path": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_unique_pi_400k_verify_v1/test.jsonl",
+      "tier": "unique_pi_400k"
+    }
+  ]
+}

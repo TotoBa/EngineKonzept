@@ -1,0 +1,45 @@
+{
+  "baseline_v1": {
+    "checkmate_ratio": 0.066667,
+    "game_count": 60,
+    "mean_move_count": 60.667,
+    "resolved_game_count": 12,
+    "resolved_ratio": 0.2,
+    "result_counts": {
+      "*": 48,
+      "1-0": 4,
+      "1/2-1/2": 8
+    },
+    "termination_counts": {
+      "checkmate": 4,
+      "max_plies": 48,
+      "threefold_repetition": 8
+    }
+  },
+  "delta": {
+    "checkmate_ratio": 0.088889,
+    "game_count": 120,
+    "mean_move_count": 11.422,
+    "resolved_game_count": 105,
+    "resolved_ratio": 0.45
+  },
+  "expanded_v2": {
+    "checkmate_ratio": 0.155556,
+    "game_count": 180,
+    "mean_move_count": 72.089,
+    "resolved_game_count": 117,
+    "resolved_ratio": 0.65,
+    "result_counts": {
+      "*": 63,
+      "0-1": 20,
+      "1-0": 8,
+      "1/2-1/2": 89
+    },
+    "termination_counts": {
+      "checkmate": 28,
+      "max_plies": 63,
+      "stalemate": 3,
+      "threefold_repetition": 86
+    }
+  }
+}

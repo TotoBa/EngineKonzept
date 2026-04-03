@@ -18,6 +18,14 @@ Current contents:
   [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v1/summary.json)
 - resolved expanded arena spec:
   [arena_spec.resolved.json](/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v1/arena_spec.resolved.json)
+- curated expanded initial-position suite:
+  [initial_fens_active_experimental_expanded_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/initial_fens_active_experimental_expanded_v1.json)
+- larger expanded curriculum plan:
+  [curriculum_active_experimental_expanded_v2.json](/home/torsten/EngineKonzept/artifacts/phase9/curriculum_active_experimental_expanded_v2.json)
+- larger expanded arena:
+  [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/summary.json)
+- expanded arena comparison:
+  [arena_active_experimental_expanded_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_compare_v1.json)
 
 Current probe summary:
 
@@ -89,6 +97,19 @@ Current expanded replay summary:
 - `mean_considered_candidate_count=3.505`
 
 This is the first large selfplay-derived training artifact for the active-plus-experimental expanded planner family.
+
+The newer `v2` expanded arena is the preferred replay source now:
+
+- it keeps the same active/experimental agent family
+- it swaps `startpos`-only launching for a versioned curated FEN suite drawn from the `10k`, `122k`, and `400k` verify corpora
+- it raises the expanded stage from `60` to `180` games
+- it improves resolved-game yield from `12` to `117`
+- it increases checkmates from `4` to `28`
+
+Current practical conclusion:
+
+- the arena contract is now flexible enough for future architecture changes because start-position selection is versioned separately from the agent/runtime contracts
+- the `v2` expanded arena should feed the next replay-buffer-driven planner reruns
 
 The next training-facing follow-up is now materialized too:
 

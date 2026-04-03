@@ -13,6 +13,7 @@ from train.eval.arena import (
     SelfplayArenaSpec,
     load_selfplay_arena_spec,
 )
+from train.eval.initial_fens import load_selfplay_initial_fen_suite
 
 
 SELFPLAY_CURRICULUM_PLAN_VERSION = 1
@@ -64,6 +65,7 @@ class SelfplayCurriculumStage:
     max_plies: int
     replay_buffer_output_root: str
     agent_sampling_weights: dict[str, float]
+    initial_fen_suite: str | None = None
     tags: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, object]:
@@ -75,6 +77,7 @@ class SelfplayCurriculumStage:
             "max_plies": self.max_plies,
             "replay_buffer_output_root": self.replay_buffer_output_root,
             "agent_sampling_weights": dict(sorted(self.agent_sampling_weights.items())),
+            "initial_fen_suite": self.initial_fen_suite,
             "tags": list(self.tags),
         }
 
@@ -91,6 +94,11 @@ class SelfplayCurriculumStage:
                 str(key): float(value)
                 for key, value in dict(payload.get("agent_sampling_weights") or {}).items()
             },
+            initial_fen_suite=(
+                str(payload["initial_fen_suite"])
+                if payload.get("initial_fen_suite") is not None
+                else None
+            ),
             tags=[str(value) for value in list(payload.get("tags") or [])],
         )
 
@@ -186,6 +194,11 @@ def build_curriculum_stage_arena_spec(
     """Resolve one curriculum stage into a concrete arena spec."""
     stage = resolve_curriculum_stage(plan, stage_name=stage_name)
     arena_spec = load_selfplay_arena_spec(_resolve_repo_path(repo_root, stage.arena_spec))
+    initial_fen_suite = None
+    if stage.initial_fen_suite is not None:
+        initial_fen_suite = load_selfplay_initial_fen_suite(
+            _resolve_repo_path(repo_root, stage.initial_fen_suite)
+        )
     requested_agent_paths = set(stage.agent_specs)
     filtered_agent_specs = {
         agent_name: spec_path
@@ -212,14 +225,22 @@ def build_curriculum_stage_arena_spec(
                 black_agent=matchup.black_agent,
                 games=stage.games_per_matchup,
                 max_plies=stage.max_plies,
-                initial_fens=list(matchup.initial_fens),
+                initial_fens=(
+                    initial_fen_suite.fen_list()
+                    if initial_fen_suite is not None
+                    else list(matchup.initial_fens)
+                ),
                 tags=list(matchup.tags),
             )
             for matchup in filtered_matchups
         ],
         default_games=stage.games_per_matchup,
         default_max_plies=stage.max_plies,
-        default_initial_fens=list(arena_spec.default_initial_fens),
+        default_initial_fens=(
+            initial_fen_suite.fen_list()
+            if initial_fen_suite is not None
+            else list(arena_spec.default_initial_fens)
+        ),
         round_robin_swap_colors=arena_spec.round_robin_swap_colors,
         include_self_matches=arena_spec.include_self_matches,
         metadata={
@@ -227,6 +248,8 @@ def build_curriculum_stage_arena_spec(
             "curriculum_plan": plan.name,
             "curriculum_stage": stage.name,
             "stage_tags": list(stage.tags),
+            "initial_fen_suite": stage.initial_fen_suite,
+            "initial_fen_count": len(initial_fen_suite.entries) if initial_fen_suite is not None else len(arena_spec.default_initial_fens),
         },
     )
 
@@ -236,6 +259,12 @@ def build_phase9_expanded_curriculum_plan(
     repo_root: Path,
     source_arena_summary_path: Path,
     corpus_suite_manifest_path: Path,
+    plan_name: str = "phase9_active_experimental_expanded_v1",
+    probe_replay_buffer_output_root: str = "artifacts/phase9/replay_buffer_active_expanded_probe_v1",
+    expanded_replay_buffer_output_root: str = "artifacts/phase9/replay_buffer_active_experimental_expanded_v1",
+    expanded_initial_fen_suite: str | None = None,
+    expanded_games_per_matchup: int = 2,
+    expanded_max_plies: int = 64,
 ) -> SelfplayCurriculumPlan:
     """Build the repo-preferred 400k-ready curriculum plan for active and experimental arms."""
     arena_summary = json.loads(source_arena_summary_path.read_text(encoding="utf-8"))
@@ -306,7 +335,7 @@ def build_phase9_expanded_curriculum_plan(
             agent_specs=active_probe_agents,
             games_per_matchup=2,
             max_plies=24,
-            replay_buffer_output_root="artifacts/phase9/replay_buffer_active_expanded_probe_v1",
+            replay_buffer_output_root=probe_replay_buffer_output_root,
             agent_sampling_weights=_agent_sampling_weights(
                 repo_root=repo_root,
                 source_arena_summary=arena_summary,
@@ -318,20 +347,21 @@ def build_phase9_expanded_curriculum_plan(
             name="active_experimental_expanded_round_robin",
             arena_spec="python/configs/phase9_arena_active_experimental_expanded_v1.json",
             agent_specs=expanded_agents,
-            games_per_matchup=2,
-            max_plies=64,
-            replay_buffer_output_root="artifacts/phase9/replay_buffer_active_experimental_expanded_v1",
+            games_per_matchup=expanded_games_per_matchup,
+            max_plies=expanded_max_plies,
+            replay_buffer_output_root=expanded_replay_buffer_output_root,
             agent_sampling_weights=_agent_sampling_weights(
                 repo_root=repo_root,
                 source_arena_summary=arena_summary,
                 agent_spec_paths=expanded_agents,
             ),
+            initial_fen_suite=expanded_initial_fen_suite,
             tags=["full_suite", "active_plus_experimental", "expanded_400k"],
         ),
     ]
 
     return SelfplayCurriculumPlan(
-        name="phase9_active_experimental_expanded_v1",
+        name=plan_name,
         corpus_suite_manifest=str(corpus_suite_manifest_path),
         source_arena_summary=str(source_arena_summary_path),
         planner_runs=planner_runs,

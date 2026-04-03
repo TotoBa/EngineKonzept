@@ -250,3 +250,35 @@ Observed replay-retrain result on the full expanded verify suite:
 - but `top3` improves: `0.965957 -> 0.968794`
 
 So Phase 9 now has not only replay-buffer creation, but also the first replay-buffer-driven planner retraining loop. The first run is useful and measurable, but not yet strong enough to replace the current expanded planner leaders.
+
+The next expanded arena rerun is now also materialized with a versioned curated initial-position suite instead of `startpos` only:
+
+- initial-position suite:
+  [initial_fens_active_experimental_expanded_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/initial_fens_active_experimental_expanded_v1.json)
+- suite summary:
+  [initial_fens_active_experimental_expanded_v1.summary.json](/home/torsten/EngineKonzept/artifacts/phase9/initial_fens_active_experimental_expanded_v1.summary.json)
+- larger curriculum plan:
+  [curriculum_active_experimental_expanded_v2.json](/home/torsten/EngineKonzept/artifacts/phase9/curriculum_active_experimental_expanded_v2.json)
+- larger expanded arena summary:
+  [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v2/summary.json)
+- comparison:
+  [arena_active_experimental_expanded_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_compare_v1.json)
+
+Observed difference versus the smaller `startpos`-only expanded stage:
+
+- games: `60 -> 180`
+- resolved games: `12 -> 117`
+- resolved ratio: `0.20 -> 0.65`
+- checkmates: `4 -> 28`
+- average move count: `60.667 -> 72.089`
+
+Why this matters:
+
+- the arena is now larger without becoming architecture-specific
+- it remains fully exact: same legal-move contract, same agent specs, same bounded planner stack
+- the replay yield is materially better because the new initial positions start from already tactical midgames rather than only `startpos`
+
+The important boundary is unchanged:
+
+- no classical-search runtime was added
+- the only change is the versioned selfplay initial-position contract and a larger curriculum stage that consumes it
