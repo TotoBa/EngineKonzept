@@ -37,6 +37,7 @@ from train.eval.symbolic_proposer import (
 
 PLANNER_HEAD_ARTIFACT_PREFIX = "planner_head_"
 PLANNER_LATENT_STATE_VERSION = 1
+PLANNER_SCORE_TARGET_CLIP_CP = 256.0
 
 
 @dataclass(frozen=True)
@@ -66,6 +67,7 @@ class PlannerHeadExample:
     teacher_root_value_cp: float
     teacher_top1_minus_top2_cp: float | None
     teacher_candidate_scores_cp: list[float] | None = None
+    teacher_candidate_score_delta_targets_cp: list[float] | None = None
     latent_state_version: int | None = None
     latent_features: list[list[float]] | None = None
 
@@ -94,6 +96,7 @@ class PlannerHeadExample:
             "teacher_top1_candidate_index": self.teacher_top1_candidate_index,
             "teacher_policy": self.teacher_policy,
             "teacher_candidate_scores_cp": self.teacher_candidate_scores_cp,
+            "teacher_candidate_score_delta_targets_cp": self.teacher_candidate_score_delta_targets_cp,
             "teacher_root_value_cp": self.teacher_root_value_cp,
             "teacher_top1_minus_top2_cp": self.teacher_top1_minus_top2_cp,
         }
@@ -125,6 +128,9 @@ class PlannerHeadExample:
         uncertainties = [float(value) for value in list(payload["uncertainties"])]
         teacher_policy = [float(value) for value in list(payload["teacher_policy"])]
         teacher_candidate_scores_cp = _optional_float_list(payload.get("teacher_candidate_scores_cp"))
+        teacher_candidate_score_delta_targets_cp = _optional_float_list(
+            payload.get("teacher_candidate_score_delta_targets_cp")
+        )
         expected_length = len(candidate_action_indices)
         for name, values in (
             ("candidate_features", candidate_features),
@@ -142,6 +148,13 @@ class PlannerHeadExample:
         if teacher_candidate_scores_cp is not None and len(teacher_candidate_scores_cp) != expected_length:
             raise ValueError(
                 "teacher_candidate_scores_cp must have the same length as candidate_action_indices"
+            )
+        if (
+            teacher_candidate_score_delta_targets_cp is not None
+            and len(teacher_candidate_score_delta_targets_cp) != expected_length
+        ):
+            raise ValueError(
+                "teacher_candidate_score_delta_targets_cp must have the same length as candidate_action_indices"
             )
         if latent_features is not None and len(latent_features) != expected_length:
             raise ValueError(
@@ -176,6 +189,7 @@ class PlannerHeadExample:
             teacher_top1_candidate_index=teacher_top1_candidate_index,
             teacher_policy=teacher_policy,
             teacher_candidate_scores_cp=teacher_candidate_scores_cp,
+            teacher_candidate_score_delta_targets_cp=teacher_candidate_score_delta_targets_cp,
             teacher_root_value_cp=float(payload["teacher_root_value_cp"]),
             teacher_top1_minus_top2_cp=_optional_float(payload.get("teacher_top1_minus_top2_cp")),
         )
@@ -307,6 +321,11 @@ def build_planner_head_examples(
             teacher_example.teacher_candidate_scores_cp,
             considered_indices=considered_indices,
         )
+        teacher_candidate_score_delta_targets_cp = build_teacher_candidate_score_delta_targets_cp(
+            teacher_example.teacher_candidate_scores_cp,
+            considered_indices=considered_indices,
+            teacher_root_value_cp=float(teacher_example.teacher_root_value_cp),
+        )
         built.append(
             PlannerHeadExample(
                 sample_id=teacher_example.sample_id,
@@ -351,6 +370,7 @@ def build_planner_head_examples(
                 teacher_top1_candidate_index=teacher_top1_candidate_index,
                 teacher_policy=teacher_policy,
                 teacher_candidate_scores_cp=teacher_candidate_scores_cp,
+                teacher_candidate_score_delta_targets_cp=teacher_candidate_score_delta_targets_cp,
                 teacher_root_value_cp=float(teacher_example.teacher_root_value_cp),
                 teacher_top1_minus_top2_cp=_optional_float(
                     getattr(curriculum_example, "teacher_top1_minus_top2_cp", None)
@@ -575,6 +595,25 @@ def _restricted_teacher_candidate_scores(
     considered_indices: Sequence[int],
 ) -> list[float]:
     return [float(teacher_candidate_scores_cp[index]) for index in considered_indices]
+
+
+def build_teacher_candidate_score_delta_targets_cp(
+    teacher_candidate_scores_cp: Sequence[float],
+    *,
+    considered_indices: Sequence[int],
+    teacher_root_value_cp: float,
+    clip_cp: float = PLANNER_SCORE_TARGET_CLIP_CP,
+) -> list[float]:
+    """Return clipped per-candidate score deltas relative to the teacher root value."""
+    if clip_cp <= 0.0:
+        raise ValueError("clip_cp must be positive")
+    return [
+        max(
+            -clip_cp,
+            min(clip_cp, float(teacher_candidate_scores_cp[index]) - float(teacher_root_value_cp)),
+        )
+        for index in considered_indices
+    ]
 
 
 def _pressure_from_candidate_features(candidate_features: Sequence[float]) -> float:

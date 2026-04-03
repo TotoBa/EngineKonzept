@@ -8,7 +8,11 @@ from pathlib import Path
 from train.config import load_planner_train_config
 from train.datasets.artifacts import SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE
 from train.datasets.contracts import candidate_context_feature_dim, transition_context_feature_dim
-from train.datasets.planner_head import PlannerHeadExample, write_planner_head_artifact
+from train.datasets.planner_head import (
+    PlannerHeadExample,
+    build_teacher_candidate_score_delta_targets_cp,
+    write_planner_head_artifact,
+)
 from train.trainers import evaluate_planner_checkpoint, train_planner
 
 
@@ -355,11 +359,28 @@ def test_planner_head_example_accepts_optional_teacher_candidate_scores() -> Non
 
     roundtrip = PlannerHeadExample.from_dict(payload)
     legacy_roundtrip = PlannerHeadExample.from_dict(
-        {key: value for key, value in payload.items() if key != "teacher_candidate_scores_cp"}
+        {
+            key: value
+            for key, value in payload.items()
+            if key
+            not in {"teacher_candidate_scores_cp", "teacher_candidate_score_delta_targets_cp"}
+        }
     )
 
     assert roundtrip.teacher_candidate_scores_cp == [25.0, -55.0]
+    assert roundtrip.teacher_candidate_score_delta_targets_cp == [0.0, -80.0]
     assert legacy_roundtrip.teacher_candidate_scores_cp is None
+    assert legacy_roundtrip.teacher_candidate_score_delta_targets_cp is None
+
+
+def test_build_teacher_candidate_score_delta_targets_cp_clips_large_gaps() -> None:
+    targets = build_teacher_candidate_score_delta_targets_cp(
+        [180.0, -260.0, 40.0],
+        considered_indices=[0, 1, 2],
+        teacher_root_value_cp=40.0,
+    )
+
+    assert targets == [140.0, -256.0, 0.0]
 
 
 def _planner_example(
@@ -408,4 +429,5 @@ def _planner_example(
         teacher_root_value_cp=25.0,
         teacher_top1_minus_top2_cp=80.0,
         teacher_candidate_scores_cp=[25.0, -55.0],
+        teacher_candidate_score_delta_targets_cp=[0.0, -80.0],
     )

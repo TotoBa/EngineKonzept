@@ -646,13 +646,24 @@ def _collate_planner_batch(
             dtype=torch.float32,
         )
         if example.teacher_candidate_scores_cp is not None:
-            teacher_candidate_score_targets[row_index, :candidate_count] = torch.tensor(
-                [
-                    _normalize_teacher_candidate_score_cp(score_cp - example.teacher_root_value_cp)
-                    for score_cp in example.teacher_candidate_scores_cp
-                ],
-                dtype=torch.float32,
-            )
+            if example.teacher_candidate_score_delta_targets_cp is not None:
+                teacher_candidate_score_targets[row_index, :candidate_count] = torch.tensor(
+                    [
+                        _normalize_teacher_candidate_score_cp(score_cp)
+                        for score_cp in example.teacher_candidate_score_delta_targets_cp
+                    ],
+                    dtype=torch.float32,
+                )
+            else:
+                teacher_candidate_score_targets[row_index, :candidate_count] = torch.tensor(
+                    [
+                        _normalize_teacher_candidate_score_cp(
+                            score_cp - example.teacher_root_value_cp
+                        )
+                        for score_cp in example.teacher_candidate_scores_cp
+                    ],
+                    dtype=torch.float32,
+                )
             teacher_candidate_score_mask[row_index, :candidate_count] = True
         curriculum_priorities[row_index] = float(example.curriculum_priority)
         teacher_root_value_targets[row_index] = _normalize_root_value_cp(

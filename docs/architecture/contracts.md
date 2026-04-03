@@ -200,6 +200,7 @@ Status now:
 - it now has the first trained bounded planner reference over the `10k`, `122k`, and `400k` workflow suite
 - it now also supports optional `latent_state_version` and per-candidate `latent_features`
 - it now also carries restricted `teacher_candidate_scores_cp` aligned to the bounded root candidate slice
+- it now also carries optional clipped `teacher_candidate_score_delta_targets_cp` for bounded score-target supervision without regressing raw unbounded candidate centipawns
 - that latent-state channel has been validated on a filtered `10k + 122k` suite, but the first `set_v3` arm underperformed the simpler `set_v2` planner there
 
 The current trained reference keeps the repo boundary:
