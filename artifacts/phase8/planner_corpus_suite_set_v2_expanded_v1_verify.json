@@ -1,0 +1,47 @@
+{
+  "checkpoint": "/srv/schach/engine_training/models/planner/corpus_suite_set_v2_expanded_v1/checkpoint.pt",
+  "comparison_v1": {
+    "note": "v1 used 7168 train examples with 64 Stockfish nodes",
+    "v1_combined_verify": {
+      "root_top1_accuracy": 0.795035,
+      "root_top3_accuracy": 0.968085,
+      "teacher_root_mean_reciprocal_rank": 0.875355
+    }
+  },
+  "model": "set_v2_expanded_v1",
+  "tiers": {
+    "merged_unique_122k": {
+      "root_top1_accuracy": 0.792969,
+      "root_top3_accuracy": 0.966797,
+      "root_value_mae_cp": 84.283993,
+      "teacher_root_mean_reciprocal_rank": 0.876139
+    },
+    "pgn_10k": {
+      "root_top1_accuracy": 0.804688,
+      "root_top3_accuracy": 0.966797,
+      "root_value_mae_cp": 84.229204,
+      "teacher_root_mean_reciprocal_rank": 0.883301
+    },
+    "unique_pi_400k": {
+      "root_top1_accuracy": 0.792746,
+      "root_top3_accuracy": 0.963731,
+      "root_value_mae_cp": 159.65129,
+      "teacher_root_mean_reciprocal_rank": 0.87867
+    }
+  },
+  "training_data": "53248 train examples (7.4x v1), 256 Stockfish nodes (4x v1)",
+  "validation_comparison": {
+    "delta": {
+      "MRR": "+0.9pp",
+      "top1": "+1.2pp"
+    },
+    "expanded_best_validation": {
+      "MRR": 0.891489,
+      "root_top1_accuracy": 0.813702
+    },
+    "v1_best_validation": {
+      "MRR": 0.882812,
+      "root_top1_accuracy": 0.801897
+    }
+  }
+}
