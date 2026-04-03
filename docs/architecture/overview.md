@@ -93,3 +93,5 @@ The repository now additionally includes the first trained bounded planner arm o
 - aggregate held-out comparison against root-only, symbolic-reply, and learned-reply bounded baselines
 
 The current preferred Phase-8 reference is [phase8_planner_corpus_suite_set_v2_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v2_v1.json), with results summarized in [planner_corpus_suite_compare_v2.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_compare_v2.json) and the phase note [phase-8.md](/home/torsten/EngineKonzept/docs/phases/phase-8.md).
+
+The planner contract now also supports optional Phase-6 latent successor features, validated on a filtered `10k + 122k` slice in [planner_corpus_suite_two_tier_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_two_tier_compare_v1.json). The first direct latent-state arm (`set_v3`) underperforms `set_v2` there, so the contract extension is kept while the simpler `set_v2` planner remains preferred.

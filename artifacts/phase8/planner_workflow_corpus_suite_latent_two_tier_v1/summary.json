@@ -1,0 +1,151 @@
+{
+  "dynamics_checkpoint": "/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v5_v1/checkpoint.pt",
+  "opponent_checkpoint": "/home/torsten/EngineKonzept/models/opponent/corpus_suite_set_v2_v1/checkpoint.pt",
+  "opponent_mode": "learned",
+  "output_root": "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_two_tier_v1",
+  "proposer_checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+  "root_top_k": 4,
+  "tiers": {
+    "merged_unique_122k": {
+      "train": {
+        "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_merged_unique_train_v1",
+        "planner_head_path": "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_two_tier_v1/merged_unique_122k_train_v1/planner_head_train.jsonl",
+        "summary": {
+          "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_merged_unique_train_v1",
+          "dynamics_checkpoint": "/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v5_v1/checkpoint.pt",
+          "example_count": 2048,
+          "max_examples": null,
+          "mean_curriculum_priority": 5.00868,
+          "opponent_checkpoint": "/home/torsten/EngineKonzept/models/opponent/corpus_suite_set_v2_v1/checkpoint.pt",
+          "opponent_mode": "learned",
+          "output_path": "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_two_tier_v1/merged_unique_122k_train_v1/planner_head_train.jsonl",
+          "proposer_checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+          "root_top_k": 4,
+          "search_curriculum_path": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/merged_unique_122k_train_v1/search_curriculum_train.jsonl",
+          "search_teacher_path": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/merged_unique_122k_train_v1/search_teacher_train.jsonl",
+          "split": "train"
+        },
+        "workflow_dir": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/merged_unique_122k_train_v1"
+      },
+      "validation": {
+        "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_merged_unique_train_v1",
+        "planner_head_path": "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_two_tier_v1/merged_unique_122k_validation_v1/planner_head_validation.jsonl",
+        "summary": {
+          "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_merged_unique_train_v1",
+          "dynamics_checkpoint": "/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v5_v1/checkpoint.pt",
+          "example_count": 512,
+          "max_examples": null,
+          "mean_curriculum_priority": 5.118583,
+          "opponent_checkpoint": "/home/torsten/EngineKonzept/models/opponent/corpus_suite_set_v2_v1/checkpoint.pt",
+          "opponent_mode": "learned",
+          "output_path": "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_two_tier_v1/merged_unique_122k_validation_v1/planner_head_validation.jsonl",
+          "proposer_checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+          "root_top_k": 4,
+          "search_curriculum_path": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/merged_unique_122k_validation_v1/search_curriculum_validation.jsonl",
+          "search_teacher_path": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/merged_unique_122k_validation_v1/search_teacher_validation.jsonl",
+          "split": "validation"
+        },
+        "workflow_dir": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/merged_unique_122k_validation_v1"
+      },
+      "verify": {
+        "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_merged_unique_verify_v1",
+        "planner_head_path": "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_two_tier_v1/merged_unique_122k_verify_v1/planner_head_test.jsonl",
+        "summary": {
+          "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_merged_unique_verify_v1",
+          "dynamics_checkpoint": "/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v5_v1/checkpoint.pt",
+          "example_count": 512,
+          "max_examples": null,
+          "mean_curriculum_priority": 7.239103,
+          "opponent_checkpoint": "/home/torsten/EngineKonzept/models/opponent/corpus_suite_set_v2_v1/checkpoint.pt",
+          "opponent_mode": "learned",
+          "output_path": "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_two_tier_v1/merged_unique_122k_verify_v1/planner_head_test.jsonl",
+          "proposer_checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+          "root_top_k": 4,
+          "search_curriculum_path": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/merged_unique_122k_verify_v1/search_curriculum_test.jsonl",
+          "search_teacher_path": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/merged_unique_122k_verify_v1/search_teacher_test.jsonl",
+          "split": "test"
+        },
+        "workflow_dir": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/merged_unique_122k_verify_v1"
+      }
+    },
+    "pgn_10k": {
+      "train": {
+        "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1",
+        "planner_head_path": "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_two_tier_v1/pgn_10k_train_v1/planner_head_train.jsonl",
+        "summary": {
+          "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1",
+          "dynamics_checkpoint": "/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v5_v1/checkpoint.pt",
+          "example_count": 1024,
+          "max_examples": null,
+          "mean_curriculum_priority": 4.929848,
+          "opponent_checkpoint": "/home/torsten/EngineKonzept/models/opponent/corpus_suite_set_v2_v1/checkpoint.pt",
+          "opponent_mode": "learned",
+          "output_path": "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_two_tier_v1/pgn_10k_train_v1/planner_head_train.jsonl",
+          "proposer_checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+          "root_top_k": 4,
+          "search_curriculum_path": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/pgn_10k_train_v1/search_curriculum_train.jsonl",
+          "search_teacher_path": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/pgn_10k_train_v1/search_teacher_train.jsonl",
+          "split": "train"
+        },
+        "workflow_dir": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/pgn_10k_train_v1"
+      },
+      "validation": {
+        "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1",
+        "planner_head_path": "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_two_tier_v1/pgn_10k_validation_v1/planner_head_validation.jsonl",
+        "summary": {
+          "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1",
+          "dynamics_checkpoint": "/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v5_v1/checkpoint.pt",
+          "example_count": 256,
+          "max_examples": null,
+          "mean_curriculum_priority": 4.867751,
+          "opponent_checkpoint": "/home/torsten/EngineKonzept/models/opponent/corpus_suite_set_v2_v1/checkpoint.pt",
+          "opponent_mode": "learned",
+          "output_path": "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_two_tier_v1/pgn_10k_validation_v1/planner_head_validation.jsonl",
+          "proposer_checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+          "root_top_k": 4,
+          "search_curriculum_path": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/pgn_10k_validation_v1/search_curriculum_validation.jsonl",
+          "search_teacher_path": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/pgn_10k_validation_v1/search_teacher_validation.jsonl",
+          "split": "validation"
+        },
+        "workflow_dir": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/pgn_10k_validation_v1"
+      },
+      "verify": {
+        "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_verify_pi_10k_v1",
+        "planner_head_path": "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_two_tier_v1/pgn_10k_verify_v1/planner_head_test.jsonl",
+        "summary": {
+          "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_verify_pi_10k_v1",
+          "dynamics_checkpoint": "/home/torsten/EngineKonzept/models/dynamics/dynamics_merged_unique_structured_v5_v1/checkpoint.pt",
+          "example_count": 512,
+          "max_examples": null,
+          "mean_curriculum_priority": 7.225613,
+          "opponent_checkpoint": "/home/torsten/EngineKonzept/models/opponent/corpus_suite_set_v2_v1/checkpoint.pt",
+          "opponent_mode": "learned",
+          "output_path": "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_two_tier_v1/pgn_10k_verify_v1/planner_head_test.jsonl",
+          "proposer_checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+          "root_top_k": 4,
+          "search_curriculum_path": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/pgn_10k_verify_v1/search_curriculum_test.jsonl",
+          "search_teacher_path": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/pgn_10k_verify_v1/search_teacher_test.jsonl",
+          "split": "test"
+        },
+        "workflow_dir": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/pgn_10k_verify_v1"
+      }
+    }
+  },
+  "tiers_requested": [
+    "merged_unique_122k",
+    "pgn_10k"
+  ],
+  "train_paths": [
+    "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_two_tier_v1/merged_unique_122k_train_v1/planner_head_train.jsonl",
+    "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_two_tier_v1/pgn_10k_train_v1/planner_head_train.jsonl"
+  ],
+  "validation_paths": [
+    "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_two_tier_v1/merged_unique_122k_validation_v1/planner_head_validation.jsonl",
+    "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_two_tier_v1/pgn_10k_validation_v1/planner_head_validation.jsonl"
+  ],
+  "verify_paths": [
+    "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_two_tier_v1/merged_unique_122k_verify_v1/planner_head_test.jsonl",
+    "/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_two_tier_v1/pgn_10k_verify_v1/planner_head_test.jsonl"
+  ],
+  "workflow_summary": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/summary.json"
+}

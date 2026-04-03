@@ -49,6 +49,16 @@ def __getattr__(name: str) -> Any:
             "PlannerBaselineMetrics": PlannerBaselineMetrics,
             "evaluate_two_ply_planner_baseline": evaluate_two_ply_planner_baseline,
         }[name]
+    if name in {"load_dynamics_checkpoint", "predict_dynamics_latent"}:
+        from train.eval.dynamics import (
+            load_dynamics_checkpoint,
+            predict_dynamics_latent,
+        )
+
+        return {
+            "load_dynamics_checkpoint": load_dynamics_checkpoint,
+            "predict_dynamics_latent": predict_dynamics_latent,
+        }[name]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -57,8 +67,10 @@ __all__ = [
     "PlannerBaselineMetrics",
     "evaluate_symbolic_opponent_baseline",
     "evaluate_two_ply_planner_baseline",
+    "load_dynamics_checkpoint",
     "load_opponent_head_checkpoint",
     "load_symbolic_proposer_checkpoint",
+    "predict_dynamics_latent",
     "score_opponent_candidates",
     "score_symbolic_candidates",
 ]

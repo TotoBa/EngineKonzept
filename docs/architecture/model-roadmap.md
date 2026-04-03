@@ -298,6 +298,19 @@ Aggregate held-out verify result:
 
 So Phase 8 is now past pure bounded baselines and has a first refined planner line, not just a one-off trained reference.
 
+The next contract test has now been run as well:
+
+- filtered latent-state workflow: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_two_tier_v1/summary.json)
+- latent-state config: [phase8_planner_corpus_suite_set_v3_two_tier_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v3_two_tier_v1.json)
+- filtered comparison: [planner_corpus_suite_two_tier_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_two_tier_compare_v1.json)
+
+Result on the filtered `10k + 122k` verify slice (`1,024` examples):
+
+- `set_v2`: `root_top1_accuracy=0.80957`, `MRR=0.883382`
+- latent `set_v3`: `root_top1_accuracy=0.708008`, `MRR=0.825521`
+
+So the planner-facing latent-state channel is now implemented and reproducible, but the first direct concatenation path is not yet the right refinement. The next gain should come from better opponent uncertainty signals or a different planner-state integration strategy before bounded recurrence is made richer.
+
 ## Deferred Architecture Ideas
 
 The following ideas remain relevant and are intentionally being kept in view, but they are deferred until the dense single-path stack is stronger:

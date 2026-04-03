@@ -189,6 +189,7 @@ It should consume:
 - exact root candidates
 - proposer scores over those candidates
 - exact successor-derived `TransitionContextV1` features for each bounded root
+- optional `LatentStateV1` successor latents for each bounded root
 - bounded opponent-side reply summaries
 - optional workflow-derived curriculum metadata
 
@@ -197,6 +198,8 @@ Status now:
 - the first dataset-level `PlannerHeadV1` contract is implemented
 - it is materialized in `planner_head_<split>.jsonl`
 - it now has the first trained bounded planner reference over the `10k`, `122k`, and `400k` workflow suite
+- it now also supports optional `latent_state_version` and per-candidate `latent_features`
+- that latent-state channel has been validated on a filtered `10k + 122k` suite, but the first `set_v3` arm underperformed the simpler `set_v2` planner there
 
 The current trained reference keeps the repo boundary:
 
@@ -204,6 +207,16 @@ The current trained reference keeps the repo boundary:
 2. successor states are still exact symbolic apply results
 3. opponent information is still bounded and explicit
 4. the planner still scores a bounded candidate slice, not a hidden tree
+
+Current measured latent-state status on the filtered `10k + 122k` verify slice (`1,024` examples):
+
+- bounded root-only baseline: `root_top1_accuracy=0.151367`, `MRR=0.219482`
+- bounded symbolic-reply baseline: `root_top1_accuracy=0.158203`, `MRR=0.222819`
+- bounded learned-reply baseline: `root_top1_accuracy=0.135742`, `MRR=0.2111`
+- reference planner `set_v2`: `root_top1_accuracy=0.80957`, `MRR=0.883382`
+- latent-state planner `set_v3`: `root_top1_accuracy=0.708008`, `MRR=0.825521`
+
+So the planner contract is now rich enough to carry latent Phase-6 signals, but the current repo evidence says that simply concatenating those latents into the bounded root scorer is not yet the right integration strategy.
 
 ## Metrics Pressure
 

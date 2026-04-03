@@ -56,12 +56,14 @@ if torch is not None and nn is not None:
             hidden_dim: int,
             hidden_layers: int,
             action_embedding_dim: int,
+            latent_feature_dim: int,
             dropout: float,
         ) -> None:
             super().__init__()
-            if architecture not in {"set_v1", "set_v2"}:
+            if architecture not in {"set_v1", "set_v2", "set_v3"}:
                 raise ValueError(f"unsupported planner architecture: {architecture}")
             self.architecture = architecture
+            self.latent_feature_dim = latent_feature_dim
             self.state_backbone = _build_mlp(
                 input_dim=POSITION_FEATURE_SIZE + SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE,
                 hidden_dim=hidden_dim,
@@ -75,6 +77,7 @@ if torch is not None and nn is not None:
                     action_embedding_dim
                     + PLANNER_CANDIDATE_FEATURE_SIZE
                     + TRANSITION_CONTEXT_FEATURE_SIZE
+                    + latent_feature_dim
                     + 4,
                     hidden_dim,
                 ),
@@ -98,7 +101,7 @@ if torch is not None and nn is not None:
                 nn.ReLU(),
                 nn.Linear(hidden_dim // 2, 1),
             )
-            if architecture == "set_v2":
+            if architecture in {"set_v2", "set_v3"}:
                 self.root_value_head = nn.Sequential(
                     nn.Linear(hidden_dim * 3, hidden_dim),
                     nn.ReLU(),
@@ -123,6 +126,7 @@ if torch is not None and nn is not None:
             candidate_features: Any,
             proposer_scores: Any,
             transition_features: Any,
+            latent_features: Any,
             reply_peak_probabilities: Any,
             pressures: Any,
             uncertainties: Any,
@@ -145,7 +149,13 @@ if torch is not None and nn is not None:
             )
             candidate_token = self.candidate_projection(
                 torch.cat(
-                    [action_hidden, candidate_features, transition_features, scalar_features],
+                    [
+                        action_hidden,
+                        candidate_features,
+                        transition_features,
+                        latent_features,
+                        scalar_features,
+                    ],
                     dim=2,
                 )
             )
@@ -170,7 +180,7 @@ if torch is not None and nn is not None:
                 repeated_summary,
                 candidate_token * repeated_context,
             ]
-            if self.architecture == "set_v2":
+            if self.architecture in {"set_v2", "set_v3"}:
                 candidate_hidden_parts.append(candidate_token * repeated_attended)
             candidate_hidden = torch.cat(candidate_hidden_parts, dim=2)
             logits = self.candidate_mlp(candidate_hidden).squeeze(-1)

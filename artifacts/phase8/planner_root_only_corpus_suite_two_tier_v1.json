@@ -1,0 +1,49 @@
+{
+  "aggregate": {
+    "examples_per_second": 16.511162,
+    "mean_pressure": 0.0,
+    "mean_reply_peak_probability": 0.0,
+    "mean_uncertainty": 0.0,
+    "root_top1_accuracy": 0.151367,
+    "teacher_covered_examples": 1024,
+    "teacher_root_mean_probability": 0.110829,
+    "teacher_root_mean_reciprocal_rank": 0.219482,
+    "total_examples": 1024
+  },
+  "opponent_checkpoint": null,
+  "opponent_mode": "none",
+  "per_tier": {
+    "merged_unique_122k": {
+      "examples_per_second": 16.777,
+      "mean_pressure": 0.0,
+      "mean_reply_peak_probability": 0.0,
+      "mean_uncertainty": 0.0,
+      "root_top1_accuracy": 0.152344,
+      "teacher_covered_examples": 512,
+      "teacher_root_mean_probability": 0.111096,
+      "teacher_root_mean_reciprocal_rank": 0.221517,
+      "total_examples": 512
+    },
+    "pgn_10k": {
+      "examples_per_second": 17.089,
+      "mean_pressure": 0.0,
+      "mean_reply_peak_probability": 0.0,
+      "mean_uncertainty": 0.0,
+      "root_top1_accuracy": 0.150391,
+      "teacher_covered_examples": 512,
+      "teacher_root_mean_probability": 0.110562,
+      "teacher_root_mean_reciprocal_rank": 0.217448,
+      "total_examples": 512
+    }
+  },
+  "pressure_weight": 0.25,
+  "proposer_checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+  "reply_peak_weight": 0.5,
+  "root_top_k": 4,
+  "tiers_requested": [
+    "merged_unique_122k",
+    "pgn_10k"
+  ],
+  "uncertainty_weight": 0.25,
+  "workflow_summary": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/summary.json"
+}

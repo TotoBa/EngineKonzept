@@ -115,12 +115,23 @@ def train_planner(config: PlannerTrainConfig, *, repo_root: Path) -> PlannerTrai
         raise ValueError("training artifact is empty")
     if not validation_examples:
         raise ValueError("validation artifact is empty")
+    _validate_latent_feature_dim(
+        train_examples,
+        expected_dim=config.model.latent_feature_dim,
+        context="train",
+    )
+    _validate_latent_feature_dim(
+        validation_examples,
+        expected_dim=config.model.latent_feature_dim,
+        context="validation",
+    )
 
     model = PlannerHeadModel(
         architecture=config.model.architecture,
         hidden_dim=config.model.hidden_dim,
         hidden_layers=config.model.hidden_layers,
         action_embedding_dim=config.model.action_embedding_dim,
+        latent_feature_dim=config.model.latent_feature_dim,
         dropout=config.model.dropout,
     )
     optimizer = torch.optim.AdamW(
@@ -136,6 +147,7 @@ def train_planner(config: PlannerTrainConfig, *, repo_root: Path) -> PlannerTrai
         shuffle=True,
         seed=config.seed,
         num_workers=config.runtime.dataloader_workers,
+        latent_feature_dim=config.model.latent_feature_dim,
     )
     validation_loader = _build_loader(
         validation_examples,
@@ -143,6 +155,7 @@ def train_planner(config: PlannerTrainConfig, *, repo_root: Path) -> PlannerTrai
         shuffle=False,
         seed=config.seed,
         num_workers=config.runtime.dataloader_workers,
+        latent_feature_dim=config.model.latent_feature_dim,
     )
 
     history: list[dict[str, Any]] = []
@@ -247,6 +260,7 @@ def evaluate_planner_checkpoint(
         hidden_dim=config.model.hidden_dim,
         hidden_layers=config.model.hidden_layers,
         action_embedding_dim=config.model.action_embedding_dim,
+        latent_feature_dim=config.model.latent_feature_dim,
         dropout=config.model.dropout,
     )
     model.load_state_dict(dict(payload["model_state_dict"]))
@@ -259,12 +273,18 @@ def evaluate_planner_checkpoint(
         raise ValueError("either dataset_path or dataset_paths must be provided")
 
     examples = _load_examples_from_paths(resolved_paths)
+    _validate_latent_feature_dim(
+        examples,
+        expected_dim=config.model.latent_feature_dim,
+        context="evaluation",
+    )
     loader = _build_loader(
         examples,
         batch_size=config.optimization.batch_size,
         shuffle=False,
         seed=config.seed,
         num_workers=0,
+        latent_feature_dim=config.model.latent_feature_dim,
     )
     return _run_epoch(
         model,
@@ -302,6 +322,7 @@ def _build_loader(
     shuffle: bool,
     seed: int,
     num_workers: int,
+    latent_feature_dim: int,
 ) -> Any:
     assert torch is not None
     dataset = _PlannerTensorDataset(examples)
@@ -312,7 +333,10 @@ def _build_loader(
         batch_size=batch_size,
         shuffle=shuffle,
         num_workers=num_workers,
-        collate_fn=_collate_planner_batch,
+        collate_fn=lambda batch: _collate_planner_batch(
+            batch,
+            latent_feature_dim=latent_feature_dim,
+        ),
         generator=generator,
     )
 
@@ -355,6 +379,7 @@ def _run_epoch(
             batch["candidate_features"],
             batch["proposer_scores"],
             batch["transition_features"],
+            batch["latent_features"],
             batch["reply_peak_probabilities"],
             batch["pressures"],
             batch["uncertainties"],
@@ -493,7 +518,11 @@ class _PlannerTensorDataset:
         return self.examples[index]
 
 
-def _collate_planner_batch(examples: list[PlannerHeadExample]) -> dict[str, Any]:
+def _collate_planner_batch(
+    examples: list[PlannerHeadExample],
+    *,
+    latent_feature_dim: int,
+) -> dict[str, Any]:
     assert torch is not None
     batch_size = len(examples)
     max_candidates = max(len(example.candidate_action_indices) for example in examples)
@@ -511,6 +540,10 @@ def _collate_planner_batch(examples: list[PlannerHeadExample]) -> dict[str, Any]
     proposer_scores = torch.zeros((batch_size, max_candidates), dtype=torch.float32)
     transition_features = torch.zeros(
         (batch_size, max_candidates, PLANNER_TRANSITION_FEATURE_SIZE),
+        dtype=torch.float32,
+    )
+    latent_features = torch.zeros(
+        (batch_size, max_candidates, latent_feature_dim),
         dtype=torch.float32,
     )
     reply_peak_probabilities = torch.zeros((batch_size, max_candidates), dtype=torch.float32)
@@ -544,6 +577,11 @@ def _collate_planner_batch(examples: list[PlannerHeadExample]) -> dict[str, Any]
             example.transition_features,
             dtype=torch.float32,
         )
+        if example.latent_features is not None and latent_feature_dim > 0:
+            latent_features[row_index, :candidate_count] = torch.tensor(
+                example.latent_features,
+                dtype=torch.float32,
+            )
         reply_peak_probabilities[row_index, :candidate_count] = torch.tensor(
             example.reply_peak_probabilities,
             dtype=torch.float32,
@@ -579,6 +617,7 @@ def _collate_planner_batch(examples: list[PlannerHeadExample]) -> dict[str, Any]
         "candidate_features": candidate_features,
         "proposer_scores": proposer_scores,
         "transition_features": transition_features,
+        "latent_features": latent_features,
         "reply_peak_probabilities": reply_peak_probabilities,
         "pressures": pressures,
         "uncertainties": uncertainties,
@@ -609,6 +648,31 @@ def _ratio(numerator: float | int, denominator: float | int) -> float:
     if denominator == 0:
         return 0.0
     return float(numerator) / float(denominator)
+
+
+def _validate_latent_feature_dim(
+    examples: list[PlannerHeadExample],
+    *,
+    expected_dim: int,
+    context: str,
+) -> None:
+    if expected_dim == 0:
+        return
+    observed_dims = {
+        (
+            len(example.latent_features[0])
+            if example.latent_features is not None and example.latent_features
+            else 0
+        )
+        for example in examples
+    }
+    if not observed_dims:
+        observed_dims = {0}
+    if observed_dims != {expected_dim}:
+        raise ValueError(
+            f"{context}: planner latent feature dimension {sorted(observed_dims)} "
+            f"does not match config.model.latent_feature_dim={expected_dim}"
+        )
 
 
 def _normalize_root_value_cp(value_cp: float) -> float:

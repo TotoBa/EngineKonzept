@@ -21,6 +21,12 @@ def main() -> int:
     parser.add_argument("--proposer-checkpoint", type=Path, required=True)
     parser.add_argument("--opponent-mode", choices=("none", "symbolic", "learned"), required=True)
     parser.add_argument("--opponent-checkpoint", type=Path)
+    parser.add_argument(
+        "--tier",
+        action="append",
+        dest="tiers",
+        help="Restrict the evaluation to one or more named tiers from the workflow summary.",
+    )
     parser.add_argument("--root-top-k", type=int, default=4)
     parser.add_argument("--reply-peak-weight", type=float, default=0.5)
     parser.add_argument("--pressure-weight", type=float, default=0.25)
@@ -47,7 +53,21 @@ def main() -> int:
     pressure_total = 0.0
     uncertainty_total = 0.0
 
-    for tier_name, tier_payload in dict(workflow_summary["tiers"]).items():
+    requested_tiers = set(args.tiers or [])
+    source_tiers = dict(workflow_summary["tiers"])
+    if requested_tiers:
+        missing_tiers = sorted(requested_tiers - set(source_tiers))
+        if missing_tiers:
+            raise ValueError(f"requested unknown workflow tiers: {', '.join(missing_tiers)}")
+        selected_tiers = {
+            tier_name: source_tiers[tier_name]
+            for tier_name in source_tiers
+            if tier_name in requested_tiers
+        }
+    else:
+        selected_tiers = source_tiers
+
+    for tier_name, tier_payload in selected_tiers.items():
         verify_payload = dict(tier_payload["verify"])
         verify_output_dir = Path(verify_payload["output_dir"])
         metrics = evaluate_two_ply_planner_baseline(
@@ -102,6 +122,7 @@ def main() -> int:
         "proposer_checkpoint": str(proposer_checkpoint),
         "opponent_mode": args.opponent_mode,
         "opponent_checkpoint": str(opponent_checkpoint) if opponent_checkpoint is not None else None,
+        "tiers_requested": sorted(requested_tiers),
         "root_top_k": args.root_top_k,
         "reply_peak_weight": args.reply_peak_weight,
         "pressure_weight": args.pressure_weight,

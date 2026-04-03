@@ -1,0 +1,71 @@
+{
+  "runs": {
+    "learned_reply": {
+      "examples_per_second": 7.033599,
+      "mean_pressure": 0.070033,
+      "mean_reply_peak_probability": 0.67217,
+      "mean_uncertainty": 0.761411,
+      "root_top1_accuracy": 0.135742,
+      "teacher_covered_examples": 1024,
+      "teacher_root_mean_probability": 0.110679,
+      "teacher_root_mean_reciprocal_rank": 0.2111,
+      "total_examples": 1024
+    },
+    "root_only": {
+      "examples_per_second": 16.511162,
+      "mean_pressure": 0.0,
+      "mean_reply_peak_probability": 0.0,
+      "mean_uncertainty": 0.0,
+      "root_top1_accuracy": 0.151367,
+      "teacher_covered_examples": 1024,
+      "teacher_root_mean_probability": 0.110829,
+      "teacher_root_mean_reciprocal_rank": 0.219482,
+      "total_examples": 1024
+    },
+    "symbolic_reply": {
+      "examples_per_second": 7.516379,
+      "mean_pressure": 0.178223,
+      "mean_reply_peak_probability": 0.176351,
+      "mean_uncertainty": 0.823649,
+      "root_top1_accuracy": 0.158203,
+      "teacher_covered_examples": 1024,
+      "teacher_root_mean_probability": 0.111484,
+      "teacher_root_mean_reciprocal_rank": 0.222819,
+      "total_examples": 1024
+    },
+    "trained_planner": {
+      "examples_per_second": 3692.83,
+      "root_gap_examples": 1020,
+      "root_gap_loss": 2.237464,
+      "root_gap_mae_cp": 239.223849,
+      "root_top1_accuracy": 0.708008,
+      "root_top3_accuracy": 0.933594,
+      "root_value_loss": 0.160419,
+      "root_value_mae_cp": 78.530416,
+      "supervised_examples": 1024,
+      "teacher_kl_loss": 1.031653,
+      "teacher_policy_loss": 1.096686,
+      "teacher_root_mean_probability": 0.623001,
+      "teacher_root_mean_reciprocal_rank": 0.825521,
+      "total_examples": 1024,
+      "total_loss": 1.474493
+    },
+    "trained_planner_set_v2": {
+      "examples_per_second": 4309.366,
+      "root_gap_examples": 1020,
+      "root_gap_loss": 2.231259,
+      "root_gap_mae_cp": 243.21939,
+      "root_top1_accuracy": 0.80957,
+      "root_top3_accuracy": 0.975586,
+      "root_value_loss": 0.16362,
+      "root_value_mae_cp": 80.431553,
+      "supervised_examples": 1024,
+      "teacher_kl_loss": 0.871256,
+      "teacher_policy_loss": 0.754753,
+      "teacher_root_mean_probability": 0.699994,
+      "teacher_root_mean_reciprocal_rank": 0.883382,
+      "total_examples": 1024,
+      "total_loss": 1.092311
+    }
+  }
+}

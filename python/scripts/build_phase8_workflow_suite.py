@@ -24,6 +24,7 @@ def main() -> int:
         default=Path("artifacts/phase7/opponent_workflow_corpus_suite_v1/summary.json"),
     )
     parser.add_argument("--proposer-checkpoint", type=Path, required=True)
+    parser.add_argument("--dynamics-checkpoint", type=Path)
     parser.add_argument("--opponent-checkpoint", type=Path)
     parser.add_argument(
         "--opponent-mode",
@@ -35,6 +36,12 @@ def main() -> int:
         type=Path,
         default=Path("artifacts/phase8/planner_workflow_corpus_suite_v1"),
     )
+    parser.add_argument(
+        "--tier",
+        action="append",
+        dest="tiers",
+        help="Restrict the workflow build to one or more named tiers from the input summary.",
+    )
     parser.add_argument("--root-top-k", type=int, default=4)
     args = parser.parse_args()
 
@@ -42,17 +49,38 @@ def main() -> int:
     output_root = _resolve_repo_path(args.output_root)
     output_root.mkdir(parents=True, exist_ok=True)
     proposer_checkpoint = _resolve_repo_path(args.proposer_checkpoint)
+    dynamics_checkpoint = (
+        _resolve_repo_path(args.dynamics_checkpoint)
+        if args.dynamics_checkpoint is not None
+        else None
+    )
     opponent_checkpoint = (
         _resolve_repo_path(args.opponent_checkpoint)
         if args.opponent_checkpoint is not None
         else None
     )
 
+    requested_tiers = set(args.tiers or [])
+    source_tiers = dict(workflow_summary["tiers"])
+    if requested_tiers:
+        missing_tiers = sorted(requested_tiers - set(source_tiers))
+        if missing_tiers:
+            raise ValueError(f"requested unknown workflow tiers: {', '.join(missing_tiers)}")
+        selected_tiers = {
+            tier_name: source_tiers[tier_name]
+            for tier_name in source_tiers
+            if tier_name in requested_tiers
+        }
+    else:
+        selected_tiers = source_tiers
+
     summary: dict[str, Any] = {
         "workflow_summary": str(_resolve_repo_path(args.workflow_summary)),
         "proposer_checkpoint": str(proposer_checkpoint),
+        "dynamics_checkpoint": str(dynamics_checkpoint) if dynamics_checkpoint is not None else None,
         "opponent_mode": args.opponent_mode,
         "opponent_checkpoint": str(opponent_checkpoint) if opponent_checkpoint is not None else None,
+        "tiers_requested": sorted(requested_tiers),
         "root_top_k": args.root_top_k,
         "output_root": str(output_root),
         "tiers": {},
@@ -61,7 +89,7 @@ def main() -> int:
         "verify_paths": [],
     }
 
-    for tier_name, tier_payload in dict(workflow_summary["tiers"]).items():
+    for tier_name, tier_payload in selected_tiers.items():
         tier_summary: dict[str, Any] = {}
         for split_name, canonical_split in (
             ("train", "train"),
@@ -94,6 +122,8 @@ def main() -> int:
                 "--output-path",
                 str(output_path),
             ]
+            if dynamics_checkpoint is not None:
+                command.extend(["--dynamics-checkpoint", str(dynamics_checkpoint)])
             if opponent_checkpoint is not None:
                 command.extend(["--opponent-checkpoint", str(opponent_checkpoint)])
             subprocess.run(command, cwd=REPO_ROOT, check=True)

@@ -6,6 +6,7 @@ Current contents:
 
 - [corpus_suite_set_v1](/home/torsten/EngineKonzept/models/planner/corpus_suite_set_v1)
 - [corpus_suite_set_v2_v1](/home/torsten/EngineKonzept/models/planner/corpus_suite_set_v2_v1)
+- [corpus_suite_set_v3_two_tier_v1](/home/torsten/EngineKonzept/models/planner/corpus_suite_set_v3_two_tier_v1)
 
 Current reference:
 
@@ -16,3 +17,4 @@ Current reference:
 
 `corpus_suite_set_v1` remains the first trained bounded planner reference in the repo.
 `corpus_suite_set_v2_v1` is the current preferred richer-target follow-up.
+`corpus_suite_set_v3_two_tier_v1` is the first explicit latent-state planner arm over the filtered `10k + 122k` workflow slice; it keeps the new planner contract alive, but it is not preferred because it underperforms `set_v2` on that slice.

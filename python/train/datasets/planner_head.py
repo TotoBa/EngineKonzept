@@ -9,6 +9,7 @@ from typing import Any, Sequence
 
 from train.datasets import (
     build_symbolic_proposer_example,
+    build_selected_move_action_features,
     build_transition_context_features,
     dataset_example_from_oracle_payload,
     load_search_curriculum_examples,
@@ -23,6 +24,10 @@ from train.eval.opponent import (
     load_opponent_head_checkpoint,
     score_opponent_candidates,
 )
+from train.eval.dynamics import (
+    load_dynamics_checkpoint,
+    predict_dynamics_latent,
+)
 from train.eval.symbolic_proposer import (
     load_symbolic_proposer_checkpoint,
     score_symbolic_candidates,
@@ -30,6 +35,7 @@ from train.eval.symbolic_proposer import (
 
 
 PLANNER_HEAD_ARTIFACT_PREFIX = "planner_head_"
+PLANNER_LATENT_STATE_VERSION = 1
 
 
 @dataclass(frozen=True)
@@ -58,6 +64,8 @@ class PlannerHeadExample:
     teacher_policy: list[float]
     teacher_root_value_cp: float
     teacher_top1_minus_top2_cp: float | None
+    latent_state_version: int | None = None
+    latent_features: list[list[float]] | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -73,6 +81,8 @@ class PlannerHeadExample:
             "proposer_scores": self.proposer_scores,
             "transition_context_version": self.transition_context_version,
             "transition_features": self.transition_features,
+            "latent_state_version": self.latent_state_version,
+            "latent_features": self.latent_features,
             "reply_peak_probabilities": self.reply_peak_probabilities,
             "pressures": self.pressures,
             "uncertainties": self.uncertainties,
@@ -98,6 +108,13 @@ class PlannerHeadExample:
         transition_features = [
             [float(value) for value in row] for row in list(payload["transition_features"])
         ]
+        latent_state_version = _optional_int(payload.get("latent_state_version"))
+        latent_features_payload = payload.get("latent_features")
+        latent_features = (
+            [[float(value) for value in row] for row in list(latent_features_payload)]
+            if latent_features_payload is not None
+            else None
+        )
         reply_peak_probabilities = [
             float(value) for value in list(payload["reply_peak_probabilities"])
         ]
@@ -118,6 +135,10 @@ class PlannerHeadExample:
                 raise ValueError(
                     f"{name} must have the same length as candidate_action_indices"
                 )
+        if latent_features is not None and len(latent_features) != expected_length:
+            raise ValueError(
+                "latent_features must have the same length as candidate_action_indices"
+            )
         teacher_top1_candidate_index = int(payload["teacher_top1_candidate_index"])
         if not 0 <= teacher_top1_candidate_index < expected_length:
             raise ValueError("teacher_top1_candidate_index out of range")
@@ -134,6 +155,8 @@ class PlannerHeadExample:
             proposer_scores=proposer_scores,
             transition_context_version=int(payload["transition_context_version"]),
             transition_features=transition_features,
+            latent_state_version=latent_state_version,
+            latent_features=latent_features,
             reply_peak_probabilities=reply_peak_probabilities,
             pressures=pressures,
             uncertainties=uncertainties,
@@ -189,6 +212,7 @@ def build_planner_head_examples(
     search_teacher_path: Path,
     search_curriculum_path: Path | None,
     proposer_checkpoint: Path,
+    dynamics_checkpoint: Path | None,
     opponent_mode: str,
     opponent_checkpoint: Path | None,
     root_top_k: int,
@@ -216,6 +240,9 @@ def build_planner_head_examples(
         }
 
     proposer_model, _ = load_symbolic_proposer_checkpoint(proposer_checkpoint)
+    dynamics_model = None
+    if dynamics_checkpoint is not None:
+        dynamics_model, _ = load_dynamics_checkpoint(dynamics_checkpoint)
     opponent_model = None
     if opponent_mode == "learned":
         opponent_model, _ = load_opponent_head_checkpoint(opponent_checkpoint)
@@ -255,6 +282,7 @@ def build_planner_head_examples(
             root_scores=root_scores,
             opponent_mode=opponent_mode,
             proposer_model=proposer_model,
+            dynamics_model=dynamics_model,
             opponent_model=opponent_model,
             repo_root=repo_root,
         )
@@ -282,6 +310,14 @@ def build_planner_head_examples(
                 proposer_scores=[row["proposer_score"] for row in candidate_rows],
                 transition_context_version=1,
                 transition_features=[row["transition_features"] for row in candidate_rows],
+                latent_state_version=(
+                    PLANNER_LATENT_STATE_VERSION if dynamics_model is not None else None
+                ),
+                latent_features=(
+                    [row["latent_features"] for row in candidate_rows]
+                    if dynamics_model is not None
+                    else None
+                ),
                 reply_peak_probabilities=[
                     row["reply_peak_probability"] for row in candidate_rows
                 ],
@@ -340,6 +376,7 @@ def _build_root_candidate_rows(
     root_scores: Sequence[float],
     opponent_mode: str,
     proposer_model: Any,
+    dynamics_model: Any,
     opponent_model: Any,
     repo_root: Path,
 ) -> list[dict[str, Any]]:
@@ -433,12 +470,25 @@ def _build_root_candidate_rows(
                 reply_global_features=successor_symbolic.global_features,
             )
             reply_peak_probability = max(reply_policy) if reply_policy else 0.0
+        latent_features = None
+        if dynamics_model is not None:
+            latent_features = predict_dynamics_latent(
+                dynamics_model,
+                feature_vector=teacher_example.feature_vector,
+                action_index=int(teacher_example.candidate_action_indices[candidate_list_index]),
+                action_features=build_selected_move_action_features(
+                    root_selected_example,
+                    candidate_context_version=1,
+                ),
+                transition_features=transition_features,
+            )
 
         rows.append(
             {
                 "action_index": int(teacher_example.candidate_action_indices[candidate_list_index]),
                 "proposer_score": float(root_scores[candidate_list_index]),
                 "transition_features": [float(value) for value in transition_features],
+                "latent_features": latent_features,
                 "reply_peak_probability": float(reply_peak_probability),
                 "pressure": float(pressure),
                 "uncertainty": float(uncertainty),
@@ -478,3 +528,9 @@ def _optional_float(value: object | None) -> float | None:
     if value is None:
         return None
     return float(value)
+
+
+def _optional_int(value: object | None) -> int | None:
+    if value is None:
+        return None
+    return int(value)

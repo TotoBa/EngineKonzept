@@ -23,6 +23,7 @@ def main() -> int:
     parser.add_argument("--search-teacher-path", type=Path, required=True)
     parser.add_argument("--search-curriculum-path", type=Path)
     parser.add_argument("--proposer-checkpoint", type=Path, required=True)
+    parser.add_argument("--dynamics-checkpoint", type=Path)
     parser.add_argument(
         "--opponent-mode",
         choices=("none", "symbolic", "learned"),
@@ -42,6 +43,11 @@ def main() -> int:
         else None
     )
     proposer_checkpoint = _resolve_repo_path(args.proposer_checkpoint)
+    dynamics_checkpoint = (
+        _resolve_repo_path(args.dynamics_checkpoint)
+        if args.dynamics_checkpoint is not None
+        else None
+    )
     opponent_checkpoint = (
         _resolve_repo_path(args.opponent_checkpoint)
         if args.opponent_checkpoint is not None
@@ -60,6 +66,7 @@ def main() -> int:
         search_teacher_path=teacher_path,
         search_curriculum_path=curriculum_path,
         proposer_checkpoint=proposer_checkpoint,
+        dynamics_checkpoint=dynamics_checkpoint,
         opponent_mode=args.opponent_mode,
         opponent_checkpoint=opponent_checkpoint,
         root_top_k=args.root_top_k,
@@ -73,6 +80,7 @@ def main() -> int:
         "search_teacher_path": str(teacher_path),
         "search_curriculum_path": str(curriculum_path) if curriculum_path is not None else None,
         "proposer_checkpoint": str(proposer_checkpoint),
+        "dynamics_checkpoint": str(dynamics_checkpoint) if dynamics_checkpoint is not None else None,
         "opponent_mode": args.opponent_mode,
         "opponent_checkpoint": str(opponent_checkpoint) if opponent_checkpoint is not None else None,
         "root_top_k": args.root_top_k,

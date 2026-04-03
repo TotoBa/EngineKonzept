@@ -280,6 +280,19 @@ Aggregate verify result over `1,410` held-out planner examples:
   - `teacher_root_mean_reciprocal_rank=0.875355`
   - `teacher_root_mean_probability=0.685788`
 
+There is now also a filtered `10k + 122k` latent-state validation slice for planner-facing Phase-6 signals:
+
+- workflow suite: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_two_tier_v1/summary.json)
+- latent-state config: [phase8_planner_corpus_suite_set_v3_two_tier_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v3_two_tier_v1.json)
+- comparison: [planner_corpus_suite_two_tier_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_two_tier_compare_v1.json)
+
+Result on `1,024` held-out planner examples:
+
+- reference planner `set_v2`: `root_top1_accuracy=0.80957`, `MRR=0.883382`
+- latent-state planner `set_v3`: `root_top1_accuracy=0.708008`, `MRR=0.825521`
+
+So planner-facing latent-state plumbing is now in place, but the first direct `set_v3` integration is not yet better than the current `set_v2` planner line.
+
 These are still bounded offline planner artifacts, not runtime search, but Phase 8 is now past pure baselines and has a second richer-target planner arm that edges out the first `set_v1` reference on the same multi-corpus holdout.
 
 ## Repository Layout

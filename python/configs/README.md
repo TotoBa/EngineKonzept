@@ -101,3 +101,5 @@ These remain useful as small-corpus regression baselines, but they are no longer
   First materialized Phase-8 planner config. Trains the initial bounded planner head over the `10k`, `122k`, and `400k` planner-workflow tiers.
 - [phase8_planner_corpus_suite_set_v2_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v2_v1.json)
   Current preferred Phase-8 config. Keeps the same bounded multi-corpus workflow suite but adds richer teacher-value and teacher-gap auxiliary targets on top of the planner ranking objective.
+- [phase8_planner_corpus_suite_set_v3_two_tier_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v3_two_tier_v1.json)
+  First latent-state planner follow-up on the filtered `10k + 122k` workflow slice. Useful as the current negative reference for planner-facing Phase-6 latent integration; it does not beat `set_v2` on that slice.

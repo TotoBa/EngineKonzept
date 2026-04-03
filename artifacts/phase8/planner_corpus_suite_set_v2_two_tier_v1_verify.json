@@ -1,0 +1,17 @@
+{
+  "examples_per_second": 4309.366,
+  "root_gap_examples": 1020,
+  "root_gap_loss": 2.231259,
+  "root_gap_mae_cp": 243.21939,
+  "root_top1_accuracy": 0.80957,
+  "root_top3_accuracy": 0.975586,
+  "root_value_loss": 0.16362,
+  "root_value_mae_cp": 80.431553,
+  "supervised_examples": 1024,
+  "teacher_kl_loss": 0.871256,
+  "teacher_policy_loss": 0.754753,
+  "teacher_root_mean_probability": 0.699994,
+  "teacher_root_mean_reciprocal_rank": 0.883382,
+  "total_examples": 1024,
+  "total_loss": 1.092311
+}
