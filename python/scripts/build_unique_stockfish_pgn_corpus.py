@@ -208,6 +208,23 @@ def build_unique_corpus_from_pgns(
         connection.close()
 
 
+def export_unique_corpus_snapshot(work_dir: Path) -> dict[str, Any]:
+    """Export the currently labeled unique-corpus rows as raw JSONL artifacts."""
+    database_path = work_dir / "corpus.sqlite3"
+    if not database_path.exists():
+        raise FileNotFoundError(f"unique corpus database not found: {database_path}")
+
+    connection = sqlite3.connect(database_path)
+    connection.row_factory = sqlite3.Row
+    try:
+        export_summary = _export_jsonl(connection, work_dir=work_dir)
+        export_summary["counts"] = _split_counts(connection)
+        export_summary["labeled_counts"] = _labeled_counts(connection)
+        return export_summary
+    finally:
+        connection.close()
+
+
 def _initialize_database(connection: sqlite3.Connection) -> None:
     for pragma in (
         "PRAGMA journal_mode = WAL",

@@ -100,6 +100,7 @@ When using PGN/Stockfish labeling with `--raw-output-dir`, the builder also writ
 For larger background labeling runs that need global uniqueness guarantees across many PGNs, the repository now also includes:
 
 - `python/scripts/build_unique_stockfish_pgn_corpus.py`
+- `python/scripts/build_unique_stockfish_dataset_pipeline.py`
 
 This path is distinct from the smaller bounded sampler:
 
@@ -110,6 +111,18 @@ This path is distinct from the smaller bounded sampler:
 - `train_raw.jsonl` and `verify_raw.jsonl` are exported only once the requested targets are complete
 
 The unique-corpus builder is meant for long-running offline jobs such as multi-million-position Stockfish labeling on a side host. Because it relies on SQLite locking semantics, its `--work-dir` should live on a normal local filesystem on that host rather than on an unreliable shared or lockless temporary mount.
+
+`build_unique_stockfish_dataset_pipeline.py` is the current orchestration path for those side-host jobs:
+
+- it can resume or snapshot-export the unique SQLite corpus
+- it writes `train_raw.jsonl` and `verify_raw.jsonl`
+- it materializes the current dataset directories from those raw exports
+- it backfills the current standard artifact families on top:
+  - `proposer_<split>.jsonl`
+  - `proposer_symbolic_<split>.jsonl`
+  - `dynamics_<split>.jsonl`
+
+That keeps long-running background labeling jobs aligned with the current Phase-5 and Phase-6 training contracts instead of stopping at the older raw-only corpus stage.
 
 The dataset build scripts now also expose offline throughput knobs for the Rust oracle path:
 

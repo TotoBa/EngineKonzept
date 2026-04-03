@@ -25,6 +25,7 @@ _SPEC.loader.exec_module(_MODULE)
 
 UniqueCorpusConfig = _MODULE.UniqueCorpusConfig
 build_unique_corpus_from_pgns = _MODULE.build_unique_corpus_from_pgns
+export_unique_corpus_snapshot = _MODULE.export_unique_corpus_snapshot
 main = _MODULE.main
 
 
@@ -156,6 +157,57 @@ def test_resume_reserved_rows_labels_existing_entries(tmp_path: Path) -> None:
     metadata = json.loads(str(row["metadata_json"]))
     assert metadata["label_source"] == "stockfish18"
     assert metadata["stockfish_nodes"] == 1500
+
+
+def test_export_unique_corpus_snapshot_writes_raw_jsonl(tmp_path: Path) -> None:
+    work_dir = tmp_path / "work"
+    work_dir.mkdir()
+    connection = sqlite3.connect(work_dir / "corpus.sqlite3")
+    connection.row_factory = sqlite3.Row
+    _MODULE._initialize_database(connection)
+    _MODULE._reserve_sample(
+        connection,
+        sample_id="train:1",
+        fen="4k3/8/8/8/8/8/8/4K3 w - - 0 1",
+        split="train",
+        source="test",
+        result="1-0",
+        metadata={"played_move_uci": "e1e2"},
+    )
+    _MODULE._reserve_sample(
+        connection,
+        sample_id="verify:1",
+        fen="4k3/8/8/8/8/8/8/3K4 w - - 0 1",
+        split="verify",
+        source="test",
+        result="0-1",
+        metadata={"played_move_uci": "d1d2"},
+    )
+    connection.execute(
+        """
+        UPDATE corpus_samples
+        SET selected_move_uci = 'e1e2', status = 'labeled'
+        WHERE sample_id = 'train:1'
+        """
+    )
+    connection.execute(
+        """
+        UPDATE corpus_samples
+        SET selected_move_uci = 'd1d2', status = 'labeled'
+        WHERE sample_id = 'verify:1'
+        """
+    )
+    connection.commit()
+    connection.close()
+
+    summary = export_unique_corpus_snapshot(work_dir)
+
+    assert summary["counts"] == {"train": 1, "verify": 1}
+    assert summary["labeled_counts"] == {"train": 1, "verify": 1}
+    train_rows = (work_dir / "train_raw.jsonl").read_text(encoding="utf-8").splitlines()
+    verify_rows = (work_dir / "verify_raw.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(train_rows) == 1
+    assert len(verify_rows) == 1
 
 
 def test_main_scans_nested_pgns_by_default(tmp_path: Path) -> None:
