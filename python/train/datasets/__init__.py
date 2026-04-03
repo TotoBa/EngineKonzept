@@ -120,6 +120,7 @@ __all__ = [
     "build_dataset",
     "build_opponent_head_examples",
     "build_planner_head_examples",
+    "materialize_planner_teacher_targets",
     "materialize_planner_latent_features",
     "build_search_curriculum_examples",
     "build_search_disagreement_examples",
@@ -189,6 +190,7 @@ _PLANNER_HEAD_NAMES = {
     "build_planner_head_examples",
     "load_planner_head_examples",
     "materialize_planner_latent_features",
+    "materialize_planner_teacher_targets",
     "planner_head_artifact_name",
     "write_planner_head_artifact",
 }

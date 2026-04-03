@@ -2,15 +2,15 @@
   "seed": 11,
   "output_dir": "/srv/schach/engine_training/phase8/planner_corpus_suite_recurrent_v1_expanded_v1",
   "data": {
-    "train_path": "/srv/schach/engine_training/phase8/planner_workflow_expanded_v1/pgn_10k_train_v1/planner_head_train.jsonl",
-    "validation_path": "/srv/schach/engine_training/phase8/planner_workflow_expanded_v1/pgn_10k_validation_v1/planner_head_validation.jsonl",
+    "train_path": "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/pgn_10k_train_v1/planner_head_train.jsonl",
+    "validation_path": "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/pgn_10k_validation_v1/planner_head_validation.jsonl",
     "additional_train_paths": [
-      "/srv/schach/engine_training/phase8/planner_workflow_expanded_v1/merged_unique_122k_train_v1/planner_head_train.jsonl",
-      "/srv/schach/engine_training/phase8/planner_workflow_expanded_v1/unique_pi_400k_train_v1/planner_head_train.jsonl"
+      "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/merged_unique_122k_train_v1/planner_head_train.jsonl",
+      "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/unique_pi_400k_train_v1/planner_head_train.jsonl"
     ],
     "additional_validation_paths": [
-      "/srv/schach/engine_training/phase8/planner_workflow_expanded_v1/merged_unique_122k_validation_v1/planner_head_validation.jsonl",
-      "/srv/schach/engine_training/phase8/planner_workflow_expanded_v1/unique_pi_400k_validation_v1/planner_head_validation.jsonl"
+      "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/merged_unique_122k_validation_v1/planner_head_validation.jsonl",
+      "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/unique_pi_400k_validation_v1/planner_head_validation.jsonl"
     ]
   },
   "model": {

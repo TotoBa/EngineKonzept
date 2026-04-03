@@ -1,0 +1,286 @@
+{
+  "dynamics_checkpoint": null,
+  "opponent_checkpoint": "/home/torsten/EngineKonzept/models/opponent/corpus_suite_set_v2_v1/checkpoint.pt",
+  "opponent_mode": "learned",
+  "output_root": "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2",
+  "proposer_checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+  "root_top_k": 4,
+  "source_summary": "/srv/schach/engine_training/phase8/planner_workflow_expanded_v1/summary.json",
+  "teacher_target_contract": "PlannerHeadV1/fulltargets_v1",
+  "tiers": {
+    "merged_unique_122k": {
+      "train": {
+        "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_merged_unique_train_v1",
+        "planner_head_path": "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/merged_unique_122k_train_v1/planner_head_train.jsonl",
+        "summary": {
+          "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_merged_unique_train_v1",
+          "dynamics_checkpoint": null,
+          "example_count": 16384,
+          "max_examples": null,
+          "mean_curriculum_priority": 6.456949,
+          "opponent_checkpoint": "/home/torsten/EngineKonzept/models/opponent/corpus_suite_set_v2_v1/checkpoint.pt",
+          "opponent_mode": "learned",
+          "output_path": "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/merged_unique_122k_train_v1/planner_head_train.jsonl",
+          "proposer_checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+          "root_top_k": 4,
+          "search_curriculum_path": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/merged_unique_122k_train_v1/search_curriculum_train.jsonl",
+          "search_teacher_path": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/merged_unique_122k_train_v1/search_teacher_train.jsonl",
+          "source_planner_head_path": "/srv/schach/engine_training/phase8/planner_workflow_expanded_v1/merged_unique_122k_train_v1/planner_head_train.jsonl",
+          "split": "train",
+          "teacher_target_contract": "PlannerHeadV1/fulltargets_v1",
+          "teacher_target_fields_present": {
+            "teacher_candidate_rank_bucket_targets": true,
+            "teacher_candidate_score_delta_targets_cp": true,
+            "teacher_candidate_scores_cp": true,
+            "teacher_rank_bucket_version": true
+          }
+        },
+        "workflow_dir": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/merged_unique_122k_train_v1"
+      },
+      "validation": {
+        "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_merged_unique_train_v1",
+        "planner_head_path": "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/merged_unique_122k_validation_v1/planner_head_validation.jsonl",
+        "summary": {
+          "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_merged_unique_train_v1",
+          "dynamics_checkpoint": null,
+          "example_count": 4096,
+          "max_examples": null,
+          "mean_curriculum_priority": 6.508075,
+          "opponent_checkpoint": "/home/torsten/EngineKonzept/models/opponent/corpus_suite_set_v2_v1/checkpoint.pt",
+          "opponent_mode": "learned",
+          "output_path": "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/merged_unique_122k_validation_v1/planner_head_validation.jsonl",
+          "proposer_checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+          "root_top_k": 4,
+          "search_curriculum_path": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/merged_unique_122k_validation_v1/search_curriculum_validation.jsonl",
+          "search_teacher_path": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/merged_unique_122k_validation_v1/search_teacher_validation.jsonl",
+          "source_planner_head_path": "/srv/schach/engine_training/phase8/planner_workflow_expanded_v1/merged_unique_122k_validation_v1/planner_head_validation.jsonl",
+          "split": "validation",
+          "teacher_target_contract": "PlannerHeadV1/fulltargets_v1",
+          "teacher_target_fields_present": {
+            "teacher_candidate_rank_bucket_targets": true,
+            "teacher_candidate_score_delta_targets_cp": true,
+            "teacher_candidate_scores_cp": true,
+            "teacher_rank_bucket_version": true
+          }
+        },
+        "workflow_dir": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/merged_unique_122k_validation_v1"
+      },
+      "verify": {
+        "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_merged_unique_verify_v1",
+        "planner_head_path": "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/merged_unique_122k_verify_v1/planner_head_test.jsonl",
+        "summary": {
+          "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_merged_unique_verify_v1",
+          "dynamics_checkpoint": null,
+          "example_count": 512,
+          "max_examples": null,
+          "mean_curriculum_priority": 7.269809,
+          "opponent_checkpoint": "/home/torsten/EngineKonzept/models/opponent/corpus_suite_set_v2_v1/checkpoint.pt",
+          "opponent_mode": "learned",
+          "output_path": "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/merged_unique_122k_verify_v1/planner_head_test.jsonl",
+          "proposer_checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+          "root_top_k": 4,
+          "search_curriculum_path": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/merged_unique_122k_verify_v1/search_curriculum_test.jsonl",
+          "search_teacher_path": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/merged_unique_122k_verify_v1/search_teacher_test.jsonl",
+          "source_planner_head_path": "/srv/schach/engine_training/phase8/planner_workflow_expanded_v1/merged_unique_122k_verify_v1/planner_head_test.jsonl",
+          "split": "test",
+          "teacher_target_contract": "PlannerHeadV1/fulltargets_v1",
+          "teacher_target_fields_present": {
+            "teacher_candidate_rank_bucket_targets": true,
+            "teacher_candidate_score_delta_targets_cp": true,
+            "teacher_candidate_scores_cp": true,
+            "teacher_rank_bucket_version": true
+          }
+        },
+        "workflow_dir": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/merged_unique_122k_verify_v1"
+      }
+    },
+    "pgn_10k": {
+      "train": {
+        "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1",
+        "planner_head_path": "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/pgn_10k_train_v1/planner_head_train.jsonl",
+        "summary": {
+          "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1",
+          "dynamics_checkpoint": null,
+          "example_count": 4096,
+          "max_examples": null,
+          "mean_curriculum_priority": 5.375524,
+          "opponent_checkpoint": "/home/torsten/EngineKonzept/models/opponent/corpus_suite_set_v2_v1/checkpoint.pt",
+          "opponent_mode": "learned",
+          "output_path": "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/pgn_10k_train_v1/planner_head_train.jsonl",
+          "proposer_checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+          "root_top_k": 4,
+          "search_curriculum_path": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/pgn_10k_train_v1/search_curriculum_train.jsonl",
+          "search_teacher_path": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/pgn_10k_train_v1/search_teacher_train.jsonl",
+          "source_planner_head_path": "/srv/schach/engine_training/phase8/planner_workflow_expanded_v1/pgn_10k_train_v1/planner_head_train.jsonl",
+          "split": "train",
+          "teacher_target_contract": "PlannerHeadV1/fulltargets_v1",
+          "teacher_target_fields_present": {
+            "teacher_candidate_rank_bucket_targets": true,
+            "teacher_candidate_score_delta_targets_cp": true,
+            "teacher_candidate_scores_cp": true,
+            "teacher_rank_bucket_version": true
+          }
+        },
+        "workflow_dir": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/pgn_10k_train_v1"
+      },
+      "validation": {
+        "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1",
+        "planner_head_path": "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/pgn_10k_validation_v1/planner_head_validation.jsonl",
+        "summary": {
+          "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1",
+          "dynamics_checkpoint": null,
+          "example_count": 1024,
+          "max_examples": null,
+          "mean_curriculum_priority": 7.971715,
+          "opponent_checkpoint": "/home/torsten/EngineKonzept/models/opponent/corpus_suite_set_v2_v1/checkpoint.pt",
+          "opponent_mode": "learned",
+          "output_path": "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/pgn_10k_validation_v1/planner_head_validation.jsonl",
+          "proposer_checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+          "root_top_k": 4,
+          "search_curriculum_path": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/pgn_10k_validation_v1/search_curriculum_validation.jsonl",
+          "search_teacher_path": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/pgn_10k_validation_v1/search_teacher_validation.jsonl",
+          "source_planner_head_path": "/srv/schach/engine_training/phase8/planner_workflow_expanded_v1/pgn_10k_validation_v1/planner_head_validation.jsonl",
+          "split": "validation",
+          "teacher_target_contract": "PlannerHeadV1/fulltargets_v1",
+          "teacher_target_fields_present": {
+            "teacher_candidate_rank_bucket_targets": true,
+            "teacher_candidate_score_delta_targets_cp": true,
+            "teacher_candidate_scores_cp": true,
+            "teacher_rank_bucket_version": true
+          }
+        },
+        "workflow_dir": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/pgn_10k_validation_v1"
+      },
+      "verify": {
+        "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_verify_pi_10k_v1",
+        "planner_head_path": "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/pgn_10k_verify_v1/planner_head_test.jsonl",
+        "summary": {
+          "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_verify_pi_10k_v1",
+          "dynamics_checkpoint": null,
+          "example_count": 512,
+          "max_examples": null,
+          "mean_curriculum_priority": 7.260592,
+          "opponent_checkpoint": "/home/torsten/EngineKonzept/models/opponent/corpus_suite_set_v2_v1/checkpoint.pt",
+          "opponent_mode": "learned",
+          "output_path": "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/pgn_10k_verify_v1/planner_head_test.jsonl",
+          "proposer_checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+          "root_top_k": 4,
+          "search_curriculum_path": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/pgn_10k_verify_v1/search_curriculum_test.jsonl",
+          "search_teacher_path": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/pgn_10k_verify_v1/search_teacher_test.jsonl",
+          "source_planner_head_path": "/srv/schach/engine_training/phase8/planner_workflow_expanded_v1/pgn_10k_verify_v1/planner_head_test.jsonl",
+          "split": "test",
+          "teacher_target_contract": "PlannerHeadV1/fulltargets_v1",
+          "teacher_target_fields_present": {
+            "teacher_candidate_rank_bucket_targets": true,
+            "teacher_candidate_score_delta_targets_cp": true,
+            "teacher_candidate_scores_cp": true,
+            "teacher_rank_bucket_version": true
+          }
+        },
+        "workflow_dir": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/pgn_10k_verify_v1"
+      }
+    },
+    "unique_pi_400k": {
+      "train": {
+        "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_unique_pi_400k_train_v1",
+        "planner_head_path": "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/unique_pi_400k_train_v1/planner_head_train.jsonl",
+        "summary": {
+          "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_unique_pi_400k_train_v1",
+          "dynamics_checkpoint": null,
+          "example_count": 32768,
+          "max_examples": null,
+          "mean_curriculum_priority": 6.979978,
+          "opponent_checkpoint": "/home/torsten/EngineKonzept/models/opponent/corpus_suite_set_v2_v1/checkpoint.pt",
+          "opponent_mode": "learned",
+          "output_path": "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/unique_pi_400k_train_v1/planner_head_train.jsonl",
+          "proposer_checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+          "root_top_k": 4,
+          "search_curriculum_path": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/unique_pi_400k_train_v1/search_curriculum_train.jsonl",
+          "search_teacher_path": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/unique_pi_400k_train_v1/search_teacher_train.jsonl",
+          "source_planner_head_path": "/srv/schach/engine_training/phase8/planner_workflow_expanded_v1/unique_pi_400k_train_v1/planner_head_train.jsonl",
+          "split": "train",
+          "teacher_target_contract": "PlannerHeadV1/fulltargets_v1",
+          "teacher_target_fields_present": {
+            "teacher_candidate_rank_bucket_targets": true,
+            "teacher_candidate_score_delta_targets_cp": true,
+            "teacher_candidate_scores_cp": true,
+            "teacher_rank_bucket_version": true
+          }
+        },
+        "workflow_dir": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/unique_pi_400k_train_v1"
+      },
+      "validation": {
+        "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_unique_pi_400k_train_v1",
+        "planner_head_path": "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/unique_pi_400k_validation_v1/planner_head_validation.jsonl",
+        "summary": {
+          "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_unique_pi_400k_train_v1",
+          "dynamics_checkpoint": null,
+          "example_count": 8192,
+          "max_examples": null,
+          "mean_curriculum_priority": 6.703202,
+          "opponent_checkpoint": "/home/torsten/EngineKonzept/models/opponent/corpus_suite_set_v2_v1/checkpoint.pt",
+          "opponent_mode": "learned",
+          "output_path": "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/unique_pi_400k_validation_v1/planner_head_validation.jsonl",
+          "proposer_checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+          "root_top_k": 4,
+          "search_curriculum_path": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/unique_pi_400k_validation_v1/search_curriculum_validation.jsonl",
+          "search_teacher_path": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/unique_pi_400k_validation_v1/search_teacher_validation.jsonl",
+          "source_planner_head_path": "/srv/schach/engine_training/phase8/planner_workflow_expanded_v1/unique_pi_400k_validation_v1/planner_head_validation.jsonl",
+          "split": "validation",
+          "teacher_target_contract": "PlannerHeadV1/fulltargets_v1",
+          "teacher_target_fields_present": {
+            "teacher_candidate_rank_bucket_targets": true,
+            "teacher_candidate_score_delta_targets_cp": true,
+            "teacher_candidate_scores_cp": true,
+            "teacher_rank_bucket_version": true
+          }
+        },
+        "workflow_dir": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/unique_pi_400k_validation_v1"
+      },
+      "verify": {
+        "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_unique_pi_400k_verify_v1",
+        "planner_head_path": "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/unique_pi_400k_verify_v1/planner_head_test.jsonl",
+        "summary": {
+          "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_unique_pi_400k_verify_v1",
+          "dynamics_checkpoint": null,
+          "example_count": 386,
+          "max_examples": null,
+          "mean_curriculum_priority": 10.493386,
+          "opponent_checkpoint": "/home/torsten/EngineKonzept/models/opponent/corpus_suite_set_v2_v1/checkpoint.pt",
+          "opponent_mode": "learned",
+          "output_path": "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/unique_pi_400k_verify_v1/planner_head_test.jsonl",
+          "proposer_checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+          "root_top_k": 4,
+          "search_curriculum_path": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/unique_pi_400k_verify_v1/search_curriculum_test.jsonl",
+          "search_teacher_path": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/unique_pi_400k_verify_v1/search_teacher_test.jsonl",
+          "source_planner_head_path": "/srv/schach/engine_training/phase8/planner_workflow_expanded_v1/unique_pi_400k_verify_v1/planner_head_test.jsonl",
+          "split": "test",
+          "teacher_target_contract": "PlannerHeadV1/fulltargets_v1",
+          "teacher_target_fields_present": {
+            "teacher_candidate_rank_bucket_targets": true,
+            "teacher_candidate_score_delta_targets_cp": true,
+            "teacher_candidate_scores_cp": true,
+            "teacher_rank_bucket_version": true
+          }
+        },
+        "workflow_dir": "/srv/schach/engine_training/phase7/opponent_workflow_corpus_suite_expanded_v1/unique_pi_400k_verify_v1"
+      }
+    }
+  },
+  "tiers_requested": [],
+  "train_paths": [
+    "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/merged_unique_122k_train_v1/planner_head_train.jsonl",
+    "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/pgn_10k_train_v1/planner_head_train.jsonl",
+    "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/unique_pi_400k_train_v1/planner_head_train.jsonl"
+  ],
+  "validation_paths": [
+    "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/merged_unique_122k_validation_v1/planner_head_validation.jsonl",
+    "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/pgn_10k_validation_v1/planner_head_validation.jsonl",
+    "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/unique_pi_400k_validation_v1/planner_head_validation.jsonl"
+  ],
+  "verify_paths": [
+    "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/merged_unique_122k_verify_v1/planner_head_test.jsonl",
+    "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/pgn_10k_verify_v1/planner_head_test.jsonl",
+    "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/unique_pi_400k_verify_v1/planner_head_test.jsonl"
+  ]
+}

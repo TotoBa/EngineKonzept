@@ -83,6 +83,19 @@ The repo now also has an expanded-data rerun:
 - repo-copied verify: [planner_corpus_suite_set_v2_expanded_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v2_expanded_v1_verify.json)
 - filtered expanded comparison: [planner_corpus_suite_expanded_two_tier_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_expanded_two_tier_compare_v1.json)
 
+The next full three-tier reruns now use a single current workflow contract:
+
+- builder: [build_phase8_fulltargets_expanded_workflow.py](/home/torsten/EngineKonzept/python/scripts/build_phase8_fulltargets_expanded_workflow.py)
+- repo-copied summary: [planner_workflow_fulltargets_expanded_v2_summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_fulltargets_expanded_v2_summary.json)
+
+That contract exists so all future expanded planner arms can consume the same planner-head schema:
+
+- bounded `teacher_candidate_scores_cp`
+- clipped `teacher_candidate_score_delta_targets_cp`
+- discrete `teacher_candidate_rank_bucket_targets`
+
+This avoids rebuilding separate expanded workflow roots per experimental head and keeps the launch path flexible for later architecture changes without changing the underlying workflow semantics again.
+
 The repo now also has a filtered latent-state validation slice over just the `10k` and `122k` tiers:
 
 - workflow suite: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_two_tier_v1/summary.json)

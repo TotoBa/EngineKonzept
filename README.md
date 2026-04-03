@@ -259,6 +259,7 @@ Phase 8 now has two useful reference views:
 Full three-tier planner references:
 
 - workflow suite: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_v1/summary.json)
+- full-target expanded workflow suite: [planner_workflow_fulltargets_expanded_v2_summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_fulltargets_expanded_v2_summary.json)
 - first materialized planner config: [phase8_planner_corpus_suite_set_v2_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v2_v1.json)
 - expanded-data planner config: [phase8_planner_corpus_suite_set_v2_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v2_expanded_v1.json)
 - repo-copied expanded summary: [planner_corpus_suite_set_v2_expanded_v1_summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v2_expanded_v1_summary.json)
@@ -318,6 +319,7 @@ The important current conclusion is:
 - more mixed workflow data helps the three-tier training/validation picture
 - but the real gain on the preferred `10k + 122k` validation slice came only after removing the `400k` tier again during planner training
 - faster latent materialization from existing planner-head artifacts is now reproducible and cheap enough to rerun
+- the new preferred launch contract for future full `10k + 122k + 400k` reruns is now a single current full-target workflow root, so `set_v6`, `margin`, `rank`, and `recurrent` all consume the same expanded planner-head schema
 - but the planner-facing latent channel still does not beat the current filtered `set_v2` reference, even on the stronger `10k + 122k` workflow material
 - richer teacher candidate scores are a real signal, but the first score-aux arm still gives back a little `top1` and therefore also does not replace the current filtered `set_v2` reference
 - adding explicit `top1-vs-top2/top3` margin supervision stabilizes the score-target losses dramatically, but still does not move the held-out planner ranking above the current filtered `set_v2` reference

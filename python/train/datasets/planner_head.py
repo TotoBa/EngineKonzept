@@ -463,6 +463,74 @@ def materialize_planner_latent_features(
     return materialized
 
 
+def materialize_planner_teacher_targets(
+    examples: Sequence[PlannerHeadExample],
+    *,
+    teacher_examples: Sequence[Any],
+) -> list[PlannerHeadExample]:
+    """Backfill bounded teacher score targets onto existing planner-head artifacts."""
+
+    teacher_by_sample_id = {example.sample_id: example for example in teacher_examples}
+    materialized: list[PlannerHeadExample] = []
+    for example in examples:
+        teacher_example = teacher_by_sample_id.get(example.sample_id)
+        if teacher_example is None:
+            raise ValueError(
+                f"{example.sample_id}: missing search-teacher example for planner-head backfill"
+            )
+        teacher_index_by_action = {
+            int(action_index): index
+            for index, action_index in enumerate(teacher_example.candidate_action_indices)
+        }
+        considered_indices: list[int] = []
+        for action_index in example.candidate_action_indices:
+            teacher_index = teacher_index_by_action.get(int(action_index))
+            if teacher_index is None:
+                raise ValueError(
+                    f"{example.sample_id}: planner candidate action {action_index} "
+                    "is missing from the aligned search-teacher artifact"
+                )
+            considered_indices.append(teacher_index)
+        if example.teacher_top1_action_index not in teacher_index_by_action:
+            raise ValueError(
+                f"{example.sample_id}: teacher_top1_action_index is missing from the "
+                "aligned search-teacher artifact"
+            )
+        if example.teacher_top1_candidate_index >= len(example.candidate_action_indices):
+            raise ValueError(
+                f"{example.sample_id}: teacher_top1_candidate_index is out of range"
+            )
+        restricted_top1_index = example.candidate_action_indices.index(
+            example.teacher_top1_action_index
+        )
+        if restricted_top1_index != example.teacher_top1_candidate_index:
+            raise ValueError(
+                f"{example.sample_id}: teacher_top1_candidate_index does not match "
+                "teacher_top1_action_index within the restricted planner head"
+            )
+        materialized.append(
+            replace(
+                example,
+                teacher_candidate_scores_cp=_restricted_teacher_candidate_scores(
+                    teacher_example.teacher_candidate_scores_cp,
+                    considered_indices=considered_indices,
+                ),
+                teacher_candidate_score_delta_targets_cp=build_teacher_candidate_score_delta_targets_cp(
+                    teacher_example.teacher_candidate_scores_cp,
+                    considered_indices=considered_indices,
+                    teacher_root_value_cp=float(teacher_example.teacher_root_value_cp),
+                ),
+                teacher_rank_bucket_version=PLANNER_RANK_BUCKET_VERSION,
+                teacher_candidate_rank_bucket_targets=build_teacher_candidate_rank_bucket_targets(
+                    teacher_example.teacher_candidate_scores_cp,
+                    considered_indices=considered_indices,
+                    teacher_top1_candidate_index=example.teacher_top1_candidate_index,
+                ),
+            )
+        )
+    return materialized
+
+
 def load_planner_head_examples_for_split(dataset_dir: Path, split: str) -> list[PlannerHeadExample]:
     """Load the canonical planner-head artifact for one dataset directory split."""
     return load_planner_head_examples(dataset_dir / planner_head_artifact_name(split))

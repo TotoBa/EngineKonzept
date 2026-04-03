@@ -122,13 +122,13 @@ These remain useful as small-corpus regression baselines, but they are no longer
 - [phase8_planner_corpus_suite_recurrent_v1_10k_122k_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_recurrent_v1_10k_122k_expanded_v1.json)
   First bounded recurrent planner follow-up on the same filtered `10k + 122k` slice. It keeps the existing planner-head contract intact and adds small configurable `memory_slots` plus `deliberation_steps`, so recurrence can be tested without another workflow-schema break. The first held-out rerun makes recurrence a real reusable capability, but it does not beat the filtered `set_v2` reference on `top1` or `MRR`.
 - [phase8_planner_corpus_suite_set_v6_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v6_expanded_v1.json)
-  First 400k-ready score-aux expanded rerun config. Uses the full `10k + 122k + 400k` workflow suite and exists so the large next planner run can be started without another config fork.
+  First 400k-ready score-aux expanded rerun config. It now points at the single current `planner_workflow_fulltargets_expanded_v2` contract so the large next planner run can start without rebuilding variant-specific planner-head roots.
 - [phase8_planner_corpus_suite_set_v6_margin_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v6_margin_expanded_v1.json)
-  400k-ready margin-aux expanded rerun config.
+  400k-ready margin-aux expanded rerun config over the same full-target workflow root.
 - [phase8_planner_corpus_suite_set_v6_rank_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v6_rank_expanded_v1.json)
-  400k-ready rank-aux expanded rerun config.
+  400k-ready rank-aux expanded rerun config over the same full-target workflow root.
 - [phase8_planner_corpus_suite_recurrent_v1_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_recurrent_v1_expanded_v1.json)
-  400k-ready recurrent expanded rerun config.
+  400k-ready recurrent expanded rerun config over the same full-target workflow root.
 
 ## Phase 9 Agent Specs
 

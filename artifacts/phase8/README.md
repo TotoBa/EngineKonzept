@@ -5,6 +5,7 @@ This directory contains the first multi-corpus planner-workflow and trained plan
 Current contents:
 
 - workflow suite: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_v1/summary.json)
+- full-target expanded workflow suite: [planner_workflow_fulltargets_expanded_v2_summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_fulltargets_expanded_v2_summary.json)
 - filtered latent workflow suite: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_two_tier_v1/summary.json)
 - stronger filtered latent workflow suite: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_10k_122k_expanded_v1/summary.json)
 - richer-target filtered workflow suite: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_score_10k_122k_expanded_v1/summary.json)
@@ -130,3 +131,12 @@ Recurrent follow-up on the same filtered expanded workflow:
 - `recurrent_v1_10k_122k_expanded`: `0.805664`, `MRR=0.885742`
 
 So the recurrent planner path is now materialized and reproducible, but the first held-out recurrent run is still weaker than the current filtered `set_v2` reference.
+
+For the next full `10k + 122k + 400k` round, the preferred launch contract is now a single current expanded workflow root with full planner-head targets. That root is intended to feed:
+
+- `set_v6`
+- `set_v6_margin`
+- `set_v6_rank`
+- `recurrent_v1`
+
+This keeps future architecture changes flexible while avoiding separate expanded workflow rebuilds for each auxiliary-head variant.

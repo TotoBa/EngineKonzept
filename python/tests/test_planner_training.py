@@ -12,8 +12,10 @@ from train.datasets.planner_head import (
     PlannerHeadExample,
     build_teacher_candidate_rank_bucket_targets,
     build_teacher_candidate_score_delta_targets_cp,
+    materialize_planner_teacher_targets,
     write_planner_head_artifact,
 )
+from train.datasets.search_teacher import SearchTeacherExample
 from train.trainers import evaluate_planner_checkpoint, train_planner
 
 
@@ -547,6 +549,70 @@ def test_build_teacher_candidate_rank_bucket_targets_marks_top1_top3_and_tail() 
     )
 
     assert targets == [0, 1, 1, 2]
+
+
+def test_materialize_planner_teacher_targets_backfills_missing_score_fields() -> None:
+    candidate_dim = candidate_context_feature_dim(2)
+    transition_dim = transition_context_feature_dim(1)
+    global_dim = SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE
+
+    legacy_example = _planner_example(
+        sample_id="train-legacy",
+        teacher_index=0,
+        candidate_dim=candidate_dim,
+        transition_dim=transition_dim,
+        global_dim=global_dim,
+    )
+    legacy_payload = legacy_example.to_dict()
+    for key in (
+        "teacher_candidate_scores_cp",
+        "teacher_candidate_score_delta_targets_cp",
+        "teacher_rank_bucket_version",
+        "teacher_candidate_rank_bucket_targets",
+    ):
+        legacy_payload.pop(key, None)
+    legacy_roundtrip = PlannerHeadExample.from_dict(legacy_payload)
+
+    teacher_example = SearchTeacherExample(
+        sample_id="train-legacy",
+        split="train",
+        fen=legacy_roundtrip.fen,
+        feature_vector=list(legacy_roundtrip.feature_vector),
+        candidate_context_version=legacy_roundtrip.candidate_context_version,
+        global_context_version=legacy_roundtrip.global_context_version,
+        global_features=list(legacy_roundtrip.global_features),
+        candidate_action_indices=[7, 17, 42, 99],
+        candidate_features=[
+            [0.0] * candidate_dim,
+            [1.0] + [0.0] * (candidate_dim - 1),
+            [0.0, 1.0] + [0.0] * (candidate_dim - 2),
+            [0.0] * candidate_dim,
+        ],
+        teacher_engine="/usr/games/stockfish18",
+        teacher_nodes=64,
+        teacher_depth=None,
+        teacher_movetime_ms=None,
+        teacher_multipv=4,
+        teacher_coverage_ratio=1.0,
+        teacher_root_value_cp=25.0,
+        teacher_root_value_mate=None,
+        teacher_candidate_scores_cp=[-40.0, 25.0, -55.0, -120.0],
+        teacher_policy=[0.0, 1.0, 0.0, 0.0],
+        teacher_top_k_action_indices=[17, 42, 7, 99],
+        teacher_pv_uci=["a2a3"],
+    )
+
+    materialized = materialize_planner_teacher_targets(
+        [legacy_roundtrip],
+        teacher_examples=[teacher_example],
+    )
+
+    assert len(materialized) == 1
+    rebuilt = materialized[0]
+    assert rebuilt.teacher_candidate_scores_cp == [25.0, -55.0]
+    assert rebuilt.teacher_candidate_score_delta_targets_cp == [0.0, -80.0]
+    assert rebuilt.teacher_rank_bucket_version == 1
+    assert rebuilt.teacher_candidate_rank_bucket_targets == [0, 1]
 
 
 def _planner_example(
