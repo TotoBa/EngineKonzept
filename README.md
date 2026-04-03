@@ -319,6 +319,7 @@ The important current conclusion is:
 - but the planner-facing latent channel still does not beat the current filtered `set_v2` reference, even on the stronger `10k + 122k` workflow material
 - richer teacher candidate scores are a real signal, but the first score-aux arm still gives back a little `top1` and therefore also does not replace the current filtered `set_v2` reference
 - adding explicit `top1-vs-top2/top3` margin supervision stabilizes the score-target losses dramatically, but still does not move the held-out planner ranking above the current filtered `set_v2` reference
+- replacing part of that bounded score shaping with discrete `top1 / top2-top3 / tail` rank buckets also does not beat the filtered `set_v2` reference on held-out `top1` or `MRR`
 - wider `set_v2` does not help
 - `set_v5` becomes competitive again on the filtered slice, but still does not beat the new `10k + 122k`-only expanded `set_v2`
 

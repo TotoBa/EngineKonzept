@@ -379,6 +379,18 @@ The evidence now says:
 - score-target contracts are worth refining
 - but planner gains still depend more on the core ranking contract than on simply adding more auxiliary score structure
 
+The first discrete rank-bucket follow-up narrows it further still:
+
+- `set_v6_rank_10k_122k_expanded` keeps the same bounded `set_v6` backbone
+- it swaps the stronger raw score-shaping emphasis for explicit `top1` / `top2-top3` / `tail` candidate buckets
+- on held-out verify it lands at `top1=0.8125`, `MRR=0.884684`
+
+So the current repo evidence says:
+
+- discrete bounded rank buckets are a valid contract extension
+- but they are not yet a better planner target than the simpler filtered `set_v2` ranking objective
+- the next useful Phase-8 change is still more likely to come from better planner-facing workflow targets than from another auxiliary ranking head alone
+
 ## Deferred Architecture Ideas
 
 The following ideas remain relevant and are intentionally being kept in view, but they are deferred until the dense single-path stack is stronger:

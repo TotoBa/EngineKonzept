@@ -267,3 +267,22 @@ The next same-backbone follow-up is now prepared as well:
 - `set_v6` can now also add an optional discrete rank-bucket head over the same bounded candidate slice
 - that head uses the new `PlannerHeadV1` bucket targets instead of another raw centipawn-style auxiliary regression
 - config: [phase8_planner_corpus_suite_set_v6_rank_10k_122k_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v6_rank_10k_122k_expanded_v1.json)
+
+That rank-bucket rerun has now also been executed on the same filtered expanded `10k + 122k` suite:
+
+- workflow summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_rank_10k_122k_expanded_v1/summary.json)
+- config: [phase8_planner_corpus_suite_set_v6_rank_10k_122k_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v6_rank_10k_122k_expanded_v1.json)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_rank_10k_122k_expanded_v1/summary.json)
+- verify: [planner_corpus_suite_set_v6_rank_10k_122k_expanded_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_rank_10k_122k_expanded_v1_verify.json)
+- comparison: [planner_corpus_suite_rank_two_tier_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_rank_two_tier_compare_v1.json)
+
+Held-out result on the same `10k + 122k` slice:
+
+- `set_v2_10k_122k_expanded`: `top1=0.819336`, `top3=0.960938`, `MRR=0.889811`
+- `set_v6_rank_10k_122k_expanded`: `top1=0.8125`, `top3=0.956055`, `MRR=0.884684`
+
+Interpretation:
+
+- the discrete rank-bucket contract is now real, reproducible, and measurable
+- but this first rank-bucket arm is weaker than both `set_v2` and the earlier score-aux `set_v6`
+- `set_v2_10k_122k_expanded` therefore remains the preferred Phase-8 reference
