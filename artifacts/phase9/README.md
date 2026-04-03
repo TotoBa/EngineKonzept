@@ -14,6 +14,10 @@ Current contents:
   [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/arena_active_probe_v1/summary.json)
 - first curriculum/launch plan:
   [curriculum_active_experimental_expanded_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/curriculum_active_experimental_expanded_v1.json)
+- first expanded active-plus-experimental arena:
+  [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v1/summary.json)
+- resolved expanded arena spec:
+  [arena_spec.resolved.json](/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v1/arena_spec.resolved.json)
 
 Current probe summary:
 
@@ -46,3 +50,26 @@ The first curriculum/launch plan ties the next large run together:
 - it lists the large planner reruns to materialize first
 - it points at the post-400k active and experimental selfplay agent specs
 - it points at the post-400k full active-plus-experimental arena suite
+
+That expanded arena suite is now materialized as well:
+
+- `30` ordered matchups
+- `60` games
+- `48` `max_plies` terminations
+- `8` threefold-repetition draws
+- `4` decisive checkmates
+
+Current expanded arena standings by score rate:
+
+- `planner_set_v6_rank_expanded_v1`: `0.55`
+- `planner_set_v6_expanded_v1`: `0.50`
+- `planner_set_v6_margin_expanded_v1`: `0.50`
+- `planner_set_v2_expanded_v1`: `0.50`
+- `symbolic_root_v1`: `0.50`
+- `planner_recurrent_expanded_v1`: `0.45`
+
+The current practical conclusion is:
+
+- the full expanded planner family can already selfplay against each other under the versioned agent and arena contracts
+- `planner_set_v6_rank_expanded_v1` is the first tentative arena leader
+- the next useful step is to flatten this arena into replay data rather than immediately overreacting to a still-small selfplay sample

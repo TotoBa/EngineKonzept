@@ -22,6 +22,7 @@ The repository now has the first small selfplay loop in Python:
 - [run_selfplay.py](/home/torsten/EngineKonzept/python/scripts/run_selfplay.py)
 - [build_replay_buffer.py](/home/torsten/EngineKonzept/python/scripts/build_replay_buffer.py)
 - [run_selfplay_arena.py](/home/torsten/EngineKonzept/python/scripts/run_selfplay_arena.py)
+- [run_selfplay_curriculum_stage.py](/home/torsten/EngineKonzept/python/scripts/run_selfplay_curriculum_stage.py)
 - [build_selfplay_curriculum_plan.py](/home/torsten/EngineKonzept/python/scripts/build_selfplay_curriculum_plan.py)
 - [README.md](/home/torsten/EngineKonzept/artifacts/phase9/README.md)
 - [selfplay_set_v2_probe_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/selfplay_set_v2_probe_v1.json)
@@ -170,3 +171,39 @@ That means Phase 9 now has:
 - a stable curriculum/launch-plan contract
 
 before replay-buffer-driven retraining is added.
+
+The first expanded active-plus-experimental arena stage is now also materialized directly from the curriculum plan:
+
+- expanded arena summary:
+  [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v1/summary.json)
+- resolved arena spec:
+  [arena_spec.resolved.json](/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v1/arena_spec.resolved.json)
+
+That stage runs the currently materialized expanded planner family:
+
+- `symbolic_root_v1`
+- `planner_set_v2_expanded_v1`
+- `planner_set_v6_expanded_v1`
+- `planner_set_v6_margin_expanded_v1`
+- `planner_set_v6_rank_expanded_v1`
+- `planner_recurrent_expanded_v1`
+
+Observed result:
+
+- `30` ordered color-swapped matchups
+- `60` games total
+- termination counts:
+  - `max_plies=48`
+  - `threefold_repetition=8`
+  - `checkmate=4`
+- current arena score leader:
+  - `planner_set_v6_rank_expanded_v1`
+  - `score=11.0 / 20`
+  - `score_rate=0.55`
+
+Important interpretation:
+
+- this is the first real selfplay-facing comparison over the full expanded planner family
+- `set_v6_rank_expanded_v1` is the current tentative arena leader
+- but the sample is still small and many games terminate by `max_plies`
+- so this is enough to drive the next replay-buffer step, not yet enough to declare a final long-run runtime promotion

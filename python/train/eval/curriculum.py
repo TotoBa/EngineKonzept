@@ -8,6 +8,11 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from train.eval.agent_spec import load_selfplay_agent_spec
+from train.eval.arena import (
+    SelfplayArenaMatchupSpec,
+    SelfplayArenaSpec,
+    load_selfplay_arena_spec,
+)
 
 
 SELFPLAY_CURRICULUM_PLAN_VERSION = 1
@@ -37,6 +42,16 @@ class PlannerRunSpec:
             "tags": list(self.tags),
         }
 
+    @classmethod
+    def from_dict(cls, payload: dict[str, object]) -> "PlannerRunSpec":
+        return cls(
+            name=str(payload["name"]),
+            config_path=str(payload["config_path"]),
+            expected_agent_spec=str(payload["expected_agent_spec"]),
+            required_tiers=[str(value) for value in list(payload["required_tiers"])],
+            tags=[str(value) for value in list(payload.get("tags") or [])],
+        )
+
 
 @dataclass(frozen=True)
 class SelfplayCurriculumStage:
@@ -62,6 +77,22 @@ class SelfplayCurriculumStage:
             "agent_sampling_weights": dict(sorted(self.agent_sampling_weights.items())),
             "tags": list(self.tags),
         }
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, object]) -> "SelfplayCurriculumStage":
+        return cls(
+            name=str(payload["name"]),
+            arena_spec=str(payload["arena_spec"]),
+            agent_specs=[str(value) for value in list(payload["agent_specs"])],
+            games_per_matchup=int(payload["games_per_matchup"]),
+            max_plies=int(payload["max_plies"]),
+            replay_buffer_output_root=str(payload["replay_buffer_output_root"]),
+            agent_sampling_weights={
+                str(key): float(value)
+                for key, value in dict(payload.get("agent_sampling_weights") or {}).items()
+            },
+            tags=[str(value) for value in list(payload.get("tags") or [])],
+        )
 
 
 @dataclass(frozen=True)
@@ -97,11 +128,107 @@ class SelfplayCurriculumPlan:
             "metadata": self.metadata,
         }
 
+    @classmethod
+    def from_dict(cls, payload: dict[str, object]) -> "SelfplayCurriculumPlan":
+        return cls(
+            spec_version=int(payload.get("spec_version", SELFPLAY_CURRICULUM_PLAN_VERSION)),
+            name=str(payload["name"]),
+            corpus_suite_manifest=str(payload["corpus_suite_manifest"]),
+            source_arena_summary=str(payload["source_arena_summary"]),
+            planner_runs=[
+                PlannerRunSpec.from_dict(dict(run))
+                for run in list(payload["planner_runs"])
+            ],
+            stages=[
+                SelfplayCurriculumStage.from_dict(dict(stage))
+                for stage in list(payload["stages"])
+            ],
+            metadata=dict(payload.get("metadata") or {}),
+        )
+
+    @classmethod
+    def from_json(cls, raw_json: str) -> "SelfplayCurriculumPlan":
+        payload = json.loads(raw_json)
+        if not isinstance(payload, dict):
+            raise ValueError("selfplay curriculum plan must be a JSON object")
+        return cls.from_dict(payload)
+
 
 def write_selfplay_curriculum_plan(path: Path, plan: SelfplayCurriculumPlan) -> None:
     """Write a curriculum plan as JSON."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(plan.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def load_selfplay_curriculum_plan(path: Path) -> SelfplayCurriculumPlan:
+    """Load a curriculum plan from JSON."""
+    return SelfplayCurriculumPlan.from_json(path.read_text(encoding="utf-8"))
+
+
+def resolve_curriculum_stage(
+    plan: SelfplayCurriculumPlan,
+    *,
+    stage_name: str,
+) -> SelfplayCurriculumStage:
+    """Look up one stage by name."""
+    for stage in plan.stages:
+        if stage.name == stage_name:
+            return stage
+    raise ValueError(f"unknown curriculum stage: {stage_name}")
+
+
+def build_curriculum_stage_arena_spec(
+    *,
+    repo_root: Path,
+    plan: SelfplayCurriculumPlan,
+    stage_name: str,
+) -> SelfplayArenaSpec:
+    """Resolve one curriculum stage into a concrete arena spec."""
+    stage = resolve_curriculum_stage(plan, stage_name=stage_name)
+    arena_spec = load_selfplay_arena_spec(_resolve_repo_path(repo_root, stage.arena_spec))
+    requested_agent_paths = set(stage.agent_specs)
+    filtered_agent_specs = {
+        agent_name: spec_path
+        for agent_name, spec_path in arena_spec.agent_specs.items()
+        if spec_path in requested_agent_paths
+    }
+    if len(filtered_agent_specs) != len(requested_agent_paths):
+        missing_paths = sorted(requested_agent_paths - set(filtered_agent_specs.values()))
+        raise ValueError(
+            f"{stage_name}: stage agent specs missing from arena spec: {', '.join(missing_paths)}"
+        )
+    filtered_matchups = [
+        matchup
+        for matchup in arena_spec.matchups
+        if matchup.white_agent in filtered_agent_specs and matchup.black_agent in filtered_agent_specs
+    ]
+    return SelfplayArenaSpec(
+        name=f"{arena_spec.name}:{stage.name}",
+        agent_specs=filtered_agent_specs,
+        schedule_mode=arena_spec.schedule_mode,
+        matchups=[
+            SelfplayArenaMatchupSpec(
+                white_agent=matchup.white_agent,
+                black_agent=matchup.black_agent,
+                games=stage.games_per_matchup,
+                max_plies=stage.max_plies,
+                initial_fens=list(matchup.initial_fens),
+                tags=list(matchup.tags),
+            )
+            for matchup in filtered_matchups
+        ],
+        default_games=stage.games_per_matchup,
+        default_max_plies=stage.max_plies,
+        default_initial_fens=list(arena_spec.default_initial_fens),
+        round_robin_swap_colors=arena_spec.round_robin_swap_colors,
+        include_self_matches=arena_spec.include_self_matches,
+        metadata={
+            **arena_spec.metadata,
+            "curriculum_plan": plan.name,
+            "curriculum_stage": stage.name,
+            "stage_tags": list(stage.tags),
+        },
+    )
 
 
 def build_phase9_expanded_curriculum_plan(
