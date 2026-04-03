@@ -303,13 +303,14 @@ Result on `1,024` held-out planner examples:
 - expanded-data `set_v2`: `root_top1_accuracy=0.798828`, `MRR=0.87972`
 - expanded-data `set_v2_wide`: `root_top1_accuracy=0.790039`, `MRR=0.874837`
 - expanded-data `set_v5`: `root_top1_accuracy=0.798828`, `MRR=0.880534`
+- `10k + 122k`-only expanded `set_v2`: `root_top1_accuracy=0.819336`, `MRR=0.889811`
 
 The important current conclusion is:
 
 - more mixed workflow data helps the three-tier training/validation picture
-- but on the preferred `10k + 122k` validation slice, the older two-tier `set_v2` reference still remains best
+- but the real gain on the preferred `10k + 122k` validation slice came only after removing the `400k` tier again during planner training
 - wider `set_v2` does not help
-- `set_v5` becomes competitive again on the filtered slice, but still does not clearly beat the older two-tier `set_v2`
+- `set_v5` becomes competitive again on the filtered slice, but still does not beat the new `10k + 122k`-only expanded `set_v2`
 
 These are still bounded offline planner artifacts, not runtime search, but Phase 8 is now far enough along to separate data-scale effects from real planner-contract or architecture effects.
 

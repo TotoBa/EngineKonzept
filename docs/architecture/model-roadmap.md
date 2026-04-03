@@ -321,8 +321,13 @@ The expanded-data planner reruns refine that again:
   - `set_v2_expanded`: `top1=0.798828`, `MRR=0.87972`
   - `set_v2_wide_expanded`: `top1=0.790039`, `MRR=0.874837`
   - `set_v5_expanded`: `top1=0.798828`, `MRR=0.880534`
+  - `set_v2_10k_122k_expanded`: `top1=0.819336`, `MRR=0.889811`
 
-So the next Planner lever is not "more width". The open question is whether the filtered `10k + 122k` workflow needs better targets and contracts rather than more mixed `400k` data.
+So the next Planner lever is not "more width". The new evidence says:
+
+- stronger `10k + 122k` workflow material does help
+- mixing the `400k` tier into planner training did not help the preferred filtered slice
+- the next open question is now whether better latent-state integration or better teacher targets can move this stronger filtered `set_v2` reference again
 
 ## Deferred Architecture Ideas
 

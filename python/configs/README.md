@@ -107,5 +107,7 @@ These remain useful as small-corpus regression baselines, but they are no longer
   Wider expanded-data follow-up. Useful as the current negative width reference; it does not improve over the narrower expanded `set_v2`.
 - [phase8_planner_corpus_suite_set_v5_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v5_expanded_v1.json)
   Expanded-data multi-head self-attention planner arm. It becomes competitive again on the filtered `10k + 122k` slice, but still does not clearly beat the older two-tier `set_v2` reference.
+- [phase8_planner_corpus_suite_set_v2_10k_122k_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v2_10k_122k_expanded_v1.json)
+  Current preferred filtered Phase-8 follow-up. Reuses the stronger expanded workflow material on just the `10k + 122k` tiers and is the first rerun that improves the preferred filtered planner metrics over the older two-tier `set_v2` reference.
 - [phase8_planner_corpus_suite_set_v3_two_tier_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v3_two_tier_v1.json)
   First latent-state planner follow-up on the filtered `10k + 122k` workflow slice. Useful as the current negative reference for planner-facing Phase-6 latent integration; it does not beat `set_v2` on that slice.

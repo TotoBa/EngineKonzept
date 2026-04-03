@@ -164,18 +164,19 @@ The repo now also has a filtered comparison of the expanded-data planner reruns 
 - expanded-data `set_v2`: `root_top1_accuracy=0.798828`, `MRR=0.87972`
 - expanded-data `set_v2_wide`: `root_top1_accuracy=0.790039`, `MRR=0.874837`
 - expanded-data `set_v5`: `root_top1_accuracy=0.798828`, `MRR=0.880534`
+- `10k + 122k`-only expanded `set_v2`: `root_top1_accuracy=0.819336`, `MRR=0.889811`
 
 This is the current important Phase-8 conclusion:
 
 - more mixed three-tier data helps the global training and validation story
-- but on the preferred `10k + 122k` slice, the old two-tier `set_v2` reference is still best
+- but on the preferred `10k + 122k` slice, the actual win comes from stronger `10k + 122k` workflow material without the `400k` tier mixed into planner training
 - increasing width does not help
-- `set_v5` re-enters the conversation on the filtered slice, but not strongly enough to replace `set_v2`
+- `set_v5` re-enters the conversation on the filtered slice, but not strongly enough to replace the new `10k + 122k`-only `set_v2` rerun
 
 ## Next pressure
 
 The next useful Phase-8 steps are now:
 
-1. rerun the best planner contract on stronger `10k + 122k`-only workflow material instead of assuming the `400k` tier helps the filtered slice
+1. re-test planner-facing latent-state or contract upgrades on top of the new `10k + 122k`-only `set_v2` reference
 2. decide whether latent planner state needs a richer contract or a different integration path before it can help
 3. only then revisit richer bounded recurrence over the same exact candidate slice

@@ -72,5 +72,6 @@ Expanded filtered `10k + 122k` comparison:
 - expanded `set_v2`: `0.798828`, `MRR=0.87972`
 - expanded `set_v2_wide`: `0.790039`, `MRR=0.874837`
 - expanded `set_v5`: `0.798828`, `MRR=0.880534`
+- `10k + 122k`-only expanded `set_v2`: `0.819336`, `MRR=0.889811`
 
-So the expanded three-tier rerun helps the mixed full-suite training picture, but the preferred filtered slice still prefers the older two-tier `set_v2` reference.
+So the expanded three-tier rerun helps the mixed full-suite training picture, but the best filtered result now comes from the stronger `10k + 122k`-only `set_v2` rerun.
