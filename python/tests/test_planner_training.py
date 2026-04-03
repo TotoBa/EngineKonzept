@@ -43,6 +43,7 @@ def test_load_planner_train_config_accepts_set_v6(tmp_path: Path) -> None:
                     "teacher_policy_loss_weight": 1.0,
                     "teacher_kl_loss_weight": 0.25,
                     "teacher_score_loss_weight": 0.1,
+                    "teacher_margin_loss_weight": 0.1,
                     "root_value_loss_weight": 0.1,
                     "root_gap_loss_weight": 0.05,
                 },
@@ -60,6 +61,7 @@ def test_load_planner_train_config_accepts_set_v6(tmp_path: Path) -> None:
     assert config.model.latent_feature_dim == 8
     assert config.runtime.torch_threads == 1
     assert config.optimization.teacher_score_loss_weight == 0.1
+    assert config.optimization.teacher_margin_loss_weight == 0.1
     assert config.optimization.root_value_loss_weight == 0.1
 
 
@@ -241,6 +243,7 @@ def test_train_and_evaluate_planner_checkpoint_with_score_aux(tmp_path: Path) ->
                     "teacher_policy_loss_weight": 1.0,
                     "teacher_kl_loss_weight": 0.25,
                     "teacher_score_loss_weight": 0.1,
+                    "teacher_margin_loss_weight": 0.1,
                     "curriculum_priority_weight": 0.1,
                     "root_value_loss_weight": 0.1,
                     "root_gap_loss_weight": 0.1,
@@ -265,6 +268,8 @@ def test_train_and_evaluate_planner_checkpoint_with_score_aux(tmp_path: Path) ->
     assert metrics.total_examples == 1
     assert metrics.teacher_score_loss >= 0.0
     assert metrics.teacher_score_mae_cp >= 0.0
+    assert metrics.teacher_margin_loss >= 0.0
+    assert metrics.teacher_margin_mae_cp >= 0.0
 
 
 def test_set_v1_ignores_latent_features_in_artifacts(tmp_path: Path) -> None:

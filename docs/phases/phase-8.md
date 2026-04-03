@@ -230,3 +230,10 @@ So the richer score-target arm is real and competitive:
 - it gives back a small amount of `top1`
 - `set_v2_10k_122k_expanded` therefore remains the preferred Phase-8 reference
 - `set_v6_10k_122k_expanded` stays as the first useful score-aux experimental arm
+
+The next narrower follow-up is now prepared as well:
+
+- keep the same `set_v6` backbone
+- keep the filtered `10k + 122k` suite
+- reduce raw bounded score-regression pressure
+- add explicit `top1-vs-top2/top3` margin supervision over the bounded candidate slice

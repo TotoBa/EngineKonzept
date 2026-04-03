@@ -611,6 +611,7 @@ class PlannerOptimizationConfig:
     teacher_policy_loss_weight: float = 1.0
     teacher_kl_loss_weight: float = 0.25
     teacher_score_loss_weight: float = 0.0
+    teacher_margin_loss_weight: float = 0.0
     curriculum_priority_weight: float = 0.0
     root_value_loss_weight: float = 0.0
     root_gap_loss_weight: float = 0.0
@@ -630,6 +631,8 @@ class PlannerOptimizationConfig:
             raise ValueError("optimization.teacher_kl_loss_weight must be non-negative")
         if self.teacher_score_loss_weight < 0.0:
             raise ValueError("optimization.teacher_score_loss_weight must be non-negative")
+        if self.teacher_margin_loss_weight < 0.0:
+            raise ValueError("optimization.teacher_margin_loss_weight must be non-negative")
         if self.curriculum_priority_weight < 0.0:
             raise ValueError("optimization.curriculum_priority_weight must be non-negative")
         if self.root_value_loss_weight < 0.0:
