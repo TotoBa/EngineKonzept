@@ -6,7 +6,11 @@ import argparse
 import json
 from pathlib import Path
 
-from train.eval.planner_runtime import build_planner_runtime
+from train.eval.agent_spec import load_selfplay_agent_spec
+from train.eval.planner_runtime import (
+    build_planner_runtime,
+    build_planner_runtime_from_spec,
+)
 from train.eval.selfplay import STARTING_FEN, run_selfplay_session
 
 
@@ -30,37 +34,47 @@ def main() -> int:
     parser.add_argument("--games", type=int, default=1)
     parser.add_argument("--max-plies", type=int, default=32)
     parser.add_argument("--initial-fen", action="append", default=[])
+    parser.add_argument("--white-agent-spec", type=Path)
+    parser.add_argument("--black-agent-spec", type=Path)
     parser.add_argument("--output-path", type=Path, required=True)
     args = parser.parse_args()
 
-    white_agent = build_planner_runtime(
-        name="white",
-        proposer_checkpoint=_resolve_repo_path(args.proposer_checkpoint),
-        planner_checkpoint=_optional_repo_path(args.planner_checkpoint),
-        opponent_checkpoint=_optional_repo_path(args.opponent_checkpoint),
-        dynamics_checkpoint=_optional_repo_path(args.dynamics_checkpoint),
-        opponent_mode=args.opponent_mode,
-        root_top_k=args.root_top_k,
-        repo_root=REPO_ROOT,
-    )
-    black_agent = build_planner_runtime(
-        name="black",
-        proposer_checkpoint=_resolve_repo_path(
-            args.black_proposer_checkpoint or args.proposer_checkpoint
-        ),
-        planner_checkpoint=_optional_repo_path(
-            args.black_planner_checkpoint or args.planner_checkpoint
-        ),
-        opponent_checkpoint=_optional_repo_path(
-            args.black_opponent_checkpoint or args.opponent_checkpoint
-        ),
-        dynamics_checkpoint=_optional_repo_path(
-            args.black_dynamics_checkpoint or args.dynamics_checkpoint
-        ),
-        opponent_mode=args.black_opponent_mode or args.opponent_mode,
-        root_top_k=args.black_root_top_k or args.root_top_k,
-        repo_root=REPO_ROOT,
-    )
+    if args.white_agent_spec is not None:
+        white_spec = load_selfplay_agent_spec(_resolve_repo_path(args.white_agent_spec))
+        white_agent = build_planner_runtime_from_spec(white_spec, repo_root=REPO_ROOT)
+    else:
+        white_agent = build_planner_runtime(
+            name="white",
+            proposer_checkpoint=_resolve_repo_path(args.proposer_checkpoint),
+            planner_checkpoint=_optional_repo_path(args.planner_checkpoint),
+            opponent_checkpoint=_optional_repo_path(args.opponent_checkpoint),
+            dynamics_checkpoint=_optional_repo_path(args.dynamics_checkpoint),
+            opponent_mode=args.opponent_mode,
+            root_top_k=args.root_top_k,
+            repo_root=REPO_ROOT,
+        )
+    if args.black_agent_spec is not None:
+        black_spec = load_selfplay_agent_spec(_resolve_repo_path(args.black_agent_spec))
+        black_agent = build_planner_runtime_from_spec(black_spec, repo_root=REPO_ROOT)
+    else:
+        black_agent = build_planner_runtime(
+            name="black",
+            proposer_checkpoint=_resolve_repo_path(
+                args.black_proposer_checkpoint or args.proposer_checkpoint
+            ),
+            planner_checkpoint=_optional_repo_path(
+                args.black_planner_checkpoint or args.planner_checkpoint
+            ),
+            opponent_checkpoint=_optional_repo_path(
+                args.black_opponent_checkpoint or args.opponent_checkpoint
+            ),
+            dynamics_checkpoint=_optional_repo_path(
+                args.black_dynamics_checkpoint or args.dynamics_checkpoint
+            ),
+            opponent_mode=args.black_opponent_mode or args.opponent_mode,
+            root_top_k=args.black_root_top_k or args.root_top_k,
+            repo_root=REPO_ROOT,
+        )
     initial_fens = args.initial_fen or [STARTING_FEN]
     session = run_selfplay_session(
         white_agent=white_agent,

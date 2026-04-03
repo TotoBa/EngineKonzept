@@ -1,0 +1,16 @@
+{
+  "entry_count": 8,
+  "game_count": 1,
+  "mean_considered_candidate_count": 4.0,
+  "mean_game_move_count": 8.0,
+  "outcome_counts": {
+    "unfinished": 8
+  },
+  "selector_counts": {
+    "black": 4,
+    "white": 4
+  },
+  "termination_counts": {
+    "max_plies": 8
+  }
+}

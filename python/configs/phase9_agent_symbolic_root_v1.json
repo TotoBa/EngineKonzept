@@ -1,0 +1,18 @@
+{
+  "metadata": {
+    "role": "baseline",
+    "stack": "symbolic_root_only"
+  },
+  "name": "symbolic_root_v1",
+  "opponent_checkpoint": null,
+  "opponent_mode": "none",
+  "planner_checkpoint": null,
+  "proposer_checkpoint": "models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+  "root_top_k": 1,
+  "spec_version": 1,
+  "tags": [
+    "baseline",
+    "phase9"
+  ],
+  "dynamics_checkpoint": null
+}

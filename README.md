@@ -332,10 +332,11 @@ These are still bounded offline planner artifacts, not runtime search, but Phase
 
 The repository now also has the first small exact selfplay loop:
 
-- runtime helpers: [planner_runtime.py](/home/torsten/EngineKonzept/python/train/eval/planner_runtime.py), [selfplay.py](/home/torsten/EngineKonzept/python/train/eval/selfplay.py)
-- script entry point: [run_selfplay.py](/home/torsten/EngineKonzept/python/scripts/run_selfplay.py)
+- runtime helpers: [planner_runtime.py](/home/torsten/EngineKonzept/python/train/eval/planner_runtime.py), [agent_spec.py](/home/torsten/EngineKonzept/python/train/eval/agent_spec.py), [selfplay.py](/home/torsten/EngineKonzept/python/train/eval/selfplay.py)
+- script entry points: [run_selfplay.py](/home/torsten/EngineKonzept/python/scripts/run_selfplay.py), [build_replay_buffer.py](/home/torsten/EngineKonzept/python/scripts/build_replay_buffer.py)
 - phase note: [phase-9.md](/home/torsten/EngineKonzept/docs/phases/phase-9.md)
 - first probe artifact: [selfplay_set_v2_probe_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/selfplay_set_v2_probe_v1.json)
+- first replay artifact: [replay_buffer_set_v2_probe_v1.jsonl](/home/torsten/EngineKonzept/artifacts/phase9/replay_buffer_set_v2_probe_v1.jsonl)
 
 Current first probe:
 
@@ -344,7 +345,7 @@ Current first probe:
 - `8` legal plies
 - termination reason: `max_plies`
 
-That means Phase 9 is now started as real code and a real artifact, but it is still only a small reproducible probe, not yet replay buffering, curriculum, or a checkpoint arena.
+That means Phase 9 now has a real small probe and a real replay-buffer contract, but it is still pre-arena and pre-curriculum.
 
 ## Repository Layout
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass
+import json
 from pathlib import Path
 from typing import Callable, Protocol, Sequence
 
@@ -65,6 +66,25 @@ class SelfplayMoveRecord:
             "next_fen": self.next_fen,
         }
 
+    @classmethod
+    def from_dict(cls, payload: dict[str, object]) -> "SelfplayMoveRecord":
+        return cls(
+            ply_index=int(payload["ply_index"]),
+            side_to_move=str(payload["side_to_move"]),
+            fen=str(payload["fen"]),
+            move_uci=str(payload["move_uci"]),
+            action_index=int(payload["action_index"]),
+            selector_name=str(payload["selector_name"]),
+            legal_candidate_count=int(payload["legal_candidate_count"]),
+            considered_candidate_count=int(payload["considered_candidate_count"]),
+            proposer_score=float(payload["proposer_score"]),
+            planner_score=float(payload["planner_score"]),
+            reply_peak_probability=float(payload["reply_peak_probability"]),
+            pressure=float(payload["pressure"]),
+            uncertainty=float(payload["uncertainty"]),
+            next_fen=str(payload["next_fen"]),
+        )
+
 
 @dataclass(frozen=True)
 class SelfplayGameRecord:
@@ -93,6 +113,23 @@ class SelfplayGameRecord:
             "moves": [move.to_dict() for move in self.moves],
         }
 
+    @classmethod
+    def from_dict(cls, payload: dict[str, object]) -> "SelfplayGameRecord":
+        return cls(
+            game_id=str(payload["game_id"]),
+            initial_fen=str(payload["initial_fen"]),
+            final_fen=str(payload["final_fen"]),
+            result=str(payload["result"]),
+            termination_reason=str(payload["termination_reason"]),
+            move_count=int(payload["move_count"]),
+            white_agent=str(payload["white_agent"]),
+            black_agent=str(payload["black_agent"]),
+            moves=[
+                SelfplayMoveRecord.from_dict(dict(move))
+                for move in list(payload["moves"])
+            ],
+        )
+
 
 @dataclass(frozen=True)
 class SelfplaySessionRecord:
@@ -114,6 +151,22 @@ class SelfplaySessionRecord:
             "aggregate": aggregate,
             "games": [game.to_dict() for game in self.games],
         }
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, object]) -> "SelfplaySessionRecord":
+        return cls(
+            games=[
+                SelfplayGameRecord.from_dict(dict(game))
+                for game in list(payload["games"])
+            ]
+        )
+
+    @classmethod
+    def from_json(cls, raw_json: str) -> "SelfplaySessionRecord":
+        payload = json.loads(raw_json)
+        if not isinstance(payload, dict):
+            raise ValueError("selfplay session must be a JSON object")
+        return cls.from_dict(payload)
 
 
 def play_selfplay_game(

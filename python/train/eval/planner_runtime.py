@@ -16,6 +16,7 @@ from train.datasets import (
 from train.datasets.oracle import label_records_with_oracle
 from train.datasets.schema import DatasetExample, RawPositionRecord
 from train.eval.dynamics import load_dynamics_checkpoint, predict_dynamics_latent
+from train.eval.agent_spec import SelfplayAgentSpec, load_selfplay_agent_spec
 from train.eval.opponent import load_opponent_head_checkpoint, score_opponent_candidates
 from train.eval.symbolic_proposer import (
     load_symbolic_proposer_checkpoint,
@@ -279,6 +280,34 @@ def build_planner_runtime(
     )
 
 
+def build_planner_runtime_from_spec(
+    spec: SelfplayAgentSpec,
+    *,
+    repo_root: Path,
+) -> LoadedPlannerRuntime:
+    """Load an exact-candidate runtime stack from a versioned agent spec."""
+    return build_planner_runtime(
+        name=spec.name,
+        proposer_checkpoint=_resolve_repo_path(repo_root, spec.proposer_checkpoint),
+        planner_checkpoint=_optional_repo_path(repo_root, spec.planner_checkpoint),
+        opponent_checkpoint=_optional_repo_path(repo_root, spec.opponent_checkpoint),
+        dynamics_checkpoint=_optional_repo_path(repo_root, spec.dynamics_checkpoint),
+        opponent_mode=spec.opponent_mode,
+        root_top_k=spec.root_top_k,
+        repo_root=repo_root,
+    )
+
+
+def load_planner_runtime_from_spec_path(
+    spec_path: Path,
+    *,
+    repo_root: Path,
+) -> LoadedPlannerRuntime:
+    """Load an exact-candidate runtime stack from a JSON spec file."""
+    spec = load_selfplay_agent_spec(spec_path)
+    return build_planner_runtime_from_spec(spec, repo_root=repo_root)
+
+
 def _build_candidate_rows(
     example: DatasetExample,
     *,
@@ -477,6 +506,17 @@ def _pressure_from_candidate_features(candidate_features: Sequence[float]) -> fl
     ):
         return 0.5
     return 0.0
+
+
+def _resolve_repo_path(repo_root: Path, raw_path: str) -> Path:
+    path = Path(raw_path)
+    return path if path.is_absolute() else repo_root / path
+
+
+def _optional_repo_path(repo_root: Path, raw_path: str | None) -> Path | None:
+    if raw_path is None:
+        return None
+    return _resolve_repo_path(repo_root, raw_path)
 
 
 def _score_planner_rows(

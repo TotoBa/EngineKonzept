@@ -15,10 +15,13 @@ The phase boundary stays strict:
 The repository now has the first small selfplay loop in Python:
 
 - [planner_runtime.py](/home/torsten/EngineKonzept/python/train/eval/planner_runtime.py)
+- [agent_spec.py](/home/torsten/EngineKonzept/python/train/eval/agent_spec.py)
 - [selfplay.py](/home/torsten/EngineKonzept/python/train/eval/selfplay.py)
 - [run_selfplay.py](/home/torsten/EngineKonzept/python/scripts/run_selfplay.py)
+- [build_replay_buffer.py](/home/torsten/EngineKonzept/python/scripts/build_replay_buffer.py)
 - [README.md](/home/torsten/EngineKonzept/artifacts/phase9/README.md)
 - [selfplay_set_v2_probe_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/selfplay_set_v2_probe_v1.json)
+- [replay_buffer_set_v2_probe_v1.jsonl](/home/torsten/EngineKonzept/artifacts/phase9/replay_buffer_set_v2_probe_v1.jsonl)
 
 This first implementation is intentionally small and contract-first:
 
@@ -33,8 +36,10 @@ This first implementation is intentionally small and contract-first:
 - supports proposer-only play
 - supports bounded planner-guided play over the same exact root candidate set
 - supports optional learned opponent and dynamics checkpoints when the chosen planner contract needs them
+- supports versioned JSON agent specs so future arm changes do not require another bespoke CLI layer
 - supports different white and black agents for later checkpoint-vs-checkpoint work
 - writes reproducible JSON session artifacts
+- can flatten finished sessions into replay-buffer rows for later training and curriculum use
 
 ## What it does not do yet
 
@@ -43,6 +48,8 @@ This first implementation is intentionally small and contract-first:
 - no checkpoint arena
 - no Rust selfplay runtime yet
 - no recurrent planner-memory training loop on top of selfplay data yet
+
+The replay-buffer layer now exists, but the arena and curriculum layers do not yet.
 
 ## Why this shape
 
@@ -80,4 +87,20 @@ Observed result:
 - termination reason: `max_plies`
 - the loop stayed entirely within the exact symbolic legality contract
 
-So Phase 9 is now real code with a real artifact, but still only a first reproducible probe.
+The first replay-buffer follow-up is now also materialized:
+
+- agent specs:
+  - [phase9_agent_symbolic_root_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_symbolic_root_v1.json)
+  - [phase9_agent_planner_set_v2_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v2_v1.json)
+- replay artifact:
+  - [replay_buffer_set_v2_probe_v1.jsonl](/home/torsten/EngineKonzept/artifacts/phase9/replay_buffer_set_v2_probe_v1.jsonl)
+- replay summary:
+  - [replay_buffer_set_v2_probe_v1.summary.json](/home/torsten/EngineKonzept/artifacts/phase9/replay_buffer_set_v2_probe_v1.summary.json)
+
+That means Phase 9 now has:
+
+- a stable agent-spec contract
+- a stable session contract
+- a stable replay-buffer contract
+
+before arena and curriculum are added.

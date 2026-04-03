@@ -1,4 +1,4 @@
-"""Evaluation helpers for offline workflow and baseline measurements."""
+"""Evaluation helpers for offline workflow, selfplay, and baseline measurements."""
 
 from __future__ import annotations
 
@@ -53,20 +53,26 @@ def __getattr__(name: str) -> Any:
         "PlannerRootDecision",
         "LoadedPlannerRuntime",
         "build_planner_runtime",
+        "build_planner_runtime_from_spec",
         "load_planner_head_checkpoint",
+        "load_planner_runtime_from_spec_path",
     }:
         from train.eval.planner_runtime import (
             LoadedPlannerRuntime,
             PlannerRootDecision,
             build_planner_runtime,
+            build_planner_runtime_from_spec,
             load_planner_head_checkpoint,
+            load_planner_runtime_from_spec_path,
         )
 
         return {
             "PlannerRootDecision": PlannerRootDecision,
             "LoadedPlannerRuntime": LoadedPlannerRuntime,
             "build_planner_runtime": build_planner_runtime,
+            "build_planner_runtime_from_spec": build_planner_runtime_from_spec,
             "load_planner_head_checkpoint": load_planner_head_checkpoint,
+            "load_planner_runtime_from_spec_path": load_planner_runtime_from_spec_path,
         }[name]
     if name in {"STARTING_FEN", "SelfplayGameRecord", "SelfplaySessionRecord", "play_selfplay_game", "run_selfplay_session"}:
         from train.eval.selfplay import (
@@ -83,6 +89,18 @@ def __getattr__(name: str) -> Any:
             "SelfplaySessionRecord": SelfplaySessionRecord,
             "play_selfplay_game": play_selfplay_game,
             "run_selfplay_session": run_selfplay_session,
+        }[name]
+    if name in {"SelfplayAgentSpec", "load_selfplay_agent_spec", "write_selfplay_agent_spec"}:
+        from train.eval.agent_spec import (
+            SelfplayAgentSpec,
+            load_selfplay_agent_spec,
+            write_selfplay_agent_spec,
+        )
+
+        return {
+            "SelfplayAgentSpec": SelfplayAgentSpec,
+            "load_selfplay_agent_spec": load_selfplay_agent_spec,
+            "write_selfplay_agent_spec": write_selfplay_agent_spec,
         }[name]
     if name in {"load_dynamics_checkpoint", "predict_dynamics_latent"}:
         from train.eval.dynamics import (
@@ -103,18 +121,23 @@ __all__ = [
     "PlannerBaselineMetrics",
     "PlannerRootDecision",
     "STARTING_FEN",
+    "SelfplayAgentSpec",
     "SelfplayGameRecord",
     "SelfplaySessionRecord",
     "build_planner_runtime",
+    "build_planner_runtime_from_spec",
     "evaluate_symbolic_opponent_baseline",
     "evaluate_two_ply_planner_baseline",
     "load_dynamics_checkpoint",
     "load_opponent_head_checkpoint",
     "load_planner_head_checkpoint",
+    "load_planner_runtime_from_spec_path",
+    "load_selfplay_agent_spec",
     "load_symbolic_proposer_checkpoint",
     "play_selfplay_game",
     "predict_dynamics_latent",
     "run_selfplay_session",
     "score_opponent_candidates",
     "score_symbolic_candidates",
+    "write_selfplay_agent_spec",
 ]

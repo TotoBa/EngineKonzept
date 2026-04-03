@@ -121,3 +121,10 @@ These remain useful as small-corpus regression baselines, but they are no longer
   Next filtered same-backbone follow-up over the same `10k + 122k` slice. It keeps `set_v6`, lowers the raw score-regression weight further, and replaces the most aggressive score shaping with a discrete bounded candidate rank-bucket auxiliary target over `top1`, `top2/top3`, and `tail`. It is a useful contract experiment, but it underperforms `set_v2` and the earlier score-aux `set_v6` on held-out planner ranking.
 - [phase8_planner_corpus_suite_recurrent_v1_10k_122k_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_recurrent_v1_10k_122k_expanded_v1.json)
   First bounded recurrent planner follow-up on the same filtered `10k + 122k` slice. It keeps the existing planner-head contract intact and adds small configurable `memory_slots` plus `deliberation_steps`, so recurrence can be tested without another workflow-schema break. The first held-out rerun makes recurrence a real reusable capability, but it does not beat the filtered `set_v2` reference on `top1` or `MRR`.
+
+## Phase 9 Agent Specs
+
+- [phase9_agent_symbolic_root_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_symbolic_root_v1.json)
+  Minimal symbolic root-only selfplay baseline. Useful as the simplest exact legal-move selector in later arena or regression runs.
+- [phase9_agent_planner_set_v2_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v2_v1.json)
+  Current preferred small selfplay agent. Uses the official symbolic proposer, the learned `OpponentHeadV1` default, and the bounded `set_v2_10k_122k_expanded` planner.
