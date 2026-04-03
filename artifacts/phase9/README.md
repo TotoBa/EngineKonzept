@@ -10,6 +10,8 @@ Current contents:
   [replay_buffer_set_v2_probe_v1.jsonl](/home/torsten/EngineKonzept/artifacts/phase9/replay_buffer_set_v2_probe_v1.jsonl)
 - first replay-buffer summary:
   [replay_buffer_set_v2_probe_v1.summary.json](/home/torsten/EngineKonzept/artifacts/phase9/replay_buffer_set_v2_probe_v1.summary.json)
+- first arena summary:
+  [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/arena_active_probe_v1/summary.json)
 
 Current probe summary:
 
@@ -20,7 +22,7 @@ Current probe summary:
 - `8` legal plies
 - termination reason: `max_plies`
 
-This is a reproducible Phase-9 probe, not yet a replay buffer, arena, or curriculum dataset.
+This is a reproducible Phase-9 probe, not yet a curriculum dataset.
 
 The new replay-buffer artifact is the first derived training-facing Phase-9 artifact. It flattens the exact selfplay session into one JSONL row per ply while keeping:
 
@@ -28,3 +30,10 @@ The new replay-buffer artifact is the first derived training-facing Phase-9 arti
 - selected move/action
 - bounded planner-side diagnostic scalars
 - final game outcome from the mover point of view
+
+The first arena artifact proves the same session and agent contracts can already drive checkpoint-vs-checkpoint evaluation:
+
+- ordered color-swapped round-robin
+- versioned agent specs
+- versioned arena suite spec
+- per-matchup session JSON plus aggregate summary

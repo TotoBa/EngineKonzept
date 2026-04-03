@@ -128,3 +128,18 @@ These remain useful as small-corpus regression baselines, but they are no longer
   Minimal symbolic root-only selfplay baseline. Useful as the simplest exact legal-move selector in later arena or regression runs.
 - [phase9_agent_planner_set_v2_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v2_v1.json)
   Current preferred small selfplay agent. Uses the official symbolic proposer, the learned `OpponentHeadV1` default, and the bounded `set_v2_10k_122k_expanded` planner.
+- [phase9_agent_planner_set_v6_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v6_v1.json)
+  Experimental score-aux selfplay agent over the same symbolic proposer and learned opponent contract.
+- [phase9_agent_planner_set_v6_margin_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v6_margin_v1.json)
+  Experimental margin-aux selfplay agent.
+- [phase9_agent_planner_set_v6_rank_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v6_rank_v1.json)
+  Experimental rank-bucket selfplay agent.
+- [phase9_agent_planner_recurrent_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_recurrent_v1.json)
+  Experimental recurrent selfplay agent over the same bounded planner contract.
+
+## Phase 9 Arena Specs
+
+- [phase9_arena_active_probe_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_probe_v1.json)
+  Small reproducible active-only probe. Runs a color-swapped round-robin between the bounded `set_v2` agent and the symbolic root baseline.
+- [phase9_arena_active_experimental_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_experimental_v1.json)
+  Main future-facing Phase-9 arena suite. It keeps the contract versioned and lists the active plus experimental planner arms so later selfplay reruns can start without another orchestration rewrite.

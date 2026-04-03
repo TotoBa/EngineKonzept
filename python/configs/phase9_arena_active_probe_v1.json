@@ -1,0 +1,20 @@
+{
+  "agent_specs": {
+    "planner_set_v2_v1": "python/configs/phase9_agent_planner_set_v2_v1.json",
+    "symbolic_root_v1": "python/configs/phase9_agent_symbolic_root_v1.json"
+  },
+  "default_games": 1,
+  "default_initial_fens": [
+    "startpos"
+  ],
+  "default_max_plies": 8,
+  "include_self_matches": false,
+  "matchups": [],
+  "metadata": {
+    "purpose": "small reproducible phase9 arena probe"
+  },
+  "name": "phase9_active_probe_v1",
+  "round_robin_swap_colors": true,
+  "schedule_mode": "round_robin",
+  "spec_version": 1
+}

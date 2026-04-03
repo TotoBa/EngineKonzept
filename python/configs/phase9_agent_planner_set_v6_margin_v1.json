@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "role": "experimental",
+    "stack": "symbolic_proposer + learned_opponent + bounded_planner_set_v6_margin"
+  },
+  "name": "planner_set_v6_margin_v1",
+  "opponent_checkpoint": "models/opponent/corpus_suite_set_v2_v1/checkpoint.pt",
+  "opponent_mode": "learned",
+  "planner_checkpoint": "models/planner/corpus_suite_set_v6_margin_10k_122k_expanded_v1/checkpoint.pt",
+  "proposer_checkpoint": "models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+  "root_top_k": 4,
+  "spec_version": 1,
+  "tags": [
+    "experimental",
+    "phase8_margin_aux",
+    "phase9"
+  ],
+  "dynamics_checkpoint": null
+}

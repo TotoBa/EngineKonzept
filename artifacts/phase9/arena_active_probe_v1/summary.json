@@ -1,0 +1,65 @@
+{
+  "aggregate": {
+    "game_count": 2,
+    "matchup_count": 2,
+    "mean_games_per_matchup": 1.0
+  },
+  "arena_name": "phase9_active_probe_v1",
+  "arena_spec_version": 1,
+  "matchups": [
+    {
+      "black_agent": "symbolic_root_v1",
+      "black_score": 0.5,
+      "game_count": 1,
+      "mean_move_count": 8.0,
+      "name": "planner_set_v2_v1_vs_symbolic_root_v1",
+      "result_counts": {
+        "*": 1
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_probe_v1/sessions/01_planner_set_v2_v1_vs_symbolic_root_v1.json",
+      "termination_counts": {
+        "max_plies": 1
+      },
+      "white_agent": "planner_set_v2_v1",
+      "white_score": 0.5
+    },
+    {
+      "black_agent": "planner_set_v2_v1",
+      "black_score": 0.5,
+      "game_count": 1,
+      "mean_move_count": 8.0,
+      "name": "symbolic_root_v1_vs_planner_set_v2_v1",
+      "result_counts": {
+        "*": 1
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_probe_v1/sessions/02_symbolic_root_v1_vs_planner_set_v2_v1.json",
+      "termination_counts": {
+        "max_plies": 1
+      },
+      "white_agent": "symbolic_root_v1",
+      "white_score": 0.5
+    }
+  ],
+  "metadata": {
+    "purpose": "small reproducible phase9 arena probe"
+  },
+  "schedule_mode": "round_robin",
+  "standings": {
+    "planner_set_v2_v1": {
+      "draws": 0,
+      "games": 2,
+      "losses": 0,
+      "score": 1.0,
+      "unfinished": 2,
+      "wins": 0
+    },
+    "symbolic_root_v1": {
+      "draws": 0,
+      "games": 2,
+      "losses": 0,
+      "score": 1.0,
+      "unfinished": 2,
+      "wins": 0
+    }
+  }
+}

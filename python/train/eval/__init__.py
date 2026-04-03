@@ -102,6 +102,28 @@ def __getattr__(name: str) -> Any:
             "load_selfplay_agent_spec": load_selfplay_agent_spec,
             "write_selfplay_agent_spec": write_selfplay_agent_spec,
         }[name]
+    if name in {
+        "SelfplayArenaMatchupSpec",
+        "SelfplayArenaSpec",
+        "load_selfplay_arena_spec",
+        "run_selfplay_arena",
+        "write_selfplay_arena_spec",
+    }:
+        from train.eval.arena import (
+            SelfplayArenaMatchupSpec,
+            SelfplayArenaSpec,
+            load_selfplay_arena_spec,
+            run_selfplay_arena,
+            write_selfplay_arena_spec,
+        )
+
+        return {
+            "SelfplayArenaMatchupSpec": SelfplayArenaMatchupSpec,
+            "SelfplayArenaSpec": SelfplayArenaSpec,
+            "load_selfplay_arena_spec": load_selfplay_arena_spec,
+            "run_selfplay_arena": run_selfplay_arena,
+            "write_selfplay_arena_spec": write_selfplay_arena_spec,
+        }[name]
     if name in {"load_dynamics_checkpoint", "predict_dynamics_latent"}:
         from train.eval.dynamics import (
             load_dynamics_checkpoint,
@@ -122,6 +144,8 @@ __all__ = [
     "PlannerRootDecision",
     "STARTING_FEN",
     "SelfplayAgentSpec",
+    "SelfplayArenaMatchupSpec",
+    "SelfplayArenaSpec",
     "SelfplayGameRecord",
     "SelfplaySessionRecord",
     "build_planner_runtime",
@@ -131,13 +155,16 @@ __all__ = [
     "load_dynamics_checkpoint",
     "load_opponent_head_checkpoint",
     "load_planner_head_checkpoint",
+    "load_selfplay_arena_spec",
     "load_planner_runtime_from_spec_path",
     "load_selfplay_agent_spec",
     "load_symbolic_proposer_checkpoint",
     "play_selfplay_game",
     "predict_dynamics_latent",
+    "run_selfplay_arena",
     "run_selfplay_session",
     "score_opponent_candidates",
     "score_symbolic_candidates",
+    "write_selfplay_arena_spec",
     "write_selfplay_agent_spec",
 ]

@@ -16,12 +16,15 @@ The repository now has the first small selfplay loop in Python:
 
 - [planner_runtime.py](/home/torsten/EngineKonzept/python/train/eval/planner_runtime.py)
 - [agent_spec.py](/home/torsten/EngineKonzept/python/train/eval/agent_spec.py)
+- [arena.py](/home/torsten/EngineKonzept/python/train/eval/arena.py)
 - [selfplay.py](/home/torsten/EngineKonzept/python/train/eval/selfplay.py)
 - [run_selfplay.py](/home/torsten/EngineKonzept/python/scripts/run_selfplay.py)
 - [build_replay_buffer.py](/home/torsten/EngineKonzept/python/scripts/build_replay_buffer.py)
+- [run_selfplay_arena.py](/home/torsten/EngineKonzept/python/scripts/run_selfplay_arena.py)
 - [README.md](/home/torsten/EngineKonzept/artifacts/phase9/README.md)
 - [selfplay_set_v2_probe_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/selfplay_set_v2_probe_v1.json)
 - [replay_buffer_set_v2_probe_v1.jsonl](/home/torsten/EngineKonzept/artifacts/phase9/replay_buffer_set_v2_probe_v1.jsonl)
+- [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/arena_active_probe_v1/summary.json)
 
 This first implementation is intentionally small and contract-first:
 
@@ -43,13 +46,11 @@ This first implementation is intentionally small and contract-first:
 
 ## What it does not do yet
 
-- no replay buffer
 - no curriculum scheduler
-- no checkpoint arena
 - no Rust selfplay runtime yet
 - no recurrent planner-memory training loop on top of selfplay data yet
 
-The replay-buffer layer now exists, but the arena and curriculum layers do not yet.
+The replay-buffer and arena layers now exist, but the curriculum layer does not yet.
 
 ## Why this shape
 
@@ -97,10 +98,30 @@ The first replay-buffer follow-up is now also materialized:
 - replay summary:
   - [replay_buffer_set_v2_probe_v1.summary.json](/home/torsten/EngineKonzept/artifacts/phase9/replay_buffer_set_v2_probe_v1.summary.json)
 
+The first arena follow-up is now also materialized:
+
+- additional agent specs:
+  - [phase9_agent_planner_set_v6_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v6_v1.json)
+  - [phase9_agent_planner_set_v6_margin_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v6_margin_v1.json)
+  - [phase9_agent_planner_set_v6_rank_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v6_rank_v1.json)
+  - [phase9_agent_planner_recurrent_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_recurrent_v1.json)
+- arena specs:
+  - [phase9_arena_active_probe_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_probe_v1.json)
+  - [phase9_arena_active_experimental_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_experimental_v1.json)
+- arena summary:
+  - [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/arena_active_probe_v1/summary.json)
+
+Observed arena probe result:
+
+- `2` games
+- ordered color-swapped round-robin between `planner_set_v2_v1` and `symbolic_root_v1`
+- both games stayed legal and terminated by `max_plies`
+
 That means Phase 9 now has:
 
 - a stable agent-spec contract
 - a stable session contract
 - a stable replay-buffer contract
+- a stable arena-suite contract
 
-before arena and curriculum are added.
+before curriculum is added.
