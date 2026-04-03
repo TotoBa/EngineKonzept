@@ -203,3 +203,9 @@ The first richer-target follow-up is now prepared at the artifact-contract level
 - `PlannerHeadV1` rows can now carry restricted `teacher_candidate_scores_cp` aligned to the bounded candidate slice
 - the field is backward-compatible and remains optional for older artifacts
 - this keeps the current workflow semantics intact while making the next score-aux planner arm possible without another contract break
+
+That richer-target arm is now also prepared at the model/config level:
+
+- planner architecture `set_v6` keeps the current `set_v2` bounded candidate-scoring backbone
+- it adds an auxiliary candidate-score regression head over the same restricted root slice
+- the first intended rerun stays on the preferred filtered expanded `10k + 122k` suite rather than widening back out to the `400k` tier

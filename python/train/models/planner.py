@@ -60,7 +60,7 @@ if torch is not None and nn is not None:
             dropout: float,
         ) -> None:
             super().__init__()
-            if architecture not in {"set_v1", "set_v2", "set_v3", "set_v5"}:
+            if architecture not in {"set_v1", "set_v2", "set_v3", "set_v5", "set_v6"}:
                 raise ValueError(f"unsupported planner architecture: {architecture}")
             self.architecture = architecture
             self.latent_feature_dim = latent_feature_dim
@@ -119,7 +119,7 @@ if torch is not None and nn is not None:
                 nn.ReLU(),
                 nn.Linear(hidden_dim // 2, 1),
             )
-            if architecture in {"set_v2", "set_v3", "set_v5"}:
+            if architecture in {"set_v2", "set_v3", "set_v5", "set_v6"}:
                 self.root_value_head = nn.Sequential(
                     nn.Linear(hidden_dim * 3, hidden_dim),
                     nn.ReLU(),
@@ -132,9 +132,22 @@ if torch is not None and nn is not None:
                     nn.Dropout(dropout) if dropout > 0.0 else nn.Identity(),
                     nn.Linear(hidden_dim, 1),
                 )
+                self.candidate_score_head = (
+                    nn.Sequential(
+                        nn.Linear(hidden_dim * candidate_factor_count, hidden_dim),
+                        nn.ReLU(),
+                        nn.Dropout(dropout) if dropout > 0.0 else nn.Identity(),
+                        nn.Linear(hidden_dim, hidden_dim // 2),
+                        nn.ReLU(),
+                        nn.Linear(hidden_dim // 2, 1),
+                    )
+                    if architecture == "set_v6"
+                    else None
+                )
             else:
                 self.root_value_head = None
                 self.root_gap_head = None
+                self.candidate_score_head = None
 
         def forward(
             self,
@@ -219,10 +232,13 @@ if torch is not None and nn is not None:
                 repeated_summary,
                 candidate_token * repeated_context,
             ]
-            if self.architecture in {"set_v2", "set_v3", "set_v5"}:
+            if self.architecture in {"set_v2", "set_v3", "set_v5", "set_v6"}:
                 candidate_hidden_parts.append(candidate_token * repeated_attended)
             candidate_hidden = torch.cat(candidate_hidden_parts, dim=2)
             logits = self.candidate_mlp(candidate_hidden).squeeze(-1)
+            candidate_score_prediction = None
+            if self.candidate_score_head is not None:
+                candidate_score_prediction = self.candidate_score_head(candidate_hidden).squeeze(-1)
             root_summary = torch.cat([state_hidden, attended, summary], dim=1)
             root_value_prediction = None
             root_gap_prediction = None
@@ -232,6 +248,11 @@ if torch is not None and nn is not None:
                 root_gap_prediction = self.root_gap_head(root_summary).squeeze(-1)
             return {
                 "logits": logits.masked_fill(~candidate_mask, -20.0),
+                "candidate_score_prediction": (
+                    candidate_score_prediction.masked_fill(~candidate_mask, 0.0)
+                    if candidate_score_prediction is not None
+                    else None
+                ),
                 "root_value_prediction": root_value_prediction,
                 "root_gap_prediction": root_gap_prediction,
             }

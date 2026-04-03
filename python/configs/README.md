@@ -113,3 +113,5 @@ These remain useful as small-corpus regression baselines, but they are no longer
   First latent-state planner follow-up on the filtered `10k + 122k` workflow slice. Useful as the current negative reference for planner-facing Phase-6 latent integration; it does not beat `set_v2` on that slice.
 - [phase8_planner_corpus_suite_set_v3_10k_122k_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v3_10k_122k_expanded_v1.json)
   Stronger latent-state follow-up on the filtered expanded `10k + 122k` workflow material. It improves over the older latent `set_v3` baseline, but still does not beat the current filtered `set_v2_10k_122k_expanded` reference on `top1` or `MRR`.
+- [phase8_planner_corpus_suite_set_v6_10k_122k_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v6_10k_122k_expanded_v1.json)
+  Prepared richer-target follow-up on the same filtered expanded `10k + 122k` slice. It keeps the stronger `set_v2` backbone and adds an auxiliary bounded candidate-score regression head fed by restricted `teacher_candidate_scores_cp`.
