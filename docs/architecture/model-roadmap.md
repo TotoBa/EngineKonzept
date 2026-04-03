@@ -298,6 +298,7 @@ Current status:
 - `structured_v6_v1` now consumes `TransitionContextV1` as the first real experimental model arm
 - the first offline `search_teacher_<split>.jsonl` workflow now exists over exact legal candidates
 - the second offline `search_traces_<split>.jsonl` workflow now exists over the same exact legal candidate set plus PV/reply trace data
+- the first `OpponentHeadV1` dataset contract now exists over exact successor states and exact legal replies
 - shipped Rust runtime bundles still validate and execute only the current `CandidateContextV1` scorer path
 - current default large-corpus dynamics bundles still do not consume `TransitionContextV1`
 - that split is intentional until the richer transition contract is rerun and wins on the larger corpus

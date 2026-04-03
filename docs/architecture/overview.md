@@ -71,3 +71,15 @@ The larger merged-unique reruns now show a clearer direction inside the same Pha
 - the large-corpus symbolic-action `structured_v5` rerun is now the best measured Phase-6 path so far
 
 Exact packed next-state accuracy is still `0.0`, so the next pressure is still model quality rather than more plumbing, but the action-conditioned symbolic move-side contract now looks materially more promising than it did on the earlier `10k` corpus alone.
+
+## Phase 7 Preparation
+
+The repository now additionally includes the first explicit Phase-7 dataset contract:
+
+- exact successor-state generation for one chosen root move
+- exact legal reply generation from that successor state
+- symbolic reply-candidate features
+- teacher best-reply supervision
+- first pressure and uncertainty targets
+
+That preparation lives in [opponent.md](/home/torsten/EngineKonzept/docs/architecture/opponent.md) and [phase-7.md](/home/torsten/EngineKonzept/docs/phases/phase-7.md). It is still a dataset and baseline layer, not yet a trained opponent model.

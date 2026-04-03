@@ -165,6 +165,12 @@ The minimum contract should predict:
 - threat or pressure signal
 - uncertainty
 
+Status now:
+
+- the first dataset-level `OpponentHeadV1` contract is implemented
+- it derives exact successor states, exact legal replies, and teacher best-reply labels from the offline workflow layer
+- it is still a dataset/baseline contract, not yet a trained Phase-7 model
+
 The first strong baseline should be:
 
 1. exact apply our move

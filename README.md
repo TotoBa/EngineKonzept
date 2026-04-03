@@ -24,6 +24,7 @@ The repository now covers Phase 6 foundations:
 - a `torch.export` proposer bundle plus Rust-side metadata loading/validation
 - a local-first Unix-domain-socket oracle daemon for faster reproducible dataset builds
 - a first action-conditioned latent dynamics baseline with held-out reconstruction and drift metrics
+- the first explicit Phase-7 dataset contract for opponent-reply supervision
 - CI, lint, and test wiring
 - architecture and phase documentation
 
@@ -91,6 +92,7 @@ For the same categorization on configs, model bundles, and Phase-5 summaries, se
 - [model-roadmap.md](/home/torsten/EngineKonzept/docs/architecture/model-roadmap.md)
 - [contracts.md](/home/torsten/EngineKonzept/docs/architecture/contracts.md)
 - [search-workflows.md](/home/torsten/EngineKonzept/docs/architecture/search-workflows.md)
+- [opponent.md](/home/torsten/EngineKonzept/docs/architecture/opponent.md)
 - [gpt-pro-review-brief.md](/home/torsten/EngineKonzept/docs/experiments/gpt-pro-review-brief.md)
 
 The first architecture-extension notes beyond the flat MLP live in [docs/arch.ideas.md](/home/torsten/EngineKonzept/docs/arch.ideas.md). The current implementation applies only the low-risk part of that direction so far: typed multi-stream fusion before considering any heavier routing or expert machinery.
@@ -195,6 +197,24 @@ The large `merged_unique` reruns change that decision on the `110,570 / 12,286 /
 That makes `dynamics_merged_unique_structured_v5_v1` the new preferred Phase-6 reference. The symbolic selected-move features do not just help one-step reconstruction at this scale; on the larger corpus they also become the best measured drift path so far.
 
 Exact next-state accuracy still remains `0.0`.
+
+## Phase 7 Preparation
+
+The repository does not yet have a trained opponent model, but it now has the first explicit Phase-7 dataset contract:
+
+- architecture note: [opponent.md](/home/torsten/EngineKonzept/docs/architecture/opponent.md)
+- phase note: [phase-7.md](/home/torsten/EngineKonzept/docs/phases/phase-7.md)
+
+The new `OpponentHeadV1` dataset builder derives:
+
+- the teacher-chosen root move
+- the exact successor state after that move
+- the exact legal opponent replies
+- symbolic reply features
+- teacher best-reply supervision
+- first pressure and uncertainty targets
+
+That is the intended bridge between the offline search-workflow layer and an explicit Phase-7 opponent model.
 
 ## Repository Layout
 

@@ -68,6 +68,13 @@ from train.datasets.search_curriculum import (
     search_curriculum_artifact_name,
     write_search_curriculum_artifact,
 )
+from train.datasets.opponent_head import (
+    OpponentHeadExample,
+    build_opponent_head_examples,
+    load_opponent_head_examples,
+    opponent_head_artifact_name,
+    write_opponent_head_artifact,
+)
 from train.datasets.search_traces import (
     SearchTraceExample,
     build_search_trace_example_from_analysis,
@@ -91,6 +98,7 @@ __all__ = [
     "DEFAULT_GLOBAL_CONTEXT_VERSION",
     "DatasetExample",
     "DynamicsTrainingExample",
+    "OpponentHeadExample",
     "POSITION_FEATURE_SIZE",
     "PgnPolicySamplingConfig",
     "ProposerTrainingExample",
@@ -105,6 +113,7 @@ __all__ = [
     "SymbolicProposerTrainingExample",
     "WdlTarget",
     "build_dataset",
+    "build_opponent_head_examples",
     "build_search_curriculum_examples",
     "build_search_disagreement_examples",
     "build_search_teacher_example_from_analysis",
@@ -123,6 +132,7 @@ __all__ = [
     "global_context_spec",
     "load_dataset_examples",
     "load_dynamics_examples",
+    "load_opponent_head_examples",
     "load_proposer_examples",
     "load_raw_records",
     "load_search_curriculum_examples",
@@ -134,6 +144,7 @@ __all__ = [
     "materialize_proposer_artifacts",
     "materialize_symbolic_proposer_artifacts",
     "module_purpose",
+    "opponent_head_artifact_name",
     "pack_position_features",
     "position_feature_spec",
     "proposer_artifact_name",
@@ -151,6 +162,7 @@ __all__ = [
     "transition_context_feature_order",
     "transition_context_spec",
     "verification_split_ratios",
+    "write_opponent_head_artifact",
     "write_search_curriculum_artifact",
     "write_search_disagreement_artifact",
     "write_search_teacher_artifact",

@@ -214,6 +214,13 @@ That keeps the output directly usable for:
 - planner regression suites
 - later curriculum schedulers without re-running search
 
+The first concrete downstream consumer is now the `OpponentHeadV1` dataset workflow:
+
+- it joins root traces with curriculum buckets
+- it exact-applies the teacher root move
+- it exact-generates opponent replies from the successor state
+- it exposes the teacher best reply plus simple pressure and uncertainty targets
+
 ## Baseline Rule For Phase 7
 
 Before a learned opponent head is treated as progress, compare it against one exact symbolic baseline:
