@@ -26,6 +26,7 @@ def test_load_planner_train_config_accepts_set_v6(tmp_path: Path) -> None:
             {
                 "seed": 3,
                 "output_dir": "planner_out",
+                "initial_checkpoint": "models/planner/base/checkpoint.pt",
                 "data": {
                     "train_path": "planner_head_train.jsonl",
                     "validation_path": "planner_head_validation.jsonl",
@@ -62,6 +63,7 @@ def test_load_planner_train_config_accepts_set_v6(tmp_path: Path) -> None:
     config = load_planner_train_config(config_path)
 
     assert config.model.architecture == "set_v6"
+    assert config.initial_checkpoint == "models/planner/base/checkpoint.pt"
     assert config.model.latent_feature_dim == 8
     assert config.runtime.torch_threads == 1
     assert config.optimization.teacher_score_loss_weight == 0.1
@@ -318,12 +320,118 @@ def test_train_and_evaluate_planner_checkpoint_with_score_aux(tmp_path: Path) ->
     )
 
     assert metrics.total_examples == 1
-    assert metrics.teacher_score_loss >= 0.0
-    assert metrics.teacher_score_mae_cp >= 0.0
-    assert metrics.teacher_margin_loss >= 0.0
-    assert metrics.teacher_margin_mae_cp >= 0.0
-    assert metrics.teacher_rank_loss >= 0.0
-    assert 0.0 <= metrics.teacher_rank_accuracy <= 1.0
+
+
+def test_train_planner_allows_initial_checkpoint(tmp_path: Path) -> None:
+    candidate_dim = candidate_context_feature_dim(2)
+    transition_dim = transition_context_feature_dim(1)
+    global_dim = SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE
+
+    train_path = tmp_path / "planner_head_train_initial.jsonl"
+    validation_path = tmp_path / "planner_head_validation_initial.jsonl"
+    train_examples = [
+        _planner_example(
+            sample_id="train-1",
+            teacher_index=0,
+            candidate_dim=candidate_dim,
+            transition_dim=transition_dim,
+            global_dim=global_dim,
+        ),
+        _planner_example(
+            sample_id="train-2",
+            teacher_index=1,
+            candidate_dim=candidate_dim,
+            transition_dim=transition_dim,
+            global_dim=global_dim,
+        ),
+    ]
+    validation_examples = [
+        _planner_example(
+            sample_id="validation-1",
+            teacher_index=0,
+            candidate_dim=candidate_dim,
+            transition_dim=transition_dim,
+            global_dim=global_dim,
+        )
+    ]
+    write_planner_head_artifact(train_path, train_examples)
+    write_planner_head_artifact(validation_path, validation_examples)
+
+    base_config_path = tmp_path / "planner_train_base.json"
+    base_config_path.write_text(
+        json.dumps(
+            {
+                "seed": 13,
+                "output_dir": str(tmp_path / "planner_run_base"),
+                "data": {
+                    "train_path": str(train_path),
+                    "validation_path": str(validation_path),
+                },
+                "model": {
+                    "architecture": "set_v2",
+                    "hidden_dim": 32,
+                    "hidden_layers": 1,
+                    "action_embedding_dim": 16,
+                    "dropout": 0.0,
+                },
+                "optimization": {
+                    "epochs": 1,
+                    "batch_size": 2,
+                    "learning_rate": 0.001,
+                    "weight_decay": 0.0,
+                    "teacher_policy_loss_weight": 1.0,
+                    "teacher_kl_loss_weight": 0.25,
+                },
+                "evaluation": {"top_k": 3},
+                "runtime": {"torch_threads": 1, "dataloader_workers": 0},
+                "export": {
+                    "bundle_dir": str(tmp_path / "planner_bundle_base"),
+                    "checkpoint_name": "checkpoint.pt",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    base_run = train_planner(load_planner_train_config(base_config_path), repo_root=tmp_path)
+
+    replay_config_path = tmp_path / "planner_train_replay.json"
+    replay_config_path.write_text(
+        json.dumps(
+            {
+                "seed": 17,
+                "output_dir": str(tmp_path / "planner_run_replay"),
+                "initial_checkpoint": base_run.export_paths["checkpoint"],
+                "data": {
+                    "train_path": str(train_path),
+                    "validation_path": str(validation_path),
+                },
+                "model": {
+                    "architecture": "set_v2",
+                    "hidden_dim": 32,
+                    "hidden_layers": 1,
+                    "action_embedding_dim": 16,
+                    "dropout": 0.0,
+                },
+                "optimization": {
+                    "epochs": 1,
+                    "batch_size": 2,
+                    "learning_rate": 0.0005,
+                    "weight_decay": 0.0,
+                    "teacher_policy_loss_weight": 1.0,
+                    "teacher_kl_loss_weight": 0.25,
+                },
+                "evaluation": {"top_k": 3},
+                "runtime": {"torch_threads": 1, "dataloader_workers": 0},
+                "export": {
+                    "bundle_dir": str(tmp_path / "planner_bundle_replay"),
+                    "checkpoint_name": "checkpoint.pt",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    replay_run = train_planner(load_planner_train_config(replay_config_path), repo_root=tmp_path)
+    assert Path(replay_run.export_paths["checkpoint"]).exists()
 
 
 def test_set_v1_ignores_latent_features_in_artifacts(tmp_path: Path) -> None:

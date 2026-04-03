@@ -89,3 +89,25 @@ Current expanded replay summary:
 - `mean_considered_candidate_count=3.505`
 
 This is the first large selfplay-derived training artifact for the active-plus-experimental expanded planner family.
+
+The next training-facing follow-up is now materialized too:
+
+- replay supervision:
+  - [planner_replay_train.jsonl](/home/torsten/EngineKonzept/artifacts/phase9/planner_replay_active_experimental_expanded_v1/planner_replay_train.jsonl)
+  - [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/planner_replay_active_experimental_expanded_v1/summary.json)
+- replay planner-head artifact:
+  - [planner_head_train.jsonl](/home/torsten/EngineKonzept/artifacts/phase9/planner_replay_head_active_experimental_expanded_v1/planner_head_train.jsonl)
+  - [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/planner_replay_head_active_experimental_expanded_v1/summary.json)
+
+Current replay-training summary:
+
+- `568` resolved replay rows after excluding unfinished `max_plies` positions
+- `568` planner-head fine-tuning rows
+- source agents remain mixed across the active and experimental expanded planner family
+
+So Phase 9 now has a full path from:
+
+- expanded arena
+- to replay buffer
+- to replay-derived planner supervision
+- to replay-derived planner-head fine-tuning data

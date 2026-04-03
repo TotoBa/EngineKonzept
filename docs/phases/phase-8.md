@@ -355,3 +355,22 @@ Interpretation:
 - `set_v6_rank_expanded` is the current best `MRR` arm on that full expanded suite, with `set_v6_margin_expanded` effectively tied
 - this does not overturn the filtered `10k + 122k` conclusion, where `set_v2_10k_122k_expanded` remains the preferred reference
 - but it does mean the full expanded Phase-8 stack is now materially stronger than the earlier `set_v2_expanded` launch assumption
+
+The first replay-driven planner retraining follow-up now also exists on top of that expanded stack:
+
+- replay-retrain config: [phase8_planner_corpus_suite_set_v6_rank_replay_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v6_rank_replay_expanded_v1.json)
+- summary: [planner_corpus_suite_set_v6_rank_replay_expanded_v1_summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_rank_replay_expanded_v1_summary.json)
+- verify: [planner_corpus_suite_set_v6_rank_replay_expanded_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_rank_replay_expanded_v1_verify.json)
+- comparison: [planner_corpus_suite_set_v6_rank_replay_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_rank_replay_compare_v1.json)
+
+Held-out result versus the arena-leading reference:
+
+- `set_v6_rank_expanded`: `top1=0.808511`, `top3=0.965957`, `MRR=0.887234`, `teacher_root_mean_probability=0.699544`
+- `set_v6_rank_replay_expanded`: `top1=0.807801`, `top3=0.968794`, `MRR=0.886525`, `teacher_root_mean_probability=0.716682`
+
+Interpretation:
+
+- the replay-driven retraining path is now real, versioned, and warm-start-capable
+- the first replay fine-tune improves `top3` and teacher probability on the full expanded holdout
+- but it gives back a small amount of `top1` and `MRR`
+- so `set_v6_rank_replay_expanded_v1` is a useful new experimental arm, not a new Phase-8 default

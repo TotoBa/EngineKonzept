@@ -1,0 +1,64 @@
+{
+  "delta": {
+    "root_top1_accuracy": -0.00071,
+    "root_top3_accuracy": 0.002837,
+    "teacher_root_mean_probability": 0.017138,
+    "teacher_root_mean_reciprocal_rank": -0.000709
+  },
+  "reference": {
+    "metrics": {
+      "examples_per_second": 3585.11,
+      "root_gap_examples": 1402,
+      "root_gap_loss": 57.432887,
+      "root_gap_mae_cp": 280.322276,
+      "root_top1_accuracy": 0.808511,
+      "root_top3_accuracy": 0.965957,
+      "root_value_loss": 0.308955,
+      "root_value_mae_cp": 90.11958,
+      "supervised_examples": 1410,
+      "teacher_kl_loss": 0.806718,
+      "teacher_margin_examples": 2800,
+      "teacher_margin_loss": 0.0,
+      "teacher_margin_mae_cp": 0.0,
+      "teacher_policy_loss": 0.884371,
+      "teacher_rank_accuracy": 0.703248,
+      "teacher_rank_examples": 5604,
+      "teacher_rank_loss": 1.077961,
+      "teacher_root_mean_probability": 0.699544,
+      "teacher_root_mean_reciprocal_rank": 0.887234,
+      "teacher_score_loss": 0.286226,
+      "teacher_score_mae_cp": 53.941792,
+      "total_examples": 1410,
+      "total_loss": 4.086664
+    },
+    "name": "set_v6_rank_expanded_v1"
+  },
+  "replay_retrained": {
+    "metrics": {
+      "examples_per_second": 2984.963,
+      "root_gap_examples": 1402,
+      "root_gap_loss": 57.400854,
+      "root_gap_mae_cp": 277.182922,
+      "root_top1_accuracy": 0.807801,
+      "root_top3_accuracy": 0.968794,
+      "root_value_loss": 0.334765,
+      "root_value_mae_cp": 93.198064,
+      "supervised_examples": 1410,
+      "teacher_kl_loss": 0.908429,
+      "teacher_margin_examples": 2800,
+      "teacher_margin_loss": 0.0,
+      "teacher_margin_mae_cp": 0.0,
+      "teacher_policy_loss": 0.885119,
+      "teacher_rank_accuracy": 0.71556,
+      "teacher_rank_examples": 5604,
+      "teacher_rank_loss": 1.064385,
+      "teacher_root_mean_probability": 0.716682,
+      "teacher_root_mean_reciprocal_rank": 0.886525,
+      "teacher_score_loss": 0.289235,
+      "teacher_score_mae_cp": 53.393841,
+      "total_examples": 1410,
+      "total_loss": 4.11123
+    },
+    "name": "set_v6_rank_replay_expanded_v1"
+  }
+}

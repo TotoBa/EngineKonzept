@@ -704,6 +704,7 @@ class PlannerTrainConfig:
 
     seed: int
     output_dir: str
+    initial_checkpoint: str | None
     data: PlannerDataConfig
     model: PlannerModelConfig
     optimization: PlannerOptimizationConfig
@@ -728,6 +729,11 @@ class PlannerTrainConfig:
         return cls(
             seed=int(payload.get("seed", 0)),
             output_dir=str(payload["output_dir"]),
+            initial_checkpoint=(
+                None
+                if payload.get("initial_checkpoint") in (None, "")
+                else str(payload["initial_checkpoint"])
+            ),
             data=PlannerDataConfig(
                 train_path=str(data_payload["train_path"]),
                 validation_path=str(data_payload["validation_path"]),

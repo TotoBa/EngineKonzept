@@ -12,6 +12,7 @@ from train.datasets import (
     build_selected_move_action_features,
     build_transition_context_features,
     dataset_example_from_oracle_payload,
+    load_planner_replay_examples,
     load_search_curriculum_examples,
     load_search_teacher_examples,
     load_split_examples,
@@ -335,7 +336,8 @@ def build_planner_head_examples(
         )
         candidate_rows = _build_root_candidate_rows(
             dataset_example,
-            teacher_example=teacher_example,
+            candidate_action_indices=teacher_example.candidate_action_indices,
+            root_feature_vector=teacher_example.feature_vector,
             considered_indices=considered_indices,
             root_scores=root_scores,
             opponent_mode=opponent_mode,
@@ -416,6 +418,157 @@ def build_planner_head_examples(
                 teacher_top1_minus_top2_cp=_optional_float(
                     getattr(curriculum_example, "teacher_top1_minus_top2_cp", None)
                 ),
+            )
+        )
+    return built
+
+
+def build_planner_head_examples_from_replay(
+    *,
+    planner_replay_path: Path,
+    proposer_checkpoint: Path,
+    dynamics_checkpoint: Path | None,
+    opponent_mode: str,
+    opponent_checkpoint: Path | None,
+    root_top_k: int,
+    max_examples: int | None,
+    repo_root: Path,
+) -> list[PlannerHeadExample]:
+    """Build planner-head replay fine-tuning examples from exact replay-buffer rows."""
+    if root_top_k <= 0:
+        raise ValueError("root_top_k must be positive")
+    if opponent_mode not in {"none", "symbolic", "learned"}:
+        raise ValueError("opponent_mode must be 'none', 'symbolic', or 'learned'")
+    if opponent_mode == "learned" and opponent_checkpoint is None:
+        raise ValueError("opponent_checkpoint is required when opponent_mode='learned'")
+
+    replay_examples = load_planner_replay_examples(planner_replay_path)
+    selected_replay_examples = (
+        replay_examples[:max_examples] if max_examples is not None else replay_examples
+    )
+    if not selected_replay_examples:
+        return []
+
+    replay_records = [
+        RawPositionRecord(
+            sample_id=example.sample_id,
+            fen=example.fen,
+            source="planner_replay",
+        )
+        for example in selected_replay_examples
+    ]
+    replay_payloads = label_records_with_oracle(replay_records, repo_root=repo_root)
+    dataset_examples = [
+        dataset_example_from_oracle_payload(
+            sample_id=example.sample_id,
+            split=example.split,
+            source="planner_replay",
+            fen=example.fen,
+            payload=payload,
+        )
+        for example, payload in zip(selected_replay_examples, replay_payloads, strict=True)
+    ]
+
+    proposer_model, _ = load_symbolic_proposer_checkpoint(proposer_checkpoint)
+    dynamics_model = None
+    if dynamics_checkpoint is not None:
+        dynamics_model, _ = load_dynamics_checkpoint(dynamics_checkpoint)
+    opponent_model = None
+    if opponent_mode == "learned":
+        opponent_model, _ = load_opponent_head_checkpoint(opponent_checkpoint)
+
+    built: list[PlannerHeadExample] = []
+    for replay_example, dataset_example in zip(
+        selected_replay_examples,
+        dataset_examples,
+        strict=True,
+    ):
+        symbolic_example = build_symbolic_proposer_example(
+            dataset_example,
+            candidate_context_version=2,
+            global_context_version=1,
+        )
+        root_scores, _ = score_symbolic_candidates(
+            proposer_model,
+            feature_vector=symbolic_example.feature_vector,
+            candidate_action_indices=symbolic_example.candidate_action_indices,
+            candidate_features=symbolic_example.candidate_features,
+            global_features=symbolic_example.global_features,
+            candidate_context_version=symbolic_example.candidate_context_version,
+        )
+        try:
+            replay_top1_root_index = symbolic_example.candidate_action_indices.index(
+                replay_example.selected_action_index
+            )
+        except ValueError as exc:
+            raise ValueError(
+                f"{replay_example.sample_id}: replay selected action "
+                f"{replay_example.selected_action_index} is not legal in the exact symbolic candidate set"
+            ) from exc
+        considered_indices = _select_root_candidate_indices(
+            root_scores,
+            teacher_top1_root_index=replay_top1_root_index,
+            root_top_k=root_top_k,
+        )
+        candidate_rows = _build_root_candidate_rows(
+            dataset_example,
+            candidate_action_indices=symbolic_example.candidate_action_indices,
+            root_feature_vector=symbolic_example.feature_vector,
+            considered_indices=considered_indices,
+            root_scores=root_scores,
+            opponent_mode=opponent_mode,
+            proposer_model=proposer_model,
+            dynamics_model=dynamics_model,
+            opponent_model=opponent_model,
+            repo_root=repo_root,
+        )
+        candidate_action_indices = [row["action_index"] for row in candidate_rows]
+        teacher_top1_candidate_index = candidate_action_indices.index(
+            replay_example.selected_action_index
+        )
+        teacher_policy = [0.0] * len(candidate_action_indices)
+        teacher_policy[teacher_top1_candidate_index] = 1.0
+        built.append(
+            PlannerHeadExample(
+                sample_id=replay_example.sample_id,
+                split=replay_example.split,
+                fen=replay_example.fen,
+                feature_vector=list(symbolic_example.feature_vector),
+                candidate_context_version=symbolic_example.candidate_context_version,
+                global_context_version=symbolic_example.global_context_version,
+                global_features=list(symbolic_example.global_features),
+                candidate_action_indices=candidate_action_indices,
+                candidate_features=[
+                    list(symbolic_example.candidate_features[index])
+                    for index in considered_indices
+                ],
+                proposer_scores=[row["proposer_score"] for row in candidate_rows],
+                transition_context_version=1,
+                transition_features=[row["transition_features"] for row in candidate_rows],
+                latent_state_version=(
+                    PLANNER_LATENT_STATE_VERSION if dynamics_model is not None else None
+                ),
+                latent_features=(
+                    [row["latent_features"] for row in candidate_rows]
+                    if dynamics_model is not None
+                    else None
+                ),
+                reply_peak_probabilities=[
+                    row["reply_peak_probability"] for row in candidate_rows
+                ],
+                pressures=[row["pressure"] for row in candidate_rows],
+                uncertainties=[row["uncertainty"] for row in candidate_rows],
+                curriculum_bucket_labels=[
+                    "selfplay_replay",
+                    f"outcome:{replay_example.outcome_pov}",
+                    f"termination:{replay_example.termination_reason}",
+                ],
+                curriculum_priority=replay_example.replay_priority,
+                teacher_top1_action_index=replay_example.selected_action_index,
+                teacher_top1_candidate_index=teacher_top1_candidate_index,
+                teacher_policy=teacher_policy,
+                teacher_root_value_cp=replay_example.root_value_cp,
+                teacher_top1_minus_top2_cp=None,
             )
         )
     return built
@@ -557,7 +710,8 @@ def _select_root_candidate_indices(
 def _build_root_candidate_rows(
     dataset_example: DatasetExample,
     *,
-    teacher_example: Any,
+    candidate_action_indices: Sequence[int],
+    root_feature_vector: Sequence[float],
     considered_indices: Sequence[int],
     root_scores: Sequence[float],
     opponent_mode: str,
@@ -568,7 +722,7 @@ def _build_root_candidate_rows(
 ) -> list[dict[str, Any]]:
     root_records: list[RawPositionRecord] = []
     for candidate_list_index in considered_indices:
-        action_index = int(teacher_example.candidate_action_indices[candidate_list_index])
+        action_index = int(candidate_action_indices[candidate_list_index])
         root_records.append(
             RawPositionRecord(
                 sample_id=f"{dataset_example.sample_id}:planner_root:{action_index}",
@@ -647,9 +801,7 @@ def _build_root_candidate_rows(
                 opponent_model,
                 root_feature_vector=pack_position_features(root_selected_example.position_encoding),
                 next_feature_vector=successor_symbolic.feature_vector,
-                chosen_action_index=int(
-                    teacher_example.candidate_action_indices[candidate_list_index]
-                ),
+                chosen_action_index=int(candidate_action_indices[candidate_list_index]),
                 transition_features=transition_features,
                 reply_candidate_action_indices=successor_symbolic.candidate_action_indices,
                 reply_candidate_features=successor_symbolic.candidate_features,
@@ -660,8 +812,8 @@ def _build_root_candidate_rows(
         if dynamics_model is not None:
             latent_features = predict_dynamics_latent(
                 dynamics_model,
-                feature_vector=teacher_example.feature_vector,
-                action_index=int(teacher_example.candidate_action_indices[candidate_list_index]),
+                feature_vector=root_feature_vector,
+                action_index=int(candidate_action_indices[candidate_list_index]),
                 action_features=build_selected_move_action_features(
                     root_selected_example,
                     candidate_context_version=1,
@@ -671,7 +823,7 @@ def _build_root_candidate_rows(
 
         rows.append(
             {
-                "action_index": int(teacher_example.candidate_action_indices[candidate_list_index]),
+                "action_index": int(candidate_action_indices[candidate_list_index]),
                 "proposer_score": float(root_scores[candidate_list_index]),
                 "transition_features": [float(value) for value in transition_features],
                 "latent_features": latent_features,

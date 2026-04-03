@@ -154,6 +154,15 @@ def train_planner(config: PlannerTrainConfig, *, repo_root: Path) -> PlannerTrai
         dropout=config.model.dropout,
         enable_candidate_rank_head=config.optimization.teacher_rank_loss_weight > 0.0,
     )
+    if config.initial_checkpoint is not None:
+        initial_checkpoint_path = resolve_repo_path(repo_root, config.initial_checkpoint)
+        initial_payload = torch.load(initial_checkpoint_path, map_location="cpu")
+        if initial_payload.get("model_name") != PLANNER_MODEL_NAME:
+            raise ValueError(
+                f"{initial_checkpoint_path}: unsupported initial planner model name "
+                f"{initial_payload.get('model_name')!r}"
+            )
+        model.load_state_dict(dict(initial_payload["model_state_dict"]))
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=config.optimization.learning_rate,

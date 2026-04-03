@@ -225,3 +225,28 @@ Observed result:
 - stable session-prefixed `game_id` / `sample_id` values, so multi-session replay rows remain unique
 
 This is the first large selfplay-derived training artifact for the active-plus-experimental expanded planner family.
+
+That replay artifact now also feeds the first replay-driven planner retraining path:
+
+- replay supervision:
+  - [planner_replay_train.jsonl](/home/torsten/EngineKonzept/artifacts/phase9/planner_replay_active_experimental_expanded_v1/planner_replay_train.jsonl)
+  - [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/planner_replay_active_experimental_expanded_v1/summary.json)
+- replay planner-head artifact:
+  - [planner_head_train.jsonl](/home/torsten/EngineKonzept/artifacts/phase9/planner_replay_head_active_experimental_expanded_v1/planner_head_train.jsonl)
+  - [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/planner_replay_head_active_experimental_expanded_v1/summary.json)
+- replay-retrain config:
+  - [phase8_planner_corpus_suite_set_v6_rank_replay_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v6_rank_replay_expanded_v1.json)
+
+Observed replay-data result:
+
+- `568` resolved replay supervision rows after dropping unfinished `max_plies` positions
+- same `568` rows materialized into planner-head replay fine-tuning examples
+- replay source remains exact and planner-contract compatible: exact FEN -> symbolic candidates -> bounded planner head
+
+Observed replay-retrain result on the full expanded verify suite:
+
+- `set_v6_rank_expanded`: `top1=0.808511`, `MRR=0.887234`
+- `set_v6_rank_replay_expanded`: `top1=0.807801`, `MRR=0.886525`
+- but `top3` improves: `0.965957 -> 0.968794`
+
+So Phase 9 now has not only replay-buffer creation, but also the first replay-buffer-driven planner retraining loop. The first run is useful and measurable, but not yet strong enough to replace the current expanded planner leaders.

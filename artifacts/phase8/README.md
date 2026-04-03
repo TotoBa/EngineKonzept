@@ -96,6 +96,19 @@ Current full expanded `10k + 122k + 400k` leaderboard over `1,410` held-out plan
 
 So the full expanded suite is now materially stronger than the older expanded `set_v2` rerun, even though the preferred filtered `10k + 122k` reference remains the non-expanded `set_v2_10k_122k_expanded` line.
 
+The first replay-driven fine-tune on top of that expanded suite is now also materialized:
+
+- summary: [planner_corpus_suite_set_v6_rank_replay_expanded_v1_summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_rank_replay_expanded_v1_summary.json)
+- verify: [planner_corpus_suite_set_v6_rank_replay_expanded_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_rank_replay_expanded_v1_verify.json)
+- comparison: [planner_corpus_suite_set_v6_rank_replay_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_rank_replay_compare_v1.json)
+
+Held-out result versus the replay source arm:
+
+- `set_v6_rank_expanded`: `top1=0.808511`, `MRR=0.887234`
+- `set_v6_rank_replay_expanded`: `top1=0.807801`, `MRR=0.886525`
+
+So the replay-driven retraining path is now real and reusable, but the first fine-tune is not yet a new default.
+
 Filtered latent-state verify slice over `1,024` held-out planner examples:
 
 - root-only bounded baseline: `0.151367`, `MRR=0.219482`
