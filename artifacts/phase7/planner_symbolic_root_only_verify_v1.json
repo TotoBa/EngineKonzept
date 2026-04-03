@@ -1,0 +1,11 @@
+{
+  "examples_per_second": 90.106,
+  "mean_pressure": 0.0,
+  "mean_reply_peak_probability": 0.0,
+  "mean_uncertainty": 0.0,
+  "root_top1_accuracy": 0.148438,
+  "teacher_covered_examples": 128,
+  "teacher_root_mean_probability": 0.105769,
+  "teacher_root_mean_reciprocal_rank": 0.213542,
+  "total_examples": 128
+}

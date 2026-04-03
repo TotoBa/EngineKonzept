@@ -10,15 +10,24 @@ if TYPE_CHECKING:
 
 def __getattr__(name: str) -> Any:
     """Lazily expose evaluation helpers to avoid dataset/eval import cycles."""
-    if name in {"OpponentBaselineMetrics", "evaluate_symbolic_opponent_baseline"}:
+    if name in {
+        "OpponentBaselineMetrics",
+        "evaluate_symbolic_opponent_baseline",
+        "load_opponent_head_checkpoint",
+        "score_opponent_candidates",
+    }:
         from train.eval.opponent import (
             OpponentBaselineMetrics,
             evaluate_symbolic_opponent_baseline,
+            load_opponent_head_checkpoint,
+            score_opponent_candidates,
         )
 
         return {
             "OpponentBaselineMetrics": OpponentBaselineMetrics,
             "evaluate_symbolic_opponent_baseline": evaluate_symbolic_opponent_baseline,
+            "load_opponent_head_checkpoint": load_opponent_head_checkpoint,
+            "score_opponent_candidates": score_opponent_candidates,
         }[name]
     if name in {"load_symbolic_proposer_checkpoint", "score_symbolic_candidates"}:
         from train.eval.symbolic_proposer import (
@@ -30,12 +39,26 @@ def __getattr__(name: str) -> Any:
             "load_symbolic_proposer_checkpoint": load_symbolic_proposer_checkpoint,
             "score_symbolic_candidates": score_symbolic_candidates,
         }[name]
+    if name in {"PlannerBaselineMetrics", "evaluate_two_ply_planner_baseline"}:
+        from train.eval.planner import (
+            PlannerBaselineMetrics,
+            evaluate_two_ply_planner_baseline,
+        )
+
+        return {
+            "PlannerBaselineMetrics": PlannerBaselineMetrics,
+            "evaluate_two_ply_planner_baseline": evaluate_two_ply_planner_baseline,
+        }[name]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 __all__ = [
     "OpponentBaselineMetrics",
+    "PlannerBaselineMetrics",
     "evaluate_symbolic_opponent_baseline",
+    "evaluate_two_ply_planner_baseline",
+    "load_opponent_head_checkpoint",
     "load_symbolic_proposer_checkpoint",
+    "score_opponent_candidates",
     "score_symbolic_candidates",
 ]

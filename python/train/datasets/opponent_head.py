@@ -220,7 +220,7 @@ def build_opponent_head_examples(
             raise ValueError(f"{trace_example.sample_id}: root FEN mismatch across artifacts")
 
         chosen_action_index = trace_example.teacher_top_k_action_indices[0]
-        chosen_move_uci = _move_uci_for_action(dataset_example, chosen_action_index)
+        chosen_move_uci = move_uci_for_action(dataset_example, chosen_action_index)
         root_records.append(
             RawPositionRecord(
                 sample_id=f"{trace_example.sample_id}:opponent_root",
@@ -248,7 +248,7 @@ def build_opponent_head_examples(
         root_payloads,
         strict=True,
     ):
-        root_selected_example = _dataset_example_from_oracle_payload(
+        root_selected_example = dataset_example_from_oracle_payload(
             sample_id=dataset_example.sample_id,
             split=dataset_example.split,
             source=dataset_example.source,
@@ -286,7 +286,7 @@ def build_opponent_head_examples(
         successor_payloads,
         strict=True,
     ):
-        successor_example = _dataset_example_from_oracle_payload(
+        successor_example = dataset_example_from_oracle_payload(
             sample_id=trace_example.sample_id,
             split=trace_example.split,
             source="opponent_head",
@@ -351,7 +351,7 @@ def build_opponent_head_examples(
     return built
 
 
-def _dataset_example_from_oracle_payload(
+def dataset_example_from_oracle_payload(
     *,
     sample_id: str,
     split: str,
@@ -381,7 +381,7 @@ def _dataset_example_from_oracle_payload(
     )
 
 
-def _move_uci_for_action(example: DatasetExample, action_index: int) -> str:
+def move_uci_for_action(example: DatasetExample, action_index: int) -> str:
     for move_uci, action in zip(example.legal_moves, example.legal_action_encodings, strict=True):
         if flatten_action(action) == action_index:
             return move_uci

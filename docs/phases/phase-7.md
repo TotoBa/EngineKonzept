@@ -96,6 +96,21 @@ The first trained `mlp_v1` opponent head on that same verify slice currently sco
 
 So the first learned head is a real experimental reference, but it does not yet clear the symbolic baseline bar.
 
+The repo now also has the first planner-facing bounded aggregation on top of that contract:
+
+- [planner_symbolic_root_only_verify_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/planner_symbolic_root_only_verify_v1.json)
+- [planner_symbolic_reply_verify_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/planner_symbolic_reply_verify_v1.json)
+- [planner_learned_reply_verify_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/planner_learned_reply_verify_v1.json)
+- [planner_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/planner_compare_v1.json)
+
+Current result:
+
+- root-only symbolic proposer: `root_top1_accuracy=0.148438`
+- symbolic-reply aggregation: `0.15625`
+- learned-reply aggregation: `0.15625`
+
+That is still an offline bounded baseline, not a trained planner and not a classical search path.
+
 ## Next pressure
 
 The next useful Phase-7 steps are:

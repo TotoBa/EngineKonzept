@@ -1,0 +1,47 @@
+{
+  "delta_vs_root_only": {
+    "learned_reply": {
+      "root_top1_accuracy": 0.007812,
+      "teacher_root_mean_probability": -0.000266,
+      "teacher_root_mean_reciprocal_rank": 0.005208
+    },
+    "symbolic_reply": {
+      "root_top1_accuracy": 0.007812,
+      "teacher_root_mean_probability": 0.000221,
+      "teacher_root_mean_reciprocal_rank": 0.003255
+    }
+  },
+  "learned_reply": {
+    "examples_per_second": 61.128,
+    "mean_pressure": 0.000203,
+    "mean_reply_peak_probability": 0.053165,
+    "mean_uncertainty": 0.95144,
+    "root_top1_accuracy": 0.15625,
+    "teacher_covered_examples": 128,
+    "teacher_root_mean_probability": 0.105503,
+    "teacher_root_mean_reciprocal_rank": 0.21875,
+    "total_examples": 128
+  },
+  "root_only": {
+    "examples_per_second": 90.106,
+    "mean_pressure": 0.0,
+    "mean_reply_peak_probability": 0.0,
+    "mean_uncertainty": 0.0,
+    "root_top1_accuracy": 0.148438,
+    "teacher_covered_examples": 128,
+    "teacher_root_mean_probability": 0.105769,
+    "teacher_root_mean_reciprocal_rank": 0.213542,
+    "total_examples": 128
+  },
+  "symbolic_reply": {
+    "examples_per_second": 54.924,
+    "mean_pressure": 0.234375,
+    "mean_reply_peak_probability": 0.191801,
+    "mean_uncertainty": 0.808199,
+    "root_top1_accuracy": 0.15625,
+    "teacher_covered_examples": 128,
+    "teacher_root_mean_probability": 0.10599,
+    "teacher_root_mean_reciprocal_rank": 0.216797,
+    "total_examples": 128
+  }
+}

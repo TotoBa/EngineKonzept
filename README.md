@@ -26,6 +26,7 @@ The repository now covers Phase 6 foundations:
 - a first action-conditioned latent dynamics baseline with held-out reconstruction and drift metrics
 - the first explicit Phase-7 dataset contract for opponent-reply supervision
 - the first trained Phase-7 opponent-head baseline
+- the first bounded opponent-aware planner baseline
 - CI, lint, and test wiring
 - architecture and phase documentation
 
@@ -234,6 +235,25 @@ Current larger merged-unique verify result:
   - `teacher_reply_mean_reciprocal_rank=0.272664`
 
 So the first trained head is now a real repo baseline, but it does not yet beat the symbolic reply scorer.
+
+The repo now also has the first bounded planner-style comparison on the same verify slice:
+
+- root-only symbolic proposer:
+  - `root_top1_accuracy=0.148438`
+  - `teacher_root_mean_reciprocal_rank=0.213542`
+- symbolic-reply aggregation:
+  - `root_top1_accuracy=0.15625`
+  - `teacher_root_mean_reciprocal_rank=0.216797`
+- learned-reply aggregation:
+  - `root_top1_accuracy=0.15625`
+  - `teacher_root_mean_reciprocal_rank=0.21875`
+
+Those runs are bounded offline planner baselines, not runtime search:
+
+- [planner_symbolic_root_only_verify_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/planner_symbolic_root_only_verify_v1.json)
+- [planner_symbolic_reply_verify_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/planner_symbolic_reply_verify_v1.json)
+- [planner_learned_reply_verify_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/planner_learned_reply_verify_v1.json)
+- [planner_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/planner_compare_v1.json)
 
 ## Repository Layout
 

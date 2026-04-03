@@ -256,6 +256,21 @@ It should operate over:
 
 It should not become a disguised tree search.
 
+The repo now has the first bounded opponent-aware planner baseline in exactly that spirit:
+
+- root candidates still come from the symbolic proposer over exact legal moves
+- successor states and reply candidates are still generated symbolically
+- opponent scoring is plugged in as an explicit bounded two-ply aggregation term
+- there is no alpha-beta, no tree expansion, and no runtime search fallback
+
+Current status on the larger verify slice:
+
+- root-only symbolic proposer: `root_top1_accuracy=0.148438`
+- symbolic-reply bounded aggregation: `0.15625`
+- learned-reply bounded aggregation: `0.15625`
+
+So the first planner-facing contract is now real and measurable, even though the repo still has no trained planner.
+
 ## Deferred Architecture Ideas
 
 The following ideas remain relevant and are intentionally being kept in view, but they are deferred until the dense single-path stack is stronger:
@@ -271,13 +286,13 @@ These ideas are interesting for later phases, but they are not the current bottl
 
 ## Immediate Priorities
 
-The next model experiments should be ordered like this:
+The next model experiments should now be ordered like this:
 
-1. improve the Phase-6 dynamics model over the symbolic proposer candidate contract
-2. define the first explicit opponent-head contract before planner work
-3. define alpha-beta/MCTS-supported offline workflows for targets, benchmarking, and curriculum without making them the runtime path
-4. explore richer symbolic proposer candidate features only if downstream modules need them
-5. only then resume broader proposer exploration if Phase-6/7 pressure points point back at representation quality
+1. strengthen the learned opponent head until it beats the symbolic reply baseline
+2. improve the Phase-6 dynamics model over the symbolic proposer candidate contract
+3. use alpha-beta/MCTS-supported offline workflows for richer opponent/planner targets without making them the runtime path
+4. only then move from bounded planner baselines to a trained planner module
+5. explore richer symbolic proposer candidate features only if downstream modules need them
 
 The first three offline search-workflow layers are now in place:
 

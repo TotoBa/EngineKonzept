@@ -1,11 +1,11 @@
-"""Phase-7 baseline evaluation over exact legal replies with the symbolic proposer scorer."""
+"""Phase-7 baseline evaluation and learned-scoring helpers over exact legal replies."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
 import time
-from typing import Sequence
+from typing import TYPE_CHECKING, Sequence
 
 from train.datasets.opponent_head import (
     load_opponent_head_examples,
@@ -15,6 +15,15 @@ from train.eval.symbolic_proposer import (
     load_symbolic_proposer_checkpoint,
     score_symbolic_candidates,
 )
+from train.models.opponent import OpponentHeadModel, torch_is_available
+
+try:
+    import torch
+except ModuleNotFoundError:  # pragma: no cover - exercised when torch is absent
+    torch = None
+
+if TYPE_CHECKING:
+    from train.config import OpponentTrainConfig
 
 
 _CAPTURE_FEATURE_INDEX = 0
@@ -53,6 +62,84 @@ class OpponentBaselineMetrics:
             "uncertainty_mae": round(self.uncertainty_mae, 6),
             "examples_per_second": round(self.examples_per_second, 3),
         }
+
+
+def load_opponent_head_checkpoint(
+    checkpoint_path: Path,
+) -> tuple[OpponentHeadModel, "OpponentTrainConfig"]:
+    """Load a trained opponent-head checkpoint for exact reply scoring."""
+    if torch is None or not torch_is_available():  # pragma: no cover - torch absent
+        raise RuntimeError(
+            "PyTorch is required for opponent-head evaluation. Install the 'train' extra or torch."
+        )
+    from train.config import OpponentTrainConfig
+
+    payload = torch.load(checkpoint_path, map_location="cpu")
+    config = OpponentTrainConfig.from_dict(dict(payload["training_config"]))
+    model = OpponentHeadModel(
+        architecture=config.model.architecture,
+        hidden_dim=config.model.hidden_dim,
+        hidden_layers=config.model.hidden_layers,
+        action_embedding_dim=config.model.action_embedding_dim,
+        dropout=config.model.dropout,
+    )
+    model.load_state_dict(dict(payload["model_state_dict"]))
+    model.eval()
+    return model, config
+
+
+def score_opponent_candidates(
+    model: OpponentHeadModel,
+    *,
+    root_feature_vector: Sequence[float],
+    next_feature_vector: Sequence[float],
+    chosen_action_index: int,
+    transition_features: Sequence[float],
+    reply_candidate_action_indices: Sequence[int],
+    reply_candidate_features: Sequence[Sequence[float]],
+    reply_global_features: Sequence[float],
+) -> tuple[list[float], list[float], float, float]:
+    """Score exact legal reply candidates with a trained opponent head."""
+    if torch is None or not torch_is_available():  # pragma: no cover - torch absent
+        raise RuntimeError(
+            "PyTorch is required for opponent-head evaluation. Install the 'train' extra or torch."
+        )
+    if not reply_candidate_action_indices:
+        return [], [], 0.0, 0.0
+
+    root_features = torch.tensor([list(root_feature_vector)], dtype=torch.float32)
+    next_features = torch.tensor([list(next_feature_vector)], dtype=torch.float32)
+    chosen_actions = torch.tensor([chosen_action_index], dtype=torch.long)
+    transition = torch.tensor([list(transition_features)], dtype=torch.float32)
+    reply_actions = torch.tensor([list(reply_candidate_action_indices)], dtype=torch.long)
+    reply_features = torch.tensor([list(reply_candidate_features)], dtype=torch.float32)
+    reply_mask = torch.ones(reply_actions.shape, dtype=torch.bool)
+    global_features = torch.tensor([list(reply_global_features)], dtype=torch.float32)
+
+    with torch.inference_mode():
+        prediction = model(
+            root_features,
+            next_features,
+            chosen_actions,
+            transition,
+            global_features,
+            reply_actions,
+            reply_features,
+            reply_mask,
+        )
+        reply_scores = prediction.reply_logits[0, : len(reply_candidate_action_indices)].tolist()
+        reply_policy = torch.softmax(
+            torch.tensor(reply_scores, dtype=torch.float32),
+            dim=0,
+        ).tolist()
+        pressure = float(prediction.pressure[0].item())
+        uncertainty = float(prediction.uncertainty[0].item())
+    return (
+        [float(value) for value in reply_scores],
+        [float(value) for value in reply_policy],
+        pressure,
+        uncertainty,
+    )
 
 
 def evaluate_symbolic_opponent_baseline(

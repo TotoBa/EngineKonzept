@@ -1,9 +1,16 @@
-"""Phase-0 placeholder for future planner training."""
+"""Placeholder for future learned planner training.
+
+The repository now has a bounded offline planner baseline in
+`python/scripts/eval_planner_baseline.py`, but no trainable planner loop yet.
+"""
 
 
 def main() -> int:
     """Exit successfully while making the placeholder status explicit."""
-    print("Phase 0 placeholder: planner training is not implemented yet.")
+    print(
+        "Planner training is not implemented yet. Use "
+        "python/scripts/eval_planner_baseline.py for the current offline bounded baseline."
+    )
     return 0
 
 

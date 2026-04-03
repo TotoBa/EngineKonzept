@@ -17,6 +17,10 @@ Current contents:
 - [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_merged_unique_mlp_v1/summary.json)
 - [opponent_merged_unique_mlp_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_merged_unique_mlp_v1_verify.json)
 - [opponent_merged_unique_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_merged_unique_compare_v1.json)
+- [planner_symbolic_root_only_verify_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/planner_symbolic_root_only_verify_v1.json)
+- [planner_symbolic_reply_verify_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/planner_symbolic_reply_verify_v1.json)
+- [planner_learned_reply_verify_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/planner_learned_reply_verify_v1.json)
+- [planner_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/planner_compare_v1.json)
 
 Probe setup:
 
@@ -69,3 +73,11 @@ Against the current larger symbolic baseline:
 - `teacher_reply_mean_reciprocal_rank=0.419262`
 
 So the trained `mlp_v1` arm is now a real Phase-7 model artifact, but still an experimental under-baseline reference.
+
+The first bounded planner-facing composition is now also materialized:
+
+- root-only symbolic proposer: `root_top1_accuracy=0.148438`
+- symbolic-reply aggregation: `0.15625`
+- learned-reply aggregation: `0.15625`
+
+These are offline two-ply baselines, not runtime search.
