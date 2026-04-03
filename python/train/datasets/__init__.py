@@ -78,6 +78,13 @@ from train.datasets.opponent_head import (
     opponent_head_artifact_name,
     write_opponent_head_artifact,
 )
+from train.datasets.planner_head import (
+    PlannerHeadExample,
+    build_planner_head_examples,
+    load_planner_head_examples,
+    planner_head_artifact_name,
+    write_planner_head_artifact,
+)
 from train.datasets.search_traces import (
     SearchTraceExample,
     build_search_trace_example_from_analysis,
@@ -102,6 +109,7 @@ __all__ = [
     "DatasetExample",
     "DynamicsTrainingExample",
     "OpponentHeadExample",
+    "PlannerHeadExample",
     "POSITION_FEATURE_SIZE",
     "PgnPolicySamplingConfig",
     "ProposerTrainingExample",
@@ -117,6 +125,7 @@ __all__ = [
     "WdlTarget",
     "build_dataset",
     "build_opponent_head_examples",
+    "build_planner_head_examples",
     "build_search_curriculum_examples",
     "build_search_disagreement_examples",
     "build_search_teacher_example_from_analysis",
@@ -138,6 +147,7 @@ __all__ = [
     "load_dataset_examples",
     "load_dynamics_examples",
     "load_opponent_head_examples",
+    "load_planner_head_examples",
     "load_proposer_examples",
     "load_raw_records",
     "load_search_curriculum_examples",
@@ -151,6 +161,7 @@ __all__ = [
     "move_uci_for_action",
     "module_purpose",
     "opponent_head_artifact_name",
+    "planner_head_artifact_name",
     "pack_position_features",
     "position_feature_spec",
     "proposer_artifact_name",
@@ -169,6 +180,7 @@ __all__ = [
     "transition_context_spec",
     "verification_split_ratios",
     "write_opponent_head_artifact",
+    "write_planner_head_artifact",
     "write_search_curriculum_artifact",
     "write_search_disagreement_artifact",
     "write_search_teacher_artifact",

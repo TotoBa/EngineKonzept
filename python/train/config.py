@@ -542,6 +542,176 @@ class OpponentTrainConfig:
         )
 
 
+@dataclass(frozen=True)
+class PlannerDataConfig:
+    """Artifact-path selection for the first trainable Phase-8 planner arm."""
+
+    train_path: str
+    validation_path: str
+    additional_train_paths: tuple[str, ...] = ()
+    additional_validation_paths: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.train_path:
+            raise ValueError("data.train_path must be non-empty")
+        if not self.validation_path:
+            raise ValueError("data.validation_path must be non-empty")
+        for path in self.additional_train_paths:
+            if not path:
+                raise ValueError("data.additional_train_paths entries must be non-empty")
+        for path in self.additional_validation_paths:
+            if not path:
+                raise ValueError("data.additional_validation_paths entries must be non-empty")
+
+    def resolved_train_paths(self) -> tuple[str, ...]:
+        """Return the full ordered train artifact list."""
+        return (self.train_path, *self.additional_train_paths)
+
+    def resolved_validation_paths(self) -> tuple[str, ...]:
+        """Return the full ordered validation artifact list."""
+        return (self.validation_path, *self.additional_validation_paths)
+
+
+@dataclass(frozen=True)
+class PlannerModelConfig:
+    """Model hyperparameters for the first trainable bounded planner arm."""
+
+    architecture: str = "set_v1"
+    hidden_dim: int = 256
+    hidden_layers: int = 2
+    action_embedding_dim: int = 64
+    dropout: float = 0.0
+
+    def __post_init__(self) -> None:
+        if self.architecture != "set_v1":
+            raise ValueError("model.architecture must be 'set_v1'")
+        if self.hidden_dim <= 0:
+            raise ValueError("model.hidden_dim must be positive")
+        if self.hidden_layers <= 0:
+            raise ValueError("model.hidden_layers must be positive")
+        if self.action_embedding_dim <= 0:
+            raise ValueError("model.action_embedding_dim must be positive")
+        if not 0.0 <= self.dropout < 1.0:
+            raise ValueError("model.dropout must be in [0.0, 1.0)")
+
+
+@dataclass(frozen=True)
+class PlannerOptimizationConfig:
+    """Optimizer and loss weighting settings for planner-head training."""
+
+    epochs: int = 5
+    batch_size: int = 64
+    learning_rate: float = 1e-3
+    weight_decay: float = 0.0
+    teacher_policy_loss_weight: float = 1.0
+    teacher_kl_loss_weight: float = 0.25
+    curriculum_priority_weight: float = 0.0
+
+    def __post_init__(self) -> None:
+        if self.epochs <= 0:
+            raise ValueError("optimization.epochs must be positive")
+        if self.batch_size <= 0:
+            raise ValueError("optimization.batch_size must be positive")
+        if self.learning_rate <= 0.0:
+            raise ValueError("optimization.learning_rate must be positive")
+        if self.weight_decay < 0.0:
+            raise ValueError("optimization.weight_decay must be non-negative")
+        if self.teacher_policy_loss_weight <= 0.0:
+            raise ValueError("optimization.teacher_policy_loss_weight must be positive")
+        if self.teacher_kl_loss_weight < 0.0:
+            raise ValueError("optimization.teacher_kl_loss_weight must be non-negative")
+        if self.curriculum_priority_weight < 0.0:
+            raise ValueError("optimization.curriculum_priority_weight must be non-negative")
+
+
+@dataclass(frozen=True)
+class PlannerEvaluationConfig:
+    """Held-out evaluation settings for planner-head training."""
+
+    top_k: int = 3
+
+    def __post_init__(self) -> None:
+        if self.top_k <= 0:
+            raise ValueError("evaluation.top_k must be positive")
+
+
+@dataclass(frozen=True)
+class PlannerRuntimeConfig:
+    """Runtime knobs for CPU-bound planner-head training and evaluation."""
+
+    torch_threads: int = 0
+    dataloader_workers: int = 0
+
+    def __post_init__(self) -> None:
+        if self.torch_threads < 0:
+            raise ValueError("runtime.torch_threads must be non-negative")
+        if self.dataloader_workers < 0:
+            raise ValueError("runtime.dataloader_workers must be non-negative")
+
+
+@dataclass(frozen=True)
+class PlannerExportConfig:
+    """Checkpoint bundle paths for the trained planner head."""
+
+    bundle_dir: str
+    checkpoint_name: str = "checkpoint.pt"
+
+    def __post_init__(self) -> None:
+        if not self.bundle_dir:
+            raise ValueError("export.bundle_dir must be non-empty")
+        if not self.checkpoint_name:
+            raise ValueError("export.checkpoint_name must be non-empty")
+
+
+@dataclass(frozen=True)
+class PlannerTrainConfig:
+    """Full training configuration for the first bounded planner head."""
+
+    seed: int
+    output_dir: str
+    data: PlannerDataConfig
+    model: PlannerModelConfig
+    optimization: PlannerOptimizationConfig
+    evaluation: PlannerEvaluationConfig
+    runtime: PlannerRuntimeConfig
+    export: PlannerExportConfig
+
+    def __post_init__(self) -> None:
+        if self.seed < 0:
+            raise ValueError("seed must be non-negative")
+        if not self.output_dir:
+            raise ValueError("output_dir must be non-empty")
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return the JSON-friendly representation."""
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "PlannerTrainConfig":
+        """Parse the training config from a JSON object."""
+        data_payload = _mapping(payload, "data")
+        return cls(
+            seed=int(payload.get("seed", 0)),
+            output_dir=str(payload["output_dir"]),
+            data=PlannerDataConfig(
+                train_path=str(data_payload["train_path"]),
+                validation_path=str(data_payload["validation_path"]),
+                additional_train_paths=tuple(
+                    str(path) for path in data_payload.get("additional_train_paths", [])
+                ),
+                additional_validation_paths=tuple(
+                    str(path)
+                    for path in data_payload.get("additional_validation_paths", [])
+                ),
+            ),
+            model=PlannerModelConfig(**_mapping(payload, "model")),
+            optimization=PlannerOptimizationConfig(**_mapping(payload, "optimization")),
+            evaluation=PlannerEvaluationConfig(**_mapping(payload, "evaluation")),
+            runtime=PlannerRuntimeConfig(**dict(payload.get("runtime", {}))),
+            export=PlannerExportConfig(**_mapping(payload, "export")),
+        )
+
+
 def load_proposer_train_config(path: Path) -> ProposerTrainConfig:
     """Load a proposer training config from JSON."""
     payload = json.loads(path.read_text(encoding="utf-8"))
@@ -564,6 +734,14 @@ def load_opponent_train_config(path: Path) -> OpponentTrainConfig:
     if not isinstance(payload, dict):
         raise ValueError(f"{path}: training config root must be an object")
     return OpponentTrainConfig.from_dict(payload)
+
+
+def load_planner_train_config(path: Path) -> PlannerTrainConfig:
+    """Load a planner-head training config from JSON."""
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"{path}: training config root must be an object")
+    return PlannerTrainConfig.from_dict(payload)
 
 
 def resolve_repo_path(repo_root: Path, configured_path: str) -> Path:
