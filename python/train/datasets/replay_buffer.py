@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 from pathlib import Path
+from dataclasses import replace
 from typing import Sequence
 
 from train.eval.selfplay import SelfplayGameRecord, SelfplaySessionRecord
@@ -106,6 +107,25 @@ def build_replay_buffer_entries(session: SelfplaySessionRecord) -> list[ReplayBu
     return entries
 
 
+def build_replay_buffer_entries_from_sessions(
+    sessions: Sequence[SelfplaySessionRecord],
+    *,
+    session_labels: Sequence[str] | None = None,
+) -> list[ReplayBufferEntry]:
+    """Flatten multiple selfplay sessions into one replay-buffer row list."""
+    if session_labels is not None and len(session_labels) != len(sessions):
+        raise ValueError("session_labels must match sessions length")
+    entries: list[ReplayBufferEntry] = []
+    for index, session in enumerate(sessions):
+        built_entries = build_replay_buffer_entries(session)
+        if session_labels is None:
+            entries.extend(built_entries)
+            continue
+        prefix = session_labels[index]
+        entries.extend(_prefix_session_entries(built_entries, prefix=prefix))
+    return entries
+
+
 def load_replay_buffer_entries(path: Path) -> list[ReplayBufferEntry]:
     """Load replay-buffer rows from JSONL."""
     if not path.exists():
@@ -117,6 +137,32 @@ def load_replay_buffer_entries(path: Path) -> list[ReplayBufferEntry]:
             continue
         entries.append(ReplayBufferEntry.from_json(line))
     return entries
+
+
+def load_arena_session_paths(summary_path: Path) -> list[Path]:
+    """Extract ordered session paths from one arena-summary payload."""
+    if not summary_path.exists():
+        raise FileNotFoundError(f"arena summary not found: {summary_path}")
+    payload = json.loads(summary_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("arena summary must be a JSON object")
+    matchups = payload.get("matchups")
+    if not isinstance(matchups, list):
+        raise ValueError("arena summary must contain a matchup list")
+    session_paths: list[Path] = []
+    seen_paths: set[Path] = set()
+    for index, raw_matchup in enumerate(matchups):
+        if not isinstance(raw_matchup, dict):
+            raise ValueError(f"arena summary matchup #{index} must be a JSON object")
+        raw_session_path = raw_matchup.get("session_path")
+        if raw_session_path is None:
+            raise ValueError(f"arena summary matchup #{index} missing session_path")
+        session_path = Path(str(raw_session_path))
+        if session_path in seen_paths:
+            continue
+        seen_paths.add(session_path)
+        session_paths.append(session_path)
+    return session_paths
 
 
 def write_replay_buffer_artifact(
@@ -198,6 +244,21 @@ def _entries_from_game(game: SelfplayGameRecord) -> list[ReplayBufferEntry]:
             )
         )
     return built
+
+
+def _prefix_session_entries(
+    entries: Sequence[ReplayBufferEntry],
+    *,
+    prefix: str,
+) -> list[ReplayBufferEntry]:
+    return [
+        replace(
+            entry,
+            sample_id=f"{prefix}:{entry.sample_id}",
+            game_id=f"{prefix}:{entry.game_id}",
+        )
+        for entry in entries
+    ]
 
 
 def _outcome_pov(result: str, side_to_move: str) -> str:

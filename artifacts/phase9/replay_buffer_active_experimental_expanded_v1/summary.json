@@ -1,0 +1,32 @@
+{
+  "arena_summary": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_experimental_expanded_v1/summary.json",
+  "curriculum_plan": "/home/torsten/EngineKonzept/artifacts/phase9/curriculum_active_experimental_expanded_v1.json",
+  "replay_path": "/home/torsten/EngineKonzept/artifacts/phase9/replay_buffer_active_experimental_expanded_v1/replay_buffer.jsonl",
+  "session_count": 30,
+  "stage_name": "active_experimental_expanded_round_robin",
+  "summary": {
+    "entry_count": 3640,
+    "game_count": 60,
+    "mean_considered_candidate_count": 3.505,
+    "mean_game_move_count": 60.667,
+    "outcome_counts": {
+      "draw": 356,
+      "loss": 104,
+      "unfinished": 3072,
+      "win": 108
+    },
+    "selector_counts": {
+      "planner_recurrent_expanded_v1": 600,
+      "planner_set_v2_expanded_v1": 616,
+      "planner_set_v6_expanded_v1": 618,
+      "planner_set_v6_margin_expanded_v1": 640,
+      "planner_set_v6_rank_expanded_v1": 590,
+      "symbolic_root_v1": 576
+    },
+    "termination_counts": {
+      "checkmate": 212,
+      "max_plies": 3072,
+      "threefold_repetition": 356
+    }
+  }
+}

@@ -73,3 +73,19 @@ The current practical conclusion is:
 - the full expanded planner family can already selfplay against each other under the versioned agent and arena contracts
 - `planner_set_v6_rank_expanded_v1` is the first tentative arena leader
 - the next useful step is to flatten this arena into replay data rather than immediately overreacting to a still-small selfplay sample
+
+That expanded replay-buffer follow-up is now materialized as well:
+
+- replay artifact:
+  [replay_buffer.jsonl](/home/torsten/EngineKonzept/artifacts/phase9/replay_buffer_active_experimental_expanded_v1/replay_buffer.jsonl)
+- replay summary:
+  [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/replay_buffer_active_experimental_expanded_v1/summary.json)
+
+Current expanded replay summary:
+
+- `30` sessions
+- `60` games
+- `3640` replay rows
+- `mean_considered_candidate_count=3.505`
+
+This is the first large selfplay-derived training artifact for the active-plus-experimental expanded planner family.

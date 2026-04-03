@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from train.datasets.replay_buffer import (
     ReplayBufferEntry,
     build_replay_buffer_entries,
+    build_replay_buffer_entries_from_sessions,
+    load_arena_session_paths,
     replay_buffer_summary,
 )
 from train.eval.agent_spec import SelfplayAgentSpec
@@ -80,3 +85,35 @@ def test_replay_buffer_summary_aggregates_entries() -> None:
     assert summary["game_count"] == 1
     assert summary["selector_counts"] == {"white_agent": 1}
     assert summary["outcome_counts"] == {"win": 1}
+
+
+def test_build_replay_buffer_entries_from_sessions_flattens_multiple_sessions() -> None:
+    entries = build_replay_buffer_entries_from_sessions(
+        [_sample_session(), _sample_session()],
+        session_labels=["session_a", "session_b"],
+    )
+    assert len(entries) == 2
+    assert entries[0].game_id == "session_a:game_0001"
+    assert entries[1].sample_id == "session_b:game_0001:0"
+
+
+def test_load_arena_session_paths_reads_matchup_paths(tmp_path: Path) -> None:
+    session_one = tmp_path / "session_one.json"
+    session_two = tmp_path / "session_two.json"
+    summary_path = tmp_path / "summary.json"
+    summary_path.write_text(
+        json.dumps(
+            {
+                "matchups": [
+                    {"name": "a_vs_b", "session_path": str(session_one)},
+                    {"name": "b_vs_c", "session_path": str(session_two)},
+                    {"name": "duplicate", "session_path": str(session_one)},
+                ]
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    assert load_arena_session_paths(summary_path) == [session_one, session_two]

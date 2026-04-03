@@ -21,6 +21,7 @@ The repository now has the first small selfplay loop in Python:
 - [selfplay.py](/home/torsten/EngineKonzept/python/train/eval/selfplay.py)
 - [run_selfplay.py](/home/torsten/EngineKonzept/python/scripts/run_selfplay.py)
 - [build_replay_buffer.py](/home/torsten/EngineKonzept/python/scripts/build_replay_buffer.py)
+- [build_curriculum_stage_replay_buffer.py](/home/torsten/EngineKonzept/python/scripts/build_curriculum_stage_replay_buffer.py)
 - [run_selfplay_arena.py](/home/torsten/EngineKonzept/python/scripts/run_selfplay_arena.py)
 - [run_selfplay_curriculum_stage.py](/home/torsten/EngineKonzept/python/scripts/run_selfplay_curriculum_stage.py)
 - [build_selfplay_curriculum_plan.py](/home/torsten/EngineKonzept/python/scripts/build_selfplay_curriculum_plan.py)
@@ -207,3 +208,20 @@ Important interpretation:
 - `set_v6_rank_expanded_v1` is the current tentative arena leader
 - but the sample is still small and many games terminate by `max_plies`
 - so this is enough to drive the next replay-buffer step, not yet enough to declare a final long-run runtime promotion
+
+That replay-buffer follow-up is now also materialized directly from the curriculum stage:
+
+- replay buffer:
+  [replay_buffer.jsonl](/home/torsten/EngineKonzept/artifacts/phase9/replay_buffer_active_experimental_expanded_v1/replay_buffer.jsonl)
+- replay summary:
+  [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/replay_buffer_active_experimental_expanded_v1/summary.json)
+
+Observed result:
+
+- `30` arena sessions flattened
+- `60` exact selfplay games represented
+- `3640` replay rows
+- `mean_considered_candidate_count=3.505`
+- stable session-prefixed `game_id` / `sample_id` values, so multi-session replay rows remain unique
+
+This is the first large selfplay-derived training artifact for the active-plus-experimental expanded planner family.
