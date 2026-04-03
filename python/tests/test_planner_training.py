@@ -68,6 +68,52 @@ def test_load_planner_train_config_accepts_set_v6(tmp_path: Path) -> None:
     assert config.optimization.root_value_loss_weight == 0.1
 
 
+def test_load_planner_train_config_accepts_recurrent_v1(tmp_path: Path) -> None:
+    config_path = tmp_path / "planner_recurrent_config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "seed": 5,
+                "output_dir": "planner_out",
+                "data": {
+                    "train_path": "planner_head_train.jsonl",
+                    "validation_path": "planner_head_validation.jsonl",
+                },
+                "model": {
+                    "architecture": "recurrent_v1",
+                    "hidden_dim": 64,
+                    "hidden_layers": 1,
+                    "action_embedding_dim": 16,
+                    "latent_feature_dim": 8,
+                    "deliberation_steps": 2,
+                    "memory_slots": 2,
+                    "dropout": 0.0,
+                },
+                "optimization": {
+                    "epochs": 1,
+                    "batch_size": 2,
+                    "learning_rate": 0.001,
+                    "weight_decay": 0.0,
+                    "teacher_policy_loss_weight": 1.0,
+                    "teacher_kl_loss_weight": 0.25,
+                    "root_value_loss_weight": 0.1,
+                    "root_gap_loss_weight": 0.05,
+                },
+                "evaluation": {"top_k": 3},
+                "runtime": {"torch_threads": 1, "dataloader_workers": 0},
+                "export": {"bundle_dir": "planner_bundle"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_planner_train_config(config_path)
+
+    assert config.model.architecture == "recurrent_v1"
+    assert config.model.deliberation_steps == 2
+    assert config.model.memory_slots == 2
+
+
 def test_train_and_evaluate_planner_checkpoint(tmp_path: Path) -> None:
     candidate_dim = candidate_context_feature_dim(2)
     transition_dim = transition_context_feature_dim(1)
@@ -337,6 +383,96 @@ def test_set_v1_ignores_latent_features_in_artifacts(tmp_path: Path) -> None:
                 "runtime": {"torch_threads": 1, "dataloader_workers": 0},
                 "export": {
                     "bundle_dir": str(tmp_path / "planner_bundle_set_v1"),
+                    "checkpoint_name": "checkpoint.pt",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    run = train_planner(load_planner_train_config(config_path), repo_root=tmp_path)
+    metrics = evaluate_planner_checkpoint(
+        Path(run.export_paths["checkpoint"]),
+        dataset_path=validation_path,
+    )
+
+    assert metrics.total_examples == 1
+    assert 0.0 <= metrics.root_top1_accuracy <= 1.0
+
+
+def test_train_and_evaluate_planner_checkpoint_with_recurrent_v1(tmp_path: Path) -> None:
+    candidate_dim = candidate_context_feature_dim(2)
+    transition_dim = transition_context_feature_dim(1)
+    global_dim = SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE
+
+    train_path = tmp_path / "planner_head_train_recurrent.jsonl"
+    validation_path = tmp_path / "planner_head_validation_recurrent.jsonl"
+    write_planner_head_artifact(
+        train_path,
+        [
+            _planner_example(
+                sample_id="train-1",
+                teacher_index=0,
+                candidate_dim=candidate_dim,
+                transition_dim=transition_dim,
+                global_dim=global_dim,
+            ),
+            _planner_example(
+                sample_id="train-2",
+                teacher_index=1,
+                candidate_dim=candidate_dim,
+                transition_dim=transition_dim,
+                global_dim=global_dim,
+            ),
+        ],
+    )
+    write_planner_head_artifact(
+        validation_path,
+        [
+            _planner_example(
+                sample_id="validation-1",
+                teacher_index=0,
+                candidate_dim=candidate_dim,
+                transition_dim=transition_dim,
+                global_dim=global_dim,
+            )
+        ],
+    )
+
+    config_path = tmp_path / "planner_train_recurrent.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "seed": 10,
+                "output_dir": str(tmp_path / "planner_run_recurrent"),
+                "data": {
+                    "train_path": str(train_path),
+                    "validation_path": str(validation_path),
+                },
+                "model": {
+                    "architecture": "recurrent_v1",
+                    "hidden_dim": 32,
+                    "hidden_layers": 1,
+                    "action_embedding_dim": 16,
+                    "latent_feature_dim": 4,
+                    "deliberation_steps": 2,
+                    "memory_slots": 2,
+                    "dropout": 0.0,
+                },
+                "optimization": {
+                    "epochs": 2,
+                    "batch_size": 2,
+                    "learning_rate": 0.001,
+                    "weight_decay": 0.0,
+                    "teacher_policy_loss_weight": 1.0,
+                    "teacher_kl_loss_weight": 0.25,
+                    "root_value_loss_weight": 0.1,
+                    "root_gap_loss_weight": 0.1,
+                },
+                "evaluation": {"top_k": 3},
+                "runtime": {"torch_threads": 1, "dataloader_workers": 0},
+                "export": {
+                    "bundle_dir": str(tmp_path / "planner_bundle_recurrent"),
                     "checkpoint_name": "checkpoint.pt",
                 },
             }

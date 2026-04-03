@@ -286,3 +286,11 @@ Interpretation:
 - the discrete rank-bucket contract is now real, reproducible, and measurable
 - but this first rank-bucket arm is weaker than both `set_v2` and the earlier score-aux `set_v6`
 - `set_v2_10k_122k_expanded` therefore remains the preferred Phase-8 reference
+
+The first bounded recurrent follow-up is now prepared at the model/config level as well:
+
+- architecture: `recurrent_v1`
+- keeps the same `PlannerHeadV1` data contract and the same bounded candidate slice
+- adds explicit `memory_slots` and `deliberation_steps`
+- refines candidate tokens through a small recurrent memory loop instead of widening the same one-shot scorer again
+- config: [phase8_planner_corpus_suite_recurrent_v1_10k_122k_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_recurrent_v1_10k_122k_expanded_v1.json)

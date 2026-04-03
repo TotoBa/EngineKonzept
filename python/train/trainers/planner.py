@@ -149,6 +149,8 @@ def train_planner(config: PlannerTrainConfig, *, repo_root: Path) -> PlannerTrai
         hidden_layers=config.model.hidden_layers,
         action_embedding_dim=config.model.action_embedding_dim,
         latent_feature_dim=config.model.latent_feature_dim,
+        deliberation_steps=config.model.deliberation_steps,
+        memory_slots=config.model.memory_slots,
         dropout=config.model.dropout,
         enable_candidate_rank_head=config.optimization.teacher_rank_loss_weight > 0.0,
     )
@@ -285,6 +287,8 @@ def evaluate_planner_checkpoint(
         hidden_layers=config.model.hidden_layers,
         action_embedding_dim=config.model.action_embedding_dim,
         latent_feature_dim=config.model.latent_feature_dim,
+        deliberation_steps=config.model.deliberation_steps,
+        memory_slots=config.model.memory_slots,
         dropout=config.model.dropout,
         enable_candidate_rank_head=config.optimization.teacher_rank_loss_weight > 0.0,
     )

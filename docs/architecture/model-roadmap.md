@@ -391,6 +391,12 @@ So the current repo evidence says:
 - but they are not yet a better planner target than the simpler filtered `set_v2` ranking objective
 - the next useful Phase-8 change is still more likely to come from better planner-facing workflow targets than from another auxiliary ranking head alone
 
+The next architectural step is now prepared without another contract break:
+
+- `recurrent_v1` keeps the same bounded candidate contract
+- it adds explicit `memory_slots` and `deliberation_steps`
+- so the repo can finally test bounded recurrent deliberation itself, instead of only richer one-shot root scorers
+
 ## Deferred Architecture Ideas
 
 The following ideas remain relevant and are intentionally being kept in view, but they are deferred until the dense single-path stack is stronger:

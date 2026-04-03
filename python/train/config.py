@@ -581,12 +581,14 @@ class PlannerModelConfig:
     hidden_layers: int = 2
     action_embedding_dim: int = 64
     latent_feature_dim: int = 0
+    deliberation_steps: int = 1
+    memory_slots: int = 0
     dropout: float = 0.0
 
     def __post_init__(self) -> None:
-        if self.architecture not in {"set_v1", "set_v2", "set_v3", "set_v5", "set_v6"}:
+        if self.architecture not in {"set_v1", "set_v2", "set_v3", "set_v5", "set_v6", "recurrent_v1"}:
             raise ValueError(
-                "model.architecture must be 'set_v1', 'set_v2', 'set_v3', 'set_v5', or 'set_v6'"
+                "model.architecture must be 'set_v1', 'set_v2', 'set_v3', 'set_v5', 'set_v6', or 'recurrent_v1'"
             )
         if self.hidden_dim <= 0:
             raise ValueError("model.hidden_dim must be positive")
@@ -596,6 +598,19 @@ class PlannerModelConfig:
             raise ValueError("model.action_embedding_dim must be positive")
         if self.latent_feature_dim < 0:
             raise ValueError("model.latent_feature_dim must be non-negative")
+        if self.deliberation_steps <= 0:
+            raise ValueError("model.deliberation_steps must be positive")
+        if self.memory_slots < 0:
+            raise ValueError("model.memory_slots must be non-negative")
+        if self.architecture == "recurrent_v1":
+            if self.deliberation_steps < 2:
+                raise ValueError(
+                    "model.deliberation_steps must be at least 2 for architecture 'recurrent_v1'"
+                )
+            if self.memory_slots <= 0:
+                raise ValueError(
+                    "model.memory_slots must be positive for architecture 'recurrent_v1'"
+                )
         if not 0.0 <= self.dropout < 1.0:
             raise ValueError("model.dropout must be in [0.0, 1.0)")
 

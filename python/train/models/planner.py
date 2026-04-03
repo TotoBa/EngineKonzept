@@ -58,14 +58,18 @@ if torch is not None and nn is not None:
             hidden_layers: int,
             action_embedding_dim: int,
             latent_feature_dim: int,
+            deliberation_steps: int = 1,
+            memory_slots: int = 0,
             dropout: float,
             enable_candidate_rank_head: bool = False,
         ) -> None:
             super().__init__()
-            if architecture not in {"set_v1", "set_v2", "set_v3", "set_v5", "set_v6"}:
+            if architecture not in {"set_v1", "set_v2", "set_v3", "set_v5", "set_v6", "recurrent_v1"}:
                 raise ValueError(f"unsupported planner architecture: {architecture}")
             self.architecture = architecture
             self.latent_feature_dim = latent_feature_dim
+            self.deliberation_steps = deliberation_steps
+            self.memory_slots = memory_slots
             self.state_backbone = _build_mlp(
                 input_dim=POSITION_FEATURE_SIZE + SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE,
                 hidden_dim=hidden_dim,
@@ -112,6 +116,21 @@ if torch is not None and nn is not None:
                 self.set_query = nn.Linear(hidden_dim, hidden_dim)
                 self.set_key = nn.Linear(hidden_dim, hidden_dim)
                 self.set_value = nn.Linear(hidden_dim, hidden_dim)
+            if architecture == "recurrent_v1":
+                self.memory_slot_embeddings = nn.Parameter(torch.randn(memory_slots, hidden_dim) * 0.02)
+                self.memory_cell = nn.GRUCell(hidden_dim * 2, hidden_dim)
+                self.candidate_refinement = nn.Sequential(
+                    nn.Linear(hidden_dim * 3, hidden_dim),
+                    nn.ReLU(),
+                    nn.Dropout(dropout) if dropout > 0.0 else nn.Identity(),
+                    nn.Linear(hidden_dim, hidden_dim),
+                )
+                self.recurrent_norm = nn.LayerNorm(hidden_dim)
+            else:
+                self.memory_slot_embeddings = None
+                self.memory_cell = None
+                self.candidate_refinement = None
+                self.recurrent_norm = None
             candidate_factor_count = 5 if architecture == "set_v1" else 6
             self.candidate_mlp = nn.Sequential(
                 nn.Linear(hidden_dim * candidate_factor_count, hidden_dim),
@@ -121,7 +140,7 @@ if torch is not None and nn is not None:
                 nn.ReLU(),
                 nn.Linear(hidden_dim // 2, 1),
             )
-            if architecture in {"set_v2", "set_v3", "set_v5", "set_v6"}:
+            if architecture in {"set_v2", "set_v3", "set_v5", "set_v6", "recurrent_v1"}:
                 self.root_value_head = nn.Sequential(
                     nn.Linear(hidden_dim * 3, hidden_dim),
                     nn.ReLU(),
@@ -225,6 +244,51 @@ if torch is not None and nn is not None:
                 candidate_count = mask.sum(dim=1).clamp_min(1.0)
                 attended = torch.sum(candidate_token * mask, dim=1) / candidate_count
                 summary = attended
+                context_hidden = state_hidden
+            elif self.architecture == "recurrent_v1":
+                assert self.memory_slot_embeddings is not None
+                assert self.memory_cell is not None
+                assert self.candidate_refinement is not None
+                assert self.recurrent_norm is not None
+                batch_size, _, hidden_size = candidate_token.shape
+                memory_slots = (
+                    state_hidden.unsqueeze(1)
+                    + self.memory_slot_embeddings.unsqueeze(0).expand(batch_size, -1, -1)
+                )
+                mask = candidate_mask.unsqueeze(2).to(candidate_token.dtype)
+                candidate_count = mask.sum(dim=1).clamp_min(1.0)
+                summary = torch.sum(candidate_token * mask, dim=1) / candidate_count
+                attended = summary
+                context_hidden = state_hidden
+                for _ in range(self.deliberation_steps):
+                    memory_summary = memory_slots.mean(dim=1)
+                    query = self.set_query(memory_summary).unsqueeze(1)
+                    keys = self.set_key(candidate_token)
+                    values = self.set_value(candidate_token)
+                    attention_logits = (query * keys).sum(dim=2) / math.sqrt(float(keys.shape[2]))
+                    attention_logits = attention_logits.masked_fill(~candidate_mask, -1e9)
+                    attention_weights = torch.softmax(attention_logits, dim=1)
+                    attention_weights = attention_weights.masked_fill(~candidate_mask, 0.0)
+                    attended = torch.sum(attention_weights.unsqueeze(-1) * values, dim=1)
+                    summary = torch.sum(candidate_token * mask, dim=1) / candidate_count
+                    memory_input = torch.cat([attended, summary], dim=1)
+                    repeated_memory_input = memory_input.unsqueeze(1).expand(-1, self.memory_slots, -1)
+                    memory_slots = self.memory_cell(
+                        repeated_memory_input.reshape(-1, hidden_size * 2),
+                        memory_slots.reshape(-1, hidden_size),
+                    ).reshape(batch_size, self.memory_slots, hidden_size)
+                    context_hidden = memory_slots.mean(dim=1)
+                    refinement_input = torch.cat(
+                        [
+                            candidate_token,
+                            context_hidden.unsqueeze(1).expand_as(candidate_token),
+                            attended.unsqueeze(1).expand_as(candidate_token),
+                        ],
+                        dim=2,
+                    )
+                    candidate_token = self.recurrent_norm(
+                        candidate_token + self.candidate_refinement(refinement_input) * mask
+                    )
             else:
                 query = self.set_query(state_hidden).unsqueeze(1)
                 keys = self.set_key(candidate_token)
@@ -237,7 +301,8 @@ if torch is not None and nn is not None:
                 mask = candidate_mask.unsqueeze(2).to(candidate_token.dtype)
                 candidate_count = mask.sum(dim=1).clamp_min(1.0)
                 summary = torch.sum(candidate_token * mask, dim=1) / candidate_count
-            repeated_context = state_hidden.unsqueeze(1).expand_as(candidate_token)
+                context_hidden = state_hidden
+            repeated_context = context_hidden.unsqueeze(1).expand_as(candidate_token)
             repeated_attended = attended.unsqueeze(1).expand_as(candidate_token)
             repeated_summary = summary.unsqueeze(1).expand_as(candidate_token)
             candidate_hidden_parts = [
@@ -247,7 +312,7 @@ if torch is not None and nn is not None:
                 repeated_summary,
                 candidate_token * repeated_context,
             ]
-            if self.architecture in {"set_v2", "set_v3", "set_v5", "set_v6"}:
+            if self.architecture in {"set_v2", "set_v3", "set_v5", "set_v6", "recurrent_v1"}:
                 candidate_hidden_parts.append(candidate_token * repeated_attended)
             candidate_hidden = torch.cat(candidate_hidden_parts, dim=2)
             logits = self.candidate_mlp(candidate_hidden).squeeze(-1)
@@ -257,7 +322,7 @@ if torch is not None and nn is not None:
             candidate_rank_prediction = None
             if self.candidate_rank_head is not None:
                 candidate_rank_prediction = self.candidate_rank_head(candidate_hidden)
-            root_summary = torch.cat([state_hidden, attended, summary], dim=1)
+            root_summary = torch.cat([context_hidden, attended, summary], dim=1)
             root_value_prediction = None
             root_gap_prediction = None
             if self.root_value_head is not None:
