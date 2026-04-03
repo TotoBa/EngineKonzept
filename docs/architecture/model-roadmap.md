@@ -408,6 +408,14 @@ So the current conclusion is:
 - but the first recurrent planner arm still trails the best bounded one-shot `set_v2` reference
 - the next role for recurrence should be enabling a first small selfplay loop and later planner-memory refinements, not replacing `set_v2` immediately
 
+That first small selfplay loop now exists as well:
+
+- exact positions still come from the symbolic rules/oracle path
+- exact legal moves still come from the symbolic proposer contract
+- optional bounded planner, opponent, and dynamics checkpoints plug in behind a stable move-selector interface
+
+So the next pressure is now less "can the repo run selfplay at all?" and more "how quickly can selfplay become useful for replay, curriculum, and checkpoint comparison without hard-coding today's planner family?"
+
 ## Deferred Architecture Ideas
 
 The following ideas remain relevant and are intentionally being kept in view, but they are deferred until the dense single-path stack is stronger:

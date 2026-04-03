@@ -27,6 +27,7 @@ The repository now covers Phase 8 foundations:
 - the first explicit Phase-7 dataset contract for opponent-reply supervision
 - the first trained Phase-7 opponent-head baseline
 - the first trained bounded planner arm over a multi-corpus workflow suite
+- the first small exact selfplay loop over proposer/opponent/planner contracts
 - CI, lint, and test wiring
 - architecture and phase documentation
 
@@ -326,6 +327,24 @@ The important current conclusion is:
 - `set_v5` becomes competitive again on the filtered slice, but still does not beat the new `10k + 122k`-only expanded `set_v2`
 
 These are still bounded offline planner artifacts, not runtime search, but Phase 8 is now far enough along to separate data-scale effects from real planner-contract or architecture effects.
+
+## Phase 9 Snapshot
+
+The repository now also has the first small exact selfplay loop:
+
+- runtime helpers: [planner_runtime.py](/home/torsten/EngineKonzept/python/train/eval/planner_runtime.py), [selfplay.py](/home/torsten/EngineKonzept/python/train/eval/selfplay.py)
+- script entry point: [run_selfplay.py](/home/torsten/EngineKonzept/python/scripts/run_selfplay.py)
+- phase note: [phase-9.md](/home/torsten/EngineKonzept/docs/phases/phase-9.md)
+- first probe artifact: [selfplay_set_v2_probe_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/selfplay_set_v2_probe_v1.json)
+
+Current first probe:
+
+- `1` game from `startpos`
+- symbolic proposer + learned `OpponentHeadV1` + bounded planner `set_v2_10k_122k_expanded`
+- `8` legal plies
+- termination reason: `max_plies`
+
+That means Phase 9 is now started as real code and a real artifact, but it is still only a small reproducible probe, not yet replay buffering, curriculum, or a checkpoint arena.
 
 ## Repository Layout
 

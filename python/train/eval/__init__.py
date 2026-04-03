@@ -49,6 +49,41 @@ def __getattr__(name: str) -> Any:
             "PlannerBaselineMetrics": PlannerBaselineMetrics,
             "evaluate_two_ply_planner_baseline": evaluate_two_ply_planner_baseline,
         }[name]
+    if name in {
+        "PlannerRootDecision",
+        "LoadedPlannerRuntime",
+        "build_planner_runtime",
+        "load_planner_head_checkpoint",
+    }:
+        from train.eval.planner_runtime import (
+            LoadedPlannerRuntime,
+            PlannerRootDecision,
+            build_planner_runtime,
+            load_planner_head_checkpoint,
+        )
+
+        return {
+            "PlannerRootDecision": PlannerRootDecision,
+            "LoadedPlannerRuntime": LoadedPlannerRuntime,
+            "build_planner_runtime": build_planner_runtime,
+            "load_planner_head_checkpoint": load_planner_head_checkpoint,
+        }[name]
+    if name in {"STARTING_FEN", "SelfplayGameRecord", "SelfplaySessionRecord", "play_selfplay_game", "run_selfplay_session"}:
+        from train.eval.selfplay import (
+            STARTING_FEN,
+            SelfplayGameRecord,
+            SelfplaySessionRecord,
+            play_selfplay_game,
+            run_selfplay_session,
+        )
+
+        return {
+            "STARTING_FEN": STARTING_FEN,
+            "SelfplayGameRecord": SelfplayGameRecord,
+            "SelfplaySessionRecord": SelfplaySessionRecord,
+            "play_selfplay_game": play_selfplay_game,
+            "run_selfplay_session": run_selfplay_session,
+        }[name]
     if name in {"load_dynamics_checkpoint", "predict_dynamics_latent"}:
         from train.eval.dynamics import (
             load_dynamics_checkpoint,
@@ -64,13 +99,22 @@ def __getattr__(name: str) -> Any:
 
 __all__ = [
     "OpponentBaselineMetrics",
+    "LoadedPlannerRuntime",
     "PlannerBaselineMetrics",
+    "PlannerRootDecision",
+    "STARTING_FEN",
+    "SelfplayGameRecord",
+    "SelfplaySessionRecord",
+    "build_planner_runtime",
     "evaluate_symbolic_opponent_baseline",
     "evaluate_two_ply_planner_baseline",
     "load_dynamics_checkpoint",
     "load_opponent_head_checkpoint",
+    "load_planner_head_checkpoint",
     "load_symbolic_proposer_checkpoint",
+    "play_selfplay_game",
     "predict_dynamics_latent",
+    "run_selfplay_session",
     "score_opponent_candidates",
     "score_symbolic_candidates",
 ]
