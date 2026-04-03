@@ -1,0 +1,236 @@
+{
+  "checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+  "output_root": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1",
+  "policy_temperature_cp": 100.0,
+  "teacher_engine": "/usr/games/stockfish18",
+  "teacher_multipv": 8,
+  "teacher_nodes": 64,
+  "tiers": {
+    "merged_unique_122k": {
+      "train": {
+        "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_merged_unique_train_v1",
+        "opponent_head_path": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/merged_unique_122k_train_v1/opponent_head_train.jsonl",
+        "output_dir": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/merged_unique_122k_train_v1",
+        "summary": {
+          "checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+          "curriculum_priority_mean": 5.008679863769531,
+          "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_merged_unique_train_v1",
+          "disagreement_rate": 0.83251953125,
+          "example_count": 2048,
+          "output_dir": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/merged_unique_122k_train_v1",
+          "reply_supervised_count": 431,
+          "split": "train",
+          "teacher_coverage_ratio": 0.2591089370798737,
+          "teacher_engine": "/usr/games/stockfish18",
+          "teacher_multipv": 8,
+          "teacher_nodes": 64
+        }
+      },
+      "validation": {
+        "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_merged_unique_train_v1",
+        "opponent_head_path": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/merged_unique_122k_validation_v1/opponent_head_validation.jsonl",
+        "output_dir": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/merged_unique_122k_validation_v1",
+        "summary": {
+          "checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+          "curriculum_priority_mean": 5.11858252734375,
+          "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_merged_unique_train_v1",
+          "disagreement_rate": 0.837890625,
+          "example_count": 512,
+          "output_dir": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/merged_unique_122k_validation_v1",
+          "reply_supervised_count": 90,
+          "split": "validation",
+          "teacher_coverage_ratio": 0.26377194851769664,
+          "teacher_engine": "/usr/games/stockfish18",
+          "teacher_multipv": 8,
+          "teacher_nodes": 64
+        }
+      },
+      "verify": {
+        "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_merged_unique_verify_v1",
+        "opponent_head_path": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/merged_unique_122k_verify_v1/opponent_head_test.jsonl",
+        "output_dir": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/merged_unique_122k_verify_v1",
+        "summary": {
+          "checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+          "curriculum_priority_mean": 7.239102845703125,
+          "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_merged_unique_verify_v1",
+          "disagreement_rate": 0.84765625,
+          "example_count": 512,
+          "output_dir": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/merged_unique_122k_verify_v1",
+          "reply_supervised_count": 122,
+          "split": "test",
+          "teacher_coverage_ratio": 0.2509008246974072,
+          "teacher_engine": "/usr/games/stockfish18",
+          "teacher_multipv": 8,
+          "teacher_nodes": 64
+        },
+        "symbolic_baseline": {
+          "examples_per_second": 1490.74,
+          "pressure_mae": 0.166992,
+          "reply_top1_accuracy": 0.286885,
+          "reply_top3_accuracy": 0.483607,
+          "supervised_examples": 122,
+          "teacher_reply_mean_probability": 0.155005,
+          "teacher_reply_mean_reciprocal_rank": 0.434344,
+          "total_examples": 512,
+          "uncertainty_mae": 0.28091
+        }
+      }
+    },
+    "pgn_10k": {
+      "train": {
+        "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1",
+        "opponent_head_path": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/pgn_10k_train_v1/opponent_head_train.jsonl",
+        "output_dir": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/pgn_10k_train_v1",
+        "summary": {
+          "checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+          "curriculum_priority_mean": 4.9298478720703125,
+          "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1",
+          "disagreement_rate": 0.8369140625,
+          "example_count": 1024,
+          "output_dir": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/pgn_10k_train_v1",
+          "reply_supervised_count": 222,
+          "split": "train",
+          "teacher_coverage_ratio": 0.26196125036646395,
+          "teacher_engine": "/usr/games/stockfish18",
+          "teacher_multipv": 8,
+          "teacher_nodes": 64
+        }
+      },
+      "validation": {
+        "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1",
+        "opponent_head_path": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/pgn_10k_validation_v1/opponent_head_validation.jsonl",
+        "output_dir": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/pgn_10k_validation_v1",
+        "summary": {
+          "checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+          "curriculum_priority_mean": 4.86775067578125,
+          "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_train_pi_10k_v1",
+          "disagreement_rate": 0.78125,
+          "example_count": 256,
+          "output_dir": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/pgn_10k_validation_v1",
+          "reply_supervised_count": 60,
+          "split": "validation",
+          "teacher_coverage_ratio": 0.25497927166349676,
+          "teacher_engine": "/usr/games/stockfish18",
+          "teacher_multipv": 8,
+          "teacher_nodes": 64
+        }
+      },
+      "verify": {
+        "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_verify_pi_10k_v1",
+        "opponent_head_path": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/pgn_10k_verify_v1/opponent_head_test.jsonl",
+        "output_dir": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/pgn_10k_verify_v1",
+        "summary": {
+          "checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+          "curriculum_priority_mean": 7.225612697265625,
+          "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_verify_pi_10k_v1",
+          "disagreement_rate": 0.849609375,
+          "example_count": 512,
+          "output_dir": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/pgn_10k_verify_v1",
+          "reply_supervised_count": 122,
+          "split": "test",
+          "teacher_coverage_ratio": 0.2510140610497075,
+          "teacher_engine": "/usr/games/stockfish18",
+          "teacher_multipv": 8,
+          "teacher_nodes": 64
+        },
+        "symbolic_baseline": {
+          "examples_per_second": 1406.775,
+          "pressure_mae": 0.161133,
+          "reply_top1_accuracy": 0.262295,
+          "reply_top3_accuracy": 0.5,
+          "supervised_examples": 122,
+          "teacher_reply_mean_probability": 0.155505,
+          "teacher_reply_mean_reciprocal_rank": 0.428802,
+          "total_examples": 512,
+          "uncertainty_mae": 0.283165
+        }
+      }
+    },
+    "unique_pi_400k": {
+      "train": {
+        "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_unique_pi_400k_train_v1",
+        "opponent_head_path": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/unique_pi_400k_train_v1/opponent_head_train.jsonl",
+        "output_dir": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/unique_pi_400k_train_v1",
+        "summary": {
+          "checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+          "curriculum_priority_mean": 6.822741187011719,
+          "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_unique_pi_400k_train_v1",
+          "disagreement_rate": 0.835693359375,
+          "example_count": 4096,
+          "output_dir": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/unique_pi_400k_train_v1",
+          "reply_supervised_count": 863,
+          "split": "train",
+          "teacher_coverage_ratio": 0.2667708034768549,
+          "teacher_engine": "/usr/games/stockfish18",
+          "teacher_multipv": 8,
+          "teacher_nodes": 64
+        }
+      },
+      "validation": {
+        "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_unique_pi_400k_train_v1",
+        "opponent_head_path": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/unique_pi_400k_validation_v1/opponent_head_validation.jsonl",
+        "output_dir": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/unique_pi_400k_validation_v1",
+        "summary": {
+          "checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+          "curriculum_priority_mean": 7.237158954101562,
+          "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_unique_pi_400k_train_v1",
+          "disagreement_rate": 0.8486328125,
+          "example_count": 1024,
+          "output_dir": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/unique_pi_400k_validation_v1",
+          "reply_supervised_count": 212,
+          "split": "validation",
+          "teacher_coverage_ratio": 0.2636579727640493,
+          "teacher_engine": "/usr/games/stockfish18",
+          "teacher_multipv": 8,
+          "teacher_nodes": 64
+        }
+      },
+      "verify": {
+        "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_unique_pi_400k_verify_v1",
+        "opponent_head_path": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/unique_pi_400k_verify_v1/opponent_head_test.jsonl",
+        "output_dir": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/unique_pi_400k_verify_v1",
+        "summary": {
+          "checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+          "curriculum_priority_mean": 7.811995145077721,
+          "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_unique_pi_400k_verify_v1",
+          "disagreement_rate": 0.8316062176165803,
+          "example_count": 386,
+          "output_dir": "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/unique_pi_400k_verify_v1",
+          "reply_supervised_count": 109,
+          "split": "test",
+          "teacher_coverage_ratio": 0.28388059272339117,
+          "teacher_engine": "/usr/games/stockfish18",
+          "teacher_multipv": 8,
+          "teacher_nodes": 64
+        },
+        "symbolic_baseline": {
+          "examples_per_second": 1522.561,
+          "pressure_mae": 0.143782,
+          "reply_top1_accuracy": 0.321101,
+          "reply_top3_accuracy": 0.59633,
+          "supervised_examples": 109,
+          "teacher_reply_mean_probability": 0.181016,
+          "teacher_reply_mean_reciprocal_rank": 0.485981,
+          "total_examples": 386,
+          "uncertainty_mae": 0.322874
+        }
+      }
+    }
+  },
+  "top_k": 8,
+  "train_paths": [
+    "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/pgn_10k_train_v1/opponent_head_train.jsonl",
+    "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/merged_unique_122k_train_v1/opponent_head_train.jsonl",
+    "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/unique_pi_400k_train_v1/opponent_head_train.jsonl"
+  ],
+  "validation_paths": [
+    "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/pgn_10k_validation_v1/opponent_head_validation.jsonl",
+    "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/merged_unique_122k_validation_v1/opponent_head_validation.jsonl",
+    "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/unique_pi_400k_validation_v1/opponent_head_validation.jsonl"
+  ],
+  "verify_paths": [
+    "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/pgn_10k_verify_v1/opponent_head_test.jsonl",
+    "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/merged_unique_122k_verify_v1/opponent_head_test.jsonl",
+    "/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/unique_pi_400k_verify_v1/opponent_head_test.jsonl"
+  ]
+}

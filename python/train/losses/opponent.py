@@ -29,6 +29,7 @@ def compute_opponent_losses(
     reply_mask: Any,
     target_reply_policy: Any,
     supervised_mask: Any,
+    reply_example_weights: Any | None,
     predicted_pressure: Any,
     target_pressure: Any,
     predicted_uncertainty: Any,
@@ -47,7 +48,12 @@ def compute_opponent_losses(
     reply_log_probs = torch.log_softmax(masked_logits, dim=1)
     reply_loss_per_example = -(target_reply_policy * reply_log_probs).sum(dim=1)
     if bool(supervised_mask.any()):
-        reply_policy_loss = reply_loss_per_example[supervised_mask].mean()
+        supervised_losses = reply_loss_per_example[supervised_mask]
+        if reply_example_weights is None:
+            reply_policy_loss = supervised_losses.mean()
+        else:
+            supervised_weights = reply_example_weights[supervised_mask].clamp_min(1e-6)
+            reply_policy_loss = (supervised_losses * supervised_weights).sum() / supervised_weights.sum()
     else:
         reply_policy_loss = predicted_reply_logits.sum() * 0.0
     pressure_loss = F.mse_loss(predicted_pressure, target_pressure)

@@ -15,13 +15,13 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--checkpoint", type=Path, required=True)
-    parser.add_argument("--dataset-path", type=Path, required=True)
+    parser.add_argument("--dataset-path", type=Path, action="append", required=True)
     parser.add_argument("--split", default="test")
     args = parser.parse_args()
 
     metrics = evaluate_symbolic_opponent_baseline(
         _resolve_repo_path(args.checkpoint),
-        dataset_path=_resolve_repo_path(args.dataset_path),
+        dataset_paths=[_resolve_repo_path(path) for path in args.dataset_path],
         split=args.split,
     )
     print(json.dumps(metrics.to_dict(), indent=2, sort_keys=True))

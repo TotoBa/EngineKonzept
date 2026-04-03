@@ -90,3 +90,5 @@ These remain useful as small-corpus regression baselines, but they are no longer
 
 - [phase7_opponent_merged_unique_mlp_v1.json](/home/torsten/EngineKonzept/python/configs/phase7_opponent_merged_unique_mlp_v1.json)
   First explicit learned `OpponentHeadV1` run over the merged-unique workflow slices. It is the current trained Phase-7 reference, but it remains below the symbolic reply-scorer baseline on held-out reply ranking.
+- [phase7_opponent_corpus_suite_set_v2_v1.json](/home/torsten/EngineKonzept/python/configs/phase7_opponent_corpus_suite_set_v2_v1.json)
+  Current preferred Phase-7 config. Trains the stronger `set_v2` opponent head over the `10k`, `122k`, and `400k` workflow tiers together and is the first learned opponent arm that beats the symbolic reply baseline on the current multi-corpus holdout.

@@ -1,0 +1,114 @@
+{
+  "learned_set_v2_aggregate": {
+    "examples_per_second": 1256.99,
+    "pressure_loss": 0.044964,
+    "pressure_mae": 0.13252,
+    "reply_policy_loss": 4.406215,
+    "reply_top1_accuracy": 0.368272,
+    "reply_top3_accuracy": 0.603399,
+    "supervised_examples": 353,
+    "teacher_reply_mean_probability": 0.349949,
+    "teacher_reply_mean_reciprocal_rank": 0.521661,
+    "total_examples": 1410,
+    "total_loss": 4.450086,
+    "uncertainty_loss": 0.130517,
+    "uncertainty_mae": 0.297706
+  },
+  "per_tier": {
+    "merged_unique_122k": {
+      "learned_set_v2": {
+        "examples_per_second": 1535.935,
+        "pressure_loss": 0.042072,
+        "pressure_mae": 0.128468,
+        "reply_policy_loss": 4.214589,
+        "reply_top1_accuracy": 0.360656,
+        "reply_top3_accuracy": 0.606557,
+        "supervised_examples": 122,
+        "teacher_reply_mean_probability": 0.34787,
+        "teacher_reply_mean_reciprocal_rank": 0.516373,
+        "total_examples": 512,
+        "total_loss": 4.255145,
+        "uncertainty_loss": 0.120148,
+        "uncertainty_mae": 0.285304
+      },
+      "symbolic_baseline": {
+        "examples_per_second": 1470.348,
+        "pressure_mae": 0.166992,
+        "reply_top1_accuracy": 0.286885,
+        "reply_top3_accuracy": 0.483607,
+        "supervised_examples": 122,
+        "teacher_reply_mean_probability": 0.155005,
+        "teacher_reply_mean_reciprocal_rank": 0.434344,
+        "total_examples": 512,
+        "uncertainty_mae": 0.28091
+      }
+    },
+    "pgn_10k": {
+      "learned_set_v2": {
+        "examples_per_second": 1573.102,
+        "pressure_loss": 0.044116,
+        "pressure_mae": 0.131113,
+        "reply_policy_loss": 4.344026,
+        "reply_top1_accuracy": 0.360656,
+        "reply_top3_accuracy": 0.590164,
+        "supervised_examples": 122,
+        "teacher_reply_mean_probability": 0.343622,
+        "teacher_reply_mean_reciprocal_rank": 0.513208,
+        "total_examples": 512,
+        "total_loss": 4.38577,
+        "uncertainty_loss": 0.122861,
+        "uncertainty_mae": 0.289171
+      },
+      "symbolic_baseline": {
+        "examples_per_second": 1464.447,
+        "pressure_mae": 0.161133,
+        "reply_top1_accuracy": 0.262295,
+        "reply_top3_accuracy": 0.5,
+        "supervised_examples": 122,
+        "teacher_reply_mean_probability": 0.155505,
+        "teacher_reply_mean_reciprocal_rank": 0.428802,
+        "total_examples": 512,
+        "uncertainty_mae": 0.283165
+      }
+    },
+    "unique_pi_400k": {
+      "learned_set_v2": {
+        "examples_per_second": 1279.613,
+        "pressure_loss": 0.049923,
+        "pressure_mae": 0.139763,
+        "reply_policy_loss": 4.742883,
+        "reply_top1_accuracy": 0.385321,
+        "reply_top3_accuracy": 0.614679,
+        "supervised_examples": 109,
+        "teacher_reply_mean_probability": 0.359357,
+        "teacher_reply_mean_reciprocal_rank": 0.537041,
+        "total_examples": 386,
+        "total_loss": 4.79397,
+        "uncertainty_loss": 0.154424,
+        "uncertainty_mae": 0.325477
+      },
+      "symbolic_baseline": {
+        "examples_per_second": 1331.168,
+        "pressure_mae": 0.143782,
+        "reply_top1_accuracy": 0.321101,
+        "reply_top3_accuracy": 0.59633,
+        "supervised_examples": 109,
+        "teacher_reply_mean_probability": 0.181016,
+        "teacher_reply_mean_reciprocal_rank": 0.485981,
+        "total_examples": 386,
+        "uncertainty_mae": 0.322874
+      }
+    }
+  },
+  "symbolic_baseline_aggregate": {
+    "examples_per_second": 1413.29,
+    "pressure_mae": 0.158511,
+    "reply_top1_accuracy": 0.288952,
+    "reply_top3_accuracy": 0.524079,
+    "supervised_examples": 353,
+    "teacher_reply_mean_probability": 0.16321,
+    "teacher_reply_mean_reciprocal_rank": 0.448373,
+    "total_examples": 1410,
+    "uncertainty_mae": 0.293217
+  }
+}

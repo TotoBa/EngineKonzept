@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import time
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING, Any, Sequence
 
 from train.datasets.opponent_head import (
     load_opponent_head_examples,
@@ -145,16 +145,27 @@ def score_opponent_candidates(
 def evaluate_symbolic_opponent_baseline(
     checkpoint_path: Path,
     *,
-    dataset_path: Path,
+    dataset_path: Path | None = None,
+    dataset_paths: Sequence[Path] | None = None,
     split: str,
 ) -> OpponentBaselineMetrics:
     """Evaluate the exact symbolic reply-scorer baseline on OpponentHead examples."""
-    artifact_path = (
-        dataset_path / opponent_head_artifact_name(split)
-        if dataset_path.is_dir()
-        else dataset_path
-    )
-    examples = load_opponent_head_examples(artifact_path)
+    if dataset_paths is not None:
+        artifact_paths = [
+            path / opponent_head_artifact_name(split) if path.is_dir() else path
+            for path in dataset_paths
+        ]
+    elif dataset_path is not None:
+        artifact_paths = [
+            dataset_path / opponent_head_artifact_name(split)
+            if dataset_path.is_dir()
+            else dataset_path
+        ]
+    else:
+        raise ValueError("either dataset_path or dataset_paths must be provided")
+    examples: list[Any] = []
+    for artifact_path in artifact_paths:
+        examples.extend(load_opponent_head_examples(artifact_path))
     model, _config = load_symbolic_proposer_checkpoint(checkpoint_path)
 
     started_at = time.perf_counter()

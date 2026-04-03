@@ -106,15 +106,21 @@ def train_opponent(config: OpponentTrainConfig, *, repo_root: Path) -> OpponentT
 
     output_dir = resolve_repo_path(repo_root, config.output_dir)
     bundle_dir = resolve_repo_path(repo_root, config.export.bundle_dir)
-    train_path = resolve_repo_path(repo_root, config.data.train_path)
-    validation_path = resolve_repo_path(repo_root, config.data.validation_path)
+    train_paths = [
+        resolve_repo_path(repo_root, path)
+        for path in config.data.resolved_train_paths()
+    ]
+    validation_paths = [
+        resolve_repo_path(repo_root, path)
+        for path in config.data.resolved_validation_paths()
+    ]
     output_dir.mkdir(parents=True, exist_ok=True)
 
     _set_seed(config.seed)
     _configure_torch_runtime(config.runtime.torch_threads)
 
-    train_examples = load_opponent_head_examples(train_path)
-    validation_examples = load_opponent_head_examples(validation_path)
+    train_examples = _load_examples_from_paths(train_paths)
+    validation_examples = _load_examples_from_paths(validation_paths)
     if not train_examples:
         raise ValueError("training artifact is empty")
     if not validation_examples:
@@ -163,6 +169,7 @@ def train_opponent(config: OpponentTrainConfig, *, repo_root: Path) -> OpponentT
             reply_policy_weight=config.optimization.reply_policy_loss_weight,
             pressure_weight=config.optimization.pressure_loss_weight,
             uncertainty_weight=config.optimization.uncertainty_loss_weight,
+            curriculum_priority_weight=config.optimization.curriculum_priority_weight,
             top_k=config.evaluation.top_k,
         )
         validation_metrics = _run_epoch(
@@ -173,6 +180,7 @@ def train_opponent(config: OpponentTrainConfig, *, repo_root: Path) -> OpponentT
             reply_policy_weight=config.optimization.reply_policy_loss_weight,
             pressure_weight=config.optimization.pressure_loss_weight,
             uncertainty_weight=config.optimization.uncertainty_loss_weight,
+            curriculum_priority_weight=config.optimization.curriculum_priority_weight,
             top_k=config.evaluation.top_k,
         )
         history.append(
@@ -228,7 +236,8 @@ def train_opponent(config: OpponentTrainConfig, *, repo_root: Path) -> OpponentT
 def evaluate_opponent_checkpoint(
     checkpoint_path: Path,
     *,
-    dataset_path: Path,
+    dataset_path: Path | None = None,
+    dataset_paths: list[Path] | tuple[Path, ...] | None = None,
     top_k: int = 3,
 ) -> OpponentMetrics:
     """Load a saved opponent checkpoint and evaluate it on one artifact."""
@@ -247,9 +256,15 @@ def evaluate_opponent_checkpoint(
         dropout=config.model.dropout,
     )
     model.load_state_dict(dict(payload["model_state_dict"]))
-    examples = load_opponent_head_examples(dataset_path)
+    if dataset_paths is not None:
+        resolved_paths = list(dataset_paths)
+    elif dataset_path is not None:
+        resolved_paths = [dataset_path]
+    else:
+        raise ValueError("either dataset_path or dataset_paths must be provided")
+    examples = _load_examples_from_paths(resolved_paths)
     if not examples:
-        raise ValueError(f"evaluation artifact is empty: {dataset_path}")
+        raise ValueError(f"evaluation artifact list is empty: {resolved_paths}")
     loader = _build_loader(
         examples,
         batch_size=config.optimization.batch_size,
@@ -265,6 +280,7 @@ def evaluate_opponent_checkpoint(
         reply_policy_weight=config.optimization.reply_policy_loss_weight,
         pressure_weight=config.optimization.pressure_loss_weight,
         uncertainty_weight=config.optimization.uncertainty_loss_weight,
+        curriculum_priority_weight=config.optimization.curriculum_priority_weight,
         top_k=top_k,
     )
 
@@ -298,6 +314,7 @@ def _run_epoch(
     reply_policy_weight: float,
     pressure_weight: float,
     uncertainty_weight: float,
+    curriculum_priority_weight: float,
     top_k: int,
 ) -> OpponentMetrics:
     if training:
@@ -337,6 +354,11 @@ def _run_epoch(
                 reply_mask=batch["reply_candidate_mask"],
                 target_reply_policy=batch["teacher_reply_policy"],
                 supervised_mask=batch["supervised_mask"],
+                reply_example_weights=_build_reply_example_weights(
+                    batch["curriculum_priorities"],
+                    supervised_mask=batch["supervised_mask"],
+                    curriculum_priority_weight=curriculum_priority_weight,
+                ),
                 predicted_pressure=prediction.pressure,
                 target_pressure=batch["pressure_targets"],
                 predicted_uncertainty=prediction.uncertainty,
@@ -474,6 +496,10 @@ class _TensorDataset:
             [example.uncertainty_target for example in examples],
             dtype=torch.float32,
         )
+        curriculum_priorities = torch.tensor(
+            [example.curriculum_priority for example in examples],
+            dtype=torch.float32,
+        )
 
         for row_index, example in enumerate(examples):
             candidate_count = len(example.reply_candidate_action_indices)
@@ -520,6 +546,7 @@ class _TensorDataset:
                 "teacher_reply_indices": teacher_reply_indices,
                 "pressure_targets": pressure_targets,
                 "uncertainty_targets": uncertainty_targets,
+                "curriculum_priorities": curriculum_priorities,
             }
         )
 
@@ -568,6 +595,30 @@ def _validated_reply_candidate_features(example: OpponentHeadExample) -> list[li
                 f"{example.sample_id}: reply_candidate_features rows must have width {OPPONENT_CANDIDATE_FEATURE_SIZE}"
             )
     return example.reply_candidate_features
+
+
+def _build_reply_example_weights(
+    curriculum_priorities: Any,
+    *,
+    supervised_mask: Any,
+    curriculum_priority_weight: float,
+) -> Any | None:
+    if curriculum_priority_weight <= 0.0:
+        return None
+    weights = 1.0 + curriculum_priority_weight * torch.log1p(
+        curriculum_priorities.clamp_min(0.0)
+    )
+    if bool(supervised_mask.any()):
+        mean_weight = weights[supervised_mask].mean().clamp_min(1e-6)
+        weights = weights / mean_weight
+    return weights
+
+
+def _load_examples_from_paths(paths: list[Path] | tuple[Path, ...]) -> list[OpponentHeadExample]:
+    examples: list[OpponentHeadExample] = []
+    for path in paths:
+        examples.extend(load_opponent_head_examples(path))
+    return examples
 
 
 def _is_better_validation(current: OpponentMetrics, best: OpponentMetrics) -> bool:

@@ -14,9 +14,12 @@ Current contents:
 - [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_merged_unique_train_v1/summary.json)
 - [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_merged_unique_validation_v1/summary.json)
 - [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_merged_unique_verify_v1/summary.json)
+- [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/summary.json)
 - [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_merged_unique_mlp_v1/summary.json)
 - [opponent_merged_unique_mlp_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_merged_unique_mlp_v1_verify.json)
 - [opponent_merged_unique_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_merged_unique_compare_v1.json)
+- [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_corpus_suite_set_v2_v1/summary.json)
+- [opponent_corpus_suite_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_corpus_suite_compare_v1.json)
 - [planner_symbolic_root_only_verify_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/planner_symbolic_root_only_verify_v1.json)
 - [planner_symbolic_reply_verify_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/planner_symbolic_reply_verify_v1.json)
 - [planner_learned_reply_verify_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/planner_learned_reply_verify_v1.json)
@@ -41,7 +44,7 @@ Current baseline result:
 
 This is a probe artifact, not yet a large-corpus Phase-7 benchmark.
 
-The merged-unique workflow slices are the next step up:
+The merged-unique workflow slices were the first larger step up:
 
 - train slice: `256` examples, `61` reply-supervised, disagreement rate `0.867188`
 - verify slice: `128` examples, `30` reply-supervised, disagreement rate `0.851562`
@@ -73,6 +76,28 @@ Against the current larger symbolic baseline:
 - `teacher_reply_mean_reciprocal_rank=0.419262`
 
 So the trained `mlp_v1` arm is now a real Phase-7 model artifact, but still an experimental under-baseline reference.
+
+The new current Phase-7 reference is the three-tier corpus suite:
+
+- workflow suite:
+  - `10k` tier
+  - merged unique `122k` tier
+  - imported unique `400k` tier
+- learned head:
+  - [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_corpus_suite_set_v2_v1/summary.json)
+- direct comparison:
+  - [opponent_corpus_suite_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_corpus_suite_compare_v1.json)
+
+Aggregate verify result:
+
+- symbolic baseline:
+  - `reply_top1_accuracy=0.288952`
+  - `reply_top3_accuracy=0.524079`
+  - `teacher_reply_mean_reciprocal_rank=0.448373`
+- learned `set_v2`:
+  - `reply_top1_accuracy=0.368272`
+  - `reply_top3_accuracy=0.603399`
+  - `teacher_reply_mean_reciprocal_rank=0.521661`
 
 The first bounded planner-facing composition is now also materialized:
 

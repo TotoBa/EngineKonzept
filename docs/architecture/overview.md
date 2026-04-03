@@ -72,9 +72,9 @@ The larger merged-unique reruns now show a clearer direction inside the same Pha
 
 Exact packed next-state accuracy is still `0.0`, so the next pressure is still model quality rather than more plumbing, but the action-conditioned symbolic move-side contract now looks materially more promising than it did on the earlier `10k` corpus alone.
 
-## Phase 7 Preparation
+## Phase 7 Status
 
-The repository now additionally includes the first explicit Phase-7 dataset contract:
+The repository now additionally includes the first explicit Phase-7 dataset contract plus a larger-corpus learned opponent head that beats the symbolic reply-scorer baseline on the current three-tier verify suite:
 
 - exact successor-state generation for one chosen root move
 - exact legal reply generation from that successor state
@@ -82,4 +82,4 @@ The repository now additionally includes the first explicit Phase-7 dataset cont
 - teacher best-reply supervision
 - first pressure and uncertainty targets
 
-That preparation lives in [opponent.md](/home/torsten/EngineKonzept/docs/architecture/opponent.md) and [phase-7.md](/home/torsten/EngineKonzept/docs/phases/phase-7.md). It is still a dataset and baseline layer, not yet a trained opponent model.
+The current preferred Phase-7 reference is now the larger-corpus `set_v2` arm over the `10k`, `122k`, and `400k` workflow tiers. Details live in [opponent.md](/home/torsten/EngineKonzept/docs/architecture/opponent.md) and [phase-7.md](/home/torsten/EngineKonzept/docs/phases/phase-7.md).

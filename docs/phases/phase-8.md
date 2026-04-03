@@ -58,8 +58,8 @@ That means the first planner-facing composition is real and slightly better than
 
 ## Next pressure
 
-The next useful Phase-8 steps are:
+The next useful Phase-8 steps are now:
 
-1. improve the learned opponent head until it beats the symbolic reply baseline
+1. switch the bounded planner baseline to the new learned `set_v2` opponent head by default
 2. tighten the aggregation contract between proposer, dynamics, and opponent signals
-3. only then move from offline bounded planner evaluation to a trained planner module
+3. move from offline bounded planner evaluation to a trained planner module

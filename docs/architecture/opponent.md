@@ -91,7 +91,7 @@ Current result on the `128`-example verify slice:
 - `reply_top3_accuracy=0.4`
 - `teacher_reply_mean_reciprocal_rank=0.419262`
 
-## First Trained Head
+## First Trained Heads
 
 The repo now also has the first trained `OpponentHeadV1` model:
 
@@ -108,6 +108,32 @@ Current verify result on the `128`-example merged slice:
 - `teacher_reply_mean_reciprocal_rank=0.272664`
 
 This means the first learned opponent head is measurable and reproducible, but it is still below the symbolic baseline on reply ranking.
+
+The next larger-corpus rerun now changes that status:
+
+- workflow suite:
+  - [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/summary.json)
+- config:
+  - [phase7_opponent_corpus_suite_set_v2_v1.json](/home/torsten/EngineKonzept/python/configs/phase7_opponent_corpus_suite_set_v2_v1.json)
+- bundle:
+  - [corpus_suite_set_v2_v1](/home/torsten/EngineKonzept/models/opponent/corpus_suite_set_v2_v1)
+- summary:
+  - [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_corpus_suite_set_v2_v1/summary.json)
+- verify comparison:
+  - [opponent_corpus_suite_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_corpus_suite_compare_v1.json)
+
+Aggregate verify result over the current `10k`, `122k`, and `400k` workflow slices:
+
+- symbolic baseline:
+  - `reply_top1_accuracy=0.288952`
+  - `reply_top3_accuracy=0.524079`
+  - `teacher_reply_mean_reciprocal_rank=0.448373`
+- learned `set_v2`:
+  - `reply_top1_accuracy=0.368272`
+  - `reply_top3_accuracy=0.603399`
+  - `teacher_reply_mean_reciprocal_rank=0.521661`
+
+This makes `corpus_suite_set_v2_v1` the first Phase-7 learned head that actually clears the symbolic baseline bar.
 
 ## Why This Contract
 

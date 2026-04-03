@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 from typing import Any
 
 from train.action_space import ACTION_SPACE_SIZE
@@ -73,7 +74,7 @@ if torch is not None and nn is not None:
             dropout: float,
         ) -> None:
             super().__init__()
-            if architecture != "mlp_v1":
+            if architecture not in {"mlp_v1", "set_v2"}:
                 raise ValueError(f"unsupported opponent architecture: {architecture}")
             self.architecture = architecture
             state_input_dim = (
@@ -96,19 +97,40 @@ if torch is not None and nn is not None:
                 nn.ReLU(),
                 nn.Dropout(dropout) if dropout > 0.0 else nn.Identity(),
             )
-            self.candidate_mlp = nn.Sequential(
-                nn.Linear(
-                    hidden_dim
-                    + action_embedding_dim
-                    + OPPONENT_CANDIDATE_FEATURE_SIZE,
-                    hidden_dim,
-                ),
-                nn.ReLU(),
-                nn.Dropout(dropout) if dropout > 0.0 else nn.Identity(),
-                nn.Linear(hidden_dim, hidden_dim // 2),
-                nn.ReLU(),
-                nn.Linear(hidden_dim // 2, 1),
-            )
+            if architecture == "mlp_v1":
+                self.candidate_mlp = nn.Sequential(
+                    nn.Linear(
+                        hidden_dim
+                        + action_embedding_dim
+                        + OPPONENT_CANDIDATE_FEATURE_SIZE,
+                        hidden_dim,
+                    ),
+                    nn.ReLU(),
+                    nn.Dropout(dropout) if dropout > 0.0 else nn.Identity(),
+                    nn.Linear(hidden_dim, hidden_dim // 2),
+                    nn.ReLU(),
+                    nn.Linear(hidden_dim // 2, 1),
+                )
+            else:
+                self.candidate_projection = nn.Sequential(
+                    nn.Linear(
+                        action_embedding_dim + OPPONENT_CANDIDATE_FEATURE_SIZE,
+                        hidden_dim,
+                    ),
+                    nn.ReLU(),
+                    nn.Dropout(dropout) if dropout > 0.0 else nn.Identity(),
+                )
+                self.set_query = nn.Linear(hidden_dim, hidden_dim)
+                self.set_key = nn.Linear(hidden_dim, hidden_dim)
+                self.set_value = nn.Linear(hidden_dim, hidden_dim)
+                self.candidate_mlp = nn.Sequential(
+                    nn.Linear(hidden_dim * 5, hidden_dim),
+                    nn.ReLU(),
+                    nn.Dropout(dropout) if dropout > 0.0 else nn.Identity(),
+                    nn.Linear(hidden_dim, hidden_dim // 2),
+                    nn.ReLU(),
+                    nn.Linear(hidden_dim // 2, 1),
+                )
             self.pressure_head = nn.Sequential(
                 nn.Linear(hidden_dim, hidden_dim // 2),
                 nn.ReLU(),
@@ -152,10 +174,41 @@ if torch is not None and nn is not None:
                 safe_candidate_indices.shape[1],
                 -1,
             )
-            candidate_hidden = torch.cat(
-                [repeated_context, reply_action_hidden, reply_candidate_features],
-                dim=2,
-            )
+            if self.architecture == "mlp_v1":
+                candidate_hidden = torch.cat(
+                    [repeated_context, reply_action_hidden, reply_candidate_features],
+                    dim=2,
+                )
+            else:
+                candidate_token = self.candidate_projection(
+                    torch.cat([reply_action_hidden, reply_candidate_features], dim=2)
+                )
+                query = self.set_query(context_hidden).unsqueeze(1)
+                keys = self.set_key(candidate_token)
+                values = self.set_value(candidate_token)
+                attention_logits = (query * keys).sum(dim=2) / math.sqrt(float(keys.shape[2]))
+                attention_logits = attention_logits.masked_fill(~reply_candidate_mask, -1e9)
+                attention_weights = torch.softmax(attention_logits, dim=1)
+                attention_weights = attention_weights.masked_fill(
+                    ~reply_candidate_mask,
+                    0.0,
+                )
+                attended = torch.sum(attention_weights.unsqueeze(-1) * values, dim=1)
+                mask = reply_candidate_mask.unsqueeze(2).to(candidate_token.dtype)
+                candidate_count = mask.sum(dim=1).clamp_min(1.0)
+                summary = torch.sum(candidate_token * mask, dim=1) / candidate_count
+                repeated_attended = attended.unsqueeze(1).expand_as(candidate_token)
+                repeated_summary = summary.unsqueeze(1).expand_as(candidate_token)
+                candidate_hidden = torch.cat(
+                    [
+                        candidate_token,
+                        repeated_context,
+                        repeated_attended,
+                        repeated_summary,
+                        candidate_token * repeated_context,
+                    ],
+                    dim=2,
+                )
             reply_logits = self.candidate_mlp(candidate_hidden).squeeze(-1)
             reply_logits = reply_logits.masked_fill(~reply_candidate_mask, -20.0)
             pressure = torch.sigmoid(self.pressure_head(context_hidden)).squeeze(1)

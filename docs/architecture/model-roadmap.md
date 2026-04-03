@@ -224,17 +224,21 @@ The repo now also has the first exact symbolic Phase-7 baseline probe:
 
 That gives Phase 7 a real minimum bar before any learned opponent head is treated as progress.
 
-The repo now also has the first trained `OpponentHeadV1` reference on merged-unique workflow slices.
+The repo now also has two concrete learned `OpponentHeadV1` references:
+
+- the earlier merged-unique `mlp_v1` baseline
+- the newer three-tier `set_v2` run over the `10k`, `122k`, and `400k` workflow suite
 
 Current decision:
 
 - keep the trained `mlp_v1` head as an explicit experimental reference
-- keep the symbolic reply scorer as the active Phase-7 baseline
+- use the larger-corpus `set_v2` head as the active Phase-7 default
+- keep the symbolic reply scorer as the regression baseline
 
 Why:
 
-- the learned head is now measurable and planner-usable as an experiment
-- but on the larger held-out verify slice it is still below the symbolic baseline on reply ranking quality
+- the learned head is now measurable, planner-usable, and actually stronger than the symbolic baseline on the current multi-corpus holdout
+- the symbolic reply scorer is still valuable as a stable sanity-check baseline, especially for future workflow and planner regressions
 
 ## Phase 8
 
@@ -271,6 +275,8 @@ Current status on the larger verify slice:
 
 So the first planner-facing contract is now real and measurable, even though the repo still has no trained planner.
 
+The next planner measurements should now switch from the old merged-unique `mlp_v1` reply model to the stronger Phase-7 `set_v2` default.
+
 ## Deferred Architecture Ideas
 
 The following ideas remain relevant and are intentionally being kept in view, but they are deferred until the dense single-path stack is stronger:
@@ -288,10 +294,10 @@ These ideas are interesting for later phases, but they are not the current bottl
 
 The next model experiments should now be ordered like this:
 
-1. strengthen the learned opponent head until it beats the symbolic reply baseline
+1. switch Phase-8 bounded planner baselines to the new learned `set_v2` opponent default
 2. improve the Phase-6 dynamics model over the symbolic proposer candidate contract
 3. use alpha-beta/MCTS-supported offline workflows for richer opponent/planner targets without making them the runtime path
-4. only then move from bounded planner baselines to a trained planner module
+4. move from bounded planner baselines to a trained planner module
 5. explore richer symbolic proposer candidate features only if downstream modules need them
 
 The first three offline search-workflow layers are now in place:

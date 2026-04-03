@@ -15,7 +15,9 @@ def test_train_and_evaluate_opponent_head(tmp_path: Path) -> None:
     pytest.importorskip("torch")
 
     train_path = tmp_path / "opponent_head_train.jsonl"
+    extra_train_path = tmp_path / "opponent_head_train_extra.jsonl"
     validation_path = tmp_path / "opponent_head_validation.jsonl"
+    extra_validation_path = tmp_path / "opponent_head_validation_extra.jsonl"
     train_examples = [
         _example_payload("sample-1", "train", teacher_index=0),
         _example_payload("sample-2", "train", teacher_index=1),
@@ -25,8 +27,16 @@ def test_train_and_evaluate_opponent_head(tmp_path: Path) -> None:
         "\n".join(json.dumps(example) for example in train_examples) + "\n",
         encoding="utf-8",
     )
+    extra_train_path.write_text(
+        json.dumps(_example_payload("sample-4", "train", teacher_index=0)) + "\n",
+        encoding="utf-8",
+    )
     validation_path.write_text(
         "\n".join(json.dumps(example) for example in validation_examples) + "\n",
+        encoding="utf-8",
+    )
+    extra_validation_path.write_text(
+        json.dumps(_example_payload("sample-5", "validation", teacher_index=1)) + "\n",
         encoding="utf-8",
     )
 
@@ -37,9 +47,11 @@ def test_train_and_evaluate_opponent_head(tmp_path: Path) -> None:
             "data": {
                 "train_path": str(train_path),
                 "validation_path": str(validation_path),
+                "additional_train_paths": [str(extra_train_path)],
+                "additional_validation_paths": [str(extra_validation_path)],
             },
             "model": {
-                "architecture": "mlp_v1",
+                "architecture": "set_v2",
                 "hidden_dim": 32,
                 "hidden_layers": 1,
                 "action_embedding_dim": 16,
@@ -53,6 +65,7 @@ def test_train_and_evaluate_opponent_head(tmp_path: Path) -> None:
                 "reply_policy_loss_weight": 1.0,
                 "pressure_loss_weight": 0.25,
                 "uncertainty_loss_weight": 0.25,
+                "curriculum_priority_weight": 0.25,
             },
             "evaluation": {
                 "top_k": 3,
@@ -77,12 +90,12 @@ def test_train_and_evaluate_opponent_head(tmp_path: Path) -> None:
 
     metrics = evaluate_opponent_checkpoint(
         checkpoint_path,
-        dataset_path=validation_path,
+        dataset_paths=[validation_path, extra_validation_path],
         top_k=3,
     )
 
-    assert metrics.total_examples == 1
-    assert metrics.supervised_examples == 1
+    assert metrics.total_examples == 2
+    assert metrics.supervised_examples == 2
     assert 0.0 <= metrics.reply_top1_accuracy <= 1.0
     assert 0.0 <= metrics.reply_top3_accuracy <= 1.0
     assert 0.0 <= metrics.teacher_reply_mean_probability <= 1.0

@@ -225,6 +225,17 @@ The first concrete downstream consumer is now the `OpponentHeadV1` dataset workf
 - it exact-generates opponent replies from the successor state
 - it exposes the teacher best reply plus simple pressure and uncertainty targets
 
+The repo now also has a reproducible three-tier workflow suite builder for the current Phase-5 corpus ladder:
+
+- [build_phase7_workflow_suite.py](/home/torsten/EngineKonzept/python/scripts/build_phase7_workflow_suite.py)
+- [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/summary.json)
+
+That suite currently materializes Phase-7 workflow slices over:
+
+- the `10k` Pi-labeled corpus
+- the merged unique `122k` corpus
+- the imported unique `400k` corpus
+
 ## Baseline Rule For Phase 7
 
 Before a learned opponent head is treated as progress, compare it against one exact symbolic baseline:

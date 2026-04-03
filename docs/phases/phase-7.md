@@ -13,7 +13,7 @@ The architectural intent remains:
 
 ## Current repository state
 
-The repository now has the first trained Phase-7 opponent model, but it is still below the symbolic reply-scorer baseline.
+The repository now has the first larger-corpus trained Phase-7 opponent model that beats the symbolic reply-scorer baseline on the current three-tier verify suite.
 
 It now does have the first explicit Phase-7 preparation artifacts:
 
@@ -37,6 +37,12 @@ It now does have the first explicit Phase-7 preparation artifacts:
   - [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_merged_unique_mlp_v1/summary.json)
   - [opponent_merged_unique_mlp_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_merged_unique_mlp_v1_verify.json)
   - [opponent_merged_unique_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_merged_unique_compare_v1.json)
+- the larger three-tier workflow suite:
+  - [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/summary.json)
+- and the new preferred learned head:
+  - [phase7_opponent_corpus_suite_set_v2_v1.json](/home/torsten/EngineKonzept/python/configs/phase7_opponent_corpus_suite_set_v2_v1.json)
+  - [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_corpus_suite_set_v2_v1/summary.json)
+  - [opponent_corpus_suite_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_corpus_suite_compare_v1.json)
 
 The repo also now has larger end-to-end workflow slices over the merged unique corpus:
 
@@ -96,6 +102,29 @@ The first trained `mlp_v1` opponent head on that same verify slice currently sco
 
 So the first learned head is a real experimental reference, but it does not yet clear the symbolic baseline bar.
 
+The new larger-corpus `set_v2` head now clears that bar on the current three-tier verify suite:
+
+- aggregate symbolic baseline:
+  - `reply_top1_accuracy=0.288952`
+  - `reply_top3_accuracy=0.524079`
+  - `teacher_reply_mean_reciprocal_rank=0.448373`
+- aggregate learned `set_v2`:
+  - `reply_top1_accuracy=0.368272`
+  - `reply_top3_accuracy=0.603399`
+  - `teacher_reply_mean_reciprocal_rank=0.521661`
+
+Per tier, the learned head stays ahead as well:
+
+- `pgn_10k`
+  - symbolic `0.262295 / 0.500000 / 0.428802`
+  - learned `0.360656 / 0.590164 / 0.513208`
+- `merged_unique_122k`
+  - symbolic `0.286885 / 0.483607 / 0.434344`
+  - learned `0.360656 / 0.606557 / 0.516373`
+- `unique_pi_400k`
+  - symbolic `0.321101 / 0.596330 / 0.485981`
+  - learned `0.385321 / 0.614679 / 0.537041`
+
 The repo now also has the first planner-facing bounded aggregation on top of that contract:
 
 - [planner_symbolic_root_only_verify_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/planner_symbolic_root_only_verify_v1.json)
@@ -115,6 +144,6 @@ That is still an offline bounded baseline, not a trained planner and not a class
 
 The next useful Phase-7 steps are:
 
-1. use the trained head as an experimental planner-facing reply model
-2. keep the symbolic reply scorer as the Phase-7 default until a learned head beats it
+1. use the trained head as the planner-facing Phase-7 default
+2. keep the symbolic reply scorer as a regression baseline
 3. grow the workflow corpus and supervision richness before treating Phase 7 as solved

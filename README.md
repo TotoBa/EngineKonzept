@@ -200,19 +200,20 @@ That makes `dynamics_merged_unique_structured_v5_v1` the new preferred Phase-6 r
 
 Exact next-state accuracy still remains `0.0`.
 
-## Phase 7 Preparation
+## Phase 7 Status
 
-The repository now has the first explicit trained Phase-7 opponent-head baseline, but the symbolic reply-scorer baseline is still stronger:
+The repository now has the first larger-corpus learned Phase-7 opponent head that beats the symbolic reply-scorer baseline across the current three-tier verify suite:
 
 - architecture note: [opponent.md](/home/torsten/EngineKonzept/docs/architecture/opponent.md)
 - phase note: [phase-7.md](/home/torsten/EngineKonzept/docs/phases/phase-7.md)
 - workflow artifacts: [README.md](/home/torsten/EngineKonzept/artifacts/phase7/README.md)
-- opponent config: [phase7_opponent_merged_unique_mlp_v1.json](/home/torsten/EngineKonzept/python/configs/phase7_opponent_merged_unique_mlp_v1.json)
-- trained bundle: [merged_unique_mlp_v1](/home/torsten/EngineKonzept/models/opponent/merged_unique_mlp_v1)
-- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_merged_unique_mlp_v1/summary.json)
-- verify comparison: [opponent_merged_unique_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_merged_unique_compare_v1.json)
+- workflow suite: [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_workflow_corpus_suite_v1/summary.json)
+- opponent config: [phase7_opponent_corpus_suite_set_v2_v1.json](/home/torsten/EngineKonzept/python/configs/phase7_opponent_corpus_suite_set_v2_v1.json)
+- trained bundle: [corpus_suite_set_v2_v1](/home/torsten/EngineKonzept/models/opponent/corpus_suite_set_v2_v1)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_corpus_suite_set_v2_v1/summary.json)
+- verify comparison: [opponent_corpus_suite_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_corpus_suite_compare_v1.json)
 
-The `OpponentHeadV1` workflow derives:
+The `OpponentHeadV1` workflow now scales over the current three corpus tiers and derives:
 
 - the teacher-chosen root move
 - the exact successor state after that move
@@ -234,7 +235,18 @@ Current larger merged-unique verify result:
   - `reply_top3_accuracy=0.333333`
   - `teacher_reply_mean_reciprocal_rank=0.272664`
 
-So the first trained head is now a real repo baseline, but it does not yet beat the symbolic reply scorer.
+Aggregate verify result over the `10k`, `122k`, and `400k` workflow slices:
+
+- symbolic baseline:
+  - `reply_top1_accuracy=0.288952`
+  - `reply_top3_accuracy=0.524079`
+  - `teacher_reply_mean_reciprocal_rank=0.448373`
+- learned `set_v2` head:
+  - `reply_top1_accuracy=0.368272`
+  - `reply_top3_accuracy=0.603399`
+  - `teacher_reply_mean_reciprocal_rank=0.521661`
+
+That moves the repo past the old Phase-7 bar: the learned opponent head now beats the symbolic reply scorer on the current multi-corpus holdout.
 
 The repo now also has the first bounded planner-style comparison on the same verify slice:
 

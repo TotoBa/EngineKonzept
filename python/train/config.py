@@ -375,12 +375,28 @@ class OpponentDataConfig:
 
     train_path: str
     validation_path: str
+    additional_train_paths: tuple[str, ...] = ()
+    additional_validation_paths: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.train_path:
             raise ValueError("data.train_path must be non-empty")
         if not self.validation_path:
             raise ValueError("data.validation_path must be non-empty")
+        for path in self.additional_train_paths:
+            if not path:
+                raise ValueError("data.additional_train_paths entries must be non-empty")
+        for path in self.additional_validation_paths:
+            if not path:
+                raise ValueError("data.additional_validation_paths entries must be non-empty")
+
+    def resolved_train_paths(self) -> tuple[str, ...]:
+        """Return the full ordered train artifact list."""
+        return (self.train_path, *self.additional_train_paths)
+
+    def resolved_validation_paths(self) -> tuple[str, ...]:
+        """Return the full ordered validation artifact list."""
+        return (self.validation_path, *self.additional_validation_paths)
 
 
 @dataclass(frozen=True)
@@ -394,8 +410,8 @@ class OpponentModelConfig:
     dropout: float = 0.0
 
     def __post_init__(self) -> None:
-        if self.architecture != "mlp_v1":
-            raise ValueError("model.architecture must be 'mlp_v1'")
+        if self.architecture not in {"mlp_v1", "set_v2"}:
+            raise ValueError("model.architecture must be 'mlp_v1' or 'set_v2'")
         if self.hidden_dim <= 0:
             raise ValueError("model.hidden_dim must be positive")
         if self.hidden_layers <= 0:
@@ -417,6 +433,7 @@ class OpponentOptimizationConfig:
     reply_policy_loss_weight: float = 1.0
     pressure_loss_weight: float = 0.25
     uncertainty_loss_weight: float = 0.25
+    curriculum_priority_weight: float = 0.0
 
     def __post_init__(self) -> None:
         if self.epochs <= 0:
@@ -433,6 +450,8 @@ class OpponentOptimizationConfig:
             raise ValueError("optimization.pressure_loss_weight must be non-negative")
         if self.uncertainty_loss_weight < 0.0:
             raise ValueError("optimization.uncertainty_loss_weight must be non-negative")
+        if self.curriculum_priority_weight < 0.0:
+            raise ValueError("optimization.curriculum_priority_weight must be non-negative")
 
 
 @dataclass(frozen=True)
@@ -500,10 +519,21 @@ class OpponentTrainConfig:
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "OpponentTrainConfig":
         """Parse the training config from a JSON object."""
+        data_payload = _mapping(payload, "data")
         return cls(
             seed=int(payload.get("seed", 0)),
             output_dir=str(payload["output_dir"]),
-            data=OpponentDataConfig(**_mapping(payload, "data")),
+            data=OpponentDataConfig(
+                train_path=str(data_payload["train_path"]),
+                validation_path=str(data_payload["validation_path"]),
+                additional_train_paths=tuple(
+                    str(path) for path in data_payload.get("additional_train_paths", [])
+                ),
+                additional_validation_paths=tuple(
+                    str(path)
+                    for path in data_payload.get("additional_validation_paths", [])
+                ),
+            ),
             model=OpponentModelConfig(**_mapping(payload, "model")),
             optimization=OpponentOptimizationConfig(**_mapping(payload, "optimization")),
             evaluation=OpponentEvaluationConfig(**_mapping(payload, "evaluation")),
