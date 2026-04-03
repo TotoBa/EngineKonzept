@@ -121,6 +121,14 @@ These remain useful as small-corpus regression baselines, but they are no longer
   Next filtered same-backbone follow-up over the same `10k + 122k` slice. It keeps `set_v6`, lowers the raw score-regression weight further, and replaces the most aggressive score shaping with a discrete bounded candidate rank-bucket auxiliary target over `top1`, `top2/top3`, and `tail`. It is a useful contract experiment, but it underperforms `set_v2` and the earlier score-aux `set_v6` on held-out planner ranking.
 - [phase8_planner_corpus_suite_recurrent_v1_10k_122k_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_recurrent_v1_10k_122k_expanded_v1.json)
   First bounded recurrent planner follow-up on the same filtered `10k + 122k` slice. It keeps the existing planner-head contract intact and adds small configurable `memory_slots` plus `deliberation_steps`, so recurrence can be tested without another workflow-schema break. The first held-out rerun makes recurrence a real reusable capability, but it does not beat the filtered `set_v2` reference on `top1` or `MRR`.
+- [phase8_planner_corpus_suite_set_v6_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v6_expanded_v1.json)
+  First 400k-ready score-aux expanded rerun config. Uses the full `10k + 122k + 400k` workflow suite and exists so the large next planner run can be started without another config fork.
+- [phase8_planner_corpus_suite_set_v6_margin_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v6_margin_expanded_v1.json)
+  400k-ready margin-aux expanded rerun config.
+- [phase8_planner_corpus_suite_set_v6_rank_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v6_rank_expanded_v1.json)
+  400k-ready rank-aux expanded rerun config.
+- [phase8_planner_corpus_suite_recurrent_v1_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_recurrent_v1_expanded_v1.json)
+  400k-ready recurrent expanded rerun config.
 
 ## Phase 9 Agent Specs
 
@@ -136,6 +144,16 @@ These remain useful as small-corpus regression baselines, but they are no longer
   Experimental rank-bucket selfplay agent.
 - [phase9_agent_planner_recurrent_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_recurrent_v1.json)
   Experimental recurrent selfplay agent over the same bounded planner contract.
+- [phase9_agent_planner_set_v2_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v2_expanded_v1.json)
+  Post-400k active selfplay agent spec. Points at the future expanded `set_v2` planner checkpoint location.
+- [phase9_agent_planner_set_v6_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v6_expanded_v1.json)
+  Post-400k experimental score-aux selfplay agent spec.
+- [phase9_agent_planner_set_v6_margin_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v6_margin_expanded_v1.json)
+  Post-400k experimental margin-aux selfplay agent spec.
+- [phase9_agent_planner_set_v6_rank_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v6_rank_expanded_v1.json)
+  Post-400k experimental rank-aux selfplay agent spec.
+- [phase9_agent_planner_recurrent_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_recurrent_expanded_v1.json)
+  Post-400k experimental recurrent selfplay agent spec.
 
 ## Phase 9 Arena Specs
 
@@ -143,3 +161,5 @@ These remain useful as small-corpus regression baselines, but they are no longer
   Small reproducible active-only probe. Runs a color-swapped round-robin between the bounded `set_v2` agent and the symbolic root baseline.
 - [phase9_arena_active_experimental_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_experimental_v1.json)
   Main future-facing Phase-9 arena suite. It keeps the contract versioned and lists the active plus experimental planner arms so later selfplay reruns can start without another orchestration rewrite.
+- [phase9_arena_active_experimental_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_experimental_expanded_v1.json)
+  Post-400k arena suite. Uses the future expanded planner checkpoints for the active arm and the currently tracked experimental follow-ups.

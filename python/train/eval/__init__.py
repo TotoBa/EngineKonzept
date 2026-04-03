@@ -124,6 +124,28 @@ def __getattr__(name: str) -> Any:
             "run_selfplay_arena": run_selfplay_arena,
             "write_selfplay_arena_spec": write_selfplay_arena_spec,
         }[name]
+    if name in {
+        "PlannerRunSpec",
+        "SelfplayCurriculumPlan",
+        "SelfplayCurriculumStage",
+        "build_phase9_expanded_curriculum_plan",
+        "write_selfplay_curriculum_plan",
+    }:
+        from train.eval.curriculum import (
+            PlannerRunSpec,
+            SelfplayCurriculumPlan,
+            SelfplayCurriculumStage,
+            build_phase9_expanded_curriculum_plan,
+            write_selfplay_curriculum_plan,
+        )
+
+        return {
+            "PlannerRunSpec": PlannerRunSpec,
+            "SelfplayCurriculumPlan": SelfplayCurriculumPlan,
+            "SelfplayCurriculumStage": SelfplayCurriculumStage,
+            "build_phase9_expanded_curriculum_plan": build_phase9_expanded_curriculum_plan,
+            "write_selfplay_curriculum_plan": write_selfplay_curriculum_plan,
+        }[name]
     if name in {"load_dynamics_checkpoint", "predict_dynamics_latent"}:
         from train.eval.dynamics import (
             load_dynamics_checkpoint,
@@ -142,14 +164,18 @@ __all__ = [
     "LoadedPlannerRuntime",
     "PlannerBaselineMetrics",
     "PlannerRootDecision",
+    "PlannerRunSpec",
     "STARTING_FEN",
     "SelfplayAgentSpec",
     "SelfplayArenaMatchupSpec",
     "SelfplayArenaSpec",
+    "SelfplayCurriculumPlan",
+    "SelfplayCurriculumStage",
     "SelfplayGameRecord",
     "SelfplaySessionRecord",
     "build_planner_runtime",
     "build_planner_runtime_from_spec",
+    "build_phase9_expanded_curriculum_plan",
     "evaluate_symbolic_opponent_baseline",
     "evaluate_two_ply_planner_baseline",
     "load_dynamics_checkpoint",
@@ -166,5 +192,6 @@ __all__ = [
     "score_opponent_candidates",
     "score_symbolic_candidates",
     "write_selfplay_arena_spec",
+    "write_selfplay_curriculum_plan",
     "write_selfplay_agent_spec",
 ]

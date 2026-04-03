@@ -12,6 +12,8 @@ Current contents:
   [replay_buffer_set_v2_probe_v1.summary.json](/home/torsten/EngineKonzept/artifacts/phase9/replay_buffer_set_v2_probe_v1.summary.json)
 - first arena summary:
   [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/arena_active_probe_v1/summary.json)
+- first curriculum/launch plan:
+  [curriculum_active_experimental_expanded_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/curriculum_active_experimental_expanded_v1.json)
 
 Current probe summary:
 
@@ -37,3 +39,10 @@ The first arena artifact proves the same session and agent contracts can already
 - versioned agent specs
 - versioned arena suite spec
 - per-matchup session JSON plus aggregate summary
+
+The first curriculum/launch plan ties the next large run together:
+
+- it explicitly requires the `10k`, `122k`, and `400k` tiers
+- it lists the large planner reruns to materialize first
+- it points at the post-400k active and experimental selfplay agent specs
+- it points at the post-400k full active-plus-experimental arena suite

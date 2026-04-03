@@ -1,0 +1,140 @@
+{
+  "corpus_suite_manifest": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_current_corpus_suite_v1.json",
+  "metadata": {
+    "available_tiers": [
+      "merged_unique_122k",
+      "pgn_10k",
+      "unique_pi_400k"
+    ],
+    "required_tiers": [
+      "pgn_10k",
+      "merged_unique_122k",
+      "unique_pi_400k"
+    ]
+  },
+  "name": "phase9_active_experimental_expanded_v1",
+  "planner_runs": [
+    {
+      "config_path": "python/configs/phase8_planner_corpus_suite_set_v2_expanded_v1.json",
+      "expected_agent_spec": "python/configs/phase9_agent_planner_set_v2_expanded_v1.json",
+      "name": "planner_set_v2_expanded_v1",
+      "required_tiers": [
+        "pgn_10k",
+        "merged_unique_122k",
+        "unique_pi_400k"
+      ],
+      "tags": [
+        "active",
+        "expanded_400k"
+      ]
+    },
+    {
+      "config_path": "python/configs/phase8_planner_corpus_suite_set_v6_expanded_v1.json",
+      "expected_agent_spec": "python/configs/phase9_agent_planner_set_v6_expanded_v1.json",
+      "name": "planner_set_v6_expanded_v1",
+      "required_tiers": [
+        "pgn_10k",
+        "merged_unique_122k",
+        "unique_pi_400k"
+      ],
+      "tags": [
+        "experimental",
+        "expanded_400k"
+      ]
+    },
+    {
+      "config_path": "python/configs/phase8_planner_corpus_suite_set_v6_margin_expanded_v1.json",
+      "expected_agent_spec": "python/configs/phase9_agent_planner_set_v6_margin_expanded_v1.json",
+      "name": "planner_set_v6_margin_expanded_v1",
+      "required_tiers": [
+        "pgn_10k",
+        "merged_unique_122k",
+        "unique_pi_400k"
+      ],
+      "tags": [
+        "experimental",
+        "expanded_400k"
+      ]
+    },
+    {
+      "config_path": "python/configs/phase8_planner_corpus_suite_set_v6_rank_expanded_v1.json",
+      "expected_agent_spec": "python/configs/phase9_agent_planner_set_v6_rank_expanded_v1.json",
+      "name": "planner_set_v6_rank_expanded_v1",
+      "required_tiers": [
+        "pgn_10k",
+        "merged_unique_122k",
+        "unique_pi_400k"
+      ],
+      "tags": [
+        "experimental",
+        "expanded_400k"
+      ]
+    },
+    {
+      "config_path": "python/configs/phase8_planner_corpus_suite_recurrent_v1_expanded_v1.json",
+      "expected_agent_spec": "python/configs/phase9_agent_planner_recurrent_expanded_v1.json",
+      "name": "planner_recurrent_expanded_v1",
+      "required_tiers": [
+        "pgn_10k",
+        "merged_unique_122k",
+        "unique_pi_400k"
+      ],
+      "tags": [
+        "experimental",
+        "expanded_400k"
+      ]
+    }
+  ],
+  "source_arena_summary": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_probe_v1/summary.json",
+  "spec_version": 1,
+  "stages": [
+    {
+      "agent_sampling_weights": {
+        "python/configs/phase9_agent_planner_set_v2_expanded_v1.json": 1.0,
+        "python/configs/phase9_agent_symbolic_root_v1.json": 0.312
+      },
+      "agent_specs": [
+        "python/configs/phase9_agent_symbolic_root_v1.json",
+        "python/configs/phase9_agent_planner_set_v2_expanded_v1.json"
+      ],
+      "arena_spec": "python/configs/phase9_arena_active_probe_v1.json",
+      "games_per_matchup": 2,
+      "max_plies": 24,
+      "name": "active_expanded_probe",
+      "replay_buffer_output_root": "artifacts/phase9/replay_buffer_active_expanded_probe_v1",
+      "tags": [
+        "probe",
+        "active_only",
+        "expanded_400k"
+      ]
+    },
+    {
+      "agent_sampling_weights": {
+        "python/configs/phase9_agent_planner_recurrent_expanded_v1.json": 0.6,
+        "python/configs/phase9_agent_planner_set_v2_expanded_v1.json": 1.0,
+        "python/configs/phase9_agent_planner_set_v6_expanded_v1.json": 0.6,
+        "python/configs/phase9_agent_planner_set_v6_margin_expanded_v1.json": 0.6,
+        "python/configs/phase9_agent_planner_set_v6_rank_expanded_v1.json": 0.6,
+        "python/configs/phase9_agent_symbolic_root_v1.json": 0.312
+      },
+      "agent_specs": [
+        "python/configs/phase9_agent_symbolic_root_v1.json",
+        "python/configs/phase9_agent_planner_set_v2_expanded_v1.json",
+        "python/configs/phase9_agent_planner_set_v6_expanded_v1.json",
+        "python/configs/phase9_agent_planner_set_v6_margin_expanded_v1.json",
+        "python/configs/phase9_agent_planner_set_v6_rank_expanded_v1.json",
+        "python/configs/phase9_agent_planner_recurrent_expanded_v1.json"
+      ],
+      "arena_spec": "python/configs/phase9_arena_active_experimental_expanded_v1.json",
+      "games_per_matchup": 2,
+      "max_plies": 64,
+      "name": "active_experimental_expanded_round_robin",
+      "replay_buffer_output_root": "artifacts/phase9/replay_buffer_active_experimental_expanded_v1",
+      "tags": [
+        "full_suite",
+        "active_plus_experimental",
+        "expanded_400k"
+      ]
+    }
+  ]
+}

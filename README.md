@@ -338,6 +338,7 @@ The repository now also has the first small exact selfplay loop:
 - first probe artifact: [selfplay_set_v2_probe_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/selfplay_set_v2_probe_v1.json)
 - first replay artifact: [replay_buffer_set_v2_probe_v1.jsonl](/home/torsten/EngineKonzept/artifacts/phase9/replay_buffer_set_v2_probe_v1.jsonl)
 - first arena artifact: [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/arena_active_probe_v1/summary.json)
+- first curriculum/launch plan: [curriculum_active_experimental_expanded_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/curriculum_active_experimental_expanded_v1.json)
 
 Current first probe:
 
@@ -346,7 +347,7 @@ Current first probe:
 - `8` legal plies
 - termination reason: `max_plies`
 
-That means Phase 9 now has a real small probe, a real replay-buffer contract, and the first versioned checkpoint arena. Curriculum scheduling is the next layer.
+That means Phase 9 now has a real small probe, a real replay-buffer contract, a versioned checkpoint arena, and a versioned 400k-ready curriculum/launch plan for active plus experimental arms.
 
 ## Repository Layout
 

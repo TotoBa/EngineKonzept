@@ -1,0 +1,47 @@
+{
+  "seed": 11,
+  "output_dir": "/srv/schach/engine_training/phase8/planner_corpus_suite_set_v6_rank_expanded_v1",
+  "data": {
+    "train_path": "/srv/schach/engine_training/phase8/planner_workflow_rank_expanded_v1/pgn_10k_train_v1/planner_head_train.jsonl",
+    "validation_path": "/srv/schach/engine_training/phase8/planner_workflow_rank_expanded_v1/pgn_10k_validation_v1/planner_head_validation.jsonl",
+    "additional_train_paths": [
+      "/srv/schach/engine_training/phase8/planner_workflow_rank_expanded_v1/merged_unique_122k_train_v1/planner_head_train.jsonl",
+      "/srv/schach/engine_training/phase8/planner_workflow_rank_expanded_v1/unique_pi_400k_train_v1/planner_head_train.jsonl"
+    ],
+    "additional_validation_paths": [
+      "/srv/schach/engine_training/phase8/planner_workflow_rank_expanded_v1/merged_unique_122k_validation_v1/planner_head_validation.jsonl",
+      "/srv/schach/engine_training/phase8/planner_workflow_rank_expanded_v1/unique_pi_400k_validation_v1/planner_head_validation.jsonl"
+    ]
+  },
+  "model": {
+    "architecture": "set_v6",
+    "hidden_dim": 256,
+    "hidden_layers": 2,
+    "action_embedding_dim": 64,
+    "dropout": 0.1
+  },
+  "optimization": {
+    "epochs": 12,
+    "batch_size": 128,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "teacher_policy_loss_weight": 1.0,
+    "teacher_kl_loss_weight": 0.25,
+    "teacher_score_loss_weight": 0.02,
+    "teacher_rank_loss_weight": 0.1,
+    "curriculum_priority_weight": 0.1,
+    "root_value_loss_weight": 0.05,
+    "root_gap_loss_weight": 0.05
+  },
+  "evaluation": {
+    "top_k": 3
+  },
+  "runtime": {
+    "torch_threads": 6,
+    "dataloader_workers": 0
+  },
+  "export": {
+    "bundle_dir": "/srv/schach/engine_training/models/planner/corpus_suite_set_v6_rank_expanded_v1",
+    "checkpoint_name": "checkpoint.pt"
+  }
+}

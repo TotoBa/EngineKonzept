@@ -17,10 +17,12 @@ The repository now has the first small selfplay loop in Python:
 - [planner_runtime.py](/home/torsten/EngineKonzept/python/train/eval/planner_runtime.py)
 - [agent_spec.py](/home/torsten/EngineKonzept/python/train/eval/agent_spec.py)
 - [arena.py](/home/torsten/EngineKonzept/python/train/eval/arena.py)
+- [curriculum.py](/home/torsten/EngineKonzept/python/train/eval/curriculum.py)
 - [selfplay.py](/home/torsten/EngineKonzept/python/train/eval/selfplay.py)
 - [run_selfplay.py](/home/torsten/EngineKonzept/python/scripts/run_selfplay.py)
 - [build_replay_buffer.py](/home/torsten/EngineKonzept/python/scripts/build_replay_buffer.py)
 - [run_selfplay_arena.py](/home/torsten/EngineKonzept/python/scripts/run_selfplay_arena.py)
+- [build_selfplay_curriculum_plan.py](/home/torsten/EngineKonzept/python/scripts/build_selfplay_curriculum_plan.py)
 - [README.md](/home/torsten/EngineKonzept/artifacts/phase9/README.md)
 - [selfplay_set_v2_probe_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/selfplay_set_v2_probe_v1.json)
 - [replay_buffer_set_v2_probe_v1.jsonl](/home/torsten/EngineKonzept/artifacts/phase9/replay_buffer_set_v2_probe_v1.jsonl)
@@ -46,11 +48,10 @@ This first implementation is intentionally small and contract-first:
 
 ## What it does not do yet
 
-- no curriculum scheduler
 - no Rust selfplay runtime yet
 - no recurrent planner-memory training loop on top of selfplay data yet
 
-The replay-buffer and arena layers now exist, but the curriculum layer does not yet.
+The replay-buffer, arena, and curriculum-plan layers now exist, but there is still no Rust selfplay runtime and no replay-buffer-driven planner retraining loop yet.
 
 ## Why this shape
 
@@ -117,11 +118,41 @@ Observed arena probe result:
 - ordered color-swapped round-robin between `planner_set_v2_v1` and `symbolic_root_v1`
 - both games stayed legal and terminated by `max_plies`
 
+The first curriculum/launch-plan follow-up is now also materialized:
+
+- expanded planner configs:
+  - [phase8_planner_corpus_suite_set_v6_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v6_expanded_v1.json)
+  - [phase8_planner_corpus_suite_set_v6_margin_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v6_margin_expanded_v1.json)
+  - [phase8_planner_corpus_suite_set_v6_rank_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v6_rank_expanded_v1.json)
+  - [phase8_planner_corpus_suite_recurrent_v1_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_recurrent_v1_expanded_v1.json)
+- expanded selfplay agent specs:
+  - [phase9_agent_planner_set_v2_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v2_expanded_v1.json)
+  - [phase9_agent_planner_set_v6_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v6_expanded_v1.json)
+  - [phase9_agent_planner_set_v6_margin_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v6_margin_expanded_v1.json)
+  - [phase9_agent_planner_set_v6_rank_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v6_rank_expanded_v1.json)
+  - [phase9_agent_planner_recurrent_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_recurrent_expanded_v1.json)
+- expanded arena suite:
+  - [phase9_arena_active_experimental_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_experimental_expanded_v1.json)
+- launch plan:
+  - [curriculum_active_experimental_expanded_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/curriculum_active_experimental_expanded_v1.json)
+
+That launch plan already encodes the intended next large step:
+
+- required tiers: `pgn_10k`, `merged_unique_122k`, `unique_pi_400k`
+- planner reruns to materialize before selfplay:
+  - active `set_v2_expanded`
+  - experimental `set_v6_expanded`
+  - experimental `set_v6_margin_expanded`
+  - experimental `set_v6_rank_expanded`
+  - experimental `recurrent_v1_expanded`
+- then the full active-plus-experimental selfplay arena over the expanded bundle set
+
 That means Phase 9 now has:
 
 - a stable agent-spec contract
 - a stable session contract
 - a stable replay-buffer contract
 - a stable arena-suite contract
+- a stable curriculum/launch-plan contract
 
-before curriculum is added.
+before replay-buffer-driven retraining is added.
