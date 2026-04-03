@@ -155,3 +155,29 @@ Current `v2` replay-training summary:
 - `6928` replay planner-head rows
 
 This is now the preferred Phase-9 replay source for planner fine-tuning.
+
+That stronger replay source has now also produced the first explicit expanded active promotion:
+
+- promotion decision:
+  [active_promotion_decision_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/active_promotion_decision_v1.json)
+- promoted active agent:
+  [phase9_agent_planner_active_expanded_v2.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_active_expanded_v2.json)
+- replay challenger kept live:
+  [phase9_agent_planner_set_v6_replay_expanded_v2.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v6_replay_expanded_v2.json)
+- next replay-aware arena suite:
+  [phase9_arena_active_experimental_replay_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_experimental_replay_expanded_v1.json)
+
+Promotion summary:
+
+- previous active reference `set_v2_expanded`: `top1=0.797163`, `MRR=0.879433`, `mean_probability=0.693195`
+- promoted `set_v6_margin_replay_expanded_v2`: `top1=0.813475`, `MRR=0.889894`, `mean_probability=0.725571`
+
+So the active expanded selfplay slot is now no longer the old `set_v2_expanded` line.
+It is the replay-promoted `set_v6_margin_replay_expanded_v2` line, but still through a versioned agent spec so future planner changes can replace it without changing the arena runner.
+
+The promoted active expanded agent is also smoke-verified here:
+
+- [selfplay_active_expanded_v2_probe_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/selfplay_active_expanded_v2_probe_v1.json)
+- `1` game
+- `12` legal plies
+- termination reason: `max_plies`

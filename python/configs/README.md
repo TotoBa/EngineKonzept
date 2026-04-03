@@ -160,6 +160,10 @@ These remain useful as small-corpus regression baselines, but they are no longer
   Post-400k experimental rank-aux selfplay agent spec.
 - [phase9_agent_planner_recurrent_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_recurrent_expanded_v1.json)
   Post-400k experimental recurrent selfplay agent spec.
+- [phase9_agent_planner_set_v6_replay_expanded_v2.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v6_replay_expanded_v2.json)
+  Replay-mirror challenger over the stronger `Phase 9` replay source. Starts from the replay-only `set_v6` mirror and stays available as a direct experimental selfplay arm.
+- [phase9_agent_planner_active_expanded_v2.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_active_expanded_v2.json)
+  Current promoted expanded active selfplay agent spec. Points at the replay-promoted `set_v6_margin_replay_expanded_v2` planner checkpoint and replaces the older `set_v2_expanded` launch reference in the active slot.
 
 ## Phase 9 Arena Specs
 
@@ -169,3 +173,5 @@ These remain useful as small-corpus regression baselines, but they are no longer
   Main future-facing Phase-9 arena suite. It keeps the contract versioned and lists the active plus experimental planner arms so later selfplay reruns can start without another orchestration rewrite.
 - [phase9_arena_active_experimental_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_experimental_expanded_v1.json)
   Post-400k arena suite. Uses the future expanded planner checkpoints for the active arm and the currently tracked experimental follow-ups.
+- [phase9_arena_active_experimental_replay_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_experimental_replay_expanded_v1.json)
+  Replay-aware post-promotion arena suite. Keeps the promoted expanded active arm plus the older expanded family and the new replay challenger in the same versioned round-robin contract.

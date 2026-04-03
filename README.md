@@ -353,6 +353,8 @@ The repository now also has the first small exact selfplay loop:
 - first curriculum/launch plan: [curriculum_active_experimental_expanded_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/curriculum_active_experimental_expanded_v1.json)
 - first expanded replay artifact: [replay_buffer.jsonl](/home/torsten/EngineKonzept/artifacts/phase9/replay_buffer_active_experimental_expanded_v1/replay_buffer.jsonl)
 - first replay-driven planner rerun: [planner_corpus_suite_set_v6_rank_replay_expanded_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_rank_replay_expanded_v1_verify.json)
+- current expanded active-promotion decision: [active_promotion_decision_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/active_promotion_decision_v1.json)
+- current expanded active agent: [phase9_agent_planner_active_expanded_v2.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_active_expanded_v2.json)
 
 Current first probe:
 
@@ -360,6 +362,15 @@ Current first probe:
 - symbolic proposer + learned `OpponentHeadV1` + bounded planner `set_v2_10k_122k_expanded`
 - `8` legal plies
 - termination reason: `max_plies`
+
+Current expanded active selfplay decision:
+
+- promoted planner line: `set_v6_margin_replay_expanded_v2`
+- promoted over the older expanded active reference `set_v2_expanded`
+- held-out deltas:
+  - `root_top1_accuracy +0.016312`
+  - `teacher_root_mean_reciprocal_rank +0.010461`
+  - `teacher_root_mean_probability +0.032376`
 
 That means Phase 9 now has a real small probe, a real replay-buffer contract, a versioned checkpoint arena, a versioned 400k-ready curriculum/launch plan for active plus experimental arms, and the first replay-buffer-driven planner retraining path.
 

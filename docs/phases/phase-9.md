@@ -282,3 +282,40 @@ The important boundary is unchanged:
 
 - no classical-search runtime was added
 - the only change is the versioned selfplay initial-position contract and a larger curriculum stage that consumes it
+
+That stronger replay source has now also produced the first explicit expanded-arm promotion:
+
+- decision artifact:
+  [active_promotion_decision_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/active_promotion_decision_v1.json)
+- promoted active spec:
+  [phase9_agent_planner_active_expanded_v2.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_active_expanded_v2.json)
+- retained replay challenger:
+  [phase9_agent_planner_set_v6_replay_expanded_v2.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v6_replay_expanded_v2.json)
+- next replay-aware arena suite:
+  [phase9_arena_active_experimental_replay_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_experimental_replay_expanded_v1.json)
+
+Promotion rule:
+
+- primary metric: held-out `root_top1_accuracy`
+- tie-breakers:
+  - `teacher_root_mean_reciprocal_rank`
+  - `teacher_root_mean_probability`
+
+Observed promotion deltas versus the older expanded active reference `set_v2_expanded`:
+
+- `root_top1_accuracy`: `0.797163 -> 0.813475`
+- `teacher_root_mean_reciprocal_rank`: `0.879433 -> 0.889894`
+- `teacher_root_mean_probability`: `0.693195 -> 0.725571`
+
+That means the first replay-aware active promotion is now explicit, versioned, and still architecture-flexible:
+
+- the active slot is now a versioned agent spec, not a hard-coded planner name
+- the replay mirror remains available as a separate experimental challenger
+- the next arena suite can swap in future planner arms without another runner rewrite
+
+The promoted active expanded agent is also smoke-verified in direct selfplay:
+
+- [selfplay_active_expanded_v2_probe_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/selfplay_active_expanded_v2_probe_v1.json)
+- `1` game
+- `12` legal plies
+- termination reason: `max_plies`

@@ -1,0 +1,58 @@
+{
+  "active_agent_spec": "python/configs/phase9_agent_planner_active_expanded_v2.json",
+  "decision": {
+    "mrr_delta_vs_active": 0.010461,
+    "probability_delta_vs_active": 0.032376,
+    "promote": true,
+    "top1_delta_vs_active": 0.016312,
+    "winner": "set_v6_margin_replay_expanded_v2"
+  },
+  "decision_name": "active_promotion_decision_v1",
+  "promoted_model": "planner_set_v6_margin_replay_expanded_v2",
+  "rationale": {
+    "primary_metric": "root_top1_accuracy",
+    "tie_breakers": [
+      "teacher_root_mean_reciprocal_rank",
+      "teacher_root_mean_probability"
+    ]
+  },
+  "reference_model": "planner_set_v2_expanded",
+  "runs": {
+    "set_v2_expanded": {
+      "root_top1_accuracy": 0.797163,
+      "root_top3_accuracy": 0.965957,
+      "teacher_root_mean_probability": 0.693195,
+      "teacher_root_mean_reciprocal_rank": 0.879433
+    },
+    "set_v6_expanded": {
+      "root_top1_accuracy": 0.810638,
+      "root_top3_accuracy": 0.964539,
+      "teacher_root_mean_probability": 0.718423,
+      "teacher_root_mean_reciprocal_rank": 0.885816
+    },
+    "set_v6_margin_expanded": {
+      "root_top1_accuracy": 0.80922,
+      "root_top3_accuracy": 0.970922,
+      "teacher_root_mean_probability": 0.708726,
+      "teacher_root_mean_reciprocal_rank": 0.887175
+    },
+    "set_v6_margin_replay_expanded_v2": {
+      "root_top1_accuracy": 0.813475,
+      "root_top3_accuracy": 0.970922,
+      "teacher_root_mean_probability": 0.725571,
+      "teacher_root_mean_reciprocal_rank": 0.889894
+    },
+    "set_v6_rank_expanded": {
+      "root_top1_accuracy": 0.808511,
+      "root_top3_accuracy": 0.965957,
+      "teacher_root_mean_probability": 0.699544,
+      "teacher_root_mean_reciprocal_rank": 0.887234
+    },
+    "set_v6_replay_expanded_v2": {
+      "root_top1_accuracy": 0.812766,
+      "root_top3_accuracy": 0.963121,
+      "teacher_root_mean_probability": 0.722923,
+      "teacher_root_mean_reciprocal_rank": 0.888061
+    }
+  }
+}
