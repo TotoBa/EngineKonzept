@@ -7,11 +7,13 @@ Current contents:
 - workflow suite: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_v1/summary.json)
 - filtered latent workflow suite: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_two_tier_v1/summary.json)
 - stronger filtered latent workflow suite: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_latent_10k_122k_expanded_v1/summary.json)
+- richer-target filtered workflow suite: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_score_10k_122k_expanded_v1/summary.json)
 - first trained planner summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v1/summary.json)
 - current trained planner summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v2_v1/summary.json)
 - expanded-data planner summary: [planner_corpus_suite_set_v2_expanded_v1_summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v2_expanded_v1_summary.json)
 - latent-state planner summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v3_two_tier_v1/summary.json)
 - stronger latent-state planner summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v3_10k_122k_expanded_v1/summary.json)
+- richer-target score-aux planner summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_10k_122k_expanded_v1/summary.json)
 - first trained planner verify eval: [planner_corpus_suite_set_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v1_verify.json)
 - current trained planner verify eval: [planner_corpus_suite_set_v2_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v2_v1_verify.json)
 - expanded-data full verify eval: [planner_corpus_suite_set_v2_expanded_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v2_expanded_v1_verify.json)
@@ -21,6 +23,7 @@ Current contents:
 - filtered expanded `set_v5` verify eval: [planner_corpus_suite_set_v5_expanded_two_tier_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v5_expanded_two_tier_v1_verify.json)
 - latent-state planner verify eval: [planner_corpus_suite_set_v3_two_tier_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v3_two_tier_v1_verify.json)
 - stronger latent-state planner verify eval: [planner_corpus_suite_set_v3_10k_122k_expanded_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v3_10k_122k_expanded_v1_verify.json)
+- richer-target score-aux planner verify eval: [planner_corpus_suite_set_v6_10k_122k_expanded_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_10k_122k_expanded_v1_verify.json)
 - baseline comparisons:
   - [planner_root_only_corpus_suite_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_root_only_corpus_suite_v1.json)
   - [planner_symbolic_reply_corpus_suite_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_symbolic_reply_corpus_suite_v1.json)
@@ -36,6 +39,7 @@ Current contents:
   - [planner_learned_reply_corpus_suite_expanded_two_tier_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_learned_reply_corpus_suite_expanded_two_tier_v1.json)
   - [planner_corpus_suite_expanded_two_tier_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_expanded_two_tier_compare_v1.json)
   - [planner_corpus_suite_latent_two_tier_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_latent_two_tier_compare_v1.json)
+  - [planner_corpus_suite_score_two_tier_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_score_two_tier_compare_v1.json)
 
 Current aggregate verify result over `1,410` held-out planner examples:
 
@@ -86,3 +90,10 @@ Stronger latent rerun on the same filtered expanded workflow:
 - `set_v3_10k_122k_expanded`: `0.797852`, `MRR=0.880778`
 
 So the new latent-materialization workflow is useful as tooling, but the current direct latent planner path still does not replace the filtered `set_v2` reference.
+
+Richer-target score-aux rerun on the same filtered expanded workflow:
+
+- `set_v2_10k_122k_expanded`: `0.819336`, `MRR=0.889811`
+- `set_v6_10k_122k_expanded`: `0.817383`, `MRR=0.890625`
+
+So the score-aux target is now a credible Phase-8 direction, but it still does not beat the filtered `set_v2` reference on the most important `top1` metric.

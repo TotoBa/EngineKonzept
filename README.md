@@ -308,6 +308,7 @@ Result on `1,024` held-out planner examples:
 - expanded-data `set_v5`: `root_top1_accuracy=0.798828`, `MRR=0.880534`
 - `10k + 122k`-only expanded `set_v2`: `root_top1_accuracy=0.819336`, `MRR=0.889811`
 - `10k + 122k`-only expanded latent `set_v3`: `root_top1_accuracy=0.797852`, `MRR=0.880778`
+- `10k + 122k`-only expanded score-aux `set_v6`: `root_top1_accuracy=0.817383`, `MRR=0.890625`
 
 The important current conclusion is:
 
@@ -315,6 +316,7 @@ The important current conclusion is:
 - but the real gain on the preferred `10k + 122k` validation slice came only after removing the `400k` tier again during planner training
 - faster latent materialization from existing planner-head artifacts is now reproducible and cheap enough to rerun
 - but the planner-facing latent channel still does not beat the current filtered `set_v2` reference, even on the stronger `10k + 122k` workflow material
+- richer teacher candidate scores are a real signal, but the first score-aux arm still gives back a little `top1` and therefore also does not replace the current filtered `set_v2` reference
 - wider `set_v2` does not help
 - `set_v5` becomes competitive again on the filtered slice, but still does not beat the new `10k + 122k`-only expanded `set_v2`
 

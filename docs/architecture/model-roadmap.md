@@ -342,6 +342,30 @@ So the next Planner lever is not "more width". The new evidence says:
 - mixing the `400k` tier into planner training did not help the preferred filtered slice
 - the next open question is now whether a different latent-state integration path or better teacher targets can move this stronger filtered `set_v2` reference again
 
+That richer-target question now has a first real answer as well:
+
+- filtered score-target workflow: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_score_10k_122k_expanded_v1/summary.json)
+- richer-target planner config: [phase8_planner_corpus_suite_set_v6_10k_122k_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v6_10k_122k_expanded_v1.json)
+- richer-target comparison: [planner_corpus_suite_score_two_tier_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_score_two_tier_compare_v1.json)
+
+Result on the same preferred filtered verify slice:
+
+- `set_v2_10k_122k_expanded`: `top1=0.819336`, `MRR=0.889811`
+- `set_v6_10k_122k_expanded`: `top1=0.817383`, `MRR=0.890625`
+
+So better teacher targets are now a live signal:
+
+- they do move the planner behavior in a meaningful way
+- they improve `MRR` and bounded ranking smoothness
+- but this first score-aux arm still does not take the `top1` lead from `set_v2`
+
+The next Planner lever is therefore narrower than before:
+
+- keep the stronger filtered `10k + 122k` workflow
+- keep `set_v2` as the current default
+- treat richer teacher targets as a promising auxiliary direction
+- do not yet spend another round on wider or more complex planner backbones
+
 ## Deferred Architecture Ideas
 
 The following ideas remain relevant and are intentionally being kept in view, but they are deferred until the dense single-path stack is stronger:

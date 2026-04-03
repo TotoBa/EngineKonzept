@@ -1,0 +1,90 @@
+{
+  "runs": {
+    "learned_reply": {
+      "examples_per_second": 6.951803,
+      "mean_pressure": 0.070033,
+      "mean_reply_peak_probability": 0.67217,
+      "mean_uncertainty": 0.761411,
+      "root_top1_accuracy": 0.136719,
+      "teacher_covered_examples": 1024,
+      "teacher_root_mean_probability": 0.110816,
+      "teacher_root_mean_reciprocal_rank": 0.21224,
+      "total_examples": 1024
+    },
+    "root_only": {
+      "examples_per_second": 15.525398,
+      "mean_pressure": 0.0,
+      "mean_reply_peak_probability": 0.0,
+      "mean_uncertainty": 0.0,
+      "root_top1_accuracy": 0.152344,
+      "teacher_covered_examples": 1024,
+      "teacher_root_mean_probability": 0.110929,
+      "teacher_root_mean_reciprocal_rank": 0.220785,
+      "total_examples": 1024
+    },
+    "set_v2_10k_122k_expanded": {
+      "examples_per_second": 4190.921,
+      "root_gap_examples": 1020,
+      "root_gap_loss": 2.201249,
+      "root_gap_mae_cp": 240.377743,
+      "root_top1_accuracy": 0.819336,
+      "root_top3_accuracy": 0.960938,
+      "root_value_loss": 0.153191,
+      "root_value_mae_cp": 74.711746,
+      "supervised_examples": 1024,
+      "teacher_kl_loss": 0.776866,
+      "teacher_policy_loss": 0.741815,
+      "teacher_root_mean_probability": 0.711182,
+      "teacher_root_mean_reciprocal_rank": 0.889811,
+      "total_examples": 1024,
+      "total_loss": 1.053753
+    },
+    "set_v3_10k_122k_expanded": {
+      "examples_per_second": 3374.685,
+      "root_gap_examples": 1020,
+      "root_gap_loss": 2.217913,
+      "root_gap_mae_cp": 241.442076,
+      "root_top1_accuracy": 0.797852,
+      "root_top3_accuracy": 0.973633,
+      "root_value_loss": 0.143088,
+      "root_value_mae_cp": 78.249131,
+      "supervised_examples": 1024,
+      "teacher_kl_loss": 0.830198,
+      "teacher_policy_loss": 0.768247,
+      "teacher_root_mean_probability": 0.712443,
+      "teacher_root_mean_reciprocal_rank": 0.880778,
+      "total_examples": 1024,
+      "total_loss": 1.093847
+    },
+    "set_v6_10k_122k_expanded": {
+      "examples_per_second": 3838.936,
+      "root_gap_examples": 1020,
+      "root_gap_loss": 2.19312,
+      "root_gap_mae_cp": 243.046244,
+      "root_top1_accuracy": 0.817383,
+      "root_top3_accuracy": 0.964844,
+      "root_value_loss": 0.161172,
+      "root_value_mae_cp": 78.436165,
+      "supervised_examples": 1024,
+      "teacher_kl_loss": 0.855102,
+      "teacher_policy_loss": 0.722094,
+      "teacher_root_mean_probability": 0.717721,
+      "teacher_root_mean_reciprocal_rank": 0.890625,
+      "teacher_score_loss": 78.46875,
+      "teacher_score_mae_cp": 242.310951,
+      "total_examples": 1024,
+      "total_loss": 8.90046
+    },
+    "symbolic_reply": {
+      "examples_per_second": 7.443459,
+      "mean_pressure": 0.178223,
+      "mean_reply_peak_probability": 0.176351,
+      "mean_uncertainty": 0.823649,
+      "root_top1_accuracy": 0.15918,
+      "teacher_covered_examples": 1024,
+      "teacher_root_mean_probability": 0.11153,
+      "teacher_root_mean_reciprocal_rank": 0.223958,
+      "total_examples": 1024
+    }
+  }
+}

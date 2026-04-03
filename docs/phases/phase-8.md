@@ -209,3 +209,23 @@ That richer-target arm is now also prepared at the model/config level:
 - planner architecture `set_v6` keeps the current `set_v2` bounded candidate-scoring backbone
 - it adds an auxiliary candidate-score regression head over the same restricted root slice
 - the first intended rerun stays on the preferred filtered expanded `10k + 122k` suite rather than widening back out to the `400k` tier
+
+That rerun has now been executed on the filtered expanded `10k + 122k` suite:
+
+- workflow summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_workflow_corpus_suite_score_10k_122k_expanded_v1/summary.json)
+- config: [phase8_planner_corpus_suite_set_v6_10k_122k_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v6_10k_122k_expanded_v1.json)
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_10k_122k_expanded_v1/summary.json)
+- verify: [planner_corpus_suite_set_v6_10k_122k_expanded_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_10k_122k_expanded_v1_verify.json)
+- comparison: [planner_corpus_suite_score_two_tier_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_score_two_tier_compare_v1.json)
+
+Result on the same preferred held-out slice:
+
+- `set_v2_10k_122k_expanded`: `root_top1_accuracy=0.819336`, `root_top3_accuracy=0.960938`, `MRR=0.889811`
+- `set_v6_10k_122k_expanded`: `root_top1_accuracy=0.817383`, `root_top3_accuracy=0.964844`, `MRR=0.890625`
+
+So the richer score-target arm is real and competitive:
+
+- it improves `MRR`, `teacher_root_mean_probability`, and `top3`
+- it gives back a small amount of `top1`
+- `set_v2_10k_122k_expanded` therefore remains the preferred Phase-8 reference
+- `set_v6_10k_122k_expanded` stays as the first useful score-aux experimental arm
