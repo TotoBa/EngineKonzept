@@ -216,6 +216,20 @@ The new `OpponentHeadV1` dataset builder derives:
 
 That is the intended bridge between the offline search-workflow layer and an explicit Phase-7 opponent model.
 
+The repository now also has the first real symbolic Phase-7 baseline probe on held-out verify data:
+
+- workflow artifacts: [README.md](/home/torsten/EngineKonzept/artifacts/phase7/README.md)
+- opponent dataset probe: [opponent_head_verify_probe_v1.jsonl](/home/torsten/EngineKonzept/artifacts/phase7/opponent_head_verify_probe_v1.jsonl)
+- baseline metrics: [opponent_symbolic_baseline_verify_probe_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_symbolic_baseline_verify_probe_v1.json)
+
+That probe currently scores:
+
+- `reply_top1_accuracy=0.25`
+- `reply_top3_accuracy=0.25`
+- `teacher_reply_mean_reciprocal_rank=0.364583`
+
+on the `16`-example verify slice generated with `/usr/games/stockfish18` at `64` nodes.
+
 ## Repository Layout
 
 ```text

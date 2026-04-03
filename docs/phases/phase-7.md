@@ -24,6 +24,10 @@ It now does have the first explicit Phase-7 preparation artifacts:
   - `search_traces_<split>.jsonl`
   - `search_disagreements_<split>.jsonl`
   - `search_curriculum_<split>.jsonl`
+- and the first exact symbolic baseline probe:
+  - [README.md](/home/torsten/EngineKonzept/artifacts/phase7/README.md)
+  - [opponent_head_verify_probe_v1.jsonl](/home/torsten/EngineKonzept/artifacts/phase7/opponent_head_verify_probe_v1.jsonl)
+  - [opponent_symbolic_baseline_verify_probe_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_symbolic_baseline_verify_probe_v1.json)
 
 ## What the first dataset does
 
@@ -56,10 +60,18 @@ The first comparison baseline for Phase 7 is explicitly symbolic:
 
 Any learned opponent head should beat that baseline before it is treated as real progress.
 
+The current verify probe on `16` held-out examples scored:
+
+- `reply_top1_accuracy=0.25`
+- `reply_top3_accuracy=0.25`
+- `teacher_reply_mean_reciprocal_rank=0.364583`
+
+with `/usr/games/stockfish18` at `64` nodes.
+
 ## Next pressure
 
 The next useful Phase-7 steps are:
 
-1. materialize `opponent_head_<split>.jsonl` on a real corpus
-2. implement the exact symbolic reply-scorer baseline
-3. train the first explicit opponent head against that baseline
+1. scale the `OpponentHeadV1` workflow beyond the current verify probe
+2. train the first explicit opponent head against the symbolic reply-scorer baseline
+3. compare it against the documented baseline artifact before any planner integration

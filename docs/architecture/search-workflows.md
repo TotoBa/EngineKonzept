@@ -231,6 +231,20 @@ Before a learned opponent head is treated as progress, compare it against one ex
 
 That baseline is cheap, repo-compatible, and strong enough to prevent low-value opponent-model churn.
 
+The first real repo probe of that rule now lives in:
+
+- [opponent_head_verify_probe_v1.jsonl](/home/torsten/EngineKonzept/artifacts/phase7/opponent_head_verify_probe_v1.jsonl)
+- [opponent_symbolic_baseline_verify_probe_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_symbolic_baseline_verify_probe_v1.json)
+
+That probe was built from:
+
+- `search_teacher_verify_probe_v1.jsonl`
+- `search_traces_verify_probe_v1.jsonl`
+- `search_disagreements_verify_probe_v1.jsonl`
+- `search_curriculum_verify_probe_v1.jsonl`
+
+using `/usr/games/stockfish18` as the offline teacher.
+
 ### MCTS Later
 
 MCTS is more useful later than now.

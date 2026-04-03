@@ -1,0 +1,21 @@
+{
+  "checkpoint": "/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+  "dataset_dir": "/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_pgn_verify_pi_10k_v1",
+  "example_count": 16,
+  "metrics": {
+    "examples_per_second": 1470.786,
+    "pressure_mae": 0.15625,
+    "reply_top1_accuracy": 0.25,
+    "reply_top3_accuracy": 0.25,
+    "supervised_examples": 4,
+    "teacher_reply_mean_probability": 0.201552,
+    "teacher_reply_mean_reciprocal_rank": 0.364583,
+    "total_examples": 16,
+    "uncertainty_mae": 0.268056
+  },
+  "opponent_artifact": "artifacts/phase7/opponent_head_verify_probe_v1.jsonl",
+  "split": "test",
+  "teacher_engine": "/usr/games/stockfish18",
+  "teacher_multipv": 8,
+  "teacher_nodes": 64
+}

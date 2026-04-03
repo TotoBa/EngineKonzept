@@ -215,6 +215,15 @@ It should not be hidden inside the planner as an uninspectable intermediate.
 
 The repo is specifically aiming for adversarial latent planning. An explicit opponent module is the cleanest way to preserve that architectural intent.
 
+The repo now also has the first exact symbolic Phase-7 baseline probe:
+
+- exact teacher root move from the offline workflow layer
+- exact successor state
+- exact legal reply set
+- current symbolic proposer reused as the reply scorer
+
+That gives Phase 7 a real minimum bar before any learned opponent head is treated as progress.
+
 ## Phase 8
 
 ### Preferred Planner Shape

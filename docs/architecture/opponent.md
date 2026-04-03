@@ -58,6 +58,18 @@ Before a learned opponent head counts as progress, compare it against the exact 
 
 That baseline is the current minimum bar for Phase 7.
 
+The repo now has the first real probe of that baseline:
+
+- [opponent_head_verify_probe_v1.jsonl](/home/torsten/EngineKonzept/artifacts/phase7/opponent_head_verify_probe_v1.jsonl)
+- [opponent_symbolic_baseline_verify_probe_v1.json](/home/torsten/EngineKonzept/artifacts/phase7/opponent_symbolic_baseline_verify_probe_v1.json)
+
+Current probe result on `16` verify examples with `/usr/games/stockfish18` at `64` nodes:
+
+- `reply_top1_accuracy=0.25`
+- `reply_top3_accuracy=0.25`
+- `teacher_reply_mean_reciprocal_rank=0.364583`
+- `teacher_reply_mean_probability=0.201552`
+
 ## Why This Contract
 
 This contract is deliberately narrow and useful:

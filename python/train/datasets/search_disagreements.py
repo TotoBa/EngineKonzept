@@ -5,17 +5,20 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Sequence
 
-from train.config import ProposerTrainConfig
 from train.datasets.artifacts import (
     DEFAULT_CANDIDATE_CONTEXT_VERSION,
     DEFAULT_GLOBAL_CONTEXT_VERSION,
     build_symbolic_proposer_example,
 )
+from train.eval.symbolic_proposer import (
+    load_symbolic_proposer_checkpoint,
+    score_symbolic_candidates,
+)
 from train.datasets.schema import DatasetExample, SUPPORTED_SPLITS
 from train.datasets.search_teacher import SearchTeacherExample
-from train.models.proposer import LegalityPolicyProposer, torch_is_available
+from train.models.proposer import torch_is_available
 
 try:
     import torch
@@ -219,21 +222,7 @@ def build_search_disagreement_examples(
     if not selected_teacher_examples:
         return []
 
-    payload = torch.load(checkpoint_path, map_location="cpu")
-    config = ProposerTrainConfig.from_dict(dict(payload["training_config"]))
-    if config.model.architecture != "symbolic_v1":
-        raise ValueError(
-            "search disagreement mining currently requires a symbolic_v1 proposer checkpoint"
-        )
-
-    model = LegalityPolicyProposer(
-        architecture=config.model.architecture,
-        hidden_dim=config.model.hidden_dim,
-        hidden_layers=config.model.hidden_layers,
-        dropout=config.model.dropout,
-    )
-    model.load_state_dict(dict(payload["model_state_dict"]))
-    model.eval()
+    model, _config = load_symbolic_proposer_checkpoint(checkpoint_path)
 
     dataset_by_sample_id = {example.sample_id: example for example in dataset_examples}
     built: list[SearchDisagreementExample] = []
@@ -254,7 +243,14 @@ def build_search_disagreement_examples(
                 candidate_context_version=DEFAULT_CANDIDATE_CONTEXT_VERSION,
                 global_context_version=DEFAULT_GLOBAL_CONTEXT_VERSION,
             )
-            proposer_scores, proposer_policy = _score_symbolic_example(model, symbolic_example)
+            proposer_scores, proposer_policy = score_symbolic_candidates(
+                model,
+                feature_vector=symbolic_example.feature_vector,
+                candidate_action_indices=symbolic_example.candidate_action_indices,
+                candidate_features=symbolic_example.candidate_features,
+                global_features=symbolic_example.global_features,
+                candidate_context_version=symbolic_example.candidate_context_version,
+            )
             if len(proposer_scores) != len(symbolic_example.candidate_action_indices):
                 raise AssertionError("proposer candidate score count must match candidate count")
 
@@ -368,37 +364,6 @@ def _align_teacher_outputs(
         [teacher_score_by_action[action_index] for action_index in candidate_action_indices],
         [teacher_policy_by_action[action_index] for action_index in candidate_action_indices],
     )
-
-
-def _score_symbolic_example(
-    model: LegalityPolicyProposer,
-    symbolic_example: Any,
-) -> tuple[list[float], list[float]]:
-    features = torch.tensor([symbolic_example.feature_vector], dtype=torch.float32)
-    candidate_action_indices = torch.tensor(
-        [symbolic_example.candidate_action_indices],
-        dtype=torch.long,
-    )
-    candidate_features = torch.tensor(
-        [symbolic_example.candidate_features],
-        dtype=torch.float32,
-    )
-    candidate_mask = torch.ones(candidate_action_indices.shape, dtype=torch.bool)
-    global_features = torch.tensor([symbolic_example.global_features], dtype=torch.float32)
-
-    _, policy_logits = model(
-        features,
-        candidate_action_indices=candidate_action_indices,
-        candidate_features=candidate_features,
-        candidate_mask=candidate_mask,
-        global_features=global_features,
-    )
-    candidate_scores = policy_logits[0, candidate_action_indices[0]].tolist()
-    candidate_policy = torch.softmax(
-        torch.tensor(candidate_scores, dtype=torch.float32),
-        dim=0,
-    ).tolist()
-    return ([float(value) for value in candidate_scores], [float(value) for value in candidate_policy])
 
 
 def _rank_actions(action_indices: Sequence[int], scores: Sequence[float]) -> list[int]:
