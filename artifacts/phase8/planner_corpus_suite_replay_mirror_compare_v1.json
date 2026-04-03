@@ -1,0 +1,74 @@
+{
+  "deltas": {
+    "set_v6_margin_replay_vs_active": {
+      "root_top1_accuracy": 0.016312,
+      "root_top3_accuracy": 0.004965,
+      "teacher_root_mean_probability": 0.032376,
+      "teacher_root_mean_reciprocal_rank": 0.010461
+    },
+    "set_v6_margin_replay_vs_base": {
+      "root_top1_accuracy": 0.004255,
+      "root_top3_accuracy": 0.0,
+      "teacher_root_mean_probability": 0.016845,
+      "teacher_root_mean_reciprocal_rank": 0.002719
+    },
+    "set_v6_replay_vs_active": {
+      "root_top1_accuracy": 0.015603,
+      "root_top3_accuracy": -0.002836,
+      "teacher_root_mean_probability": 0.029728,
+      "teacher_root_mean_reciprocal_rank": 0.008628
+    },
+    "set_v6_replay_vs_base": {
+      "root_top1_accuracy": 0.002128,
+      "root_top3_accuracy": -0.001418,
+      "teacher_root_mean_probability": 0.0045,
+      "teacher_root_mean_reciprocal_rank": 0.002245
+    }
+  },
+  "promotion_decision": {
+    "active_reference": "set_v2_expanded",
+    "notes": [
+      "top1 is the primary promotion metric",
+      "MRR and teacher_root_mean_probability act as tie-breakers"
+    ],
+    "promote_replay_arm": "set_v6_replay_expanded_v2"
+  },
+  "runs": {
+    "set_v2_expanded": {
+      "root_top1_accuracy": 0.797163,
+      "root_top3_accuracy": 0.965957,
+      "teacher_root_mean_probability": 0.693195,
+      "teacher_root_mean_reciprocal_rank": 0.879433
+    },
+    "set_v6_expanded": {
+      "root_top1_accuracy": 0.810638,
+      "root_top3_accuracy": 0.964539,
+      "teacher_root_mean_probability": 0.718423,
+      "teacher_root_mean_reciprocal_rank": 0.885816
+    },
+    "set_v6_margin_expanded": {
+      "root_top1_accuracy": 0.80922,
+      "root_top3_accuracy": 0.970922,
+      "teacher_root_mean_probability": 0.708726,
+      "teacher_root_mean_reciprocal_rank": 0.887175
+    },
+    "set_v6_margin_replay_expanded_v2": {
+      "root_top1_accuracy": 0.813475,
+      "root_top3_accuracy": 0.970922,
+      "teacher_root_mean_probability": 0.725571,
+      "teacher_root_mean_reciprocal_rank": 0.889894
+    },
+    "set_v6_rank_expanded": {
+      "root_top1_accuracy": 0.808511,
+      "root_top3_accuracy": 0.965957,
+      "teacher_root_mean_probability": 0.699544,
+      "teacher_root_mean_reciprocal_rank": 0.887234
+    },
+    "set_v6_replay_expanded_v2": {
+      "root_top1_accuracy": 0.812766,
+      "root_top3_accuracy": 0.963121,
+      "teacher_root_mean_probability": 0.722923,
+      "teacher_root_mean_reciprocal_rank": 0.888061
+    }
+  }
+}

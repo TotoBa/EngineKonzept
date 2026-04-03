@@ -132,3 +132,26 @@ So Phase 9 now has a full path from:
 - to replay buffer
 - to replay-derived planner supervision
 - to replay-derived planner-head fine-tuning data
+
+The stronger `v2` expanded arena now extends that path:
+
+- replay buffer:
+  [replay_buffer.jsonl](/home/torsten/EngineKonzept/artifacts/phase9/replay_buffer_active_experimental_expanded_v2/replay_buffer.jsonl)
+- replay buffer summary:
+  [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/replay_buffer_active_experimental_expanded_v2/summary.json)
+- replay supervision:
+  [planner_replay_train.jsonl](/home/torsten/EngineKonzept/artifacts/phase9/planner_replay_active_experimental_expanded_v2/planner_replay_train.jsonl)
+- replay supervision summary:
+  [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/planner_replay_active_experimental_expanded_v2/summary.json)
+- replay planner-head artifact:
+  [planner_head_train.jsonl](/home/torsten/EngineKonzept/artifacts/phase9/planner_replay_head_active_experimental_expanded_v2/planner_head_train.jsonl)
+- replay planner-head summary:
+  [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/planner_replay_head_active_experimental_expanded_v2/summary.json)
+
+Current `v2` replay-training summary:
+
+- `12976` replay-buffer rows
+- `6928` resolved replay supervision rows
+- `6928` replay planner-head rows
+
+This is now the preferred Phase-9 replay source for planner fine-tuning.

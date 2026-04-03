@@ -1,0 +1,192 @@
+{
+  "best_epoch": 1,
+  "best_validation": {
+    "examples_per_second": 350.951,
+    "root_gap_examples": 13273,
+    "root_gap_loss": 32.972992,
+    "root_gap_mae_cp": 153.693989,
+    "root_top1_accuracy": 0.814378,
+    "root_top3_accuracy": 0.977239,
+    "root_value_loss": 3.263361,
+    "root_value_mae_cp": 85.792103,
+    "supervised_examples": 13312,
+    "teacher_kl_loss": 0.958055,
+    "teacher_margin_examples": 26467,
+    "teacher_margin_loss": 0.448388,
+    "teacher_margin_mae_cp": 71.019261,
+    "teacher_policy_loss": 0.762908,
+    "teacher_rank_accuracy": 0.0,
+    "teacher_rank_examples": 0,
+    "teacher_rank_loss": 0.0,
+    "teacher_root_mean_probability": 0.721624,
+    "teacher_root_mean_reciprocal_rank": 0.892321,
+    "teacher_score_loss": 0.286358,
+    "teacher_score_mae_cp": 54.015033,
+    "total_examples": 13312,
+    "total_loss": 2.873397
+  },
+  "config": {
+    "data": {
+      "additional_train_paths": [],
+      "additional_validation_paths": [
+        "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/merged_unique_122k_validation_v1/planner_head_validation.jsonl",
+        "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/unique_pi_400k_validation_v1/planner_head_validation.jsonl"
+      ],
+      "train_path": "artifacts/phase9/planner_replay_head_active_experimental_expanded_v2/planner_head_train.jsonl",
+      "validation_path": "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/pgn_10k_validation_v1/planner_head_validation.jsonl"
+    },
+    "evaluation": {
+      "top_k": 3
+    },
+    "export": {
+      "bundle_dir": "/srv/schach/engine_training/models/planner/corpus_suite_set_v6_margin_replay_expanded_v2",
+      "checkpoint_name": "checkpoint.pt"
+    },
+    "initial_checkpoint": "/srv/schach/engine_training/models/planner/corpus_suite_set_v6_margin_expanded_v1/checkpoint.pt",
+    "model": {
+      "action_embedding_dim": 64,
+      "architecture": "set_v6",
+      "deliberation_steps": 1,
+      "dropout": 0.1,
+      "hidden_dim": 256,
+      "hidden_layers": 2,
+      "latent_feature_dim": 0,
+      "memory_slots": 0
+    },
+    "optimization": {
+      "batch_size": 128,
+      "curriculum_priority_weight": 0.1,
+      "epochs": 2,
+      "learning_rate": 0.0002,
+      "root_gap_loss_weight": 0.05,
+      "root_value_loss_weight": 0.05,
+      "teacher_kl_loss_weight": 0.25,
+      "teacher_margin_loss_weight": 0.1,
+      "teacher_policy_loss_weight": 1.0,
+      "teacher_rank_loss_weight": 0.0,
+      "teacher_score_loss_weight": 0.05,
+      "weight_decay": 0.0001
+    },
+    "output_dir": "/srv/schach/engine_training/phase8/planner_corpus_suite_set_v6_margin_replay_expanded_v2",
+    "runtime": {
+      "dataloader_workers": 0,
+      "torch_threads": 6
+    },
+    "seed": 19
+  },
+  "export_paths": {
+    "checkpoint": "/srv/schach/engine_training/models/planner/corpus_suite_set_v6_margin_replay_expanded_v2/checkpoint.pt"
+  },
+  "history": [
+    {
+      "epoch": 1,
+      "examples_per_second": 72.873,
+      "train": {
+        "examples_per_second": 72.873,
+        "root_gap_examples": 0,
+        "root_gap_loss": 0.0,
+        "root_gap_mae_cp": 0.0,
+        "root_top1_accuracy": 0.684324,
+        "root_top3_accuracy": 0.94746,
+        "root_value_loss": 0.147081,
+        "root_value_mae_cp": 76.684906,
+        "supervised_examples": 6928,
+        "teacher_kl_loss": 0.941652,
+        "teacher_margin_examples": 0,
+        "teacher_margin_loss": 0.0,
+        "teacher_margin_mae_cp": 0.0,
+        "teacher_policy_loss": 0.941652,
+        "teacher_rank_accuracy": 0.0,
+        "teacher_rank_examples": 0,
+        "teacher_rank_loss": 0.0,
+        "teacher_root_mean_probability": 0.54931,
+        "teacher_root_mean_reciprocal_rank": 0.813631,
+        "teacher_score_loss": 0.0,
+        "teacher_score_mae_cp": 0.0,
+        "total_examples": 6928,
+        "total_loss": 1.184419
+      },
+      "validation": {
+        "examples_per_second": 350.951,
+        "root_gap_examples": 13273,
+        "root_gap_loss": 32.972992,
+        "root_gap_mae_cp": 153.693989,
+        "root_top1_accuracy": 0.814378,
+        "root_top3_accuracy": 0.977239,
+        "root_value_loss": 3.263361,
+        "root_value_mae_cp": 85.792103,
+        "supervised_examples": 13312,
+        "teacher_kl_loss": 0.958055,
+        "teacher_margin_examples": 26467,
+        "teacher_margin_loss": 0.448388,
+        "teacher_margin_mae_cp": 71.019261,
+        "teacher_policy_loss": 0.762908,
+        "teacher_rank_accuracy": 0.0,
+        "teacher_rank_examples": 0,
+        "teacher_rank_loss": 0.0,
+        "teacher_root_mean_probability": 0.721624,
+        "teacher_root_mean_reciprocal_rank": 0.892321,
+        "teacher_score_loss": 0.286358,
+        "teacher_score_mae_cp": 54.015033,
+        "total_examples": 13312,
+        "total_loss": 2.873397
+      }
+    },
+    {
+      "epoch": 2,
+      "examples_per_second": 74.118,
+      "train": {
+        "examples_per_second": 74.118,
+        "root_gap_examples": 0,
+        "root_gap_loss": 0.0,
+        "root_gap_mae_cp": 0.0,
+        "root_top1_accuracy": 0.715214,
+        "root_top3_accuracy": 0.967234,
+        "root_value_loss": 0.133692,
+        "root_value_mae_cp": 66.262741,
+        "supervised_examples": 6928,
+        "teacher_kl_loss": 0.830729,
+        "teacher_margin_examples": 0,
+        "teacher_margin_loss": 0.0,
+        "teacher_margin_mae_cp": 0.0,
+        "teacher_policy_loss": 0.830729,
+        "teacher_rank_accuracy": 0.0,
+        "teacher_rank_examples": 0,
+        "teacher_rank_loss": 0.0,
+        "teacher_root_mean_probability": 0.593459,
+        "teacher_root_mean_reciprocal_rank": 0.835823,
+        "teacher_score_loss": 0.0,
+        "teacher_score_mae_cp": 0.0,
+        "total_examples": 6928,
+        "total_loss": 1.045096
+      },
+      "validation": {
+        "examples_per_second": 351.034,
+        "root_gap_examples": 13273,
+        "root_gap_loss": 32.990276,
+        "root_gap_mae_cp": 150.670451,
+        "root_top1_accuracy": 0.813326,
+        "root_top3_accuracy": 0.976262,
+        "root_value_loss": 3.264187,
+        "root_value_mae_cp": 87.559192,
+        "supervised_examples": 13312,
+        "teacher_kl_loss": 1.108904,
+        "teacher_margin_examples": 26467,
+        "teacher_margin_loss": 0.448455,
+        "teacher_margin_mae_cp": 71.019267,
+        "teacher_policy_loss": 0.781272,
+        "teacher_rank_accuracy": 0.0,
+        "teacher_rank_examples": 0,
+        "teacher_rank_loss": 0.0,
+        "teacher_root_mean_probability": 0.733558,
+        "teacher_root_mean_reciprocal_rank": 0.891301,
+        "teacher_score_loss": 0.287772,
+        "teacher_score_mae_cp": 53.874475,
+        "total_examples": 13312,
+        "total_loss": 2.930456
+      }
+    }
+  ],
+  "model_name": "planner_head",
+  "model_parameter_count": 3052292
+}

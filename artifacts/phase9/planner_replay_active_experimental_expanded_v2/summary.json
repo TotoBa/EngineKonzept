@@ -1,0 +1,29 @@
+{
+  "artifact_path": "/home/torsten/EngineKonzept/artifacts/phase9/planner_replay_active_experimental_expanded_v2/planner_replay_train.jsonl",
+  "include_unfinished": false,
+  "replay_path": "/home/torsten/EngineKonzept/artifacts/phase9/replay_buffer_active_experimental_expanded_v2/replay_buffer.jsonl",
+  "split": "train",
+  "summary": {
+    "example_count": 6928,
+    "mean_replay_priority": 1.271689,
+    "mean_root_value_cp": 0.73903,
+    "outcome_counts": {
+      "draw": 5480,
+      "loss": 714,
+      "win": 734
+    },
+    "selector_counts": {
+      "planner_recurrent_expanded_v1": 1170,
+      "planner_set_v2_expanded_v1": 1090,
+      "planner_set_v6_expanded_v1": 913,
+      "planner_set_v6_margin_expanded_v1": 1356,
+      "planner_set_v6_rank_expanded_v1": 1200,
+      "symbolic_root_v1": 1199
+    },
+    "termination_counts": {
+      "checkmate": 1448,
+      "stalemate": 183,
+      "threefold_repetition": 5297
+    }
+  }
+}

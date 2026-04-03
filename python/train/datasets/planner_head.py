@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 import json
 from pathlib import Path
-from typing import Any, Sequence
+from typing import TYPE_CHECKING, Any, Sequence
 
 from train.datasets import (
     build_symbolic_proposer_example,
@@ -34,6 +34,9 @@ from train.eval.symbolic_proposer import (
     load_symbolic_proposer_checkpoint,
     score_symbolic_candidates,
 )
+
+if TYPE_CHECKING:
+    from train.datasets.planner_replay import PlannerReplayExample
 
 
 PLANNER_HEAD_ARTIFACT_PREFIX = "planner_head_"
@@ -443,8 +446,9 @@ def build_planner_head_examples_from_replay(
         raise ValueError("opponent_checkpoint is required when opponent_mode='learned'")
 
     replay_examples = load_planner_replay_examples(planner_replay_path)
-    selected_replay_examples = (
-        replay_examples[:max_examples] if max_examples is not None else replay_examples
+    selected_replay_examples = _select_replay_examples_for_planner_head(
+        replay_examples,
+        max_examples=max_examples,
     )
     if not selected_replay_examples:
         return []
@@ -572,6 +576,22 @@ def build_planner_head_examples_from_replay(
             )
         )
     return built
+
+
+def _select_replay_examples_for_planner_head(
+    replay_examples: Sequence["PlannerReplayExample"],
+    *,
+    max_examples: int | None,
+) -> list["PlannerReplayExample"]:
+    if max_examples is None or max_examples >= len(replay_examples):
+        return list(replay_examples)
+    if max_examples <= 0:
+        raise ValueError("max_examples must be positive when provided")
+    ranked_examples = sorted(
+        replay_examples,
+        key=lambda example: (-example.replay_priority, example.sample_id),
+    )
+    return ranked_examples[:max_examples]
 
 
 def materialize_planner_latent_features(

@@ -109,6 +109,32 @@ Held-out result versus the replay source arm:
 
 So the replay-driven retraining path is now real and reusable, but the first fine-tune is not yet a new default.
 
+The larger `Phase 9` arena now feeds a stronger replay-only mirror pass as well:
+
+- replay buffer summary:
+  [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/replay_buffer_active_experimental_expanded_v2/summary.json)
+- replay supervision summary:
+  [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/planner_replay_active_experimental_expanded_v2/summary.json)
+- replay planner-head summary:
+  [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/planner_replay_head_active_experimental_expanded_v2/summary.json)
+- `set_v6` replay mirror:
+  - [planner_corpus_suite_set_v6_replay_expanded_v2_summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_replay_expanded_v2_summary.json)
+  - [planner_corpus_suite_set_v6_replay_expanded_v2_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_replay_expanded_v2_verify.json)
+- `set_v6_margin` replay mirror:
+  - [planner_corpus_suite_set_v6_margin_replay_expanded_v2_summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_margin_replay_expanded_v2_summary.json)
+  - [planner_corpus_suite_set_v6_margin_replay_expanded_v2_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_margin_replay_expanded_v2_verify.json)
+- replay-mirror comparison:
+  [planner_corpus_suite_replay_mirror_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_replay_mirror_compare_v1.json)
+
+Current replay-mirror result on the full expanded holdout:
+
+- `set_v6_replay_expanded_v2` improves `top1`, `MRR`, and `teacher_root_mean_probability` over `set_v6_expanded`
+- `set_v6_margin_replay_expanded_v2` improves `top1`, `MRR`, and `teacher_root_mean_probability` over `set_v6_margin_expanded`
+- `set_v6_margin_replay_expanded_v2` is the strongest replay mirror so far:
+  - `top1=0.813475`
+  - `top3=0.970922`
+  - `MRR=0.889894`
+
 Filtered latent-state verify slice over `1,024` held-out planner examples:
 
 - root-only bounded baseline: `0.151367`, `MRR=0.219482`

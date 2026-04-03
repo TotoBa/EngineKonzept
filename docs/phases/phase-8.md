@@ -374,3 +374,43 @@ Interpretation:
 - the first replay fine-tune improves `top3` and teacher probability on the full expanded holdout
 - but it gives back a small amount of `top1` and `MRR`
 - so `set_v6_rank_replay_expanded_v1` is a useful new experimental arm, not a new Phase-8 default
+
+The larger `Phase 9` replay source now extends that picture materially:
+
+- replay buffer summary:
+  [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/replay_buffer_active_experimental_expanded_v2/summary.json)
+- replay supervision summary:
+  [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/planner_replay_active_experimental_expanded_v2/summary.json)
+- replay planner-head summary:
+  [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/planner_replay_head_active_experimental_expanded_v2/summary.json)
+
+Observed replay scale-up:
+
+- replay rows: `3640 -> 12976`
+- resolved replay supervision rows: `568 -> 6928`
+- replay planner-head rows: `568 -> 6928`
+
+That stronger replay source now feeds two replay-only warm-start mirrors:
+
+- `set_v6` replay mirror:
+  - config: [phase8_planner_corpus_suite_set_v6_replay_expanded_v2.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v6_replay_expanded_v2.json)
+  - summary: [planner_corpus_suite_set_v6_replay_expanded_v2_summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_replay_expanded_v2_summary.json)
+  - verify: [planner_corpus_suite_set_v6_replay_expanded_v2_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_replay_expanded_v2_verify.json)
+- `set_v6_margin` replay mirror:
+  - config: [phase8_planner_corpus_suite_set_v6_margin_replay_expanded_v2.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v6_margin_replay_expanded_v2.json)
+  - summary: [planner_corpus_suite_set_v6_margin_replay_expanded_v2_summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_margin_replay_expanded_v2_summary.json)
+  - verify: [planner_corpus_suite_set_v6_margin_replay_expanded_v2_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_margin_replay_expanded_v2_verify.json)
+- mirror comparison:
+  [planner_corpus_suite_replay_mirror_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_replay_mirror_compare_v1.json)
+
+Held-out result versus the corresponding expanded baselines:
+
+- `set_v6_expanded`: `top1=0.810638`, `MRR=0.885816`
+- `set_v6_replay_expanded_v2`: `top1=0.812766`, `MRR=0.888061`
+- `set_v6_margin_expanded`: `top1=0.80922`, `MRR=0.887175`
+- `set_v6_margin_replay_expanded_v2`: `top1=0.813475`, `MRR=0.889894`
+
+So the important new conclusion is:
+
+- replay-only warm-starting on the larger `Phase 9` arena now improves both mirrored arms over their non-replay expanded baselines
+- `set_v6_margin_replay_expanded_v2` is the current strongest replay-driven full-expanded arm

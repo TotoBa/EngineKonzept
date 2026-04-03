@@ -129,6 +129,10 @@ These remain useful as small-corpus regression baselines, but they are no longer
   400k-ready rank-aux expanded rerun config over the same full-target workflow root. On the materialized full expanded suite it is the current best `MRR` rerun.
 - [phase8_planner_corpus_suite_set_v6_rank_replay_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v6_rank_replay_expanded_v1.json)
   First replay-driven planner fine-tune. Warm-starts from the full expanded `set_v6_rank` checkpoint, mixes in the replay-derived planner-head artifact from Phase 9, and keeps the same expanded held-out validation contract.
+- [phase8_planner_corpus_suite_set_v6_replay_expanded_v2.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v6_replay_expanded_v2.json)
+  Replay-only warm-start mirror over the stronger `Phase 9` expanded-v2 replay source. Starts from the full expanded `set_v6` checkpoint and fine-tunes only on the replay planner-head artifact while keeping the same expanded held-out validation contract.
+- [phase8_planner_corpus_suite_set_v6_margin_replay_expanded_v2.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v6_margin_replay_expanded_v2.json)
+  Replay-only warm-start mirror over the same stronger `Phase 9` replay source, but starting from the full expanded `set_v6_margin` checkpoint.
 - [phase8_planner_corpus_suite_recurrent_v1_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_recurrent_v1_expanded_v1.json)
   400k-ready recurrent expanded rerun config over the same full-target workflow root. It now materializes a real expanded recurrent baseline, but still trails the stronger non-recurrent `set_v6` family on the same full expanded holdout.
 
