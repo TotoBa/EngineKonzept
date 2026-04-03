@@ -38,6 +38,12 @@ from train.eval.symbolic_proposer import (
 PLANNER_HEAD_ARTIFACT_PREFIX = "planner_head_"
 PLANNER_LATENT_STATE_VERSION = 1
 PLANNER_SCORE_TARGET_CLIP_CP = 256.0
+PLANNER_RANK_BUCKET_VERSION = 1
+PLANNER_RANK_BUCKET_LABELS = (
+    "teacher_top1",
+    "teacher_top2_top3",
+    "teacher_tail",
+)
 
 
 @dataclass(frozen=True)
@@ -68,6 +74,8 @@ class PlannerHeadExample:
     teacher_top1_minus_top2_cp: float | None
     teacher_candidate_scores_cp: list[float] | None = None
     teacher_candidate_score_delta_targets_cp: list[float] | None = None
+    teacher_rank_bucket_version: int | None = None
+    teacher_candidate_rank_bucket_targets: list[int] | None = None
     latent_state_version: int | None = None
     latent_features: list[list[float]] | None = None
 
@@ -97,6 +105,8 @@ class PlannerHeadExample:
             "teacher_policy": self.teacher_policy,
             "teacher_candidate_scores_cp": self.teacher_candidate_scores_cp,
             "teacher_candidate_score_delta_targets_cp": self.teacher_candidate_score_delta_targets_cp,
+            "teacher_rank_bucket_version": self.teacher_rank_bucket_version,
+            "teacher_candidate_rank_bucket_targets": self.teacher_candidate_rank_bucket_targets,
             "teacher_root_value_cp": self.teacher_root_value_cp,
             "teacher_top1_minus_top2_cp": self.teacher_top1_minus_top2_cp,
         }
@@ -131,6 +141,10 @@ class PlannerHeadExample:
         teacher_candidate_score_delta_targets_cp = _optional_float_list(
             payload.get("teacher_candidate_score_delta_targets_cp")
         )
+        teacher_rank_bucket_version = _optional_int(payload.get("teacher_rank_bucket_version"))
+        teacher_candidate_rank_bucket_targets = _optional_int_list(
+            payload.get("teacher_candidate_rank_bucket_targets")
+        )
         expected_length = len(candidate_action_indices)
         for name, values in (
             ("candidate_features", candidate_features),
@@ -156,6 +170,24 @@ class PlannerHeadExample:
             raise ValueError(
                 "teacher_candidate_score_delta_targets_cp must have the same length as candidate_action_indices"
             )
+        if (
+            teacher_candidate_rank_bucket_targets is not None
+            and len(teacher_candidate_rank_bucket_targets) != expected_length
+        ):
+            raise ValueError(
+                "teacher_candidate_rank_bucket_targets must have the same length as candidate_action_indices"
+            )
+        if teacher_candidate_rank_bucket_targets is not None:
+            if teacher_rank_bucket_version != PLANNER_RANK_BUCKET_VERSION:
+                raise ValueError(
+                    "teacher_rank_bucket_version must match the supported planner rank bucket version"
+                )
+            valid_bucket_ids = set(range(len(PLANNER_RANK_BUCKET_LABELS)))
+            invalid_bucket_ids = set(teacher_candidate_rank_bucket_targets) - valid_bucket_ids
+            if invalid_bucket_ids:
+                raise ValueError(
+                    "teacher_candidate_rank_bucket_targets contains unsupported bucket ids"
+                )
         if latent_features is not None and len(latent_features) != expected_length:
             raise ValueError(
                 "latent_features must have the same length as candidate_action_indices"
@@ -190,6 +222,8 @@ class PlannerHeadExample:
             teacher_policy=teacher_policy,
             teacher_candidate_scores_cp=teacher_candidate_scores_cp,
             teacher_candidate_score_delta_targets_cp=teacher_candidate_score_delta_targets_cp,
+            teacher_rank_bucket_version=teacher_rank_bucket_version,
+            teacher_candidate_rank_bucket_targets=teacher_candidate_rank_bucket_targets,
             teacher_root_value_cp=float(payload["teacher_root_value_cp"]),
             teacher_top1_minus_top2_cp=_optional_float(payload.get("teacher_top1_minus_top2_cp")),
         )
@@ -326,6 +360,11 @@ def build_planner_head_examples(
             considered_indices=considered_indices,
             teacher_root_value_cp=float(teacher_example.teacher_root_value_cp),
         )
+        teacher_candidate_rank_bucket_targets = build_teacher_candidate_rank_bucket_targets(
+            teacher_example.teacher_candidate_scores_cp,
+            considered_indices=considered_indices,
+            teacher_top1_candidate_index=teacher_top1_candidate_index,
+        )
         built.append(
             PlannerHeadExample(
                 sample_id=teacher_example.sample_id,
@@ -371,6 +410,8 @@ def build_planner_head_examples(
                 teacher_policy=teacher_policy,
                 teacher_candidate_scores_cp=teacher_candidate_scores_cp,
                 teacher_candidate_score_delta_targets_cp=teacher_candidate_score_delta_targets_cp,
+                teacher_rank_bucket_version=PLANNER_RANK_BUCKET_VERSION,
+                teacher_candidate_rank_bucket_targets=teacher_candidate_rank_bucket_targets,
                 teacher_root_value_cp=float(teacher_example.teacher_root_value_cp),
                 teacher_top1_minus_top2_cp=_optional_float(
                     getattr(curriculum_example, "teacher_top1_minus_top2_cp", None)
@@ -616,6 +657,36 @@ def build_teacher_candidate_score_delta_targets_cp(
     ]
 
 
+def build_teacher_candidate_rank_bucket_targets(
+    teacher_candidate_scores_cp: Sequence[float],
+    *,
+    considered_indices: Sequence[int],
+    teacher_top1_candidate_index: int,
+) -> list[int]:
+    """Bucket restricted candidates into top1, top2/top3, and tail targets."""
+    if not considered_indices:
+        raise ValueError("considered_indices must be non-empty")
+    if not 0 <= teacher_top1_candidate_index < len(considered_indices):
+        raise ValueError("teacher_top1_candidate_index out of range for restricted candidates")
+
+    bucket_targets = [2 for _ in considered_indices]
+    bucket_targets[teacher_top1_candidate_index] = 0
+    ranked_non_top1 = [
+        restricted_index
+        for restricted_index in sorted(
+            range(len(considered_indices)),
+            key=lambda restricted_index: (
+                -float(teacher_candidate_scores_cp[considered_indices[restricted_index]]),
+                restricted_index,
+            ),
+        )
+        if restricted_index != teacher_top1_candidate_index
+    ]
+    for restricted_index in ranked_non_top1[:2]:
+        bucket_targets[restricted_index] = 1
+    return bucket_targets
+
+
 def _pressure_from_candidate_features(candidate_features: Sequence[float]) -> float:
     if not candidate_features:
         return 0.0
@@ -644,3 +715,9 @@ def _optional_int(value: object | None) -> int | None:
     if value is None:
         return None
     return int(value)
+
+
+def _optional_int_list(value: object | None) -> list[int] | None:
+    if value is None:
+        return None
+    return [int(entry) for entry in list(value)]

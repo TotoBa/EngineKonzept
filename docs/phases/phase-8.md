@@ -202,6 +202,7 @@ The first richer-target follow-up is now prepared at the artifact-contract level
 
 - `PlannerHeadV1` rows can now carry restricted `teacher_candidate_scores_cp` aligned to the bounded candidate slice
 - `PlannerHeadV1` rows can now also carry clipped `teacher_candidate_score_delta_targets_cp` relative to `teacher_root_value_cp`
+- `PlannerHeadV1` rows can now also carry `teacher_rank_bucket_version=1` and discrete `teacher_candidate_rank_bucket_targets`
 - the field is backward-compatible and remains optional for older artifacts
 - this keeps the current workflow semantics intact while making the next score-aux planner arm possible without another contract break
 
