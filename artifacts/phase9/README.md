@@ -187,3 +187,18 @@ Pairwise selfplay summaries can now also be converted into a full matrix artifac
 - [build_selfplay_arena_matrix.py](/home/torsten/EngineKonzept/python/scripts/build_selfplay_arena_matrix.py)
 
 That matrix is row-agent-centric and aggregates both color directions, so it is the intended basis for later long-run selfplay campaign comparisons.
+
+The repo now also has a versioned long-run campaign runner:
+
+- [campaign.py](/home/torsten/EngineKonzept/python/train/eval/campaign.py)
+- [run_phase9_replay_campaign.py](/home/torsten/EngineKonzept/python/scripts/run_phase9_replay_campaign.py)
+
+It is intended to drive, in one reproducible pass:
+
+- replay-aware arena materialization
+- replay-buffer flattening
+- planner replay supervision
+- replay-head materialization
+- replay-mirror planner reruns
+- held-out planner verify comparison
+- arena full-matrix export

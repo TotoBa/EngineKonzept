@@ -328,3 +328,26 @@ The arena side now also has a reusable full-matrix export path:
   [matrix.py](/home/torsten/EngineKonzept/python/train/eval/matrix.py)
 
 This keeps pairwise selfplay analysis separate from the campaign runner itself, so future agent or planner changes can still reuse the same row-vs-column arena summary contract.
+
+The next contract layer now also exists as a versioned long-run replay campaign:
+
+- helper:
+  [campaign.py](/home/torsten/EngineKonzept/python/train/eval/campaign.py)
+- runner:
+  [run_phase9_replay_campaign.py](/home/torsten/EngineKonzept/python/scripts/run_phase9_replay_campaign.py)
+
+That runner is designed around:
+
+- one versioned curriculum stage
+- one derived replay source
+- one replay-head artifact
+- several replay-mirror planner reruns
+- one held-out planner verify matrix
+
+So later architecture changes should only need:
+
+- new agent specs
+- new base planner configs
+- updated campaign manifests
+
+rather than another orchestration rewrite.

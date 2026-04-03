@@ -172,6 +172,34 @@ def __getattr__(name: str) -> Any:
             "load_dynamics_checkpoint": load_dynamics_checkpoint,
             "predict_dynamics_latent": predict_dynamics_latent,
         }[name]
+    if name in {
+        "PlannerReplayCampaignRunSpec",
+        "SelfplayReplayCampaignSpec",
+        "build_planner_verify_matrix",
+        "load_selfplay_replay_campaign_spec",
+        "materialize_replay_campaign_planner_config",
+        "run_selfplay_replay_campaign",
+        "write_selfplay_replay_campaign_spec",
+    }:
+        from train.eval.campaign import (
+            PlannerReplayCampaignRunSpec,
+            SelfplayReplayCampaignSpec,
+            build_planner_verify_matrix,
+            load_selfplay_replay_campaign_spec,
+            materialize_replay_campaign_planner_config,
+            run_selfplay_replay_campaign,
+            write_selfplay_replay_campaign_spec,
+        )
+
+        return {
+            "PlannerReplayCampaignRunSpec": PlannerReplayCampaignRunSpec,
+            "SelfplayReplayCampaignSpec": SelfplayReplayCampaignSpec,
+            "build_planner_verify_matrix": build_planner_verify_matrix,
+            "load_selfplay_replay_campaign_spec": load_selfplay_replay_campaign_spec,
+            "materialize_replay_campaign_planner_config": materialize_replay_campaign_planner_config,
+            "run_selfplay_replay_campaign": run_selfplay_replay_campaign,
+            "write_selfplay_replay_campaign_spec": write_selfplay_replay_campaign_spec,
+        }[name]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -179,6 +207,7 @@ __all__ = [
     "OpponentBaselineMetrics",
     "LoadedPlannerRuntime",
     "PlannerBaselineMetrics",
+    "PlannerReplayCampaignRunSpec",
     "PlannerRootDecision",
     "PlannerRunSpec",
     "STARTING_FEN",
@@ -187,10 +216,12 @@ __all__ = [
     "SelfplayArenaSpec",
     "SelfplayCurriculumPlan",
     "SelfplayCurriculumStage",
+    "SelfplayReplayCampaignSpec",
     "SelfplayGameRecord",
     "SelfplaySessionRecord",
     "build_planner_runtime",
     "build_planner_runtime_from_spec",
+    "build_planner_verify_matrix",
     "build_phase9_expanded_curriculum_plan",
     "build_selfplay_arena_matrix",
     "evaluate_symbolic_opponent_baseline",
@@ -203,9 +234,12 @@ __all__ = [
     "load_planner_runtime_from_spec_path",
     "load_selfplay_agent_spec",
     "load_symbolic_proposer_checkpoint",
+    "load_selfplay_replay_campaign_spec",
+    "materialize_replay_campaign_planner_config",
     "play_selfplay_game",
     "predict_dynamics_latent",
     "run_selfplay_arena",
+    "run_selfplay_replay_campaign",
     "run_selfplay_session",
     "score_opponent_candidates",
     "score_symbolic_candidates",
@@ -213,4 +247,5 @@ __all__ = [
     "write_selfplay_arena_spec",
     "write_selfplay_curriculum_plan",
     "write_selfplay_agent_spec",
+    "write_selfplay_replay_campaign_spec",
 ]
