@@ -397,6 +397,17 @@ The next architectural step is now prepared without another contract break:
 - it adds explicit `memory_slots` and `deliberation_steps`
 - so the repo can finally test bounded recurrent deliberation itself, instead of only richer one-shot root scorers
 
+That first recurrent rerun is now also measured on the preferred filtered `10k + 122k` slice:
+
+- `set_v2_10k_122k_expanded`: `top1=0.819336`, `MRR=0.889811`
+- `recurrent_v1_10k_122k_expanded`: `top1=0.805664`, `MRR=0.885742`
+
+So the current conclusion is:
+
+- bounded recurrence is now a real implemented capability
+- but the first recurrent planner arm still trails the best bounded one-shot `set_v2` reference
+- the next role for recurrence should be enabling a first small selfplay loop and later planner-memory refinements, not replacing `set_v2` immediately
+
 ## Deferred Architecture Ideas
 
 The following ideas remain relevant and are intentionally being kept in view, but they are deferred until the dense single-path stack is stronger:

@@ -294,3 +294,21 @@ The first bounded recurrent follow-up is now prepared at the model/config level 
 - adds explicit `memory_slots` and `deliberation_steps`
 - refines candidate tokens through a small recurrent memory loop instead of widening the same one-shot scorer again
 - config: [phase8_planner_corpus_suite_recurrent_v1_10k_122k_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_recurrent_v1_10k_122k_expanded_v1.json)
+
+That recurrent rerun has now also been executed on the same preferred filtered expanded `10k + 122k` suite:
+
+- summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_recurrent_v1_10k_122k_expanded_v1/summary.json)
+- verify: [planner_corpus_suite_recurrent_v1_10k_122k_expanded_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_recurrent_v1_10k_122k_expanded_v1_verify.json)
+- comparison: [planner_corpus_suite_recurrent_two_tier_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_recurrent_two_tier_compare_v1.json)
+
+Held-out result on the same `10k + 122k` slice:
+
+- `set_v2_10k_122k_expanded`: `top1=0.819336`, `top3=0.960938`, `MRR=0.889811`
+- `recurrent_v1_10k_122k_expanded`: `top1=0.805664`, `top3=0.962891`, `MRR=0.885742`
+
+Interpretation:
+
+- the first recurrent planner arm is now materially implemented, measured, and reproducible
+- it keeps the existing planner-head contract intact, so future recurrence changes do not require another workflow-schema break
+- but it does not beat the current filtered `set_v2` reference on the main held-out metrics
+- so recurrence is now available as infrastructure for the next phase, not yet the preferred bounded Phase-8 model

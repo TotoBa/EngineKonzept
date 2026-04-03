@@ -18,6 +18,7 @@ Current contents:
 - richer-target score-aux planner summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_10k_122k_expanded_v1/summary.json)
 - richer-target margin planner summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_margin_10k_122k_expanded_v1/summary.json)
 - richer-target rank planner summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_rank_10k_122k_expanded_v1/summary.json)
+- recurrent planner summary: [summary.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_recurrent_v1_10k_122k_expanded_v1/summary.json)
 - first trained planner verify eval: [planner_corpus_suite_set_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v1_verify.json)
 - current trained planner verify eval: [planner_corpus_suite_set_v2_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v2_v1_verify.json)
 - expanded-data full verify eval: [planner_corpus_suite_set_v2_expanded_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v2_expanded_v1_verify.json)
@@ -30,6 +31,7 @@ Current contents:
 - richer-target score-aux planner verify eval: [planner_corpus_suite_set_v6_10k_122k_expanded_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_10k_122k_expanded_v1_verify.json)
 - richer-target margin planner verify eval: [planner_corpus_suite_set_v6_margin_10k_122k_expanded_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_margin_10k_122k_expanded_v1_verify.json)
 - richer-target rank planner verify eval: [planner_corpus_suite_set_v6_rank_10k_122k_expanded_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_set_v6_rank_10k_122k_expanded_v1_verify.json)
+- recurrent planner verify eval: [planner_corpus_suite_recurrent_v1_10k_122k_expanded_v1_verify.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_recurrent_v1_10k_122k_expanded_v1_verify.json)
 - baseline comparisons:
   - [planner_root_only_corpus_suite_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_root_only_corpus_suite_v1.json)
   - [planner_symbolic_reply_corpus_suite_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_symbolic_reply_corpus_suite_v1.json)
@@ -48,6 +50,7 @@ Current contents:
   - [planner_corpus_suite_score_two_tier_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_score_two_tier_compare_v1.json)
   - [planner_corpus_suite_margin_two_tier_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_margin_two_tier_compare_v1.json)
   - [planner_corpus_suite_rank_two_tier_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_rank_two_tier_compare_v1.json)
+  - [planner_corpus_suite_recurrent_two_tier_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase8/planner_corpus_suite_recurrent_two_tier_compare_v1.json)
 
 Current aggregate verify result over `1,410` held-out planner examples:
 
@@ -120,3 +123,10 @@ Discrete rank-bucket follow-up on the same filtered expanded workflow:
 - `set_v6_rank_10k_122k_expanded`: `0.8125`, `MRR=0.884684`
 
 So the discrete bounded `top1 / top2-top3 / tail` contract is now real, but this first rank-target arm is weaker than both `set_v2` and the earlier score-aux `set_v6`.
+
+Recurrent follow-up on the same filtered expanded workflow:
+
+- `set_v2_10k_122k_expanded`: `0.819336`, `MRR=0.889811`
+- `recurrent_v1_10k_122k_expanded`: `0.805664`, `MRR=0.885742`
+
+So the recurrent planner path is now materialized and reproducible, but the first held-out recurrent run is still weaker than the current filtered `set_v2` reference.

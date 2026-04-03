@@ -310,6 +310,7 @@ Result on `1,024` held-out planner examples:
 - `10k + 122k`-only expanded latent `set_v3`: `root_top1_accuracy=0.797852`, `MRR=0.880778`
 - `10k + 122k`-only expanded score-aux `set_v6`: `root_top1_accuracy=0.817383`, `MRR=0.890625`
 - `10k + 122k`-only expanded score+margin `set_v6`: `root_top1_accuracy=0.8125`, `MRR=0.889079`
+- `10k + 122k`-only expanded recurrent `recurrent_v1`: `root_top1_accuracy=0.805664`, `MRR=0.885742`
 
 The important current conclusion is:
 
@@ -320,6 +321,7 @@ The important current conclusion is:
 - richer teacher candidate scores are a real signal, but the first score-aux arm still gives back a little `top1` and therefore also does not replace the current filtered `set_v2` reference
 - adding explicit `top1-vs-top2/top3` margin supervision stabilizes the score-target losses dramatically, but still does not move the held-out planner ranking above the current filtered `set_v2` reference
 - replacing part of that bounded score shaping with discrete `top1 / top2-top3 / tail` rank buckets also does not beat the filtered `set_v2` reference on held-out `top1` or `MRR`
+- the first bounded recurrent planner arm is now real and reusable, but it also remains below the filtered `set_v2` reference on held-out `top1` and `MRR`
 - wider `set_v2` does not help
 - `set_v5` becomes competitive again on the filtered slice, but still does not beat the new `10k + 122k`-only expanded `set_v2`
 
