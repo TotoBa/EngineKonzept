@@ -35,6 +35,7 @@ class PlannerMetrics:
     teacher_kl_loss: float
     teacher_score_loss: float
     teacher_margin_loss: float
+    teacher_rank_loss: float
     root_value_loss: float
     root_gap_loss: float
     root_top1_accuracy: float
@@ -43,10 +44,12 @@ class PlannerMetrics:
     teacher_root_mean_probability: float
     teacher_score_mae_cp: float
     teacher_margin_mae_cp: float
+    teacher_rank_accuracy: float
     root_value_mae_cp: float
     root_gap_mae_cp: float
     root_gap_examples: int
     teacher_margin_examples: int
+    teacher_rank_examples: int
     examples_per_second: float = 0.0
 
     def to_dict(self) -> dict[str, float | int]:
@@ -58,6 +61,7 @@ class PlannerMetrics:
             "teacher_kl_loss": round(self.teacher_kl_loss, 6),
             "teacher_score_loss": round(self.teacher_score_loss, 6),
             "teacher_margin_loss": round(self.teacher_margin_loss, 6),
+            "teacher_rank_loss": round(self.teacher_rank_loss, 6),
             "root_value_loss": round(self.root_value_loss, 6),
             "root_gap_loss": round(self.root_gap_loss, 6),
             "root_top1_accuracy": round(self.root_top1_accuracy, 6),
@@ -72,10 +76,12 @@ class PlannerMetrics:
             ),
             "teacher_score_mae_cp": round(self.teacher_score_mae_cp, 6),
             "teacher_margin_mae_cp": round(self.teacher_margin_mae_cp, 6),
+            "teacher_rank_accuracy": round(self.teacher_rank_accuracy, 6),
             "root_value_mae_cp": round(self.root_value_mae_cp, 6),
             "root_gap_mae_cp": round(self.root_gap_mae_cp, 6),
             "root_gap_examples": self.root_gap_examples,
             "teacher_margin_examples": self.teacher_margin_examples,
+            "teacher_rank_examples": self.teacher_rank_examples,
             "examples_per_second": round(self.examples_per_second, 3),
         }
 
@@ -144,6 +150,7 @@ def train_planner(config: PlannerTrainConfig, *, repo_root: Path) -> PlannerTrai
         action_embedding_dim=config.model.action_embedding_dim,
         latent_feature_dim=config.model.latent_feature_dim,
         dropout=config.model.dropout,
+        enable_candidate_rank_head=config.optimization.teacher_rank_loss_weight > 0.0,
     )
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -184,6 +191,7 @@ def train_planner(config: PlannerTrainConfig, *, repo_root: Path) -> PlannerTrai
             teacher_kl_weight=config.optimization.teacher_kl_loss_weight,
             teacher_score_weight=config.optimization.teacher_score_loss_weight,
             teacher_margin_weight=config.optimization.teacher_margin_loss_weight,
+            teacher_rank_weight=config.optimization.teacher_rank_loss_weight,
             curriculum_priority_weight=config.optimization.curriculum_priority_weight,
             root_value_weight=config.optimization.root_value_loss_weight,
             root_gap_weight=config.optimization.root_gap_loss_weight,
@@ -198,6 +206,7 @@ def train_planner(config: PlannerTrainConfig, *, repo_root: Path) -> PlannerTrai
             teacher_kl_weight=config.optimization.teacher_kl_loss_weight,
             teacher_score_weight=config.optimization.teacher_score_loss_weight,
             teacher_margin_weight=config.optimization.teacher_margin_loss_weight,
+            teacher_rank_weight=config.optimization.teacher_rank_loss_weight,
             curriculum_priority_weight=config.optimization.curriculum_priority_weight,
             root_value_weight=config.optimization.root_value_loss_weight,
             root_gap_weight=config.optimization.root_gap_loss_weight,
@@ -277,6 +286,7 @@ def evaluate_planner_checkpoint(
         action_embedding_dim=config.model.action_embedding_dim,
         latent_feature_dim=config.model.latent_feature_dim,
         dropout=config.model.dropout,
+        enable_candidate_rank_head=config.optimization.teacher_rank_loss_weight > 0.0,
     )
     model.load_state_dict(dict(payload["model_state_dict"]))
 
@@ -310,6 +320,7 @@ def evaluate_planner_checkpoint(
         teacher_kl_weight=config.optimization.teacher_kl_loss_weight,
         teacher_score_weight=config.optimization.teacher_score_loss_weight,
         teacher_margin_weight=config.optimization.teacher_margin_loss_weight,
+        teacher_rank_weight=config.optimization.teacher_rank_loss_weight,
         curriculum_priority_weight=config.optimization.curriculum_priority_weight,
         root_value_weight=config.optimization.root_value_loss_weight,
         root_gap_weight=config.optimization.root_gap_loss_weight,
@@ -368,6 +379,7 @@ def _run_epoch(
     teacher_kl_weight: float,
     teacher_score_weight: float,
     teacher_margin_weight: float,
+    teacher_rank_weight: float,
     curriculum_priority_weight: float,
     root_value_weight: float,
     root_gap_weight: float,
@@ -382,6 +394,7 @@ def _run_epoch(
     teacher_kl_loss_total = 0.0
     teacher_score_loss_total = 0.0
     teacher_margin_loss_total = 0.0
+    teacher_rank_loss_total = 0.0
     root_value_loss_total = 0.0
     root_gap_loss_total = 0.0
     root_top1_correct = 0
@@ -392,6 +405,8 @@ def _run_epoch(
     teacher_score_examples = 0
     teacher_margin_abs_error_total = 0.0
     teacher_margin_examples = 0
+    teacher_rank_correct = 0
+    teacher_rank_examples = 0
     root_value_abs_error_total = 0.0
     root_gap_abs_error_total = 0.0
     root_gap_examples = 0
@@ -466,6 +481,19 @@ def _run_epoch(
             top2_margin_mask = torch.zeros_like(batch["teacher_top2_margin_mask"])
             top3_margin_mask = torch.zeros_like(batch["teacher_top3_margin_mask"])
             margin_loss = torch.zeros_like(ce_loss)
+        if outputs["candidate_rank_prediction"] is not None and teacher_rank_weight > 0.0:
+            rank_logits = outputs["candidate_rank_prediction"].permute(0, 2, 1)
+            raw_rank_loss = torch.nn.functional.cross_entropy(
+                rank_logits,
+                batch["teacher_candidate_rank_targets"],
+                reduction="none",
+            )
+            rank_mask = batch["teacher_candidate_rank_mask"].to(raw_rank_loss.dtype)
+            rank_count = rank_mask.sum(dim=1).clamp_min(1.0)
+            rank_loss = (raw_rank_loss * rank_mask).sum(dim=1) / rank_count
+        else:
+            raw_rank_loss = None
+            rank_loss = torch.zeros_like(ce_loss)
         if outputs["root_value_prediction"] is not None and root_value_weight > 0.0:
             root_value_loss = torch.nn.functional.smooth_l1_loss(
                 outputs["root_value_prediction"],
@@ -491,6 +519,7 @@ def _run_epoch(
             + teacher_kl_weight * kl_loss
             + teacher_score_weight * score_loss
             + teacher_margin_weight * margin_loss
+            + teacher_rank_weight * rank_loss
             + root_value_weight * root_value_loss
             + root_gap_weight * root_gap_loss
         ) * example_weights
@@ -511,6 +540,7 @@ def _run_epoch(
         teacher_kl_loss_total += float((kl_loss * example_weights).sum().item())
         teacher_score_loss_total += float((score_loss * example_weights).sum().item())
         teacher_margin_loss_total += float((margin_loss * example_weights).sum().item())
+        teacher_rank_loss_total += float((rank_loss * example_weights).sum().item())
         root_value_loss_total += float((root_value_loss * example_weights).sum().item())
         root_gap_loss_total += float((root_gap_loss * example_weights).sum().item())
         if outputs["candidate_score_prediction"] is not None and raw_score_loss is not None:
@@ -542,6 +572,15 @@ def _run_epoch(
         )
         teacher_margin_examples += int(batch["teacher_top2_margin_mask"].sum().item())
         teacher_margin_examples += int(batch["teacher_top3_margin_mask"].sum().item())
+        if outputs["candidate_rank_prediction"] is not None and raw_rank_loss is not None:
+            predicted_rank_buckets = outputs["candidate_rank_prediction"].argmax(dim=2)
+            rank_mask = batch["teacher_candidate_rank_mask"]
+            teacher_rank_correct += int(
+                (
+                    (predicted_rank_buckets == batch["teacher_candidate_rank_targets"]) & rank_mask
+                ).sum().item()
+            )
+            teacher_rank_examples += int(rank_mask.sum().item())
         if outputs["root_value_prediction"] is not None:
             root_value_abs_error_total += float(
                 torch.abs(
@@ -579,6 +618,7 @@ def _run_epoch(
         teacher_kl_loss=_ratio(teacher_kl_loss_total, total_examples),
         teacher_score_loss=_ratio(teacher_score_loss_total, total_examples),
         teacher_margin_loss=_ratio(teacher_margin_loss_total, total_examples),
+        teacher_rank_loss=_ratio(teacher_rank_loss_total, total_examples),
         root_value_loss=_ratio(root_value_loss_total, total_examples),
         root_gap_loss=_ratio(root_gap_loss_total, total_examples),
         root_top1_accuracy=_ratio(root_top1_correct, total_examples),
@@ -587,10 +627,12 @@ def _run_epoch(
         teacher_root_mean_probability=_ratio(teacher_probability_total, total_examples),
         teacher_score_mae_cp=_ratio(teacher_score_abs_error_total, teacher_score_examples),
         teacher_margin_mae_cp=_ratio(teacher_margin_abs_error_total, teacher_margin_examples),
+        teacher_rank_accuracy=_ratio(teacher_rank_correct, teacher_rank_examples),
         root_value_mae_cp=_ratio(root_value_abs_error_total, total_examples),
         root_gap_mae_cp=_ratio(root_gap_abs_error_total, root_gap_examples),
         root_gap_examples=root_gap_examples,
         teacher_margin_examples=teacher_margin_examples,
+        teacher_rank_examples=teacher_rank_examples,
         examples_per_second=_ratio(total_examples, elapsed),
     )
 
@@ -664,6 +706,8 @@ def _collate_planner_batch(
     teacher_top1_top3_margin_targets = torch.zeros((batch_size,), dtype=torch.float32)
     teacher_top2_margin_mask = torch.zeros((batch_size,), dtype=torch.bool)
     teacher_top3_margin_mask = torch.zeros((batch_size,), dtype=torch.bool)
+    teacher_candidate_rank_targets = torch.zeros((batch_size, max_candidates), dtype=torch.long)
+    teacher_candidate_rank_mask = torch.zeros((batch_size, max_candidates), dtype=torch.bool)
     curriculum_priorities = torch.zeros((batch_size,), dtype=torch.float32)
     teacher_root_value_targets = torch.zeros((batch_size,), dtype=torch.float32)
     teacher_root_gap_targets = torch.zeros((batch_size,), dtype=torch.float32)
@@ -745,6 +789,12 @@ def _collate_planner_batch(
                     margin_targets["top1_top3_margin_cp"]
                 )
                 teacher_top3_margin_mask[row_index] = True
+        if example.teacher_candidate_rank_bucket_targets is not None:
+            teacher_candidate_rank_targets[row_index, :candidate_count] = torch.tensor(
+                example.teacher_candidate_rank_bucket_targets,
+                dtype=torch.long,
+            )
+            teacher_candidate_rank_mask[row_index, :candidate_count] = True
         curriculum_priorities[row_index] = float(example.curriculum_priority)
         teacher_root_value_targets[row_index] = _normalize_root_value_cp(
             example.teacher_root_value_cp
@@ -777,6 +827,8 @@ def _collate_planner_batch(
         "teacher_top1_top3_margin_targets": teacher_top1_top3_margin_targets,
         "teacher_top2_margin_mask": teacher_top2_margin_mask,
         "teacher_top3_margin_mask": teacher_top3_margin_mask,
+        "teacher_candidate_rank_targets": teacher_candidate_rank_targets,
+        "teacher_candidate_rank_mask": teacher_candidate_rank_mask,
         "curriculum_priorities": curriculum_priorities,
         "teacher_root_value_targets": teacher_root_value_targets,
         "teacher_root_gap_targets": teacher_root_gap_targets,

@@ -261,3 +261,9 @@ Interpretation:
 - but it does not translate into a planner-quality gain on the most important held-out metrics
 - `set_v2_10k_122k_expanded` remains the preferred Phase-8 reference
 - `set_v6_margin_10k_122k_expanded` stays as a useful negative/diagnostic result, not a new default
+
+The next same-backbone follow-up is now prepared as well:
+
+- `set_v6` can now also add an optional discrete rank-bucket head over the same bounded candidate slice
+- that head uses the new `PlannerHeadV1` bucket targets instead of another raw centipawn-style auxiliary regression
+- config: [phase8_planner_corpus_suite_set_v6_rank_10k_122k_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v6_rank_10k_122k_expanded_v1.json)

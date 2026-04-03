@@ -23,6 +23,7 @@ except ModuleNotFoundError:  # pragma: no cover - exercised when torch is absent
 
 PLANNER_MODEL_NAME = "planner_head"
 PLANNER_CANDIDATE_FEATURE_SIZE = candidate_context_feature_dim(2)
+PLANNER_RANK_BUCKET_COUNT = 3
 
 
 if torch is not None and nn is not None:
@@ -58,6 +59,7 @@ if torch is not None and nn is not None:
             action_embedding_dim: int,
             latent_feature_dim: int,
             dropout: float,
+            enable_candidate_rank_head: bool = False,
         ) -> None:
             super().__init__()
             if architecture not in {"set_v1", "set_v2", "set_v3", "set_v5", "set_v6"}:
@@ -144,10 +146,23 @@ if torch is not None and nn is not None:
                     if architecture == "set_v6"
                     else None
                 )
+                self.candidate_rank_head = (
+                    nn.Sequential(
+                        nn.Linear(hidden_dim * candidate_factor_count, hidden_dim),
+                        nn.ReLU(),
+                        nn.Dropout(dropout) if dropout > 0.0 else nn.Identity(),
+                        nn.Linear(hidden_dim, hidden_dim // 2),
+                        nn.ReLU(),
+                        nn.Linear(hidden_dim // 2, PLANNER_RANK_BUCKET_COUNT),
+                    )
+                    if architecture == "set_v6" and enable_candidate_rank_head
+                    else None
+                )
             else:
                 self.root_value_head = None
                 self.root_gap_head = None
                 self.candidate_score_head = None
+                self.candidate_rank_head = None
 
         def forward(
             self,
@@ -239,6 +254,9 @@ if torch is not None and nn is not None:
             candidate_score_prediction = None
             if self.candidate_score_head is not None:
                 candidate_score_prediction = self.candidate_score_head(candidate_hidden).squeeze(-1)
+            candidate_rank_prediction = None
+            if self.candidate_rank_head is not None:
+                candidate_rank_prediction = self.candidate_rank_head(candidate_hidden)
             root_summary = torch.cat([state_hidden, attended, summary], dim=1)
             root_value_prediction = None
             root_gap_prediction = None
@@ -251,6 +269,11 @@ if torch is not None and nn is not None:
                 "candidate_score_prediction": (
                     candidate_score_prediction.masked_fill(~candidate_mask, 0.0)
                     if candidate_score_prediction is not None
+                    else None
+                ),
+                "candidate_rank_prediction": (
+                    candidate_rank_prediction.masked_fill(~candidate_mask.unsqueeze(-1), 0.0)
+                    if candidate_rank_prediction is not None
                     else None
                 ),
                 "root_value_prediction": root_value_prediction,
