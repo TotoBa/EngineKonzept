@@ -1,0 +1,36 @@
+{
+  "active_agent": "planner_active_expanded_v2",
+  "advance_to_next_engine": false,
+  "arena_matrix": "artifacts/phase9/arena_active_vs_vice_v1/arena_matrix.json",
+  "arena_summary": "artifacts/phase9/arena_active_vs_vice_v1/summary.json",
+  "current_engine": "vice_v1",
+  "current_engine_score_rate": 0.975,
+  "current_engine_summary": {
+    "draws": 1,
+    "games": 20,
+    "losses": 0,
+    "score": 19.5,
+    "wins": 19
+  },
+  "decision": "stop_at_vice",
+  "engine_progression_rule": "advance_to_next_engine_only_if_current_external_engine_loses_every_game_without_draws",
+  "initial_fen_suite": "artifacts/phase9/initial_fens_thor_openings_v1.json",
+  "next_engine": null,
+  "opening_selection_seed": 20260404,
+  "parallel_workers": 6,
+  "planner_summary": {
+    "draws": 1,
+    "games": 20,
+    "losses": 19,
+    "score": 0.5,
+    "wins": 0
+  },
+  "reason": "vice was not always beaten; the active arm scored 0.5/20 with one draw and no wins",
+  "schedule": [
+    "vice_v1",
+    "glaurung_v1",
+    "stockfish_v1",
+    "stockfish18_v1"
+  ],
+  "spec_version": 1
+}

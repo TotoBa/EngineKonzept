@@ -392,6 +392,42 @@ That path is intended to reduce unresolved `max_plies` endings without turning r
 - the preferred replay-aware arena suite now also samples its opening positions pseudo-randomly with a fixed `opening_selection_seed`, so the same opening is replayed under swapped colors while repeated runs remain deterministic
 - the preferred replay-aware arena suite runs under one master arena process with `parallel_workers=6`, rather than spawning separate arena controller sessions
 
+Phase 9 now also supports offline-only external UCI-engine benchmark opponents inside the same arena contract:
+
+- external agent spec:
+  [phase9_agent_uci_vice_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_uci_vice_v1.json)
+- first external benchmark arena:
+  [phase9_arena_active_vs_vice_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_vs_vice_v1.json)
+
+This path keeps the project boundary intact:
+
+- the learned planner stack remains the runtime target
+- external engines are only offline arena opponents
+- openings are sampled from [initial_fens_thor_openings_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/initial_fens_thor_openings_v1.json)
+- the opening sequence is pseudo-random but deterministic through `opening_selection_seed`
+- the same selected opening sequence is replayed under swapped colors
+- `max_plies` adjudication uses `/usr/games/stockfish18` with a wider neutral band of `[-0.5, +0.5]` pawns to avoid turning drawish positions into false wins
+
+The first real external rung is now materialized:
+
+- arena summary:
+  [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/arena_active_vs_vice_v1/summary.json)
+- arena matrix:
+  [arena_matrix.json](/home/torsten/EngineKonzept/artifacts/phase9/arena_active_vs_vice_v1/arena_matrix.json)
+- progression decision:
+  [external_engine_progression_decision_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/external_engine_progression_decision_v1.json)
+
+Observed result on `20` color-balanced opening games:
+
+- `planner_active_expanded_v2`: `0.5 / 20`
+- `vice_v1`: `19.5 / 20`
+- planner results: `0 wins`, `1 draw`, `19 losses`
+
+So the external-engine ladder stops immediately at `vice`:
+
+- the active arm does **not** always beat `vice`
+- there is therefore no promotion to `glaurung` yet
+
 The contract is versioned on the arena spec via `max_plies_adjudication`, so later architecture changes can reuse or replace the adjudicator without rewriting the arena/campaign runners.
 
 Arena specs now also carry `parallel_workers`.

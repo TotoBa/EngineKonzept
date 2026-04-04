@@ -1,0 +1,125 @@
+{
+  "agent_names": [
+    "planner_active_expanded_v2",
+    "vice_v1"
+  ],
+  "aggregate": {
+    "game_count": 20,
+    "matchup_count": 2,
+    "mean_games_per_matchup": 10.0
+  },
+  "arena_name": "phase9_active_vs_vice_v1",
+  "arena_spec_version": 1,
+  "matrix": {
+    "planner_active_expanded_v2": {
+      "planner_active_expanded_v2": {
+        "column_agent": "planner_active_expanded_v2",
+        "draws": 0,
+        "game_count": 0,
+        "losses": 0,
+        "result_counts": {},
+        "row_agent": "planner_active_expanded_v2",
+        "score": 0.0,
+        "score_rate": 0.0,
+        "termination_counts": {},
+        "unfinished": 0,
+        "wins": 0
+      },
+      "vice_v1": {
+        "column_agent": "vice_v1",
+        "draws": 1,
+        "game_count": 20,
+        "losses": 19,
+        "result_counts": {
+          "0-1": 9,
+          "1-0": 10,
+          "1/2-1/2": 1
+        },
+        "row_agent": "planner_active_expanded_v2",
+        "score": 0.5,
+        "score_rate": 0.025,
+        "termination_counts": {
+          "checkmate": 19,
+          "threefold_repetition": 1
+        },
+        "unfinished": 0,
+        "wins": 0
+      }
+    },
+    "vice_v1": {
+      "planner_active_expanded_v2": {
+        "column_agent": "planner_active_expanded_v2",
+        "draws": 1,
+        "game_count": 20,
+        "losses": 0,
+        "result_counts": {
+          "0-1": 9,
+          "1-0": 10,
+          "1/2-1/2": 1
+        },
+        "row_agent": "vice_v1",
+        "score": 19.5,
+        "score_rate": 0.975,
+        "termination_counts": {
+          "checkmate": 19,
+          "threefold_repetition": 1
+        },
+        "unfinished": 0,
+        "wins": 19
+      },
+      "vice_v1": {
+        "column_agent": "vice_v1",
+        "draws": 0,
+        "game_count": 0,
+        "losses": 0,
+        "result_counts": {},
+        "row_agent": "vice_v1",
+        "score": 0.0,
+        "score_rate": 0.0,
+        "termination_counts": {},
+        "unfinished": 0,
+        "wins": 0
+      }
+    }
+  },
+  "ranking_by_score_rate": [
+    {
+      "agent": "vice_v1",
+      "draws": 1,
+      "games": 20,
+      "losses": 0,
+      "score": 19.5,
+      "score_rate": 0.975,
+      "unfinished": 0,
+      "wins": 19
+    },
+    {
+      "agent": "planner_active_expanded_v2",
+      "draws": 1,
+      "games": 20,
+      "losses": 19,
+      "score": 0.5,
+      "score_rate": 0.025,
+      "unfinished": 0,
+      "wins": 0
+    }
+  ],
+  "standings": {
+    "planner_active_expanded_v2": {
+      "draws": 1,
+      "games": 20,
+      "losses": 19,
+      "score": 0.5,
+      "unfinished": 0,
+      "wins": 0
+    },
+    "vice_v1": {
+      "draws": 1,
+      "games": 20,
+      "losses": 0,
+      "score": 19.5,
+      "unfinished": 0,
+      "wins": 19
+    }
+  }
+}

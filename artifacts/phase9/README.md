@@ -223,6 +223,34 @@ That path is intended to produce:
 - bounded Stockfish18 adjudication after `max_plies`
 - one master arena process controlling up to `6` concurrent games
 
+Phase 9 now also has the first offline external-engine arena rung:
+
+- agent spec:
+  [phase9_agent_uci_vice_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_uci_vice_v1.json)
+- arena spec:
+  [phase9_arena_active_vs_vice_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_vs_vice_v1.json)
+- summary:
+  [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/arena_active_vs_vice_v1/summary.json)
+- matrix:
+  [arena_matrix.json](/home/torsten/EngineKonzept/artifacts/phase9/arena_active_vs_vice_v1/arena_matrix.json)
+- decision:
+  [external_engine_progression_decision_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/external_engine_progression_decision_v1.json)
+
+That rung intentionally keeps the architectural boundary intact:
+
+- `vice` is only an offline arena opponent
+- openings come from [initial_fens_thor_openings_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/initial_fens_thor_openings_v1.json)
+- the selected opening list is deterministic through `opening_selection_seed`
+- the same opening sequence is replayed under swapped colors
+- `max_plies` adjudication uses `/usr/games/stockfish18` with a wider `0.5` pawn neutral band
+
+Current external-ladder result:
+
+- active planner: `0.5 / 20`
+- `vice_v1`: `19.5 / 20`
+
+So the ladder currently stops at `vice`; there is no advance to `glaurung` yet.
+
 For tiny smoke runs, the intended override is:
 
 ```bash

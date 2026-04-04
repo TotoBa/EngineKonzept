@@ -218,6 +218,8 @@ def test_parallel_selfplay_arena_requires_default_builders(tmp_path: Path) -> No
 def test_opening_selection_seed_reuses_same_openings_across_swapped_colors(tmp_path: Path) -> None:
     fen_a = "7k/6Q1/6K1/8/8/8/8/8 b - - 0 1"
     fen_b = "7k/5Q2/6K1/8/8/8/8/8 b - - 0 1"
+    fen_c = "7k/4Q3/6K1/8/8/8/8/8 b - - 0 1"
+    fen_d = "7k/3Q4/6K1/8/8/8/8/8 b - - 0 1"
     oracle_examples = {
         fen_a: _make_example(
             sample_id="fen_a",
@@ -229,6 +231,20 @@ def test_opening_selection_seed_reuses_same_openings_across_swapped_colors(tmp_p
         fen_b: _make_example(
             sample_id="fen_b",
             fen=fen_b,
+            side_to_move="b",
+            legal_moves=[],
+            is_checkmate=True,
+        ),
+        fen_c: _make_example(
+            sample_id="fen_c",
+            fen=fen_c,
+            side_to_move="b",
+            legal_moves=[],
+            is_checkmate=True,
+        ),
+        fen_d: _make_example(
+            sample_id="fen_d",
+            fen=fen_d,
             side_to_move="b",
             legal_moves=[],
             is_checkmate=True,
@@ -245,14 +261,14 @@ def test_opening_selection_seed_reuses_same_openings_across_swapped_colors(tmp_p
                 black_agent="black_arm",
                 games=4,
                 max_plies=8,
-                initial_fens=[fen_a, fen_b],
+                initial_fens=[fen_a, fen_b, fen_c, fen_d],
             ),
             SelfplayArenaMatchupSpec(
                 white_agent="black_arm",
                 black_agent="white_arm",
                 games=4,
                 max_plies=8,
-                initial_fens=[fen_a, fen_b],
+                initial_fens=[fen_a, fen_b, fen_c, fen_d],
             ),
         ],
         opening_selection_seed=23,
@@ -275,3 +291,4 @@ def test_opening_selection_seed_reuses_same_openings_across_swapped_colors(tmp_p
     first_initials = [game["initial_fen"] for game in first_session["games"]]
     second_initials = [game["initial_fen"] for game in second_session["games"]]
     assert first_initials == second_initials
+    assert len(set(first_initials)) == 4

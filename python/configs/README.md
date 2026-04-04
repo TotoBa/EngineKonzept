@@ -168,6 +168,8 @@ These remain useful as small-corpus regression baselines, but they are no longer
   Direct replay-campaign challenger carried forward from the long-run campaign verify matrix. It is currently the strongest replay-campaign challenger on held-out verify.
 - [phase9_agent_planner_set_v6_replay_campaign_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v6_replay_campaign_v1.json)
   Second replay-campaign challenger from the same long-run campaign. Kept live for direct arena comparison against the active expanded arm.
+- [phase9_agent_uci_vice_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_uci_vice_v1.json)
+  First offline external-engine benchmark spec. Runs `/usr/games/vice` through the same exact move/legality contract the arena already uses for learned agents.
 
 Phase-9 agent specs now also support `agent_kind="uci_engine"` for offline arena benchmarking.
 Those specs use:
@@ -192,6 +194,8 @@ This path is intentionally offline-only. It exists for arena/benchmark work, not
   First direct active-vs-replay-campaign challenger comparison. Useful as a historical reference, but `startpos`-only and too color-biased to support promotion decisions by itself.
 - [phase9_arena_active_replay_campaign_adjudicated_v2.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_replay_campaign_adjudicated_v2.json)
   Preferred direct challenger check. Uses `14` curated starts from dataset verify positions plus `../Thor_CE/openings`, bounded Stockfish adjudication, and `parallel_workers=6` under one arena master process.
+- [phase9_arena_active_vs_vice_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_vs_vice_v1.json)
+  First offline external-engine rung. Benchmarks the promoted active planner against `vice` over seeded Thor-opening starts, color-swapped replay, and bounded Stockfish18 adjudication with a wider neutral band.
 
 Arena specs now also support an optional `max_plies_adjudication` block:
 

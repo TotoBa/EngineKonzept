@@ -1,0 +1,80 @@
+{
+  "aggregate": {
+    "game_count": 20,
+    "matchup_count": 2,
+    "mean_games_per_matchup": 10.0
+  },
+  "arena_name": "phase9_active_vs_vice_v1",
+  "arena_spec_version": 1,
+  "matchups": [
+    {
+      "black_agent": "vice_v1",
+      "black_score": 9.5,
+      "game_count": 10,
+      "mean_move_count": 36.5,
+      "name": "planner_active_expanded_v2_vs_vice_v1",
+      "result_counts": {
+        "0-1": 9,
+        "1/2-1/2": 1
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_vs_vice_v1/sessions/01_planner_active_expanded_v2_vs_vice_v1.json",
+      "termination_counts": {
+        "checkmate": 9,
+        "threefold_repetition": 1
+      },
+      "white_agent": "planner_active_expanded_v2",
+      "white_score": 0.5
+    },
+    {
+      "black_agent": "planner_active_expanded_v2",
+      "black_score": 0.0,
+      "game_count": 10,
+      "mean_move_count": 39.4,
+      "name": "vice_v1_vs_planner_active_expanded_v2",
+      "result_counts": {
+        "1-0": 10
+      },
+      "session_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_vs_vice_v1/sessions/02_vice_v1_vs_planner_active_expanded_v2.json",
+      "termination_counts": {
+        "checkmate": 10
+      },
+      "white_agent": "vice_v1",
+      "white_score": 10.0
+    }
+  ],
+  "max_plies_adjudication": {
+    "depth": null,
+    "engine_path": "/usr/games/stockfish18",
+    "extension_step_plies": 16,
+    "max_extensions": 4,
+    "movetime_ms": null,
+    "nodes": 128,
+    "score_threshold_pawns": 0.5
+  },
+  "metadata": {
+    "engine_progression_rule": "advance_to_next_engine_only_if_current_external_engine_loses_every_game_without_draws",
+    "opening_source": "../Thor_CE/openings",
+    "purpose": "first external-engine benchmark against vice"
+  },
+  "opening_selection_seed": 20260404,
+  "parallel_workers": 6,
+  "schedule_mode": "round_robin",
+  "standings": {
+    "planner_active_expanded_v2": {
+      "draws": 1,
+      "games": 20,
+      "losses": 19,
+      "score": 0.5,
+      "unfinished": 0,
+      "wins": 0
+    },
+    "vice_v1": {
+      "draws": 1,
+      "games": 20,
+      "losses": 0,
+      "score": 19.5,
+      "unfinished": 0,
+      "wins": 19
+    }
+  }
+}

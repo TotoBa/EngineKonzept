@@ -625,7 +625,13 @@ def _selected_initial_fens_for_matchup(
     unordered_pair = tuple(sorted((matchup.white_agent, matchup.black_agent)))
     pair_seed = f"{spec.opening_selection_seed}:{unordered_pair[0]}:{unordered_pair[1]}"
     rng = random.Random(pair_seed)
-    return [available_fens[rng.randrange(len(available_fens))] for _ in range(matchup.games)]
+    selected_fens: list[str] = []
+    while len(selected_fens) < matchup.games:
+        cycle_fens = list(available_fens)
+        rng.shuffle(cycle_fens)
+        remaining = matchup.games - len(selected_fens)
+        selected_fens.extend(cycle_fens[:remaining])
+    return selected_fens
 
 
 def _normalize_initial_fen(value: str) -> str:
