@@ -104,6 +104,7 @@ Planner training configs now optionally support a `curriculum` section. When omi
 - `sqrt_ramp`
 
 Planner model configs now also accept the experimental architecture `set_v7`, a cross-attention candidate scorer that keeps the existing bounded planner output contract unchanged.
+Planner model configs also now accept `enable_pairwise_candidates: true` as an optional refinement flag for `set_v6`- and `set_v7`-style planners. When omitted or `false`, behavior stays identical to the current baseline path.
 
 - [phase8_planner_corpus_suite_set_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v1.json)
   First materialized Phase-8 planner config. Trains the initial bounded planner head over the `10k`, `122k`, and `400k` planner-workflow tiers.

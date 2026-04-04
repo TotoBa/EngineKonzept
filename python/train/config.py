@@ -606,6 +606,7 @@ class PlannerModelConfig:
     latent_feature_dim: int = 0
     deliberation_steps: int = 1
     memory_slots: int = 0
+    enable_pairwise_candidates: bool = False
     dropout: float = 0.0
 
     def __post_init__(self) -> None:

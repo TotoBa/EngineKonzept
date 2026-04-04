@@ -153,6 +153,7 @@ def train_planner(config: PlannerTrainConfig, *, repo_root: Path) -> PlannerTrai
         deliberation_steps=config.model.deliberation_steps,
         memory_slots=config.model.memory_slots,
         dropout=config.model.dropout,
+        enable_pairwise_candidates=config.model.enable_pairwise_candidates,
         enable_candidate_rank_head=config.optimization.teacher_rank_loss_weight > 0.0,
     )
     if config.initial_checkpoint is not None:
@@ -321,6 +322,7 @@ def evaluate_planner_checkpoint(
         deliberation_steps=config.model.deliberation_steps,
         memory_slots=config.model.memory_slots,
         dropout=config.model.dropout,
+        enable_pairwise_candidates=config.model.enable_pairwise_candidates,
         enable_candidate_rank_head=config.optimization.teacher_rank_loss_weight > 0.0,
     )
     model.load_state_dict(dict(payload["model_state_dict"]))

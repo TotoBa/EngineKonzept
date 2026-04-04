@@ -435,3 +435,10 @@ The next model-only planner arm is also prepared now:
 - it keeps the bounded candidate/output contract from `set_v6`
 - but replaces the first candidate mixing step with candidate-to-state cross-attention
 - this step is intentionally architecture-only so far; no training result is attached to it yet
+
+There is now also an optional candidate-refinement flag for the same planner family:
+
+- `enable_pairwise_candidates` in [config.py](/home/torsten/EngineKonzept/python/train/config.py)
+- `PairwiseCandidateLayer` in [planner.py](/home/torsten/EngineKonzept/python/train/models/planner.py)
+- it applies a small masked self-attention pass over the bounded candidate set between the current projection stage and the candidate scorer
+- when the flag is omitted or `false`, planner behavior stays unchanged

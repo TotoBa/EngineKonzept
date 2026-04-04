@@ -47,6 +47,30 @@ if torch is not None and nn is not None:
         layers.append(nn.Linear(current_dim, output_dim))
         return nn.Sequential(*layers)
 
+    class PairwiseCandidateLayer(nn.Module):
+        """Single-layer pairwise candidate refinement with masked self-attention."""
+
+        def __init__(self, *, hidden_dim: int, dropout: float) -> None:
+            super().__init__()
+            self.attention = nn.MultiheadAttention(
+                hidden_dim,
+                2,
+                dropout=dropout,
+                batch_first=True,
+            )
+            self.dropout = nn.Dropout(dropout) if dropout > 0.0 else nn.Identity()
+
+        def forward(self, candidate_embeddings: Any, candidate_mask: Any) -> Any:
+            key_padding_mask = ~candidate_mask
+            attended, _ = self.attention(
+                candidate_embeddings,
+                candidate_embeddings,
+                candidate_embeddings,
+                key_padding_mask=key_padding_mask,
+            )
+            refined = candidate_embeddings + self.dropout(attended)
+            return refined * candidate_mask.unsqueeze(2).to(refined.dtype)
+
     class PlannerHeadModel(nn.Module):
         """Score bounded exact root candidates for the first trainable planner arm."""
 
@@ -61,6 +85,7 @@ if torch is not None and nn is not None:
             deliberation_steps: int = 1,
             memory_slots: int = 0,
             dropout: float,
+            enable_pairwise_candidates: bool = False,
             enable_candidate_rank_head: bool = False,
         ) -> None:
             super().__init__()
@@ -150,6 +175,11 @@ if torch is not None and nn is not None:
                 self.memory_cell = None
                 self.candidate_refinement = None
                 self.recurrent_norm = None
+            self.pairwise_candidate_layer = (
+                PairwiseCandidateLayer(hidden_dim=hidden_dim, dropout=dropout)
+                if enable_pairwise_candidates
+                else None
+            )
             candidate_factor_count = 5 if architecture == "set_v1" else 6
             self.candidate_mlp = nn.Sequential(
                 nn.Linear(hidden_dim * candidate_factor_count, hidden_dim),
@@ -341,6 +371,8 @@ if torch is not None and nn is not None:
                 candidate_count = mask.sum(dim=1).clamp_min(1.0)
                 summary = torch.sum(candidate_token * mask, dim=1) / candidate_count
                 context_hidden = state_hidden
+            if self.pairwise_candidate_layer is not None:
+                candidate_token = self.pairwise_candidate_layer(candidate_token, candidate_mask)
             repeated_context = context_hidden.unsqueeze(1).expand_as(candidate_token)
             repeated_attended = attended.unsqueeze(1).expand_as(candidate_token)
             repeated_summary = summary.unsqueeze(1).expand_as(candidate_token)
