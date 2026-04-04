@@ -84,6 +84,7 @@ class PlannerEvolutionCampaignSpec:
     filtered_workflow_root: str
     training_tiers: tuple[str, ...]
     verify_tiers: tuple[str, ...]
+    bootstrap_summary_path: str | None = None
     filtered_training_tiers: tuple[str, ...] = ()
     filter_max_abs_root_value_cp: float = 2000.0
     filter_ambiguous_score_span_cp: float = 5.0
@@ -199,6 +200,11 @@ class PlannerEvolutionCampaignSpec:
             output_root=str(payload["output_root"]),
             source_workflow_summary=str(payload["source_workflow_summary"]),
             filtered_workflow_root=str(payload["filtered_workflow_root"]),
+            bootstrap_summary_path=(
+                str(payload["bootstrap_summary_path"])
+                if payload.get("bootstrap_summary_path") is not None
+                else None
+            ),
             training_tiers=tuple(str(value) for value in list(payload["training_tiers"])),
             verify_tiers=tuple(str(value) for value in list(payload["verify_tiers"])),
             filtered_training_tiers=tuple(
@@ -425,30 +431,51 @@ def run_planner_evolution_campaign(
     )
     selected_run_names = set(selected_runs) if selected_runs is not None else None
     iterations = iterations_override or spec.iterations
+    stage_summaries: list[tuple[str, Mapping[str, object]]] = []
 
-    start_summary = _run_start_stage(
-        spec=spec,
-        repo_root=repo_root,
-        output_root=output_root,
-        verify_paths=verify_paths,
-        skip_existing=skip_existing,
-        selected_run_names=selected_run_names,
-    )
+    bootstrap_summary: dict[str, Any] | None = None
+    start_summary: dict[str, Any] | None = None
+    fulltrain_summary: dict[str, Any] | None = None
+    if spec.bootstrap_summary_path is not None:
+        bootstrap_summary = _run_bootstrap_stage(
+            spec=spec,
+            repo_root=repo_root,
+            output_root=output_root,
+            verify_paths=verify_paths,
+            skip_existing=skip_existing,
+            selected_run_names=selected_run_names,
+        )
+        stage_summaries.append(("bootstrap", bootstrap_summary))
+        current_agent_specs = {
+            str(name): Path(path)
+            for name, path in dict(bootstrap_summary["active_agent_specs"]).items()
+        }
+    else:
+        start_summary = _run_start_stage(
+            spec=spec,
+            repo_root=repo_root,
+            output_root=output_root,
+            verify_paths=verify_paths,
+            skip_existing=skip_existing,
+            selected_run_names=selected_run_names,
+        )
+        stage_summaries.append(("start", start_summary))
 
-    fulltrain_summary = _run_fulltrain_stage(
-        spec=spec,
-        repo_root=repo_root,
-        output_root=output_root,
-        training_workflow_summary=training_workflow_summary,
-        verify_paths=verify_paths,
-        skip_existing=skip_existing,
-        selected_run_names=selected_run_names,
-    )
+        fulltrain_summary = _run_fulltrain_stage(
+            spec=spec,
+            repo_root=repo_root,
+            output_root=output_root,
+            training_workflow_summary=training_workflow_summary,
+            verify_paths=verify_paths,
+            skip_existing=skip_existing,
+            selected_run_names=selected_run_names,
+        )
+        stage_summaries.append(("after_fulltrain", fulltrain_summary))
 
-    current_agent_specs = {
-        str(name): Path(path)
-        for name, path in dict(fulltrain_summary["active_agent_specs"]).items()
-    }
+        current_agent_specs = {
+            str(name): Path(path)
+            for name, path in dict(fulltrain_summary["active_agent_specs"]).items()
+        }
     iteration_summaries: list[dict[str, Any]] = []
     for iteration_index in range(1, iterations + 1):
         _log_evolution(f"entering {iteration_index=}")
@@ -468,6 +495,7 @@ def run_planner_evolution_campaign(
             for name, path in dict(iteration_summary["active_agent_specs"]).items()
         }
         iteration_summaries.append(iteration_summary)
+        stage_summaries.append((f"round_{iteration_index:02d}", iteration_summary))
 
     final_summary = _run_final_stage(
         spec=spec,
@@ -477,13 +505,11 @@ def run_planner_evolution_campaign(
         current_agent_specs=current_agent_specs,
         skip_existing=skip_existing,
     )
+    stage_summaries.append(("final", final_summary))
 
     final_report = build_planner_evolution_report(
         campaign_name=spec.name,
-        start_summary=start_summary,
-        fulltrain_summary=fulltrain_summary,
-        iteration_summaries=iteration_summaries,
-        final_summary=final_summary,
+        stage_summaries=stage_summaries,
     )
     final_report_path = output_root / "final_report.json"
     final_report_path.write_text(
@@ -496,11 +522,24 @@ def run_planner_evolution_campaign(
         "campaign_version": spec.spec_version,
         "source_workflow_summary": str(source_workflow_summary_path),
         "filtered_workflow_summary": str(filtered_workflow_root / "summary.json"),
+        "bootstrap_summary_path": (
+            str(output_root / "bootstrap" / "summary.json")
+            if spec.bootstrap_summary_path is not None
+            else None
+        ),
         "training_tiers": list(spec.training_tiers),
         "verify_tiers": list(spec.verify_tiers),
         "iterations": iterations,
-        "start_summary_path": str(output_root / "start" / "summary.json"),
-        "fulltrain_summary_path": str(output_root / "after_fulltrain" / "summary.json"),
+        "start_summary_path": (
+            str(output_root / "start" / "summary.json")
+            if spec.bootstrap_summary_path is None
+            else None
+        ),
+        "fulltrain_summary_path": (
+            str(output_root / "after_fulltrain" / "summary.json")
+            if spec.bootstrap_summary_path is None
+            else None
+        ),
         "iteration_summary_paths": [
             str(output_root / "iterations" / f"round_{index:02d}" / "summary.json")
             for index in range(1, iterations + 1)
@@ -516,21 +555,10 @@ def run_planner_evolution_campaign(
 def build_planner_evolution_report(
     *,
     campaign_name: str,
-    start_summary: Mapping[str, object],
-    fulltrain_summary: Mapping[str, object],
-    iteration_summaries: Sequence[Mapping[str, object]],
-    final_summary: Mapping[str, object],
+    stage_summaries: Sequence[tuple[str, Mapping[str, object]]],
 ) -> dict[str, Any]:
     """Aggregate the per-stage verify/arena/review signals into one final report."""
-    stages: list[tuple[str, Mapping[str, object]]] = [
-        ("start", start_summary),
-        ("after_fulltrain", fulltrain_summary),
-    ]
-    stages.extend(
-        (f"round_{index:02d}", summary)
-        for index, summary in enumerate(iteration_summaries, 1)
-    )
-    stages.append(("final", final_summary))
+    stages = list(stage_summaries)
 
     verify_history: dict[str, list[dict[str, Any]]] = {}
     arena_history: dict[str, list[dict[str, Any]]] = {}
@@ -558,13 +586,19 @@ def build_planner_evolution_report(
                 )
             ranking = list(verify_payload.get("ranking_by_top1") or [])
             if ranking:
+                top_row = dict(ranking[0])
                 best_verify_by_stage.append(
                     {
                         "stage": stage_name,
-                        "best_agent": str(ranking[0]["name"]),
-                        "root_top1_accuracy": float(ranking[0]["metric"]),
+                        "best_agent": str(top_row["name"]),
+                        "root_top1_accuracy": float(
+                            top_row.get("metric", top_row.get("root_top1_accuracy", 0.0))
+                        ),
                         "teacher_root_mean_reciprocal_rank": float(
-                            ranking[0].get("secondary_metric", 0.0)
+                            top_row.get(
+                                "secondary_metric",
+                                top_row.get("teacher_root_mean_reciprocal_rank", 0.0),
+                            )
                         ),
                     }
                 )
@@ -628,6 +662,97 @@ def build_planner_evolution_report(
         "arena_history": arena_history,
         "review_history": review_history,
     }
+
+
+def _run_bootstrap_stage(
+    *,
+    spec: PlannerEvolutionCampaignSpec,
+    repo_root: Path,
+    output_root: Path,
+    verify_paths: Sequence[Path],
+    skip_existing: bool,
+    selected_run_names: set[str] | None,
+) -> dict[str, Any]:
+    if spec.bootstrap_summary_path is None:
+        raise ValueError("bootstrap stage requires bootstrap_summary_path")
+    stage_root = output_root / "bootstrap"
+    _log_evolution(f"stage=bootstrap source={spec.bootstrap_summary_path}")
+    summary_path = stage_root / "summary.json"
+    if skip_existing and summary_path.exists():
+        return json.loads(summary_path.read_text(encoding="utf-8"))
+
+    source_summary_path = _resolve_repo_path(repo_root, Path(spec.bootstrap_summary_path))
+    source_summary = json.loads(source_summary_path.read_text(encoding="utf-8"))
+    source_active_specs = {
+        str(name): Path(path) for name, path in dict(source_summary.get("active_agent_specs") or {}).items()
+    }
+    if not source_active_specs:
+        raise ValueError(f"{source_summary_path}: missing active_agent_specs for bootstrap stage")
+
+    planner_run_names = {run_spec.name for run_spec in spec.planner_runs}
+    selected_trainable_names = {
+        run_spec.name
+        for run_spec in spec.planner_runs
+        if selected_run_names is None or run_spec.name in selected_run_names
+    }
+    expected_names = (
+        selected_trainable_names
+        | {name for name in source_active_specs if name not in planner_run_names}
+        | set(spec.benchmark_agent_specs)
+    )
+    bootstrap_agent_specs = {
+        name: path for name, path in source_active_specs.items() if not expected_names or name in expected_names
+    }
+    copied_specs = _copy_agent_specs(
+        agent_spec_paths=bootstrap_agent_specs,
+        output_root=stage_root / "active_agent_specs",
+    )
+
+    extra_specs = {
+        name: path
+        for name, path in spec.benchmark_agent_specs.items()
+        if name not in copied_specs
+    }
+    extra_available, extra_unavailable = _materialize_agent_specs(
+        repo_root=repo_root,
+        output_root=stage_root / "active_agent_specs",
+        agent_specs=extra_specs,
+        allow_missing=spec.skip_missing_start_agents,
+    )
+    copied_specs.update(extra_available)
+    ordered_specs = _ordered_agent_specs(copied_specs, order=spec.arena_agent_order)
+    verify_metrics = _evaluate_planner_agents(
+        agent_spec_paths=ordered_specs,
+        repo_root=repo_root,
+        verify_paths=verify_paths,
+        top_k=3,
+    )
+    verify_matrix = build_planner_verify_matrix(
+        campaign_name=f"{spec.name}:bootstrap",
+        run_metrics=verify_metrics,
+        reference_run_name=spec.reference_run_name,
+    )
+    verify_matrix_path = stage_root / "planner_verify_matrix.json"
+    verify_matrix_path.parent.mkdir(parents=True, exist_ok=True)
+    verify_matrix_path.write_text(
+        json.dumps(verify_matrix, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    if verify_matrix.get("ranking_by_top1"):
+        leader = verify_matrix["ranking_by_top1"][0]
+        _log_evolution(
+            f"bootstrap verify leader={leader['name']} top1={leader['root_top1_accuracy']:.6f}"
+        )
+    summary = {
+        "stage_name": "bootstrap",
+        "source_summary_path": str(source_summary_path),
+        "active_agent_specs": {name: str(path) for name, path in ordered_specs.items()},
+        "unavailable_benchmark_agent_specs": extra_unavailable,
+        "planner_verify_matrix_path": str(verify_matrix_path),
+    }
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
+    summary_path.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return summary
 
 
 def _run_start_stage(
@@ -746,10 +871,21 @@ def _run_fulltrain_stage(
         checkpoint_path = Path(resolved_config.export.bundle_dir) / resolved_config.export.checkpoint_name
         training_summary_path = Path(resolved_config.output_dir) / "summary.json"
         if not skip_existing or not checkpoint_path.exists() or not training_summary_path.exists():
+            _log_evolution(
+                f"after_fulltrain train run={run_spec.name} "
+                f"epochs={resolved_config.optimization.epochs} "
+                f"train_paths={len(resolved_config.data.resolved_train_paths())}"
+            )
             training_run = train_planner(resolved_config, repo_root=repo_root)
             training_summary = training_run.to_dict()
+            _log_evolution(
+                f"after_fulltrain train_done run={run_spec.name} "
+                f"best_epoch={training_run.best_epoch} "
+                f"top1={training_run.best_validation['root_top1_accuracy']:.6f}"
+            )
         else:
             training_summary = json.loads(training_summary_path.read_text(encoding="utf-8"))
+            _log_evolution(f"after_fulltrain reuse run={run_spec.name} checkpoint={checkpoint_path}")
         verify_metrics = evaluate_planner_checkpoint(
             checkpoint_path,
             dataset_paths=verify_paths,
@@ -943,6 +1079,11 @@ def _run_iteration_stage(
             encoding="utf-8",
         )
         teacher_training[run_spec.name] = agent_training_summary
+        _log_evolution(
+            f"{stage_name} teacher run={run_spec.name} "
+            f"review_examples={agent_training_summary['review_summary']['example_count']} "
+            f"planner_head_examples={len(planner_head_examples)}"
+        )
 
         if not planner_head_examples:
             retrain_results[run_spec.name] = {
@@ -986,6 +1127,12 @@ def _run_iteration_stage(
             encoding="utf-8",
         )
         resolved_config = PlannerTrainConfig.from_dict(resolved_payload)
+        _log_evolution(
+            f"{stage_name} retrain run={run_spec.name} "
+            f"epochs={resolved_config.optimization.epochs} "
+            f"base_train_paths={1 + len(resolved_payload['data'].get('additional_train_paths', []))} "
+            f"replay_examples={len(planner_head_examples)}"
+        )
         training_run = train_planner(resolved_config, repo_root=repo_root)
         checkpoint_path = Path(resolved_config.export.bundle_dir) / resolved_config.export.checkpoint_name
         updated_spec = replace(
@@ -1008,6 +1155,11 @@ def _run_iteration_stage(
             "planner_head_example_count": len(planner_head_examples),
             "training_summary": training_run.to_dict(),
         }
+        _log_evolution(
+            f"{stage_name} retrain_done run={run_spec.name} "
+            f"best_epoch={training_run.best_epoch} "
+            f"top1={training_run.best_validation['root_top1_accuracy']:.6f}"
+        )
 
     verify_metrics = _evaluate_planner_agents(
         agent_spec_paths=next_active_specs,

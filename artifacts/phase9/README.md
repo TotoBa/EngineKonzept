@@ -278,6 +278,17 @@ It is intended to write, under one output root:
 Each arena stage now also writes a live `arena/progress.json` while games are running.
 That file is the intended low-latency status view before the stage-local `summary.json` is finished.
 
+The same campaign now also supports direct continuation from a completed selfplay checkpoint frontier:
+
+- resume config:
+  [phase9_evolution_round03_vice_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_evolution_round03_vice_v1.json)
+- launcher:
+  [run_phase9_evolution_round03_vice_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase9_evolution_round03_vice_longrun.sh)
+- stop summary for the seed frontier:
+  [phase9-evolution-custom-v1-stop-summary-2026-04-04.md](/home/torsten/EngineKonzept/docs/experiments/phase9-evolution-custom-v1-stop-summary-2026-04-04.md)
+
+That path reuses the latest stable `active_agent_specs` snapshot instead of rerunning the initial fulltrain block, then continues directly with arena, teacher review, and retraining.
+
 This is the preferred artifact path when the question is not just "which arm wins one sweep?", but "how does the full family change from the current checkpoints through fulltrain and repeated selfplay correction?".
 - replay-aware curriculum plan:
   [curriculum_active_experimental_replay_expanded_v2.json](/home/torsten/EngineKonzept/artifacts/phase9/curriculum_active_experimental_replay_expanded_v2.json)

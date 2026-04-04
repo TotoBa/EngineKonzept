@@ -480,6 +480,17 @@ So each unordered pairing is still played twice overall, once per color directio
 
 Arena runs also now write a live [progress.json](/home/torsten/EngineKonzept/python/train/eval/arena.py) inside the arena output directory and emit flushed progress lines to stdout, so long-running stages can be monitored without waiting for the final `summary.json`.
 
+Planner training now also emits flushed per-epoch log lines during both fulltrain and selfplay-retrain stages.
+That means one longrun log now shows:
+
+- stage transitions
+- per-arm training starts
+- per-epoch train/validation metrics
+- per-arm training completion
+- arena live progress
+
+So the Phase-9 campaign can be followed without opening JSON artifacts while it is still running.
+
 Phase 9 now also supports optional engine adjudication exactly at the `max_plies` boundary.
 That path is intended to reduce unresolved `max_plies` endings without turning runtime into a classical search engine:
 
@@ -518,6 +529,29 @@ The first real external rung is now materialized:
 Observed result on `20` color-balanced opening games:
 
 - `planner_active_expanded_v2`: `0.5 / 20`
+
+There is now also a direct-resume evolution continuation path for interrupted long runs:
+
+- config:
+  [phase9_evolution_round03_vice_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_evolution_round03_vice_v1.json)
+- launcher:
+  [run_phase9_evolution_round03_vice_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase9_evolution_round03_vice_longrun.sh)
+- archived stop summary:
+  [phase9-evolution-custom-v1-stop-summary-2026-04-04.md](/home/torsten/EngineKonzept/docs/experiments/phase9-evolution-custom-v1-stop-summary-2026-04-04.md)
+
+This continuation path is intentionally narrow:
+
+- it bootstraps directly from a completed `active_agent_specs` snapshot
+- it skips the original `start` and `after_fulltrain` stages
+- it starts immediately with the next arena/review/retrain round
+- it can inject additional offline benchmark agents like `vice` without changing the trainable planner family
+
+The first prepared resume campaign uses:
+
+- bootstrap source: `round_03` of the interrupted `evolution_fullmatrix_custom_v1` run
+- offline benchmark injection: `vice` via depth-limited UCI control
+- `10` rounds instead of `20`
+- the wider `0.6` pawn max-plies adjudication band
 - `vice_v1`: `19.5 / 20`
 - planner results: `0 wins`, `1 draw`, `19 losses`
 

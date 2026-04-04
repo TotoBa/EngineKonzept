@@ -196,6 +196,8 @@ The first real MoE training/eval prep now lives in [phase9_planner_moe_v1_10k_12
   Second replay-campaign challenger from the same long-run campaign. Kept live for direct arena comparison against the active expanded arm.
 - [phase9_agent_uci_vice_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_uci_vice_v1.json)
   First offline external-engine benchmark spec. Runs `/usr/games/vice` through the same exact move/legality contract the arena already uses for learned agents.
+- [phase9_agent_uci_vice_v2.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_uci_vice_v2.json)
+  Resume-campaign `vice` benchmark spec. Uses depth-limited UCI play instead of nodes so it stays compatible with `/usr/games/vice` while remaining deterministic under the same arena contract.
 
 Phase-9 agent specs now also support `agent_kind="uci_engine"` for offline arena benchmarking.
 Those specs use:
@@ -216,6 +218,8 @@ This path is intentionally offline-only. It exists for arena/benchmark work, not
   Post-400k arena suite. Uses the future expanded planner checkpoints for the active arm and the currently tracked experimental follow-ups.
 - [phase9_arena_active_experimental_replay_expanded_v2.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_experimental_replay_expanded_v2.json)
   Preferred replay-aware post-promotion arena suite. Keeps the promoted expanded active arm plus the older expanded family and the new replay challenger in the same versioned round-robin contract, samples openings deterministically via `opening_selection_seed`, and runs under one master arena process with `parallel_workers=6`.
+- [phase9_arena_active_experimental_replay_expanded_v3.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_experimental_replay_expanded_v3.json)
+  Resume-evolution arena template. Keeps the same replay-aware round-robin shape, widens the max-plies adjudication band to `0.6` pawns, and is intended for direct `round_03` continuation with injected `vice`.
 - [phase9_arena_active_replay_campaign_adjudicated_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_replay_campaign_adjudicated_v1.json)
   First direct active-vs-replay-campaign challenger comparison. Useful as a historical reference, but `startpos`-only and too color-biased to support promotion decisions by itself.
 - [phase9_arena_active_replay_campaign_adjudicated_v2.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_replay_campaign_adjudicated_v2.json)
@@ -244,6 +248,8 @@ The intended use is one arena Python process controlling several concurrent game
   Large full-data planner-family campaign. Retrains the configured expanded planner arms on `10k + 122k + 400k` for `12` epochs each, then runs one deterministic double round-robin arena and writes the verify plus arena matrices under one output root.
 - [phase9_evolution_fullmatrix_filtered_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_evolution_fullmatrix_filtered_v1.json)
   Stage-tracking evolution campaign. Evaluates the current family at `start`, retrains the evolving arms on `10k + 122k + filtered 400k`, then runs `20` replay-aware selfplay/retrain rounds and writes per-stage verify matrices, arena matrices, teacher-review summaries, and one `final_report.json`. Includes both `moe_v1` and `moe_v2` in the same full-matrix sweep. The current preferred setting keeps `arena_default_games=1`, so color-swapped round-robin still gives two games per unordered pairing overall without exploding the stage size.
+- [phase9_evolution_round03_vice_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_evolution_round03_vice_v1.json)
+  Preferred direct continuation config after the interrupted `fullmatrix_custom_v1` run. Bootstraps from `round_03/summary.json`, skips the initial fulltrain stage, injects `vice` into every arena round, and runs `10` further replay-aware rounds from the latest stable checkpoints.
 
 ## Phase 9 Teacher Retrain Cycles
 

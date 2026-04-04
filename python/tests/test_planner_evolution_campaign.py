@@ -48,6 +48,7 @@ def test_planner_evolution_campaign_spec_round_trip(tmp_path: Path) -> None:
         output_root="/srv/evolution",
         source_workflow_summary="/srv/workflow/summary.json",
         filtered_workflow_root="/srv/workflow_filtered",
+        bootstrap_summary_path="/srv/evolution_seed/round_03/summary.json",
         training_tiers=("pgn_10k", "merged_unique_122k", "unique_pi_400k"),
         verify_tiers=("pgn_10k", "merged_unique_122k", "unique_pi_400k"),
         filtered_training_tiers=("unique_pi_400k",),
@@ -67,6 +68,7 @@ def test_planner_evolution_campaign_spec_round_trip(tmp_path: Path) -> None:
     loaded = load_planner_evolution_campaign_spec(path)
     assert loaded.name == spec.name
     assert loaded.iterations == 20
+    assert loaded.bootstrap_summary_path == "/srv/evolution_seed/round_03/summary.json"
     assert loaded.filtered_training_tiers == ("unique_pi_400k",)
     assert loaded.planner_runs[0].name == "planner_set_v2_expanded_v1"
 

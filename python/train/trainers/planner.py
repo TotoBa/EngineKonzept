@@ -170,6 +170,14 @@ def train_planner(config: PlannerTrainConfig, *, repo_root: Path) -> PlannerTrai
         expected_dim=config.model.latent_feature_dim,
         context="validation",
     )
+    print(
+        "[planner-train] "
+        f"output_dir={output_dir} bundle_dir={bundle_dir} "
+        f"epochs={config.optimization.epochs} batch_size={config.optimization.batch_size} "
+        f"train_examples={len(train_examples)} validation_examples={len(validation_examples)} "
+        f"initial_checkpoint={config.initial_checkpoint}",
+        flush=True,
+    )
 
     model = _build_planner_model(config)
     if config.initial_checkpoint is not None:
@@ -278,12 +286,29 @@ def train_planner(config: PlannerTrainConfig, *, repo_root: Path) -> PlannerTrai
                 "validation": validation_metrics.to_dict(),
             }
         )
+        print(
+            "[planner-train] "
+            f"epoch={epoch}/{config.optimization.epochs} "
+            f"train_loss={train_metrics.total_loss:.6f} "
+            f"val_loss={validation_metrics.total_loss:.6f} "
+            f"val_top1={validation_metrics.root_top1_accuracy:.6f} "
+            f"val_mrr={validation_metrics.teacher_root_mean_reciprocal_rank:.6f} "
+            f"train_eps={train_metrics.examples_per_second:.1f}",
+            flush=True,
+        )
         if best_validation is None or _is_better_validation(validation_metrics, best_validation):
             best_epoch = epoch
             best_validation = validation_metrics
             best_state = {
                 name: tensor.detach().clone() for name, tensor in model.state_dict().items()
             }
+            print(
+                "[planner-train] "
+                f"new_best epoch={best_epoch} "
+                f"val_top1={best_validation.root_top1_accuracy:.6f} "
+                f"val_mrr={best_validation.teacher_root_mean_reciprocal_rank:.6f}",
+                flush=True,
+            )
 
     assert best_validation is not None
     model.load_state_dict(best_state)
@@ -311,6 +336,13 @@ def train_planner(config: PlannerTrainConfig, *, repo_root: Path) -> PlannerTrai
     }
     summary_path = output_dir / "summary.json"
     summary_path.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    print(
+        "[planner-train] "
+        f"completed best_epoch={best_epoch} checkpoint={checkpoint_path} "
+        f"best_top1={best_validation.root_top1_accuracy:.6f} "
+        f"best_mrr={best_validation.teacher_root_mean_reciprocal_rank:.6f}",
+        flush=True,
+    )
 
     return PlannerTrainingRun(
         history=history,
