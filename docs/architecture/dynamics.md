@@ -283,3 +283,13 @@ The obvious next pressures are now:
 - a single feature-authority path or golden tests so Python and Rust cannot silently drift
 
 Those changes should stay action-conditioned and must not drift toward any hidden symbolic search or fallback evaluator.
+
+The repo now also carries a model-only hybrid follow-up contract:
+
+- `hybrid_v1` in [dynamics.py](/home/torsten/EngineKonzept/python/train/models/dynamics.py)
+- optional `symbolic_move_delta_features` in [contracts.py](/home/torsten/EngineKonzept/python/train/datasets/contracts.py) and [artifacts.py](/home/torsten/EngineKonzept/python/train/datasets/artifacts.py)
+
+That arm is deliberately not wired into the default Phase-6 training loop yet. Its purpose is to make the next experiment possible without breaking old `dynamics_<split>.jsonl` artifacts:
+
+- when symbolic next-state priors are present, `hybrid_v1` learns a residual on top of them
+- when they are absent, it stays backward-compatible and falls back to a current-state residual path instead of breaking the loader or the model interface

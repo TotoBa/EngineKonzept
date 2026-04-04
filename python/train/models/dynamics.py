@@ -12,6 +12,7 @@ from train.datasets.artifacts import (
     RULE_FEATURE_SIZE,
     SQUARE_FEATURE_SIZE,
     SYMBOLIC_PROPOSER_CANDIDATE_FEATURE_SIZE,
+    SYMBOLIC_MOVE_DELTA_FEATURE_SIZE,
     TRANSITION_CONTEXT_FEATURE_SIZE,
 )
 
@@ -72,6 +73,7 @@ if torch is not None and nn is not None:
                 dropout=dropout,
             )
             self.action_embedding = nn.Embedding(ACTION_SPACE_SIZE, action_embedding_dim)
+            self.symbolic_delta_projection = None
             if architecture == "structured_v5":
                 self.symbolic_action_projection = nn.Sequential(
                     nn.Linear(
@@ -87,6 +89,17 @@ if torch is not None and nn is not None:
                 self.transition_context_projection = nn.Sequential(
                     nn.Linear(
                         TRANSITION_CONTEXT_FEATURE_SIZE,
+                        action_embedding_dim,
+                    ),
+                    nn.ReLU(),
+                )
+                action_context_dim = action_embedding_dim * 2
+            elif architecture == "hybrid_v1":
+                self.symbolic_action_projection = None
+                self.transition_context_projection = None
+                self.symbolic_delta_projection = nn.Sequential(
+                    nn.Linear(
+                        SYMBOLIC_MOVE_DELTA_FEATURE_SIZE,
                         action_embedding_dim,
                     ),
                     nn.ReLU(),
@@ -118,7 +131,7 @@ if torch is not None and nn is not None:
                 self.piece_delta_decoder = None
                 self.square_delta_decoder = None
                 self.rule_delta_decoder = None
-            elif architecture in {"structured_v2", "structured_v5", "structured_v6"}:
+            elif architecture in {"structured_v2", "structured_v5", "structured_v6", "hybrid_v1"}:
                 self.decoder = None
                 self.piece_decoder = _build_mlp(
                     input_dim=latent_dim,
@@ -245,6 +258,7 @@ if torch is not None and nn is not None:
             action_indices: Any,
             action_features: Any | None = None,
             transition_features: Any | None = None,
+            symbolic_move_delta_features: Any | None = None,
         ) -> Any:
             """Apply one residual action-conditioned latent transition."""
             action_embedding = self.action_embedding(action_indices)
@@ -253,6 +267,7 @@ if torch is not None and nn is not None:
                 action_embedding,
                 action_features=action_features,
                 transition_features=transition_features,
+                symbolic_move_delta_features=symbolic_move_delta_features,
             )
 
         def step_from_action_embedding(
@@ -262,12 +277,14 @@ if torch is not None and nn is not None:
             *,
             action_features: Any | None = None,
             transition_features: Any | None = None,
+            symbolic_move_delta_features: Any | None = None,
         ) -> Any:
             """Apply one residual action-conditioned latent transition from a precomputed embedding."""
             action_context = self._build_action_context(
                 action_embedding,
                 action_features=action_features,
                 transition_features=transition_features,
+                symbolic_move_delta_features=symbolic_move_delta_features,
             )
             transition_input = torch.cat((latent, action_context), dim=1)
             return self.step_from_transition_input(latent, transition_input)
@@ -283,6 +300,8 @@ if torch is not None and nn is not None:
             action_indices: Any,
             action_features: Any | None = None,
             transition_features: Any | None = None,
+            symbolic_move_delta_features: Any | None = None,
+            symbolic_next_features: Any | None = None,
         ) -> DynamicsPrediction:
             """Predict structured next-state sections for one action-conditioned transition."""
             latent = self.encode(features)
@@ -291,6 +310,7 @@ if torch is not None and nn is not None:
                 action_embedding,
                 action_features=action_features,
                 transition_features=transition_features,
+                symbolic_move_delta_features=symbolic_move_delta_features,
             )
             transition_input = torch.cat((latent, action_context), dim=1)
             next_latent = self.step_from_transition_input(latent, transition_input)
@@ -320,6 +340,28 @@ if torch is not None and nn is not None:
                     square_features=square_features,
                     rule_features=rule_features,
                 )
+            elif self.architecture == "hybrid_v1":
+                base_features = features if symbolic_next_features is None else symbolic_next_features
+                base_piece, base_square, base_rule = torch.split(
+                    base_features,
+                    [PIECE_FEATURE_SIZE, SQUARE_FEATURE_SIZE, RULE_FEATURE_SIZE],
+                    dim=1,
+                )
+                piece_delta_features = decoded.piece_features
+                square_delta_features = decoded.square_features
+                rule_delta_features = decoded.rule_features
+                piece_features = base_piece + piece_delta_features
+                square_features = base_square + square_delta_features
+                rule_features = base_rule + rule_delta_features
+                decoded = DynamicsPrediction(
+                    next_features=torch.cat(
+                        (piece_features, square_features, rule_features),
+                        dim=1,
+                    ),
+                    piece_features=piece_features,
+                    square_features=square_features,
+                    rule_features=rule_features,
+                )
             return DynamicsPrediction(
                 next_features=decoded.next_features,
                 piece_features=decoded.piece_features,
@@ -337,6 +379,7 @@ if torch is not None and nn is not None:
             *,
             action_features: Any | None = None,
             transition_features: Any | None = None,
+            symbolic_move_delta_features: Any | None = None,
         ) -> Any:
             if self.architecture == "structured_v5":
                 if action_features is None:
@@ -348,7 +391,15 @@ if torch is not None and nn is not None:
                     raise ValueError("structured_v6 requires transition_features")
                 transition_context = self.transition_context_projection(transition_features)
                 return torch.cat((action_embedding, transition_context), dim=1)
-            if self.architecture not in {"structured_v5", "structured_v6"}:
+            if self.architecture == "hybrid_v1":
+                if symbolic_move_delta_features is None:
+                    symbolic_delta_context = torch.zeros_like(action_embedding)
+                else:
+                    symbolic_delta_context = self.symbolic_delta_projection(
+                        symbolic_move_delta_features
+                    )
+                return torch.cat((action_embedding, symbolic_delta_context), dim=1)
+            if self.architecture not in {"structured_v5", "structured_v6", "hybrid_v1"}:
                 return action_embedding
             raise AssertionError("unreachable action-context branch")
 
@@ -386,6 +437,8 @@ if torch is not None and nn is not None:
             action_indices: Any,
             action_features: Any | None = None,
             transition_features: Any | None = None,
+            symbolic_move_delta_features: Any | None = None,
+            symbolic_next_features: Any | None = None,
         ) -> Any:
             """Predict packed next-state features for one action-conditioned transition."""
             return self.predict(
@@ -393,6 +446,8 @@ if torch is not None and nn is not None:
                 action_indices,
                 action_features=action_features,
                 transition_features=transition_features,
+                symbolic_move_delta_features=symbolic_move_delta_features,
+                symbolic_next_features=symbolic_next_features,
             ).next_features
 
 

@@ -175,3 +175,9 @@ That means `edit_v1` is currently useful as a diagnostic counterexample, not as 
 But even the preferred arm still does **not** recover exact packed next states.
 
 That means the repo has crossed from “Phase 6 placeholder” into “first checkable dynamics baseline”, but the modeling work is still ahead.
+
+The next model-only experiment is now prepared as well:
+
+- `hybrid_v1` can consume optional symbolic move-delta side inputs and optional symbolic next-state priors
+- the backward-compatible `DynamicsTrainingExample` contract can now carry `symbolic_move_delta_features` without breaking older artifacts
+- this is intentionally only a model/contract step so far; the training loop still remains on the existing large-corpus `structured_v6` path

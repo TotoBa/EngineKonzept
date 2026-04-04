@@ -14,6 +14,8 @@ from train.datasets.contracts import (
     SYMBOLIC_MAX_LEGAL_CANDIDATES as CONTRACT_SYMBOLIC_MAX_LEGAL_CANDIDATES,
     candidate_context_feature_dim,
     global_context_feature_dim,
+    symbolic_move_delta_feature_dim,
+    symbolic_move_delta_spec,
     symbolic_candidate_context_spec,
     transition_context_feature_dim,
     transition_context_spec,
@@ -53,6 +55,7 @@ SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE = global_context_feature_dim(
     DEFAULT_GLOBAL_CONTEXT_VERSION
 )
 SYMBOLIC_MAX_LEGAL_CANDIDATES = CONTRACT_SYMBOLIC_MAX_LEGAL_CANDIDATES
+SYMBOLIC_MOVE_DELTA_FEATURE_SIZE = symbolic_move_delta_feature_dim(1)
 TRANSITION_CONTEXT_FEATURE_SIZE = transition_context_feature_dim(1)
 
 
@@ -202,6 +205,8 @@ class DynamicsTrainingExample:
     ply_index: int | None
     transition_context_version: int | None = None
     transition_features: list[float] | None = None
+    symbolic_move_delta_version: int | None = None
+    symbolic_move_delta_features: list[float] | None = None
 
     def to_dict(self) -> dict[str, object]:
         """Return the JSON representation."""
@@ -222,6 +227,8 @@ class DynamicsTrainingExample:
             "ply_index": self.ply_index,
             "transition_context_version": self.transition_context_version,
             "transition_features": self.transition_features,
+            "symbolic_move_delta_version": self.symbolic_move_delta_version,
+            "symbolic_move_delta_features": self.symbolic_move_delta_features,
         }
 
     @classmethod
@@ -264,6 +271,20 @@ class DynamicsTrainingExample:
             transition_context_version = None
         elif transition_context_version is None:
             transition_context_version = 1
+        symbolic_move_delta_version = _optional_int(payload.get("symbolic_move_delta_version"))
+        symbolic_move_delta_features = _optional_float_list(payload.get("symbolic_move_delta_features"))
+        if symbolic_move_delta_features is not None:
+            version = 1 if symbolic_move_delta_version is None else symbolic_move_delta_version
+            expected_width = symbolic_move_delta_feature_dim(version)
+            if len(symbolic_move_delta_features) != expected_width:
+                raise ValueError(
+                    "symbolic_move_delta_features must have width "
+                    f"{expected_width}"
+                )
+        if symbolic_move_delta_features is None:
+            symbolic_move_delta_version = None
+        elif symbolic_move_delta_version is None:
+            symbolic_move_delta_version = 1
         return cls(
             sample_id=str(payload["sample_id"]),
             split=split,
@@ -283,6 +304,8 @@ class DynamicsTrainingExample:
             ply_index=_optional_int(payload.get("ply_index")),
             transition_context_version=transition_context_version,
             transition_features=transition_features,
+            symbolic_move_delta_version=symbolic_move_delta_version,
+            symbolic_move_delta_features=symbolic_move_delta_features,
         )
 
     @classmethod
@@ -652,6 +675,16 @@ def dynamics_symbolic_action_feature_spec() -> dict[str, object]:
         "candidate_context_version": proposer_spec["candidate_context_version"],
         "feature_dim": proposer_spec["candidate_feature_dim"],
         "feature_order": proposer_spec["candidate_feature_order"],
+    }
+
+
+def dynamics_symbolic_move_delta_feature_spec() -> dict[str, object]:
+    """Describe the optional symbolic move-delta feature vector for hybrid dynamics."""
+    spec = symbolic_move_delta_spec()
+    return {
+        "symbolic_move_delta_version": spec.version,
+        "feature_dim": spec.feature_dim,
+        "feature_order": list(spec.feature_order),
     }
 
 

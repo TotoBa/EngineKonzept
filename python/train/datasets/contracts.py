@@ -90,6 +90,38 @@ _TRANSITION_CONTEXT_V1_POST_MOVE_FEATURE_ORDER = (
     "en_passant_created",
     "en_passant_cleared",
 )
+_SYMBOLIC_MOVE_DELTA_V1_FEATURE_ORDER = (
+    "moving_piece_pawn",
+    "moving_piece_knight",
+    "moving_piece_bishop",
+    "moving_piece_rook",
+    "moving_piece_queen",
+    "moving_piece_king",
+    "captured_piece_present",
+    "captured_piece_pawn",
+    "captured_piece_knight",
+    "captured_piece_bishop",
+    "captured_piece_rook",
+    "captured_piece_queen",
+    "is_capture",
+    "is_promotion",
+    "is_castle",
+    "is_en_passant",
+    "gives_check",
+    "promotion_to_knight",
+    "promotion_to_bishop",
+    "promotion_to_rook",
+    "promotion_to_queen",
+    "castle_kingside",
+    "castle_queenside",
+    "white_kingside_castling_cleared",
+    "white_queenside_castling_cleared",
+    "black_kingside_castling_cleared",
+    "black_queenside_castling_cleared",
+    "en_passant_created",
+    "en_passant_cleared",
+    "halfmove_reset",
+)
 
 
 @dataclass(frozen=True)
@@ -247,6 +279,28 @@ def symbolic_candidate_context_spec(
         "global_feature_dim": global_context.feature_dim,
         "global_feature_order": list(global_context.feature_order),
     }
+
+
+def symbolic_move_delta_spec(version: int = 1) -> FeatureContractSpec:
+    """Return the symbolic move-delta contract used by hybrid dynamics arms."""
+    feature_order = symbolic_move_delta_feature_order(version)
+    return FeatureContractSpec(
+        contract_name="SymbolicMoveDelta",
+        version=version,
+        feature_order=feature_order,
+    )
+
+
+def symbolic_move_delta_feature_order(version: int = 1) -> tuple[str, ...]:
+    """Return the feature order for one symbolic move-delta version."""
+    if version != 1:
+        raise ValueError(f"unsupported SymbolicMoveDelta version: {version}")
+    return _SYMBOLIC_MOVE_DELTA_V1_FEATURE_ORDER
+
+
+def symbolic_move_delta_feature_dim(version: int = 1) -> int:
+    """Return the feature width for one symbolic move-delta version."""
+    return len(symbolic_move_delta_feature_order(version))
 
 
 def _candidate_context_feature_order(version: int) -> tuple[str, ...]:
