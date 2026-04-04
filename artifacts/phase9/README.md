@@ -12,6 +12,8 @@ Current contents:
   [replay_buffer_set_v2_probe_v1.summary.json](/home/torsten/EngineKonzept/artifacts/phase9/replay_buffer_set_v2_probe_v1.summary.json)
 - first arena summary:
   [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/arena_active_probe_v1/summary.json)
+- post-game selfplay teacher-training builder:
+  [build_selfplay_teacher_training_dataset.py](/home/torsten/EngineKonzept/python/scripts/build_selfplay_teacher_training_dataset.py)
 - first curriculum/launch plan:
   [curriculum_active_experimental_expanded_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/curriculum_active_experimental_expanded_v1.json)
 - first expanded active-plus-experimental arena:
@@ -110,6 +112,14 @@ Current practical conclusion:
 
 - the arena contract is now flexible enough for future architecture changes because start-position selection is versioned separately from the agent/runtime contracts
 - the `v2` expanded arena should feed the next replay-buffer-driven planner reruns
+
+There is now also a slower but higher-quality post-game training path for non-external agents:
+
+- it reopens completed arena sessions
+- analyzes each non-external move with `/usr/games/stockfish18` at short depth
+- writes per-agent `selfplay_teacher_review_train.jsonl`
+- writes aligned per-agent `planner_head_train.jsonl`
+- scales the learning priority by measured mistake size instead of only final game outcome
 
 The next training-facing follow-up is now materialized too:
 

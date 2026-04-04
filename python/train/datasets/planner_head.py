@@ -37,6 +37,7 @@ from train.eval.symbolic_proposer import (
 
 if TYPE_CHECKING:
     from train.datasets.planner_replay import PlannerReplayExample
+    from train.datasets.selfplay_teacher_review import SelfplayTeacherReviewExample
 
 
 PLANNER_HEAD_ARTIFACT_PREFIX = "planner_head_"
@@ -334,7 +335,7 @@ def build_planner_head_examples(
         )
         considered_indices = _select_root_candidate_indices(
             root_scores,
-            teacher_top1_root_index=teacher_top1_root_index,
+            required_root_indices=(teacher_top1_root_index,),
             root_top_k=root_top_k,
         )
         candidate_rows = _build_root_candidate_rows(
@@ -511,7 +512,7 @@ def build_planner_head_examples_from_replay(
             ) from exc
         considered_indices = _select_root_candidate_indices(
             root_scores,
-            teacher_top1_root_index=replay_top1_root_index,
+            required_root_indices=(replay_top1_root_index,),
             root_top_k=root_top_k,
         )
         candidate_rows = _build_root_candidate_rows(
@@ -590,6 +591,191 @@ def _select_replay_examples_for_planner_head(
     ranked_examples = sorted(
         replay_examples,
         key=lambda example: (-example.replay_priority, example.sample_id),
+    )
+    return ranked_examples[:max_examples]
+
+
+def build_planner_head_examples_from_selfplay_teacher_reviews(
+    *,
+    review_examples: Sequence["SelfplayTeacherReviewExample"],
+    proposer_checkpoint: Path,
+    dynamics_checkpoint: Path | None,
+    opponent_mode: str,
+    opponent_checkpoint: Path | None,
+    root_top_k: int,
+    max_examples: int | None,
+    include_non_mistakes: bool,
+    repo_root: Path,
+) -> list[PlannerHeadExample]:
+    """Build planner-head training rows from post-game selfplay teacher reviews."""
+    if root_top_k <= 0:
+        raise ValueError("root_top_k must be positive")
+    if opponent_mode not in {"none", "symbolic", "learned"}:
+        raise ValueError("opponent_mode must be 'none', 'symbolic', or 'learned'")
+    if opponent_mode == "learned" and opponent_checkpoint is None:
+        raise ValueError("opponent_checkpoint is required when opponent_mode='learned'")
+
+    selected_review_examples = _select_selfplay_review_examples_for_planner_head(
+        review_examples,
+        max_examples=max_examples,
+        include_non_mistakes=include_non_mistakes,
+    )
+    if not selected_review_examples:
+        return []
+
+    review_records = [
+        RawPositionRecord(
+            sample_id=example.sample_id,
+            fen=example.fen,
+            source="selfplay_teacher_review",
+        )
+        for example in selected_review_examples
+    ]
+    review_payloads = label_records_with_oracle(review_records, repo_root=repo_root)
+    dataset_examples = [
+        dataset_example_from_oracle_payload(
+            sample_id=example.sample_id,
+            split=example.split,
+            source="selfplay_teacher_review",
+            fen=example.fen,
+            payload=payload,
+        )
+        for example, payload in zip(selected_review_examples, review_payloads, strict=True)
+    ]
+
+    proposer_model, _ = load_symbolic_proposer_checkpoint(proposer_checkpoint)
+    dynamics_model = None
+    if dynamics_checkpoint is not None:
+        dynamics_model, _ = load_dynamics_checkpoint(dynamics_checkpoint)
+    opponent_model = None
+    if opponent_mode == "learned":
+        opponent_model, _ = load_opponent_head_checkpoint(opponent_checkpoint)
+
+    built: list[PlannerHeadExample] = []
+    for review_example, dataset_example in zip(
+        selected_review_examples,
+        dataset_examples,
+        strict=True,
+    ):
+        root_scores, _ = score_symbolic_candidates(
+            proposer_model,
+            feature_vector=review_example.feature_vector,
+            candidate_action_indices=review_example.candidate_action_indices,
+            candidate_features=review_example.candidate_features,
+            global_features=review_example.global_features,
+            candidate_context_version=review_example.candidate_context_version,
+        )
+        teacher_top1_action_index = int(review_example.teacher_top_k_action_indices[0])
+        teacher_top1_root_index = review_example.candidate_action_indices.index(
+            teacher_top1_action_index
+        )
+        selected_root_index = review_example.selected_candidate_index
+        considered_indices = _select_root_candidate_indices(
+            root_scores,
+            required_root_indices=(teacher_top1_root_index, selected_root_index),
+            root_top_k=root_top_k,
+        )
+        candidate_rows = _build_root_candidate_rows(
+            dataset_example,
+            candidate_action_indices=review_example.candidate_action_indices,
+            root_feature_vector=review_example.feature_vector,
+            considered_indices=considered_indices,
+            root_scores=root_scores,
+            opponent_mode=opponent_mode,
+            proposer_model=proposer_model,
+            dynamics_model=dynamics_model,
+            opponent_model=opponent_model,
+            repo_root=repo_root,
+        )
+        candidate_action_indices = [row["action_index"] for row in candidate_rows]
+        teacher_top1_candidate_index = candidate_action_indices.index(teacher_top1_action_index)
+        teacher_candidate_scores_cp = _restricted_teacher_candidate_scores(
+            review_example.teacher_candidate_scores_cp,
+            considered_indices=considered_indices,
+        )
+        built.append(
+            PlannerHeadExample(
+                sample_id=review_example.sample_id,
+                split=review_example.split,
+                fen=review_example.fen,
+                feature_vector=list(review_example.feature_vector),
+                candidate_context_version=review_example.candidate_context_version,
+                global_context_version=review_example.global_context_version,
+                global_features=list(review_example.global_features),
+                candidate_action_indices=candidate_action_indices,
+                candidate_features=[
+                    list(review_example.candidate_features[index])
+                    for index in considered_indices
+                ],
+                proposer_scores=[row["proposer_score"] for row in candidate_rows],
+                transition_context_version=1,
+                transition_features=[row["transition_features"] for row in candidate_rows],
+                latent_state_version=(
+                    PLANNER_LATENT_STATE_VERSION if dynamics_model is not None else None
+                ),
+                latent_features=(
+                    [row["latent_features"] for row in candidate_rows]
+                    if dynamics_model is not None
+                    else None
+                ),
+                reply_peak_probabilities=[
+                    row["reply_peak_probability"] for row in candidate_rows
+                ],
+                pressures=[row["pressure"] for row in candidate_rows],
+                uncertainties=[row["uncertainty"] for row in candidate_rows],
+                curriculum_bucket_labels=[
+                    "selfplay_teacher_review",
+                    f"agent:{review_example.agent_name}",
+                    f"outcome:{review_example.outcome_pov}",
+                    f"termination:{review_example.termination_reason}",
+                ],
+                curriculum_priority=review_example.mistake_priority,
+                teacher_top1_action_index=teacher_top1_action_index,
+                teacher_top1_candidate_index=teacher_top1_candidate_index,
+                teacher_policy=_restricted_teacher_policy(
+                    review_example.teacher_policy,
+                    considered_indices=considered_indices,
+                    teacher_top1_candidate_index=teacher_top1_candidate_index,
+                ),
+                teacher_candidate_scores_cp=teacher_candidate_scores_cp,
+                teacher_candidate_score_delta_targets_cp=build_teacher_candidate_score_delta_targets_cp(
+                    review_example.teacher_candidate_scores_cp,
+                    considered_indices=considered_indices,
+                    teacher_root_value_cp=float(review_example.teacher_root_value_cp),
+                ),
+                teacher_rank_bucket_version=PLANNER_RANK_BUCKET_VERSION,
+                teacher_candidate_rank_bucket_targets=build_teacher_candidate_rank_bucket_targets(
+                    review_example.teacher_candidate_scores_cp,
+                    considered_indices=considered_indices,
+                    teacher_top1_candidate_index=teacher_top1_candidate_index,
+                ),
+                teacher_root_value_cp=float(review_example.teacher_root_value_cp),
+                teacher_top1_minus_top2_cp=_teacher_top1_minus_top2_cp(
+                    teacher_candidate_scores_cp
+                ),
+            )
+        )
+    return built
+
+
+def _select_selfplay_review_examples_for_planner_head(
+    review_examples: Sequence["SelfplayTeacherReviewExample"],
+    *,
+    max_examples: int | None,
+    include_non_mistakes: bool,
+) -> list["SelfplayTeacherReviewExample"]:
+    filtered = [
+        example
+        for example in review_examples
+        if include_non_mistakes or example.mistake_cp > 0.0
+    ]
+    if max_examples is None or max_examples >= len(filtered):
+        return filtered
+    if max_examples <= 0:
+        raise ValueError("max_examples must be positive when provided")
+    ranked_examples = sorted(
+        filtered,
+        key=lambda example: (-example.mistake_priority, -example.mistake_cp, example.sample_id),
     )
     return ranked_examples[:max_examples]
 
@@ -712,19 +898,25 @@ def load_planner_head_examples_for_split(dataset_dir: Path, split: str) -> list[
 def _select_root_candidate_indices(
     root_scores: Sequence[float],
     *,
-    teacher_top1_root_index: int,
+    required_root_indices: Sequence[int],
     root_top_k: int,
 ) -> list[int]:
+    if root_top_k <= 0:
+        raise ValueError("root_top_k must be positive")
+    if not root_scores:
+        raise ValueError("root_scores must be non-empty")
+    deduped_required = list(dict.fromkeys(int(index) for index in required_root_indices))
+    for required_index in deduped_required:
+        if not 0 <= required_index < len(root_scores):
+            raise ValueError("required_root_index out of range")
     ranked = sorted(range(len(root_scores)), key=lambda index: (-root_scores[index], index))
-    selected = ranked[: min(root_top_k, len(ranked))]
-    if teacher_top1_root_index not in selected:
-        if len(selected) < root_top_k:
-            selected.append(teacher_top1_root_index)
-        else:
-            selected[-1] = teacher_top1_root_index
-    deduped = list(dict.fromkeys(selected))
-    deduped.sort(key=lambda index: (-root_scores[index], index))
-    return deduped
+    target_size = min(len(ranked), max(root_top_k, len(deduped_required)))
+    selected = set(deduped_required)
+    for ranked_index in ranked:
+        if len(selected) >= target_size:
+            break
+        selected.add(ranked_index)
+    return sorted(selected, key=lambda index: (-root_scores[index], index))
 
 
 def _build_root_candidate_rows(
@@ -925,6 +1117,13 @@ def build_teacher_candidate_rank_bucket_targets(
     for restricted_index in ranked_non_top1[:2]:
         bucket_targets[restricted_index] = 1
     return bucket_targets
+
+
+def _teacher_top1_minus_top2_cp(teacher_candidate_scores_cp: Sequence[float]) -> float | None:
+    if len(teacher_candidate_scores_cp) < 2:
+        return None
+    ranked_scores = sorted((float(score) for score in teacher_candidate_scores_cp), reverse=True)
+    return round(ranked_scores[0] - ranked_scores[1], 6)
 
 
 def _pressure_from_candidate_features(candidate_features: Sequence[float]) -> float:

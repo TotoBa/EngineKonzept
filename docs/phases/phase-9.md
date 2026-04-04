@@ -22,6 +22,7 @@ The repository now has the first small selfplay loop in Python:
 - [run_selfplay.py](/home/torsten/EngineKonzept/python/scripts/run_selfplay.py)
 - [build_replay_buffer.py](/home/torsten/EngineKonzept/python/scripts/build_replay_buffer.py)
 - [build_curriculum_stage_replay_buffer.py](/home/torsten/EngineKonzept/python/scripts/build_curriculum_stage_replay_buffer.py)
+- [build_selfplay_teacher_training_dataset.py](/home/torsten/EngineKonzept/python/scripts/build_selfplay_teacher_training_dataset.py)
 - [run_selfplay_arena.py](/home/torsten/EngineKonzept/python/scripts/run_selfplay_arena.py)
 - [run_selfplay_curriculum_stage.py](/home/torsten/EngineKonzept/python/scripts/run_selfplay_curriculum_stage.py)
 - [build_selfplay_curriculum_plan.py](/home/torsten/EngineKonzept/python/scripts/build_selfplay_curriculum_plan.py)
@@ -49,6 +50,7 @@ This first implementation is intentionally small and contract-first:
 - supports master-process arena parallelism via `parallel_workers`, so one game thread can run per CPU while the arena orchestration stays in one Python process
 - writes reproducible JSON session artifacts
 - can flatten finished sessions into replay-buffer rows for later training and curriculum use
+- can run a short Stockfish18 post-game review over completed sessions and write per-agent mistake-weighted planner training sets for non-external agents
 
 ## What it does not do yet
 
@@ -82,6 +84,14 @@ The versioned launch data around that contract is now also reusable:
 - curated dataset-derived initial-position suites
 - curated opening-derived initial-position suites
 - merged suites that combine both without changing the arena or campaign runner
+
+There is now also a separate post-game correction path on top of that runtime contract:
+
+- completed arena sessions stay the source of truth
+- `/usr/games/stockfish18` can review each non-external move at short depth
+- the review computes a regret-style mistake signal from `teacher_best_cp - played_cp`
+- a small deadzone suppresses depth-5 noise
+- the resulting per-agent `planner_head_train.jsonl` artifacts still reuse the same symbolic proposer, dynamics, and opponent contracts as the normal planner workflow
 
 ## First probe
 
