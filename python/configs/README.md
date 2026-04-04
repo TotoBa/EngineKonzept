@@ -176,6 +176,16 @@ These remain useful as small-corpus regression baselines, but they are no longer
 - [phase9_arena_active_experimental_replay_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_experimental_replay_expanded_v1.json)
   Replay-aware post-promotion arena suite. Keeps the promoted expanded active arm plus the older expanded family and the new replay challenger in the same versioned round-robin contract.
 
+Arena specs now also support an optional `max_plies_adjudication` block:
+
+- `engine_path`
+- one of `nodes`, `depth`, or `movetime_ms`
+- `score_threshold_pawns`
+- `extension_step_plies`
+- `max_extensions`
+
+This is intended for bounded offline selfplay only. It adjudicates only after a game reaches `max_plies`; inside the neutral band the game is extended, outside the band it is resolved by the engine judge.
+
 ## Phase 9 Campaigns
 
 - [phase9_replay_campaign_active_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_replay_campaign_active_expanded_v1.json)

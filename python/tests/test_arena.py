@@ -11,6 +11,7 @@ from train.eval.arena import (
     run_selfplay_arena,
 )
 from train.eval.planner_runtime import PlannerRootDecision
+from train.eval.selfplay import SelfplayMaxPliesAdjudicationSpec
 
 
 def _make_example(
@@ -87,6 +88,28 @@ def test_round_robin_expands_without_self_matches() -> None:
         "c->a",
         "c->b",
     }
+
+
+def test_arena_spec_round_trip_with_max_plies_adjudication() -> None:
+    spec = SelfplayArenaSpec(
+        name="round_robin_adjudicated",
+        agent_specs={"a": "a.json", "b": "b.json"},
+        schedule_mode="round_robin",
+        default_games=2,
+        default_max_plies=12,
+        default_initial_fens=["startpos"],
+        max_plies_adjudication=SelfplayMaxPliesAdjudicationSpec(
+            engine_path="/usr/games/stockfish18",
+            nodes=64,
+            score_threshold_pawns=0.1,
+            extension_step_plies=8,
+            max_extensions=2,
+        ),
+    )
+    restored = SelfplayArenaSpec.from_dict(spec.to_dict())
+    assert restored.max_plies_adjudication is not None
+    assert restored.max_plies_adjudication.engine_path == "/usr/games/stockfish18"
+    assert restored.max_plies_adjudication.max_extensions == 2
 
 
 def test_run_selfplay_arena_writes_sessions_and_standings(tmp_path: Path) -> None:

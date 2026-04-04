@@ -372,3 +372,13 @@ Useful override examples:
 ```bash
 python/scripts/run_phase9_replay_campaign_longrun.sh --output-root /srv/schach/engine_training/phase9/replay_campaign_debug --games-per-matchup 1 --max-plies 16 --include-unfinished-replay --run planner_set_v6_margin_replay_campaign_v1
 ```
+
+Phase 9 now also supports optional engine adjudication exactly at the `max_plies` boundary.
+That path is intended to reduce unresolved `max_plies` endings without turning runtime into a classical search engine:
+
+- the selfplay/arena loop still selects moves only through the symbolic proposer and learned planner stack
+- `/usr/games/stockfish18` is only consulted after a game hits the configured `max_plies` limit
+- if the white-POV evaluation stays inside `[-0.3, +0.3]` pawns, play is extended by a bounded number of extra plies
+- if the position is outside that neutral window, the game is adjudicated instead of ending as unresolved `*`
+
+The contract is versioned on the arena spec via `max_plies_adjudication`, so later architecture changes can reuse or replace the adjudicator without rewriting the arena/campaign runners.

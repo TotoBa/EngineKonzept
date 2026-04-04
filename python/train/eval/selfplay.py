@@ -6,6 +6,7 @@ from collections import Counter
 from dataclasses import dataclass
 import json
 from pathlib import Path
+import subprocess
 from typing import Callable, Protocol, Sequence
 
 from train.datasets import dataset_example_from_oracle_payload
@@ -27,6 +28,202 @@ class SelfplayAgent(Protocol):
 
 
 OracleLoader = Callable[[str], DatasetExample]
+
+
+@dataclass(frozen=True)
+class SelfplayMaxPliesAdjudicationSpec:
+    """Optional engine-based adjudication to reduce unresolved max-plies terminations."""
+
+    engine_path: str
+    score_threshold_pawns: float = 0.3
+    extension_step_plies: int = 16
+    max_extensions: int = 4
+    nodes: int | None = 64
+    depth: int | None = None
+    movetime_ms: int | None = None
+
+    def __post_init__(self) -> None:
+        if not self.engine_path:
+            raise ValueError("adjudication engine_path must be non-empty")
+        if self.score_threshold_pawns < 0.0:
+            raise ValueError("adjudication score_threshold_pawns must be non-negative")
+        if self.extension_step_plies <= 0:
+            raise ValueError("adjudication extension_step_plies must be positive")
+        if self.max_extensions < 0:
+            raise ValueError("adjudication max_extensions must be non-negative")
+        if self.nodes is None and self.depth is None and self.movetime_ms is None:
+            raise ValueError("one of adjudication nodes, depth, or movetime_ms must be set")
+        if self.nodes is not None and self.nodes <= 0:
+            raise ValueError("adjudication nodes must be positive when provided")
+        if self.depth is not None and self.depth <= 0:
+            raise ValueError("adjudication depth must be positive when provided")
+        if self.movetime_ms is not None and self.movetime_ms <= 0:
+            raise ValueError("adjudication movetime_ms must be positive when provided")
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "engine_path": self.engine_path,
+            "score_threshold_pawns": self.score_threshold_pawns,
+            "extension_step_plies": self.extension_step_plies,
+            "max_extensions": self.max_extensions,
+            "nodes": self.nodes,
+            "depth": self.depth,
+            "movetime_ms": self.movetime_ms,
+        }
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, object]) -> "SelfplayMaxPliesAdjudicationSpec":
+        return cls(
+            engine_path=str(payload["engine_path"]),
+            score_threshold_pawns=float(payload.get("score_threshold_pawns", 0.3)),
+            extension_step_plies=int(payload.get("extension_step_plies", 16)),
+            max_extensions=int(payload.get("max_extensions", 4)),
+            nodes=_optional_int(payload.get("nodes")),
+            depth=_optional_int(payload.get("depth")),
+            movetime_ms=_optional_int(payload.get("movetime_ms")),
+        )
+
+
+@dataclass(frozen=True)
+class SelfplayAdjudicationOutcome:
+    """One max-plies adjudication outcome for the current exact position."""
+
+    should_continue: bool
+    result: str | None
+    termination_reason: str
+    engine_path: str
+    score_cp_white: float
+    score_threshold_pawns: float
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "should_continue": self.should_continue,
+            "result": self.result,
+            "termination_reason": self.termination_reason,
+            "engine_path": self.engine_path,
+            "score_cp_white": round(self.score_cp_white, 3),
+            "score_pawns_white": round(self.score_cp_white / 100.0, 4),
+            "score_threshold_pawns": round(self.score_threshold_pawns, 4),
+        }
+
+
+class SelfplayAdjudicator(Protocol):
+    """Minimal protocol so future adjudicators can swap in without changing selfplay."""
+
+    def adjudicate(self, fen: str) -> SelfplayAdjudicationOutcome:
+        """Return either a decisive adjudication or a signal to keep playing."""
+
+
+class StockfishMaxPliesAdjudicator:
+    """Engine-based adjudicator that only runs when a game hits the max-plies boundary."""
+
+    def __init__(self, spec: SelfplayMaxPliesAdjudicationSpec) -> None:
+        self.spec = spec
+        self._process = subprocess.Popen(
+            [spec.engine_path],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+        self._handshake()
+
+    def close(self) -> None:
+        if self._process.poll() is not None:
+            return
+        try:
+            self._send_line("quit")
+        except BrokenPipeError:
+            pass
+        try:
+            self._process.wait(timeout=5.0)
+        except subprocess.TimeoutExpired:
+            self._process.kill()
+            self._process.wait(timeout=5.0)
+
+    def __enter__(self) -> "StockfishMaxPliesAdjudicator":
+        return self
+
+    def __exit__(self, *_args: object) -> None:
+        self.close()
+
+    def adjudicate(self, fen: str) -> SelfplayAdjudicationOutcome:
+        self._send_line("ucinewgame")
+        self._send_line(f"position fen {fen}")
+        self._send_line(self._go_command())
+        score_cp_side_to_move: float | None = None
+        while True:
+            line = self._read_line()
+            if line.startswith("info "):
+                parsed = _parse_uci_score_cp(line)
+                if parsed is not None:
+                    score_cp_side_to_move = parsed
+                continue
+            if line.startswith("bestmove "):
+                break
+        if score_cp_side_to_move is None:
+            raise ValueError("selfplay adjudication analysis returned no score")
+        score_cp_white = _score_cp_white(score_cp_side_to_move, fen)
+        threshold_cp = self.spec.score_threshold_pawns * 100.0
+        if abs(score_cp_white) <= threshold_cp:
+            return SelfplayAdjudicationOutcome(
+                should_continue=True,
+                result=None,
+                termination_reason="engine_adjudication_neutral",
+                engine_path=self.spec.engine_path,
+                score_cp_white=score_cp_white,
+                score_threshold_pawns=self.spec.score_threshold_pawns,
+            )
+        return SelfplayAdjudicationOutcome(
+            should_continue=False,
+            result="1-0" if score_cp_white > 0.0 else "0-1",
+            termination_reason=(
+                "engine_adjudication_white_advantage"
+                if score_cp_white > 0.0
+                else "engine_adjudication_black_advantage"
+            ),
+            engine_path=self.spec.engine_path,
+            score_cp_white=score_cp_white,
+            score_threshold_pawns=self.spec.score_threshold_pawns,
+        )
+
+    def _go_command(self) -> str:
+        parts = ["go"]
+        if self.spec.nodes is not None:
+            parts.extend(["nodes", str(self.spec.nodes)])
+        if self.spec.depth is not None:
+            parts.extend(["depth", str(self.spec.depth)])
+        if self.spec.movetime_ms is not None:
+            parts.extend(["movetime", str(self.spec.movetime_ms)])
+        return " ".join(parts)
+
+    def _handshake(self) -> None:
+        self._send_line("uci")
+        self._read_until("uciok")
+        self._send_line("setoption name Threads value 1")
+        self._send_line("isready")
+        self._read_until("readyok")
+
+    def _send_line(self, line: str) -> None:
+        if self._process.stdin is None:
+            raise RuntimeError("stockfish adjudicator stdin is not available")
+        self._process.stdin.write(line + "\n")
+        self._process.stdin.flush()
+
+    def _read_line(self) -> str:
+        if self._process.stdout is None:
+            raise RuntimeError("stockfish adjudicator stdout is not available")
+        raw_line = self._process.stdout.readline()
+        if raw_line == "":
+            raise RuntimeError("stockfish adjudicator ended unexpectedly")
+        return raw_line.strip()
+
+    def _read_until(self, expected: str) -> None:
+        while True:
+            line = self._read_line()
+            if line == expected:
+                return
 
 
 @dataclass(frozen=True)
@@ -99,9 +296,10 @@ class SelfplayGameRecord:
     white_agent: str
     black_agent: str
     moves: list[SelfplayMoveRecord]
+    adjudication: dict[str, object] | None = None
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "game_id": self.game_id,
             "initial_fen": self.initial_fen,
             "final_fen": self.final_fen,
@@ -112,6 +310,9 @@ class SelfplayGameRecord:
             "black_agent": self.black_agent,
             "moves": [move.to_dict() for move in self.moves],
         }
+        if self.adjudication is not None:
+            payload["adjudication"] = self.adjudication
+        return payload
 
     @classmethod
     def from_dict(cls, payload: dict[str, object]) -> "SelfplayGameRecord":
@@ -128,6 +329,11 @@ class SelfplayGameRecord:
                 SelfplayMoveRecord.from_dict(dict(move))
                 for move in list(payload["moves"])
             ],
+            adjudication=(
+                dict(payload["adjudication"])
+                if isinstance(payload.get("adjudication"), dict)
+                else None
+            ),
         )
 
 
@@ -178,15 +384,21 @@ def play_selfplay_game(
     initial_fen: str = STARTING_FEN,
     max_plies: int = 80,
     oracle_loader: OracleLoader | None = None,
+    adjudicator: SelfplayAdjudicator | None = None,
+    adjudication_spec: SelfplayMaxPliesAdjudicationSpec | None = None,
 ) -> SelfplayGameRecord:
     """Play one small exact selfplay game with legal termination checks."""
     if max_plies <= 0:
         raise ValueError("max_plies must be positive")
+    if adjudication_spec is None and adjudicator is not None:
+        raise ValueError("adjudication_spec is required when adjudicator is provided")
 
     loader = oracle_loader or _build_oracle_loader(repo_root)
     current_fen = initial_fen
     moves: list[SelfplayMoveRecord] = []
     repetition_counts: Counter[str] = Counter({_repetition_key(initial_fen): 1})
+    current_max_plies = max_plies
+    adjudication_extensions_used = 0
 
     while True:
         example = loader(current_fen)
@@ -232,7 +444,45 @@ def play_selfplay_game(
                 black_agent=black_agent.name,
                 moves=moves,
             )
-        if len(moves) >= max_plies:
+        if len(moves) >= current_max_plies:
+            if adjudicator is not None and adjudication_spec is not None:
+                outcome = adjudicator.adjudicate(current_fen)
+                adjudication_payload = {
+                    **outcome.to_dict(),
+                    "current_max_plies": current_max_plies,
+                    "extensions_used": adjudication_extensions_used,
+                    "max_extensions": adjudication_spec.max_extensions,
+                }
+                if (
+                    outcome.should_continue
+                    and adjudication_extensions_used < adjudication_spec.max_extensions
+                ):
+                    adjudication_extensions_used += 1
+                    current_max_plies += adjudication_spec.extension_step_plies
+                    continue
+                if outcome.should_continue:
+                    return _drawn_game(
+                        game_id=game_id,
+                        initial_fen=initial_fen,
+                        final_fen=current_fen,
+                        termination_reason="engine_adjudication_draw",
+                        white_agent=white_agent.name,
+                        black_agent=black_agent.name,
+                        moves=moves,
+                        adjudication=adjudication_payload,
+                    )
+                return SelfplayGameRecord(
+                    game_id=game_id,
+                    initial_fen=initial_fen,
+                    final_fen=current_fen,
+                    result=outcome.result or "*",
+                    termination_reason=outcome.termination_reason,
+                    move_count=len(moves),
+                    white_agent=white_agent.name,
+                    black_agent=black_agent.name,
+                    moves=moves,
+                    adjudication=adjudication_payload,
+                )
             return SelfplayGameRecord(
                 game_id=game_id,
                 initial_fen=initial_fen,
@@ -278,6 +528,8 @@ def run_selfplay_session(
     initial_fens: Sequence[str] | None = None,
     max_plies: int = 80,
     oracle_loader: OracleLoader | None = None,
+    adjudicator: SelfplayAdjudicator | None = None,
+    adjudication_spec: SelfplayMaxPliesAdjudicationSpec | None = None,
 ) -> SelfplaySessionRecord:
     """Run a small reproducible selfplay session."""
     if games <= 0:
@@ -298,6 +550,8 @@ def run_selfplay_session(
             initial_fen=initial_fen_list[index % len(initial_fen_list)],
             max_plies=max_plies,
             oracle_loader=oracle_loader,
+            adjudicator=adjudicator,
+            adjudication_spec=adjudication_spec,
         )
         for index in range(games)
     ]
@@ -349,6 +603,7 @@ def _drawn_game(
     white_agent: str,
     black_agent: str,
     moves: list[SelfplayMoveRecord],
+    adjudication: dict[str, object] | None = None,
 ) -> SelfplayGameRecord:
     return SelfplayGameRecord(
         game_id=game_id,
@@ -360,4 +615,47 @@ def _drawn_game(
         white_agent=white_agent,
         black_agent=black_agent,
         moves=moves,
+        adjudication=adjudication,
     )
+
+
+def open_max_plies_adjudicator(
+    spec: SelfplayMaxPliesAdjudicationSpec | None,
+) -> StockfishMaxPliesAdjudicator | None:
+    """Open the configured max-plies adjudicator, if any."""
+    if spec is None:
+        return None
+    return StockfishMaxPliesAdjudicator(spec)
+
+
+def _parse_uci_score_cp(line: str) -> float | None:
+    tokens = line.split()
+    try:
+        score_index = tokens.index("score")
+    except ValueError:
+        return None
+    if score_index + 2 >= len(tokens):
+        return None
+    score_kind = tokens[score_index + 1]
+    score_value = tokens[score_index + 2]
+    if score_kind == "cp":
+        return float(int(score_value))
+    if score_kind == "mate":
+        mate_value = int(score_value)
+        return 100_000.0 if mate_value > 0 else -100_000.0
+    return None
+
+
+def _score_cp_white(score_cp_side_to_move: float, fen: str) -> float:
+    side_to_move = fen.split()[1]
+    if side_to_move == "w":
+        return score_cp_side_to_move
+    if side_to_move == "b":
+        return -score_cp_side_to_move
+    raise ValueError(f"invalid FEN side-to-move in selfplay adjudication: {fen}")
+
+
+def _optional_int(value: object) -> int | None:
+    if value is None:
+        return None
+    return int(value)

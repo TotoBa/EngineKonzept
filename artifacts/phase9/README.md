@@ -225,3 +225,12 @@ For tiny smoke runs, the intended override is:
 ```bash
 python/scripts/run_phase9_replay_campaign_longrun.sh --output-root .tmp/phase9_replay_campaign_smoke_v1 --games-per-matchup 2 --max-plies 24 --max-replay-examples 128 --max-replay-head-examples 32 --include-unfinished-replay --run planner_set_v6_margin_replay_campaign_v1
 ```
+
+The underlying arena contract now also supports optional `max_plies` adjudication:
+
+- engine path, bounded engine limit, neutral threshold, and bounded extra-plies budget live on the arena spec
+- the intended default judge is `/usr/games/stockfish18`
+- inside `[-0.3, +0.3]` pawns the game is extended
+- outside that neutral band the position is adjudicated instead of ending as unresolved `max_plies`
+
+That keeps long-run replay campaigns reproducible while reducing low-signal unfinished games.

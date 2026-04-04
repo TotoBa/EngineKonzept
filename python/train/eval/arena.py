@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 import json
 from pathlib import Path
@@ -10,7 +11,13 @@ from typing import Any, Callable
 
 from train.eval.agent_spec import load_selfplay_agent_spec
 from train.eval.planner_runtime import build_planner_runtime_from_spec
-from train.eval.selfplay import STARTING_FEN, SelfplaySessionRecord, run_selfplay_session
+from train.eval.selfplay import (
+    STARTING_FEN,
+    SelfplayMaxPliesAdjudicationSpec,
+    SelfplaySessionRecord,
+    open_max_plies_adjudicator,
+    run_selfplay_session,
+)
 
 
 SELFPLAY_ARENA_SPEC_VERSION = 1
@@ -72,6 +79,7 @@ class SelfplayArenaSpec:
     default_initial_fens: list[str] = field(default_factory=lambda: [STARTING_FEN])
     round_robin_swap_colors: bool = True
     include_self_matches: bool = False
+    max_plies_adjudication: SelfplayMaxPliesAdjudicationSpec | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     spec_version: int = SELFPLAY_ARENA_SPEC_VERSION
 
@@ -145,6 +153,11 @@ class SelfplayArenaSpec:
             "default_initial_fens": list(self.default_initial_fens),
             "round_robin_swap_colors": self.round_robin_swap_colors,
             "include_self_matches": self.include_self_matches,
+            "max_plies_adjudication": (
+                self.max_plies_adjudication.to_dict()
+                if self.max_plies_adjudication is not None
+                else None
+            ),
             "metadata": self.metadata,
         }
 
@@ -170,6 +183,13 @@ class SelfplayArenaSpec:
             ],
             round_robin_swap_colors=bool(payload.get("round_robin_swap_colors", True)),
             include_self_matches=bool(payload.get("include_self_matches", False)),
+            max_plies_adjudication=(
+                SelfplayMaxPliesAdjudicationSpec.from_dict(
+                    dict(payload["max_plies_adjudication"])
+                )
+                if isinstance(payload.get("max_plies_adjudication"), dict)
+                else None
+            ),
             metadata=dict(payload.get("metadata") or {}),
         )
 
@@ -258,31 +278,39 @@ def run_selfplay_arena(
         for agent_name in spec.agent_specs
     }
 
-    for matchup_index, matchup in enumerate(spec.expanded_matchups(), start=1):
-        session = run_selfplay_session(
-            white_agent=agents[matchup.white_agent],
-            black_agent=agents[matchup.black_agent],
-            repo_root=repo_root,
-            games=matchup.games,
-            initial_fens=[_normalize_initial_fen(fen) for fen in matchup.initial_fens],
-            max_plies=matchup.max_plies or spec.default_max_plies,
-            oracle_loader=oracle_loader,
-        )
-        session_path = sessions_root / (
-            f"{matchup_index:02d}_{matchup.white_agent}_vs_{matchup.black_agent}.json"
-        )
-        session_path.write_text(
-            json.dumps(session.to_dict(), indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-        result = _summarize_matchup(
-            session=session,
-            white_agent=matchup.white_agent,
-            black_agent=matchup.black_agent,
-            session_path=session_path,
-        )
-        matchup_results.append(result)
-        _update_standings(standings, result)
+    adjudication_cm = (
+        open_max_plies_adjudicator(spec.max_plies_adjudication)
+        if spec.max_plies_adjudication is not None
+        else nullcontext(None)
+    )
+    with adjudication_cm as adjudicator:
+        for matchup_index, matchup in enumerate(spec.expanded_matchups(), start=1):
+            session = run_selfplay_session(
+                white_agent=agents[matchup.white_agent],
+                black_agent=agents[matchup.black_agent],
+                repo_root=repo_root,
+                games=matchup.games,
+                initial_fens=[_normalize_initial_fen(fen) for fen in matchup.initial_fens],
+                max_plies=matchup.max_plies or spec.default_max_plies,
+                oracle_loader=oracle_loader,
+                adjudicator=adjudicator,
+                adjudication_spec=spec.max_plies_adjudication,
+            )
+            session_path = sessions_root / (
+                f"{matchup_index:02d}_{matchup.white_agent}_vs_{matchup.black_agent}.json"
+            )
+            session_path.write_text(
+                json.dumps(session.to_dict(), indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            result = _summarize_matchup(
+                session=session,
+                white_agent=matchup.white_agent,
+                black_agent=matchup.black_agent,
+                session_path=session_path,
+            )
+            matchup_results.append(result)
+            _update_standings(standings, result)
 
     all_game_counts = [result.game_count for result in matchup_results]
     aggregate = {
@@ -297,6 +325,11 @@ def run_selfplay_arena(
         "arena_spec_version": spec.spec_version,
         "schedule_mode": spec.schedule_mode,
         "metadata": spec.metadata,
+        "max_plies_adjudication": (
+            spec.max_plies_adjudication.to_dict()
+            if spec.max_plies_adjudication is not None
+            else None
+        ),
         "aggregate": aggregate,
         "standings": standings,
         "matchups": [result.to_dict() for result in matchup_results],

@@ -243,6 +243,7 @@ def build_curriculum_stage_arena_spec(
         ),
         round_robin_swap_colors=arena_spec.round_robin_swap_colors,
         include_self_matches=arena_spec.include_self_matches,
+        max_plies_adjudication=arena_spec.max_plies_adjudication,
         metadata={
             **arena_spec.metadata,
             "curriculum_plan": plan.name,

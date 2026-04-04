@@ -74,19 +74,34 @@ def __getattr__(name: str) -> Any:
             "load_planner_head_checkpoint": load_planner_head_checkpoint,
             "load_planner_runtime_from_spec_path": load_planner_runtime_from_spec_path,
         }[name]
-    if name in {"STARTING_FEN", "SelfplayGameRecord", "SelfplaySessionRecord", "play_selfplay_game", "run_selfplay_session"}:
+    if name in {
+        "STARTING_FEN",
+        "SelfplayAdjudicationOutcome",
+        "SelfplayGameRecord",
+        "SelfplayMaxPliesAdjudicationSpec",
+        "SelfplaySessionRecord",
+        "open_max_plies_adjudicator",
+        "play_selfplay_game",
+        "run_selfplay_session",
+    }:
         from train.eval.selfplay import (
             STARTING_FEN,
+            SelfplayAdjudicationOutcome,
             SelfplayGameRecord,
+            SelfplayMaxPliesAdjudicationSpec,
             SelfplaySessionRecord,
+            open_max_plies_adjudicator,
             play_selfplay_game,
             run_selfplay_session,
         )
 
         return {
             "STARTING_FEN": STARTING_FEN,
+            "SelfplayAdjudicationOutcome": SelfplayAdjudicationOutcome,
             "SelfplayGameRecord": SelfplayGameRecord,
+            "SelfplayMaxPliesAdjudicationSpec": SelfplayMaxPliesAdjudicationSpec,
             "SelfplaySessionRecord": SelfplaySessionRecord,
+            "open_max_plies_adjudicator": open_max_plies_adjudicator,
             "play_selfplay_game": play_selfplay_game,
             "run_selfplay_session": run_selfplay_session,
         }[name]
@@ -211,6 +226,7 @@ __all__ = [
     "PlannerRootDecision",
     "PlannerRunSpec",
     "STARTING_FEN",
+    "SelfplayAdjudicationOutcome",
     "SelfplayAgentSpec",
     "SelfplayArenaMatchupSpec",
     "SelfplayArenaSpec",
@@ -218,6 +234,7 @@ __all__ = [
     "SelfplayCurriculumStage",
     "SelfplayReplayCampaignSpec",
     "SelfplayGameRecord",
+    "SelfplayMaxPliesAdjudicationSpec",
     "SelfplaySessionRecord",
     "build_planner_runtime",
     "build_planner_runtime_from_spec",
@@ -236,6 +253,7 @@ __all__ = [
     "load_symbolic_proposer_checkpoint",
     "load_selfplay_replay_campaign_spec",
     "materialize_replay_campaign_planner_config",
+    "open_max_plies_adjudicator",
     "play_selfplay_game",
     "predict_dynamics_latent",
     "run_selfplay_arena",
