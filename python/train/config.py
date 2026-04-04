@@ -609,9 +609,9 @@ class PlannerModelConfig:
     dropout: float = 0.0
 
     def __post_init__(self) -> None:
-        if self.architecture not in {"set_v1", "set_v2", "set_v3", "set_v5", "set_v6", "recurrent_v1"}:
+        if self.architecture not in {"set_v1", "set_v2", "set_v3", "set_v5", "set_v6", "set_v7", "recurrent_v1"}:
             raise ValueError(
-                "model.architecture must be 'set_v1', 'set_v2', 'set_v3', 'set_v5', 'set_v6', or 'recurrent_v1'"
+                "model.architecture must be 'set_v1', 'set_v2', 'set_v3', 'set_v5', 'set_v6', 'set_v7', or 'recurrent_v1'"
             )
         if self.hidden_dim <= 0:
             raise ValueError("model.hidden_dim must be positive")

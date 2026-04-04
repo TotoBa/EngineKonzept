@@ -64,12 +64,19 @@ if torch is not None and nn is not None:
             enable_candidate_rank_head: bool = False,
         ) -> None:
             super().__init__()
-            if architecture not in {"set_v1", "set_v2", "set_v3", "set_v5", "set_v6", "recurrent_v1"}:
+            if architecture not in {"set_v1", "set_v2", "set_v3", "set_v5", "set_v6", "set_v7", "recurrent_v1"}:
                 raise ValueError(f"unsupported planner architecture: {architecture}")
             self.architecture = architecture
             self.latent_feature_dim = latent_feature_dim
             self.deliberation_steps = deliberation_steps
             self.memory_slots = memory_slots
+            candidate_input_dim = (
+                action_embedding_dim
+                + PLANNER_CANDIDATE_FEATURE_SIZE
+                + TRANSITION_CONTEXT_FEATURE_SIZE
+                + latent_feature_dim
+                + 4
+            )
             self.state_backbone = _build_mlp(
                 input_dim=POSITION_FEATURE_SIZE + SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE,
                 hidden_dim=hidden_dim,
@@ -78,18 +85,20 @@ if torch is not None and nn is not None:
                 dropout=dropout,
             )
             self.action_embedding = nn.Embedding(ACTION_SPACE_SIZE, action_embedding_dim)
-            self.candidate_projection = nn.Sequential(
-                nn.Linear(
-                    action_embedding_dim
-                    + PLANNER_CANDIDATE_FEATURE_SIZE
-                    + TRANSITION_CONTEXT_FEATURE_SIZE
-                    + latent_feature_dim
-                    + 4,
-                    hidden_dim,
-                ),
-                nn.ReLU(),
-                nn.Dropout(dropout) if dropout > 0.0 else nn.Identity(),
-            )
+            self.candidate_query_projection = None
+            if architecture == "set_v7":
+                self.candidate_projection = None
+                self.candidate_query_projection = nn.Sequential(
+                    nn.Linear(candidate_input_dim, hidden_dim),
+                    nn.ReLU(),
+                    nn.Dropout(dropout) if dropout > 0.0 else nn.Identity(),
+                )
+            else:
+                self.candidate_projection = nn.Sequential(
+                    nn.Linear(candidate_input_dim, hidden_dim),
+                    nn.ReLU(),
+                    nn.Dropout(dropout) if dropout > 0.0 else nn.Identity(),
+                )
             self.context_projection = nn.Sequential(
                 nn.Linear(hidden_dim, hidden_dim),
                 nn.ReLU(),
@@ -116,6 +125,16 @@ if torch is not None and nn is not None:
                 self.set_query = nn.Linear(hidden_dim, hidden_dim)
                 self.set_key = nn.Linear(hidden_dim, hidden_dim)
                 self.set_value = nn.Linear(hidden_dim, hidden_dim)
+            if architecture == "set_v7":
+                self.self_attention = None
+                self.self_attn_norm = None
+                self.cross_attention = nn.MultiheadAttention(
+                    hidden_dim, 4, dropout=dropout, batch_first=True,
+                )
+                self.cross_attn_norm = nn.LayerNorm(hidden_dim)
+                self.set_query = None
+                self.set_key = None
+                self.set_value = None
             if architecture == "recurrent_v1":
                 self.memory_slot_embeddings = nn.Parameter(torch.randn(memory_slots, hidden_dim) * 0.02)
                 self.memory_cell = nn.GRUCell(hidden_dim * 2, hidden_dim)
@@ -140,7 +159,7 @@ if torch is not None and nn is not None:
                 nn.ReLU(),
                 nn.Linear(hidden_dim // 2, 1),
             )
-            if architecture in {"set_v2", "set_v3", "set_v5", "set_v6", "recurrent_v1"}:
+            if architecture in {"set_v2", "set_v3", "set_v5", "set_v6", "set_v7", "recurrent_v1"}:
                 self.root_value_head = nn.Sequential(
                     nn.Linear(hidden_dim * 3, hidden_dim),
                     nn.ReLU(),
@@ -162,7 +181,7 @@ if torch is not None and nn is not None:
                         nn.ReLU(),
                         nn.Linear(hidden_dim // 2, 1),
                     )
-                    if architecture == "set_v6"
+                    if architecture in {"set_v6", "set_v7"}
                     else None
                 )
                 self.candidate_rank_head = (
@@ -174,7 +193,7 @@ if torch is not None and nn is not None:
                         nn.ReLU(),
                         nn.Linear(hidden_dim // 2, PLANNER_RANK_BUCKET_COUNT),
                     )
-                    if architecture == "set_v6" and enable_candidate_rank_head
+                    if architecture in {"set_v6", "set_v7"} and enable_candidate_rank_head
                     else None
                 )
             else:
@@ -212,18 +231,21 @@ if torch is not None and nn is not None:
                 ],
                 dim=2,
             )
-            candidate_token = self.candidate_projection(
-                torch.cat(
-                    [
-                        action_hidden,
-                        candidate_features,
-                        transition_features,
-                        latent_features,
-                        scalar_features,
-                    ],
-                    dim=2,
-                )
+            candidate_inputs = torch.cat(
+                [
+                    action_hidden,
+                    candidate_features,
+                    transition_features,
+                    latent_features,
+                    scalar_features,
+                ],
+                dim=2,
             )
+            if self.architecture == "set_v7":
+                assert self.candidate_query_projection is not None
+                candidate_token = self.candidate_query_projection(candidate_inputs)
+            else:
+                candidate_token = self.candidate_projection(candidate_inputs)
             if self.architecture == "set_v5":
                 key_padding_mask = ~candidate_mask
                 residual = candidate_token
@@ -240,6 +262,23 @@ if torch is not None and nn is not None:
                     candidate_token, state_seq, state_seq,
                 )
                 candidate_token = residual2 + cross_attended
+                mask = candidate_mask.unsqueeze(2).to(candidate_token.dtype)
+                candidate_count = mask.sum(dim=1).clamp_min(1.0)
+                attended = torch.sum(candidate_token * mask, dim=1) / candidate_count
+                summary = attended
+                context_hidden = state_hidden
+            elif self.architecture == "set_v7":
+                assert self.cross_attention is not None
+                assert self.cross_attn_norm is not None
+                residual = candidate_token
+                candidate_token = self.cross_attn_norm(candidate_token)
+                state_seq = state_hidden.unsqueeze(1)
+                cross_attended, _ = self.cross_attention(
+                    candidate_token,
+                    state_seq,
+                    state_seq,
+                )
+                candidate_token = residual + cross_attended
                 mask = candidate_mask.unsqueeze(2).to(candidate_token.dtype)
                 candidate_count = mask.sum(dim=1).clamp_min(1.0)
                 attended = torch.sum(candidate_token * mask, dim=1) / candidate_count
@@ -312,7 +351,7 @@ if torch is not None and nn is not None:
                 repeated_summary,
                 candidate_token * repeated_context,
             ]
-            if self.architecture in {"set_v2", "set_v3", "set_v5", "set_v6", "recurrent_v1"}:
+            if self.architecture in {"set_v2", "set_v3", "set_v5", "set_v6", "set_v7", "recurrent_v1"}:
                 candidate_hidden_parts.append(candidate_token * repeated_attended)
             candidate_hidden = torch.cat(candidate_hidden_parts, dim=2)
             logits = self.candidate_mlp(candidate_hidden).squeeze(-1)

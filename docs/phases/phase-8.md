@@ -428,3 +428,10 @@ The next data-prep-only follow-up is now also versioned:
 - it drops rows with NaN or extreme root values, ambiguous bounded candidate scores, or trivial one-candidate slices
 - [phase8_planner_corpus_suite_set_v2_10k_122k_400k_filtered_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v2_10k_122k_400k_filtered_v1.json) is the prepared rerun template for `10k + 122k + filtered 400k`
 - this step deliberately stops at artifact preparation; no new planner training result is attached to it yet
+
+The next model-only planner arm is also prepared now:
+
+- `set_v7` in [planner.py](/home/torsten/EngineKonzept/python/train/models/planner.py)
+- it keeps the bounded candidate/output contract from `set_v6`
+- but replaces the first candidate mixing step with candidate-to-state cross-attention
+- this step is intentionally architecture-only so far; no training result is attached to it yet
