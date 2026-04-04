@@ -133,6 +133,8 @@ Planner training configs now optionally support a `curriculum` section. When omi
   400k-ready margin-aux expanded rerun config over the same full-target workflow root. On the materialized full expanded suite it is effectively tied for best `MRR` and is the strongest `top3` rerun.
 - [phase8_planner_corpus_suite_set_v6_rank_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v6_rank_expanded_v1.json)
   400k-ready rank-aux expanded rerun config over the same full-target workflow root. On the materialized full expanded suite it is the current best `MRR` rerun.
+- [phase8_planner_corpus_suite_set_v2_10k_122k_400k_filtered_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v2_10k_122k_400k_filtered_v1.json)
+  Data-prep-only follow-up template for the improvement-plan filter pass. Keeps the current `10k` and `122k` planner-head artifacts unchanged, but points the `400k` tier at a separately filtered workflow root produced by [filter_400k_by_teacher_quality.py](/home/torsten/EngineKonzept/python/scripts/filter_400k_by_teacher_quality.py).
 - [phase8_planner_corpus_suite_set_v6_rank_replay_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v6_rank_replay_expanded_v1.json)
   First replay-driven planner fine-tune. Warm-starts from the full expanded `set_v6_rank` checkpoint, mixes in the replay-derived planner-head artifact from Phase 9, and keeps the same expanded held-out validation contract.
 - [phase8_planner_corpus_suite_set_v6_replay_expanded_v2.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v6_replay_expanded_v2.json)

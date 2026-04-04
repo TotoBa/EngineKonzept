@@ -421,3 +421,10 @@ The Phase-8 training interface now also supports an optional curriculum-aware sa
 - the sampling strategies live in [curriculum.py](/home/torsten/EngineKonzept/python/train/datasets/curriculum.py)
 - supported strategies are `uniform`, `linear_ramp`, and `sqrt_ramp`
 - existing configs remain unchanged when the optional `curriculum` block is omitted
+
+The next data-prep-only follow-up is now also versioned:
+
+- [filter_400k_by_teacher_quality.py](/home/torsten/EngineKonzept/python/scripts/filter_400k_by_teacher_quality.py) filters `400k` planner-head artifacts by teacher-signal quality without changing the schema
+- it drops rows with NaN or extreme root values, ambiguous bounded candidate scores, or trivial one-candidate slices
+- [phase8_planner_corpus_suite_set_v2_10k_122k_400k_filtered_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v2_10k_122k_400k_filtered_v1.json) is the prepared rerun template for `10k + 122k + filtered 400k`
+- this step deliberately stops at artifact preparation; no new planner training result is attached to it yet

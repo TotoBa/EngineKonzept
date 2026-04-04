@@ -132,6 +132,7 @@ __all__ = [
     "DynamicsTrainingExample",
     "OpponentHeadExample",
     "PlannerHeadExample",
+    "PlannerHeadFilterSummary",
     "PlannerReplayExample",
     "ReplayBufferEntry",
     "POSITION_FEATURE_SIZE",
@@ -163,6 +164,7 @@ __all__ = [
     "materialize_planner_latent_features",
     "build_search_curriculum_examples",
     "compute_curriculum_weights",
+    "filter_planner_head_examples",
     "build_search_disagreement_examples",
     "build_search_teacher_example_from_analysis",
     "build_search_teacher_examples",
@@ -202,6 +204,7 @@ __all__ = [
     "module_purpose",
     "opponent_head_artifact_name",
     "planner_head_artifact_name",
+    "planner_head_score_span_cp",
     "planner_replay_artifact_name",
     "planner_replay_summary",
     "replay_buffer_summary",
@@ -251,12 +254,24 @@ _PLANNER_HEAD_NAMES = {
     "write_planner_head_artifact",
 }
 
+_PLANNER_QUALITY_NAMES = {
+    "PlannerHeadFilterSummary",
+    "filter_planner_head_examples",
+    "planner_head_score_span_cp",
+}
+
 
 def __getattr__(name: str):  # type: ignore[misc]
     if name in _PLANNER_HEAD_NAMES:
         from train.datasets import planner_head as _ph
 
         value = getattr(_ph, name)
+        globals()[name] = value
+        return value
+    if name in _PLANNER_QUALITY_NAMES:
+        from train.datasets import planner_quality as _pq
+
+        value = getattr(_pq, name)
         globals()[name] = value
         return value
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
