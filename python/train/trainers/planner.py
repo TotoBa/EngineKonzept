@@ -55,6 +55,15 @@ class PlannerMetrics:
     load_balance_loss: float = 0.0
     router_entropy: float = 0.0
     expert_activation_frequencies: tuple[float, ...] = ()
+    complexity_loss: float = 0.0
+    complexity_examples: int = 0
+    routed_easy_fraction: float = 0.0
+    routed_medium_fraction: float = 0.0
+    routed_hard_fraction: float = 0.0
+    easy_average_expert_count: float = 0.0
+    medium_average_expert_count: float = 0.0
+    hard_average_expert_count: float = 0.0
+    compute_savings_estimate: float = 0.0
     examples_per_second: float = 0.0
 
     def to_dict(self) -> dict[str, object]:
@@ -92,6 +101,15 @@ class PlannerMetrics:
             "expert_activation_frequencies": [
                 round(value, 6) for value in self.expert_activation_frequencies
             ],
+            "complexity_loss": round(self.complexity_loss, 6),
+            "complexity_examples": self.complexity_examples,
+            "routed_easy_fraction": round(self.routed_easy_fraction, 6),
+            "routed_medium_fraction": round(self.routed_medium_fraction, 6),
+            "routed_hard_fraction": round(self.routed_hard_fraction, 6),
+            "easy_average_expert_count": round(self.easy_average_expert_count, 6),
+            "medium_average_expert_count": round(self.medium_average_expert_count, 6),
+            "hard_average_expert_count": round(self.hard_average_expert_count, 6),
+            "compute_savings_estimate": round(self.compute_savings_estimate, 6),
             "examples_per_second": round(self.examples_per_second, 3),
         }
 
@@ -226,6 +244,9 @@ def train_planner(config: PlannerTrainConfig, *, repo_root: Path) -> PlannerTrai
             teacher_rank_weight=config.optimization.teacher_rank_loss_weight,
             curriculum_priority_weight=config.optimization.curriculum_priority_weight,
             load_balance_weight=(0.0 if config.moe is None else config.moe.load_balance_weight),
+            complexity_loss_weight=(
+                0.0 if config.moe is None else config.moe.complexity_loss_weight
+            ),
             root_value_weight=config.optimization.root_value_loss_weight,
             root_gap_weight=config.optimization.root_gap_loss_weight,
             top_k=config.evaluation.top_k,
@@ -242,6 +263,9 @@ def train_planner(config: PlannerTrainConfig, *, repo_root: Path) -> PlannerTrai
             teacher_rank_weight=config.optimization.teacher_rank_loss_weight,
             curriculum_priority_weight=config.optimization.curriculum_priority_weight,
             load_balance_weight=(0.0 if config.moe is None else config.moe.load_balance_weight),
+            complexity_loss_weight=(
+                0.0 if config.moe is None else config.moe.complexity_loss_weight
+            ),
             root_value_weight=config.optimization.root_value_loss_weight,
             root_gap_weight=config.optimization.root_gap_loss_weight,
             top_k=config.evaluation.top_k,
@@ -352,6 +376,9 @@ def evaluate_planner_checkpoint(
         teacher_rank_weight=config.optimization.teacher_rank_loss_weight,
         curriculum_priority_weight=config.optimization.curriculum_priority_weight,
         load_balance_weight=(0.0 if config.moe is None else config.moe.load_balance_weight),
+        complexity_loss_weight=(
+            0.0 if config.moe is None else config.moe.complexity_loss_weight
+        ),
         root_value_weight=config.optimization.root_value_loss_weight,
         root_gap_weight=config.optimization.root_gap_loss_weight,
         top_k=top_k,
@@ -430,6 +457,7 @@ def _run_epoch(
     teacher_rank_weight: float,
     curriculum_priority_weight: float,
     load_balance_weight: float,
+    complexity_loss_weight: float,
     root_value_weight: float,
     root_gap_weight: float,
     top_k: int,
@@ -462,6 +490,15 @@ def _run_epoch(
     load_balance_loss_total = 0.0
     router_entropy_total = 0.0
     expert_activation_totals: Any | None = None
+    complexity_loss_total = 0.0
+    complexity_examples = 0
+    routed_easy_fraction_total = 0.0
+    routed_medium_fraction_total = 0.0
+    routed_hard_fraction_total = 0.0
+    easy_average_expert_count_total = 0.0
+    medium_average_expert_count_total = 0.0
+    hard_average_expert_count_total = 0.0
+    compute_savings_estimate_total = 0.0
 
     for batch in loader:
         outputs = model(
@@ -567,6 +604,21 @@ def _run_epoch(
             load_balance_loss = outputs["load_balance_loss"]
         else:
             load_balance_loss = torch.tensor(0.0, dtype=ce_loss.dtype, device=ce_loss.device)
+        complexity_loss = torch.tensor(0.0, dtype=ce_loss.dtype, device=ce_loss.device)
+        if outputs.get("complexity_score") is not None and complexity_loss_weight > 0.0:
+            root_gap_cp = batch["teacher_root_gap_targets"] * PLANNER_ROOT_GAP_SCALE_CP
+            easy_complexity_mask = batch["teacher_root_gap_mask"] & (root_gap_cp >= 100.0)
+            hard_complexity_mask = batch["teacher_root_gap_mask"] & (root_gap_cp <= 20.0)
+            complexity_target_mask = easy_complexity_mask | hard_complexity_mask
+            if bool(complexity_target_mask.any()):
+                complexity_targets = hard_complexity_mask.to(outputs["complexity_score"].dtype)
+                raw_complexity_loss = torch.nn.functional.binary_cross_entropy(
+                    outputs["complexity_score"][complexity_target_mask],
+                    complexity_targets[complexity_target_mask],
+                    reduction="mean",
+                )
+                complexity_loss = raw_complexity_loss
+                complexity_examples += int(complexity_target_mask.sum().item())
         example_weights = 1.0 + (
             curriculum_priority_weight * batch["curriculum_priorities"]
         )
@@ -579,7 +631,11 @@ def _run_epoch(
             + root_value_weight * root_value_loss
             + root_gap_weight * root_gap_loss
         ) * example_weights
-        mean_loss = loss.mean() + (load_balance_weight * load_balance_loss)
+        mean_loss = (
+            loss.mean()
+            + (load_balance_weight * load_balance_loss)
+            + (complexity_loss_weight * complexity_loss)
+        )
 
         if training:
             assert optimizer is not None
@@ -594,7 +650,7 @@ def _run_epoch(
         total_examples += batch_examples
         total_loss += float(loss.sum().item()) + (
             load_balance_weight * float(load_balance_loss.item()) * batch_examples
-        )
+        ) + (complexity_loss_weight * float(complexity_loss.item()) * batch_examples)
         teacher_policy_loss_total += float((ce_loss * example_weights).sum().item())
         teacher_kl_loss_total += float((kl_loss * example_weights).sum().item())
         teacher_score_loss_total += float((score_loss * example_weights).sum().item())
@@ -603,6 +659,7 @@ def _run_epoch(
         root_value_loss_total += float((root_value_loss * example_weights).sum().item())
         root_gap_loss_total += float((root_gap_loss * example_weights).sum().item())
         load_balance_loss_total += float(load_balance_loss.item()) * batch_examples
+        complexity_loss_total += float(complexity_loss.item()) * batch_examples
         if outputs.get("router_entropy") is not None:
             router_entropy_total += float(outputs["router_entropy"].item()) * batch_examples
         if outputs.get("expert_activation_counts") is not None:
@@ -610,6 +667,28 @@ def _run_epoch(
                 expert_activation_totals = outputs["expert_activation_counts"].detach().clone()
             else:
                 expert_activation_totals = expert_activation_totals + outputs["expert_activation_counts"].detach()
+        if outputs.get("routed_easy_fraction") is not None:
+            routed_easy_fraction_total += float(outputs["routed_easy_fraction"].item()) * batch_examples
+        if outputs.get("routed_medium_fraction") is not None:
+            routed_medium_fraction_total += float(outputs["routed_medium_fraction"].item()) * batch_examples
+        if outputs.get("routed_hard_fraction") is not None:
+            routed_hard_fraction_total += float(outputs["routed_hard_fraction"].item()) * batch_examples
+        if outputs.get("easy_average_expert_count") is not None:
+            easy_average_expert_count_total += (
+                float(outputs["easy_average_expert_count"].item()) * batch_examples
+            )
+        if outputs.get("medium_average_expert_count") is not None:
+            medium_average_expert_count_total += (
+                float(outputs["medium_average_expert_count"].item()) * batch_examples
+            )
+        if outputs.get("hard_average_expert_count") is not None:
+            hard_average_expert_count_total += (
+                float(outputs["hard_average_expert_count"].item()) * batch_examples
+            )
+        if outputs.get("compute_savings_estimate") is not None:
+            compute_savings_estimate_total += (
+                float(outputs["compute_savings_estimate"].item()) * batch_examples
+            )
         if outputs["candidate_score_prediction"] is not None and raw_score_loss is not None:
             score_mask = batch["teacher_candidate_score_mask"].to(
                 outputs["candidate_score_prediction"].dtype
@@ -710,6 +789,18 @@ def _run_epoch(
         load_balance_loss=_ratio(load_balance_loss_total, total_examples),
         router_entropy=_ratio(router_entropy_total, total_examples),
         expert_activation_frequencies=expert_activation_frequencies,
+        complexity_loss=_ratio(complexity_loss_total, complexity_examples),
+        complexity_examples=complexity_examples,
+        routed_easy_fraction=_ratio(routed_easy_fraction_total, total_examples),
+        routed_medium_fraction=_ratio(routed_medium_fraction_total, total_examples),
+        routed_hard_fraction=_ratio(routed_hard_fraction_total, total_examples),
+        easy_average_expert_count=_ratio(easy_average_expert_count_total, total_examples),
+        medium_average_expert_count=_ratio(
+            medium_average_expert_count_total,
+            total_examples,
+        ),
+        hard_average_expert_count=_ratio(hard_average_expert_count_total, total_examples),
+        compute_savings_estimate=_ratio(compute_savings_estimate_total, total_examples),
         examples_per_second=_ratio(total_examples, elapsed),
     )
 
@@ -727,6 +818,10 @@ def _build_planner_model(config: PlannerTrainConfig) -> Any:
             num_experts=config.moe.num_experts,
             top_k=config.moe.top_k,
             expert_hidden_dim=config.moe.expert_hidden_dim,
+            deliberation_steps=config.model.deliberation_steps,
+            enable_complexity_head=config.moe.enable_complexity_head,
+            easy_threshold=config.moe.easy_threshold,
+            hard_threshold=config.moe.hard_threshold,
             enable_candidate_rank_head=enable_candidate_rank_head,
         )
     return PlannerHeadModel(

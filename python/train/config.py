@@ -647,6 +647,10 @@ class MoEConfig:
     top_k: int = 2
     load_balance_weight: float = 0.01
     expert_hidden_dim: int = 128
+    enable_complexity_head: bool = False
+    easy_threshold: float = 0.3
+    hard_threshold: float = 0.7
+    complexity_loss_weight: float = 0.05
 
     def __post_init__(self) -> None:
         if self.num_experts <= 0:
@@ -659,6 +663,14 @@ class MoEConfig:
             raise ValueError("moe.load_balance_weight must be non-negative")
         if self.expert_hidden_dim <= 0:
             raise ValueError("moe.expert_hidden_dim must be positive")
+        if not 0.0 <= self.easy_threshold <= 1.0:
+            raise ValueError("moe.easy_threshold must be in [0.0, 1.0]")
+        if not 0.0 <= self.hard_threshold <= 1.0:
+            raise ValueError("moe.hard_threshold must be in [0.0, 1.0]")
+        if self.easy_threshold >= self.hard_threshold:
+            raise ValueError("moe.easy_threshold must be smaller than moe.hard_threshold")
+        if self.complexity_loss_weight < 0.0:
+            raise ValueError("moe.complexity_loss_weight must be non-negative")
 
 
 @dataclass(frozen=True)

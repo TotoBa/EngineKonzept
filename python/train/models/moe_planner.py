@@ -92,12 +92,33 @@ if torch is not None and nn is not None:
                 nn.Linear(hidden_dim, num_experts),
             )
 
-        def forward(self, state_embedding: Any) -> dict[str, Any]:
+        def forward(
+            self,
+            state_embedding: Any,
+            *,
+            selected_expert_counts: Any | None = None,
+        ) -> dict[str, Any]:
             logits = self.router(state_embedding)
             router_weights = torch.softmax(logits, dim=1)
             topk_values, topk_indices = torch.topk(router_weights, self.top_k, dim=1)
+            if selected_expert_counts is None:
+                selected_expert_counts = torch.full(
+                    (state_embedding.shape[0],),
+                    self.top_k,
+                    dtype=torch.long,
+                    device=state_embedding.device,
+                )
+            else:
+                selected_expert_counts = selected_expert_counts.to(
+                    device=state_embedding.device,
+                    dtype=torch.long,
+                ).clamp_(1, self.top_k)
+            keep_mask = (
+                torch.arange(self.top_k, device=state_embedding.device).unsqueeze(0)
+                < selected_expert_counts.unsqueeze(1)
+            )
             sparse_router_weights = torch.zeros_like(router_weights)
-            sparse_router_weights.scatter_(1, topk_indices, topk_values)
+            sparse_router_weights.scatter_(1, topk_indices, topk_values * keep_mask.to(topk_values.dtype))
             sparse_router_weights = sparse_router_weights / sparse_router_weights.sum(
                 dim=1,
                 keepdim=True,
@@ -144,6 +165,22 @@ if torch is not None and nn is not None:
             return self.network(candidate_hidden).squeeze(-1)
 
 
+    class ComplexityHead(nn.Module):
+        """Estimate whether a position needs the cheap, medium, or full expert path."""
+
+        def __init__(self, *, hidden_dim: int) -> None:
+            super().__init__()
+            bottleneck_dim = max(1, hidden_dim // 4)
+            self.network = nn.Sequential(
+                nn.Linear(hidden_dim, bottleneck_dim),
+                nn.ReLU(),
+                nn.Linear(bottleneck_dim, 1),
+            )
+
+        def forward(self, state_embedding: Any) -> Any:
+            return torch.sigmoid(self.network(state_embedding)).squeeze(-1)
+
+
     class MoEPlannerHeadModel(nn.Module):
         """Experimental MoE bounded planner with Top-2 routed candidate experts."""
 
@@ -154,14 +191,26 @@ if torch is not None and nn is not None:
             hidden_layers: int,
             action_embedding_dim: int,
             latent_feature_dim: int,
+            deliberation_steps: int = 1,
             dropout: float,
             num_experts: int = 4,
             top_k: int = 2,
             expert_hidden_dim: int = 128,
+            enable_complexity_head: bool = False,
+            easy_threshold: float = 0.3,
+            hard_threshold: float = 0.7,
             enable_candidate_rank_head: bool = False,
         ) -> None:
             super().__init__()
+            if deliberation_steps <= 0:
+                raise ValueError("deliberation_steps must be positive")
+            if easy_threshold >= hard_threshold:
+                raise ValueError("easy_threshold must be smaller than hard_threshold")
             self.num_experts = num_experts
+            self.deliberation_steps = deliberation_steps
+            self.enable_complexity_head = enable_complexity_head
+            self.easy_threshold = easy_threshold
+            self.hard_threshold = hard_threshold
             self.state_backbone = _build_mlp(
                 input_dim=POSITION_FEATURE_SIZE + SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE,
                 hidden_dim=hidden_dim,
@@ -198,6 +247,16 @@ if torch is not None and nn is not None:
             )
             candidate_factor_count = 6
             candidate_hidden_dim = hidden_dim * candidate_factor_count
+            self.deliberation_block = (
+                nn.Sequential(
+                    nn.Linear(candidate_hidden_dim, candidate_hidden_dim),
+                    nn.ReLU(),
+                    nn.Dropout(dropout) if dropout > 0.0 else nn.Identity(),
+                    nn.Linear(candidate_hidden_dim, candidate_hidden_dim),
+                )
+                if enable_complexity_head
+                else None
+            )
             self.experts = nn.ModuleList(
                 CandidateExpert(
                     input_dim=candidate_hidden_dim,
@@ -237,6 +296,9 @@ if torch is not None and nn is not None:
                 )
                 if enable_candidate_rank_head
                 else None
+            )
+            self.complexity_head = (
+                ComplexityHead(hidden_dim=hidden_dim) if enable_complexity_head else None
             )
 
         def forward(
@@ -305,8 +367,101 @@ if torch is not None and nn is not None:
                 ],
                 dim=2,
             )
+            complexity_score = None
+            tier_indices = None
+            selected_expert_counts = torch.full(
+                (state_hidden.shape[0],),
+                self.router.top_k,
+                dtype=torch.long,
+                device=state_hidden.device,
+            )
+            easy_fraction = None
+            medium_fraction = None
+            hard_fraction = None
+            easy_average_expert_count = None
+            medium_average_expert_count = None
+            hard_average_expert_count = None
+            compute_savings_estimate = None
+            if self.complexity_head is not None:
+                complexity_score = self.complexity_head(state_hidden)
+                easy_mask = complexity_score < self.easy_threshold
+                hard_mask = complexity_score > self.hard_threshold
+                medium_mask = ~(easy_mask | hard_mask)
+                medium_expert_count = min(self.router.top_k, 2)
+                selected_expert_counts = torch.where(
+                    easy_mask,
+                    torch.ones_like(selected_expert_counts),
+                    selected_expert_counts,
+                )
+                selected_expert_counts = torch.where(
+                    medium_mask,
+                    torch.full_like(selected_expert_counts, medium_expert_count),
+                    selected_expert_counts,
+                )
+                deliberation_steps_used = torch.where(
+                    easy_mask,
+                    torch.ones_like(selected_expert_counts),
+                    selected_expert_counts,
+                )
+                medium_deliberation_steps = (
+                    1 if self.deliberation_steps <= 1 else max(1, self.deliberation_steps - 1)
+                )
+                deliberation_steps_used = torch.where(
+                    medium_mask,
+                    torch.full_like(selected_expert_counts, medium_deliberation_steps),
+                    deliberation_steps_used,
+                )
+                deliberation_steps_used = torch.where(
+                    hard_mask,
+                    torch.full_like(selected_expert_counts, self.deliberation_steps),
+                    deliberation_steps_used,
+                )
+                if self.deliberation_block is not None:
+                    for step_index in range(self.deliberation_steps):
+                        active_mask = (
+                            deliberation_steps_used > step_index
+                        ).to(candidate_hidden.dtype).view(-1, 1, 1)
+                        candidate_hidden = candidate_hidden + (
+                            active_mask * self.deliberation_block(candidate_hidden)
+                        )
+                tier_indices = torch.where(
+                    easy_mask,
+                    torch.zeros_like(selected_expert_counts),
+                    torch.where(
+                        medium_mask,
+                        torch.ones_like(selected_expert_counts),
+                        torch.full_like(selected_expert_counts, 2),
+                    ),
+                )
+                selected_expert_counts_float = selected_expert_counts.to(torch.float32)
+                easy_fraction = easy_mask.to(torch.float32).mean()
+                medium_fraction = medium_mask.to(torch.float32).mean()
+                hard_fraction = hard_mask.to(torch.float32).mean()
+                easy_average_expert_count = (
+                    selected_expert_counts_float[easy_mask].mean()
+                    if bool(easy_mask.any())
+                    else torch.tensor(0.0, dtype=torch.float32, device=state_hidden.device)
+                )
+                medium_average_expert_count = (
+                    selected_expert_counts_float[medium_mask].mean()
+                    if bool(medium_mask.any())
+                    else torch.tensor(0.0, dtype=torch.float32, device=state_hidden.device)
+                )
+                hard_average_expert_count = (
+                    selected_expert_counts_float[hard_mask].mean()
+                    if bool(hard_mask.any())
+                    else torch.tensor(0.0, dtype=torch.float32, device=state_hidden.device)
+                )
+                saved_expert_calls = torch.clamp(
+                    self.router.top_k - selected_expert_counts_float,
+                    min=0.0,
+                )
+                compute_savings_estimate = saved_expert_calls.mean()
 
-            router_outputs = self.router(state_hidden)
+            router_outputs = self.router(
+                state_hidden,
+                selected_expert_counts=selected_expert_counts,
+            )
             expert_logits = torch.stack(
                 [expert(candidate_hidden) for expert in self.experts],
                 dim=1,
@@ -341,6 +496,16 @@ if torch is not None and nn is not None:
                 "expert_activation_frequencies": router_outputs["expert_activation_frequencies"],
                 "router_weights": router_outputs["router_weights"],
                 "sparse_router_weights": router_outputs["sparse_router_weights"],
+                "complexity_score": complexity_score,
+                "complexity_tier_indices": tier_indices,
+                "selected_expert_counts": selected_expert_counts,
+                "routed_easy_fraction": easy_fraction,
+                "routed_medium_fraction": medium_fraction,
+                "routed_hard_fraction": hard_fraction,
+                "easy_average_expert_count": easy_average_expert_count,
+                "medium_average_expert_count": medium_average_expert_count,
+                "hard_average_expert_count": hard_average_expert_count,
+                "compute_savings_estimate": compute_savings_estimate,
             }
 
 

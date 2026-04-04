@@ -451,3 +451,12 @@ The next experimental planner arm is now also prepared from the Router-DAG direc
 - [planner.py](/home/torsten/EngineKonzept/python/train/trainers/planner.py) now logs `load_balance_loss`, `router_entropy`, and per-expert activation frequencies when the MoE arm is active
 - [phase9_planner_moe_v1_template.json](/home/torsten/EngineKonzept/python/configs/phase9_planner_moe_v1_template.json) is the prepared first-eval template for that arm
 - this step is intentionally model-and-trainer-only so far; no MoE training result is attached to it yet
+
+That experimental arm now also carries the first Aufwand-nach-Bedarf extension from [arch.ideas.md](/home/torsten/EngineKonzept/docs/arch.ideas.md):
+
+- `ComplexityHead` in [moe_planner.py](/home/torsten/EngineKonzept/python/train/models/moe_planner.py) predicts a score in `[0, 1]` from the state embedding
+- easy positions route to a single expert, medium positions to two experts, and hard positions to the full configured Top-k mixture
+- the same path can now reduce the number of candidate-refinement passes for easy and medium positions
+- [planner.py](/home/torsten/EngineKonzept/python/train/trainers/planner.py) logs `complexity_loss`, routed easy/medium/hard fractions, per-tier average expert counts, and a simple compute-savings estimate
+- when the complexity head is disabled, `moe_v1` remains identical to the earlier fixed-budget Top-2 router path
+- this is still intentionally untrained so far; the repo now has the contract, config, and metrics for the first real MoE evaluation pass

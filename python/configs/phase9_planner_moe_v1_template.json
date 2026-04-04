@@ -9,7 +9,11 @@
     "num_experts": 4,
     "top_k": 2,
     "load_balance_weight": 0.01,
-    "expert_hidden_dim": 128
+    "expert_hidden_dim": 128,
+    "enable_complexity_head": true,
+    "easy_threshold": 0.3,
+    "hard_threshold": 0.7,
+    "complexity_loss_weight": 0.05
   },
   "model": {
     "architecture": "moe_v1",
