@@ -573,6 +573,28 @@ class PlannerDataConfig:
 
 
 @dataclass(frozen=True)
+class PlannerCurriculumConfig:
+    """Optional curriculum-aware sampling settings for planner-head training."""
+
+    strategy: str = "uniform"
+    value_spread_weight: float = 1.0
+    candidate_count_weight: float = 1.0
+    agreement_weight: float = 1.0
+
+    def __post_init__(self) -> None:
+        if self.strategy not in {"uniform", "linear_ramp", "sqrt_ramp"}:
+            raise ValueError(
+                "curriculum.strategy must be 'uniform', 'linear_ramp', or 'sqrt_ramp'"
+            )
+        if self.value_spread_weight < 0.0:
+            raise ValueError("curriculum.value_spread_weight must be non-negative")
+        if self.candidate_count_weight < 0.0:
+            raise ValueError("curriculum.candidate_count_weight must be non-negative")
+        if self.agreement_weight < 0.0:
+            raise ValueError("curriculum.agreement_weight must be non-negative")
+
+
+@dataclass(frozen=True)
 class PlannerModelConfig:
     """Model hyperparameters for the first trainable bounded planner arm."""
 
@@ -706,6 +728,7 @@ class PlannerTrainConfig:
     output_dir: str
     initial_checkpoint: str | None
     data: PlannerDataConfig
+    curriculum: PlannerCurriculumConfig | None
     model: PlannerModelConfig
     optimization: PlannerOptimizationConfig
     evaluation: PlannerEvaluationConfig
@@ -744,6 +767,11 @@ class PlannerTrainConfig:
                     str(path)
                     for path in data_payload.get("additional_validation_paths", [])
                 ),
+            ),
+            curriculum=(
+                PlannerCurriculumConfig(**dict(payload["curriculum"]))
+                if isinstance(payload.get("curriculum"), dict)
+                else None
             ),
             model=PlannerModelConfig(**_mapping(payload, "model")),
             optimization=PlannerOptimizationConfig(**_mapping(payload, "optimization")),

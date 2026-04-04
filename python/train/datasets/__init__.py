@@ -70,6 +70,7 @@ from train.datasets.search_curriculum import (
     search_curriculum_artifact_name,
     write_search_curriculum_artifact,
 )
+from train.datasets.curriculum import CurriculumSampler
 from train.datasets.opponent_head import (
     OpponentHeadExample,
     build_opponent_head_examples,
@@ -161,6 +162,7 @@ __all__ = [
     "materialize_planner_teacher_targets",
     "materialize_planner_latent_features",
     "build_search_curriculum_examples",
+    "compute_curriculum_weights",
     "build_search_disagreement_examples",
     "build_search_teacher_example_from_analysis",
     "build_search_teacher_examples",
@@ -208,6 +210,7 @@ __all__ = [
     "project_candidate_context_to_v1",
     "proposer_artifact_name",
     "sample_policy_records_from_pgns",
+    "CurriculumSampler",
     "search_curriculum_artifact_name",
     "search_disagreements_artifact_name",
     "search_teacher_artifact_name",
@@ -240,6 +243,7 @@ _PLANNER_HEAD_NAMES = {
     "build_planner_head_examples",
     "build_planner_head_examples_from_replay",
     "build_planner_head_examples_from_selfplay_teacher_reviews",
+    "compute_curriculum_weights",
     "load_planner_head_examples",
     "materialize_planner_latent_features",
     "materialize_planner_teacher_targets",

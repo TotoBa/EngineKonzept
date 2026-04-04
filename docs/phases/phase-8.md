@@ -414,3 +414,10 @@ So the important new conclusion is:
 
 - replay-only warm-starting on the larger `Phase 9` arena now improves both mirrored arms over their non-replay expanded baselines
 - `set_v6_margin_replay_expanded_v2` is the current strongest replay-driven full-expanded arm
+
+The Phase-8 training interface now also supports an optional curriculum-aware sampler for planner-head training:
+
+- the canonical per-example weighting logic lives in [planner_head.py](/home/torsten/EngineKonzept/python/train/datasets/planner_head.py)
+- the sampling strategies live in [curriculum.py](/home/torsten/EngineKonzept/python/train/datasets/curriculum.py)
+- supported strategies are `uniform`, `linear_ramp`, and `sqrt_ramp`
+- existing configs remain unchanged when the optional `curriculum` block is omitted

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+import math
 import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Sequence
@@ -49,6 +50,10 @@ PLANNER_RANK_BUCKET_LABELS = (
     "teacher_top2_top3",
     "teacher_tail",
 )
+PLANNER_CURRICULUM_STRATEGIES = ("uniform", "linear_ramp", "sqrt_ramp")
+_PLANNER_CURRICULUM_VALUE_SPREAD_CAP_CP = 512.0
+_PLANNER_CURRICULUM_AGREEMENT_GAP_CAP_CP = 128.0
+_PLANNER_CURRICULUM_WEIGHT_FLOOR = 1e-3
 
 
 @dataclass(frozen=True)
@@ -241,11 +246,135 @@ class PlannerHeadExample:
         return cls.from_dict(payload)
 
 
+def compute_curriculum_weights(
+    examples: Sequence[PlannerHeadExample],
+    strategy: str = "linear_ramp",
+    *,
+    epoch: int = 0,
+    total_epochs: int = 1,
+    value_spread_weight: float = 1.0,
+    candidate_count_weight: float = 1.0,
+    agreement_weight: float = 1.0,
+) -> list[float]:
+    """Return normalized per-example curriculum weights for planner training."""
+    if strategy not in PLANNER_CURRICULUM_STRATEGIES:
+        raise ValueError(
+            f"unsupported curriculum strategy: {strategy!r}; expected one of "
+            f"{list(PLANNER_CURRICULUM_STRATEGIES)!r}"
+        )
+    if total_epochs <= 0:
+        raise ValueError("total_epochs must be positive")
+    if epoch < 0:
+        raise ValueError("epoch must be non-negative")
+    for name, value in (
+        ("value_spread_weight", value_spread_weight),
+        ("candidate_count_weight", candidate_count_weight),
+        ("agreement_weight", agreement_weight),
+    ):
+        if value < 0.0:
+            raise ValueError(f"{name} must be non-negative")
+
+    if not examples:
+        return []
+    if strategy == "uniform":
+        return [1.0] * len(examples)
+
+    progress = _planner_curriculum_progress(epoch=epoch, total_epochs=total_epochs)
+    if strategy == "sqrt_ramp":
+        progress = math.sqrt(progress)
+
+    difficulties = _planner_curriculum_difficulties(
+        examples,
+        value_spread_weight=value_spread_weight,
+        candidate_count_weight=candidate_count_weight,
+        agreement_weight=agreement_weight,
+    )
+    raw_weights = [
+        max(
+            ((1.0 - progress) * (1.0 - difficulty)) + (progress * difficulty),
+            _PLANNER_CURRICULUM_WEIGHT_FLOOR,
+        )
+        for difficulty in difficulties
+    ]
+    mean_weight = sum(raw_weights) / len(raw_weights)
+    if mean_weight <= 0.0:
+        return [1.0] * len(raw_weights)
+    return [float(weight / mean_weight) for weight in raw_weights]
+
+
 def planner_head_artifact_name(split: str) -> str:
     """Return the canonical planner-head artifact filename for one split."""
     if split not in SUPPORTED_SPLITS:
         raise ValueError(f"unsupported split: {split}")
     return f"{PLANNER_HEAD_ARTIFACT_PREFIX}{split}.jsonl"
+
+
+def _planner_curriculum_difficulties(
+    examples: Sequence[PlannerHeadExample],
+    *,
+    value_spread_weight: float,
+    candidate_count_weight: float,
+    agreement_weight: float,
+) -> list[float]:
+    candidate_counts = [len(example.candidate_action_indices) for example in examples]
+    min_candidates = min(candidate_counts)
+    max_candidates = max(candidate_counts)
+    component_weight_sum = value_spread_weight + candidate_count_weight + agreement_weight
+    if component_weight_sum <= 0.0:
+        return [0.5] * len(examples)
+
+    difficulties: list[float] = []
+    for example in examples:
+        value_component = (
+            min(abs(float(example.teacher_root_value_cp)), _PLANNER_CURRICULUM_VALUE_SPREAD_CAP_CP)
+            / _PLANNER_CURRICULUM_VALUE_SPREAD_CAP_CP
+        )
+        if max_candidates > min_candidates:
+            candidate_component = (
+                (len(example.candidate_action_indices) - min_candidates)
+                / (max_candidates - min_candidates)
+            )
+        else:
+            candidate_component = 0.0
+        agreement_component = _planner_teacher_agreement_difficulty(example)
+        difficulty = (
+            (value_spread_weight * value_component)
+            + (candidate_count_weight * candidate_component)
+            + (agreement_weight * agreement_component)
+        ) / component_weight_sum
+        difficulties.append(float(min(max(difficulty, 0.0), 1.0)))
+    return difficulties
+
+
+def _planner_teacher_agreement_difficulty(example: PlannerHeadExample) -> float:
+    entropy_component = _planner_normalized_policy_entropy(example.teacher_policy)
+    if example.teacher_top1_minus_top2_cp is None:
+        return entropy_component
+    gap_strength = min(
+        max(float(example.teacher_top1_minus_top2_cp), 0.0),
+        _PLANNER_CURRICULUM_AGREEMENT_GAP_CAP_CP,
+    ) / _PLANNER_CURRICULUM_AGREEMENT_GAP_CAP_CP
+    gap_component = 1.0 - gap_strength
+    return float((gap_component + entropy_component) / 2.0)
+
+
+def _planner_normalized_policy_entropy(probabilities: Sequence[float]) -> float:
+    positive = [max(float(value), 0.0) for value in probabilities]
+    total = sum(positive)
+    if total <= 0.0 or len(positive) <= 1:
+        return 0.0
+    normalized = [value / total for value in positive if value > 0.0]
+    entropy = -sum(probability * math.log(probability) for probability in normalized)
+    max_entropy = math.log(len(positive))
+    if max_entropy <= 0.0:
+        return 0.0
+    return float(min(max(entropy / max_entropy, 0.0), 1.0))
+
+
+def _planner_curriculum_progress(*, epoch: int, total_epochs: int) -> float:
+    if total_epochs <= 1:
+        return 1.0
+    return float(min(max(epoch / (total_epochs - 1), 0.0), 1.0))
 
 
 def load_planner_head_examples(path: Path) -> list[PlannerHeadExample]:

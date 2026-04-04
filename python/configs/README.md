@@ -97,6 +97,12 @@ These remain useful as small-corpus regression baselines, but they are no longer
 
 ## Phase 8 Baseline
 
+Planner training configs now optionally support a `curriculum` section. When omitted, behavior stays identical to the previous uniform-shuffle baseline. The current supported strategies are:
+
+- `uniform`
+- `linear_ramp`
+- `sqrt_ramp`
+
 - [phase8_planner_corpus_suite_set_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v1.json)
   First materialized Phase-8 planner config. Trains the initial bounded planner head over the `10k`, `122k`, and `400k` planner-workflow tiers.
 - [phase8_planner_corpus_suite_set_v2_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_set_v2_v1.json)

@@ -12,6 +12,7 @@ from typing import Any
 from train.config import PlannerTrainConfig, resolve_repo_path
 from train.datasets.artifacts import SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE
 from train.datasets.contracts import candidate_context_feature_dim, transition_context_feature_dim
+from train.datasets.curriculum import CurriculumSampler
 from train.datasets.planner_head import PlannerHeadExample, load_planner_head_examples
 from train.models.planner import PlannerHeadModel, torch, PLANNER_MODEL_NAME
 from train.models.proposer import torch_is_available
@@ -170,14 +171,6 @@ def train_planner(config: PlannerTrainConfig, *, repo_root: Path) -> PlannerTrai
     )
     model_parameter_count = sum(parameter.numel() for parameter in model.parameters())
 
-    train_loader = _build_loader(
-        train_examples,
-        batch_size=config.optimization.batch_size,
-        shuffle=True,
-        seed=config.seed,
-        num_workers=config.runtime.dataloader_workers,
-        latent_feature_dim=config.model.latent_feature_dim,
-    )
     validation_loader = _build_loader(
         validation_examples,
         batch_size=config.optimization.batch_size,
@@ -185,7 +178,23 @@ def train_planner(config: PlannerTrainConfig, *, repo_root: Path) -> PlannerTrai
         seed=config.seed,
         num_workers=config.runtime.dataloader_workers,
         latent_feature_dim=config.model.latent_feature_dim,
+        curriculum=None,
+        epoch=0,
+        total_epochs=config.optimization.epochs,
     )
+    static_train_loader = None
+    if config.curriculum is None or config.curriculum.strategy == "uniform":
+        static_train_loader = _build_loader(
+            train_examples,
+            batch_size=config.optimization.batch_size,
+            shuffle=True,
+            seed=config.seed,
+            num_workers=config.runtime.dataloader_workers,
+            latent_feature_dim=config.model.latent_feature_dim,
+            curriculum=config.curriculum,
+            epoch=0,
+            total_epochs=config.optimization.epochs,
+        )
 
     history: list[dict[str, Any]] = []
     best_epoch = 1
@@ -193,6 +202,19 @@ def train_planner(config: PlannerTrainConfig, *, repo_root: Path) -> PlannerTrai
     best_state = {name: tensor.detach().clone() for name, tensor in model.state_dict().items()}
 
     for epoch in range(1, config.optimization.epochs + 1):
+        train_loader = static_train_loader
+        if train_loader is None:
+            train_loader = _build_loader(
+                train_examples,
+                batch_size=config.optimization.batch_size,
+                shuffle=True,
+                seed=config.seed,
+                num_workers=config.runtime.dataloader_workers,
+                latent_feature_dim=config.model.latent_feature_dim,
+                curriculum=config.curriculum,
+                epoch=epoch - 1,
+                total_epochs=config.optimization.epochs,
+            )
         train_metrics = _run_epoch(
             model,
             train_loader,
@@ -323,6 +345,9 @@ def evaluate_planner_checkpoint(
         seed=config.seed,
         num_workers=0,
         latent_feature_dim=config.model.latent_feature_dim,
+        curriculum=None,
+        epoch=0,
+        total_epochs=config.optimization.epochs,
     )
     return _run_epoch(
         model,
@@ -364,15 +389,33 @@ def _build_loader(
     seed: int,
     num_workers: int,
     latent_feature_dim: int,
+    curriculum: Any | None,
+    epoch: int,
+    total_epochs: int,
 ) -> Any:
     assert torch is not None
     dataset = _PlannerTensorDataset(examples)
+    sampler = None
+    shuffle_flag = shuffle
     generator = torch.Generator()
     generator.manual_seed(seed)
+    if shuffle and curriculum is not None and curriculum.strategy != "uniform":
+        sampler = CurriculumSampler(
+            examples,
+            strategy=curriculum.strategy,
+            seed=seed,
+            total_epochs=total_epochs,
+            value_spread_weight=curriculum.value_spread_weight,
+            candidate_count_weight=curriculum.candidate_count_weight,
+            agreement_weight=curriculum.agreement_weight,
+        )
+        sampler.set_epoch(epoch)
+        shuffle_flag = False
     return torch.utils.data.DataLoader(
         dataset,
         batch_size=batch_size,
-        shuffle=shuffle,
+        shuffle=shuffle_flag,
+        sampler=sampler,
         num_workers=num_workers,
         collate_fn=lambda batch: _collate_planner_batch(
             batch,
