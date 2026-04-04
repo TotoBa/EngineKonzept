@@ -115,6 +115,10 @@ This layer must not include handcrafted evaluation. It exports exact structure, 
 
 The piece-intention encoder is the first learned stage on top of `StateContextV1`.
 
+The repository now includes a model-only Python reference implementation in
+[intention_encoder.py](/home/torsten/EngineKonzept/python/train/models/intention_encoder.py)
+plus isolated unit tests. It is intentionally not wired into the planner yet.
+
 Its role is to turn exact piece, square, and reachability structure into per-piece intention vectors such as:
 
 - capture pressure

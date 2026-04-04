@@ -1,4 +1,4 @@
-"""Configuration schemas for proposer, dynamics, and opponent-head training."""
+"""Configuration schemas for learned EngineKonzept components."""
 
 from __future__ import annotations
 
@@ -11,6 +11,41 @@ from train.datasets.schema import SUPPORTED_SPLITS
 
 DEFAULT_PROPOSER_METADATA_NAME = "metadata.json"
 DEFAULT_DYNAMICS_METADATA_NAME = "metadata.json"
+
+
+@dataclass(frozen=True)
+class IntentionEncoderConfig:
+    """Standalone LAPv1 piece-intention encoder hyperparameters."""
+
+    hidden_dim: int = 128
+    intention_dim: int = 64
+    num_layers: int = 4
+    num_heads: int = 4
+    feedforward_dim: int = 4096
+    dropout: float = 0.0
+    max_edge_count: int = 128
+
+    def __post_init__(self) -> None:
+        if self.hidden_dim <= 0:
+            raise ValueError("intention_encoder.hidden_dim must be positive")
+        if self.intention_dim <= 0:
+            raise ValueError("intention_encoder.intention_dim must be positive")
+        if self.num_layers <= 0:
+            raise ValueError("intention_encoder.num_layers must be positive")
+        if self.num_heads <= 0:
+            raise ValueError("intention_encoder.num_heads must be positive")
+        if self.hidden_dim % self.num_heads != 0:
+            raise ValueError(
+                "intention_encoder.hidden_dim must be divisible by intention_encoder.num_heads"
+            )
+        if self.feedforward_dim <= self.hidden_dim:
+            raise ValueError(
+                "intention_encoder.feedforward_dim must be larger than intention_encoder.hidden_dim"
+            )
+        if not 0.0 <= self.dropout < 1.0:
+            raise ValueError("intention_encoder.dropout must be in [0.0, 1.0)")
+        if self.max_edge_count <= 0:
+            raise ValueError("intention_encoder.max_edge_count must be positive")
 
 
 @dataclass(frozen=True)
