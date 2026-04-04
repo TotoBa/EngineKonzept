@@ -426,6 +426,25 @@ Useful override examples:
 python/scripts/run_phase9_replay_campaign_longrun.sh --output-root /srv/schach/engine_training/phase9/replay_campaign_debug --games-per-matchup 1 --max-plies 16 --include-unfinished-replay --run planner_set_v6_margin_replay_campaign_v2
 ```
 
+There is now also a separate pre-selfplay Planner family sweep:
+
+- orchestration module:
+  [fulltrain_campaign.py](/home/torsten/EngineKonzept/python/train/eval/fulltrain_campaign.py)
+- runner:
+  [run_phase9_fulltrain_arena_campaign.py](/home/torsten/EngineKonzept/python/scripts/run_phase9_fulltrain_arena_campaign.py)
+- launcher:
+  [run_phase9_fulltrain_arena_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase9_fulltrain_arena_longrun.sh)
+- config:
+  [phase9_fulltrain_then_arena_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_fulltrain_then_arena_expanded_v1.json)
+
+This long run is the right entry point when the goal is broad planner-family comparison before another replay or teacher cycle:
+
+1. resolve the `10k + 122k + 400k` full-target workflow suite
+2. retrain the configured planner arms for `12` epochs each
+3. write resolved agent specs for those newly trained checkpoints
+4. run one seeded double round-robin arena over the trained family plus selected static references
+5. store the planner verify matrix, arena summary, arena matrix, and top-level campaign summary under one output root
+
 Phase 9 now also supports optional engine adjudication exactly at the `max_plies` boundary.
 That path is intended to reduce unresolved `max_plies` endings without turning runtime into a classical search engine:
 

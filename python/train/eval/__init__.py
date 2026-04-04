@@ -226,6 +226,31 @@ def __getattr__(name: str) -> Any:
             "write_selfplay_replay_campaign_spec": write_selfplay_replay_campaign_spec,
         }[name]
     if name in {
+        "PlannerFulltrainRunSpec",
+        "PlannerFulltrainArenaCampaignSpec",
+        "load_planner_fulltrain_arena_campaign_spec",
+        "materialize_fulltrain_planner_config",
+        "run_planner_fulltrain_arena_campaign",
+        "write_planner_fulltrain_arena_campaign_spec",
+    }:
+        from train.eval.fulltrain_campaign import (
+            PlannerFulltrainArenaCampaignSpec,
+            PlannerFulltrainRunSpec,
+            load_planner_fulltrain_arena_campaign_spec,
+            materialize_fulltrain_planner_config,
+            run_planner_fulltrain_arena_campaign,
+            write_planner_fulltrain_arena_campaign_spec,
+        )
+
+        return {
+            "PlannerFulltrainRunSpec": PlannerFulltrainRunSpec,
+            "PlannerFulltrainArenaCampaignSpec": PlannerFulltrainArenaCampaignSpec,
+            "load_planner_fulltrain_arena_campaign_spec": load_planner_fulltrain_arena_campaign_spec,
+            "materialize_fulltrain_planner_config": materialize_fulltrain_planner_config,
+            "run_planner_fulltrain_arena_campaign": run_planner_fulltrain_arena_campaign,
+            "write_planner_fulltrain_arena_campaign_spec": write_planner_fulltrain_arena_campaign_spec,
+        }[name]
+    if name in {
         "SelfplayTeacherRetrainAgentSpec",
         "SelfplayTeacherRetrainCycleSpec",
         "load_selfplay_teacher_retrain_cycle_spec",

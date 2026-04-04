@@ -107,6 +107,13 @@ The current `engine-app` binary will use that symbolic proposer bundle automatic
 
 Phase 9 now also has a first end-to-end teacher-retrain probe on top of the arena stack: after a completed selfplay batch, `/usr/games/stockfish18` can review non-external moves at depth `5`, write per-agent correction sets, and immediately warm-start the affected planner checkpoint for the next batch. The versioned probe entry point is [phase9_teacher_retrain_cycle_active_vs_vice_probe_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_teacher_retrain_cycle_active_vs_vice_probe_v1.json) with launcher [run_phase9_teacher_retrain_cycle_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase9_teacher_retrain_cycle_longrun.sh).
 
+There is now also a dedicated large pre-selfplay Planner campaign:
+
+- config: [phase9_fulltrain_then_arena_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_fulltrain_then_arena_expanded_v1.json)
+- launcher: [run_phase9_fulltrain_arena_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase9_fulltrain_arena_longrun.sh)
+
+It retrains the current expanded planner family over the full `10k + 122k + 400k` workflow for `12` epochs each, then runs one deterministic double round-robin arena over the freshly trained checkpoints and writes all summaries, verify metrics, resolved agent specs, and the arena matrix under one output root.
+
 ## Phase 6 Snapshot
 
 The proposer is now accepted as a temporary frontier, and the repository includes a checkable latent-dynamics baseline plus larger-corpus Phase-6 follow-ups:

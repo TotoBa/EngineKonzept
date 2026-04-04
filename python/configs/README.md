@@ -160,6 +160,10 @@ These remain useful as small-corpus regression baselines, but they are no longer
   Post-400k experimental rank-aux selfplay agent spec.
 - [phase9_agent_planner_recurrent_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_recurrent_expanded_v1.json)
   Post-400k experimental recurrent selfplay agent spec.
+- [phase9_agent_planner_set_v2_wide_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v2_wide_expanded_v1.json)
+  Expanded wide `set_v2` selfplay template for large full-family reruns.
+- [phase9_agent_planner_set_v5_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v5_expanded_v1.json)
+  Expanded `set_v5` selfplay template for the same large full-family reruns.
 - [phase9_agent_planner_set_v6_replay_expanded_v2.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v6_replay_expanded_v2.json)
   Replay-mirror challenger over the stronger `Phase 9` replay source. Starts from the replay-only `set_v6` mirror and stays available as a direct experimental selfplay arm.
 - [phase9_agent_planner_active_expanded_v2.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_active_expanded_v2.json)
@@ -214,6 +218,8 @@ The intended use is one arena Python process controlling several concurrent game
 
 - [phase9_replay_campaign_active_expanded_v2.json](/home/torsten/EngineKonzept/python/configs/phase9_replay_campaign_active_expanded_v2.json)
   Current preferred long-run replay campaign. Starts from the promoted expanded active arm plus the replay challenger, runs the broader adjudicated replay-aware expanded arena stage, rebuilds replay supervision, retrains the configured replay mirrors, and writes a held-out planner verify matrix.
+- [phase9_fulltrain_then_arena_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_fulltrain_then_arena_expanded_v1.json)
+  Large full-data planner-family campaign. Retrains the configured expanded planner arms on `10k + 122k + 400k` for `12` epochs each, then runs one deterministic double round-robin arena and writes the verify plus arena matrices under one output root.
 
 ## Phase 9 Teacher Retrain Cycles
 

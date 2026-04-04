@@ -238,6 +238,26 @@ The current startable long-run entry point is:
 
 - config:
   [phase9_replay_campaign_active_expanded_v2.json](/home/torsten/EngineKonzept/python/configs/phase9_replay_campaign_active_expanded_v2.json)
+- launcher:
+  [run_phase9_replay_campaign_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase9_replay_campaign_longrun.sh)
+
+There is now also a separate large planner-family long run before replay fine-tuning:
+
+- config:
+  [phase9_fulltrain_then_arena_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_fulltrain_then_arena_expanded_v1.json)
+- launcher:
+  [run_phase9_fulltrain_arena_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase9_fulltrain_arena_longrun.sh)
+
+That run is intended to write, in one place:
+
+- resolved full-data planner configs
+- trained planner bundles
+- per-run verify metrics
+- one combined planner verify matrix
+- resolved agent specs for the fresh checkpoints
+- one deterministic round-robin arena summary
+- one full arena matrix
+- one top-level campaign summary tying the whole sweep together
 - replay-aware curriculum plan:
   [curriculum_active_experimental_replay_expanded_v2.json](/home/torsten/EngineKonzept/artifacts/phase9/curriculum_active_experimental_replay_expanded_v2.json)
 - launcher:
