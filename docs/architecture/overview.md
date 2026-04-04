@@ -8,6 +8,18 @@ EngineKonzept is converging toward a latent-planning chess engine, not a classic
 
 The current canonical roadmap for the learned stack is documented in [model-roadmap.md](/home/torsten/EngineKonzept/docs/architecture/model-roadmap.md).
 
+## LAPv1 Target Architecture
+
+The next explicit unification target for the planner family is documented in [lapv1-overview.md](/home/torsten/EngineKonzept/docs/architecture/lapv1-overview.md).
+
+That document captures the intended shift from many separate planner arms toward one bounded recurrent latent-adversarial stack with:
+
+- symbolic `StateContextV1`
+- piece-intention encoding
+- relational state embedding
+- large value and policy heads
+- bounded recurrent deliberation with trace emission
+
 ## Repository Boundaries
 
 - `rust/` will hold runtime, exact rules, UCI, inference integration, planner runtime, and evaluation harnesses.
