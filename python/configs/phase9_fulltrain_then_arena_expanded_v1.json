@@ -16,7 +16,7 @@
   "training_epochs": 12,
   "arena_template_spec_path": "python/configs/phase9_arena_active_experimental_replay_expanded_v2.json",
   "initial_fen_suite_path": "artifacts/phase9/initial_fens_active_replay_campaign_adjudicated_v2.json",
-  "arena_default_games": 1,
+  "arena_default_games": 10,
   "arena_parallel_workers": 6,
   "arena_default_max_plies": 96,
   "arena_opening_selection_seed": 20260404,
