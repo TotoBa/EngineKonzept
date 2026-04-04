@@ -149,6 +149,10 @@ The first real MoE training/eval prep now lives in [phase9_planner_moe_v1_10k_12
   Replay-only warm-start mirror over the same stronger `Phase 9` replay source, but starting from the full expanded `set_v6_margin` checkpoint.
 - [phase8_planner_corpus_suite_recurrent_v1_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_recurrent_v1_expanded_v1.json)
   400k-ready recurrent expanded rerun config over the same full-target workflow root. It now materializes a real expanded recurrent baseline, but still trails the stronger non-recurrent `set_v6` family on the same full expanded holdout.
+- [phase8_planner_corpus_suite_moe_v1_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_moe_v1_expanded_v1.json)
+  First expanded MoE rerun config. Warm-start target for the initial MoE line on the full `10k + 122k + 400k` family and included directly in the staged Phase-9 evolution campaign.
+- [phase8_planner_corpus_suite_moe_v2_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase8_planner_corpus_suite_moe_v2_expanded_v1.json)
+  Complexity-aware expanded MoE follow-up. Keeps the same base workflow but enables the stronger routing path for direct comparison against `moe_v1` in the same evolution run.
 
 ## Phase 9 Agent Specs
 
@@ -178,6 +182,10 @@ The first real MoE training/eval prep now lives in [phase9_planner_moe_v1_10k_12
   Expanded wide `set_v2` selfplay template for large full-family reruns.
 - [phase9_agent_planner_set_v5_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v5_expanded_v1.json)
   Expanded `set_v5` selfplay template for the same large full-family reruns.
+- [phase9_agent_planner_moe_v1_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_moe_v1_expanded_v1.json)
+  Expanded MoE selfplay template warm-starting from the first `10k + 122k` `moe_v1` checkpoint. Intended for direct inclusion in the staged Phase-9 evolution campaign.
+- [phase9_agent_planner_moe_v2_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_moe_v2_expanded_v1.json)
+  Expanded MoE selfplay template for the complexity-aware MoE follow-up. It stays skippable at `start` until the first expanded `moe_v2` checkpoint exists.
 - [phase9_agent_planner_set_v6_replay_expanded_v2.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v6_replay_expanded_v2.json)
   Replay-mirror challenger over the stronger `Phase 9` replay source. Starts from the replay-only `set_v6` mirror and stays available as a direct experimental selfplay arm.
 - [phase9_agent_planner_active_expanded_v2.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_active_expanded_v2.json)
@@ -234,6 +242,8 @@ The intended use is one arena Python process controlling several concurrent game
   Current preferred long-run replay campaign. Starts from the promoted expanded active arm plus the replay challenger, runs the broader adjudicated replay-aware expanded arena stage, rebuilds replay supervision, retrains the configured replay mirrors, and writes a held-out planner verify matrix.
 - [phase9_fulltrain_then_arena_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_fulltrain_then_arena_expanded_v1.json)
   Large full-data planner-family campaign. Retrains the configured expanded planner arms on `10k + 122k + 400k` for `12` epochs each, then runs one deterministic double round-robin arena and writes the verify plus arena matrices under one output root.
+- [phase9_evolution_fullmatrix_filtered_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_evolution_fullmatrix_filtered_v1.json)
+  Stage-tracking evolution campaign. Evaluates the current family at `start`, retrains the evolving arms on `10k + 122k + filtered 400k`, then runs `20` replay-aware selfplay/retrain rounds and writes per-stage verify matrices, arena matrices, teacher-review summaries, and one `final_report.json`. Includes both `moe_v1` and `moe_v2` in the same full-matrix sweep.
 
 ## Phase 9 Teacher Retrain Cycles
 

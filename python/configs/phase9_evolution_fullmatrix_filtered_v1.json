@@ -1,0 +1,166 @@
+{
+  "spec_version": 1,
+  "name": "phase9_evolution_fullmatrix_filtered_v1",
+  "output_root": "/srv/schach/engine_training/phase9/evolution_fullmatrix_filtered_v1",
+  "source_workflow_summary": "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/summary.json",
+  "filtered_workflow_root": "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2_filtered",
+  "training_tiers": [
+    "pgn_10k",
+    "merged_unique_122k",
+    "unique_pi_400k"
+  ],
+  "verify_tiers": [
+    "pgn_10k",
+    "merged_unique_122k",
+    "unique_pi_400k"
+  ],
+  "filtered_training_tiers": [
+    "unique_pi_400k"
+  ],
+  "filter_max_abs_root_value_cp": 2000.0,
+  "filter_ambiguous_score_span_cp": 5.0,
+  "filter_min_candidate_count": 2,
+  "training_epochs": 12,
+  "iterations": 20,
+  "arena_template_spec_path": "python/configs/phase9_arena_active_experimental_replay_expanded_v2.json",
+  "initial_fen_suite_path": "artifacts/phase9/initial_fens_active_replay_campaign_adjudicated_v2.json",
+  "arena_default_games": 1,
+  "arena_parallel_workers": 6,
+  "arena_default_max_plies": 96,
+  "arena_opening_selection_seed": 20260404,
+  "benchmark_agent_specs": {
+    "symbolic_root_v1": "python/configs/phase9_agent_symbolic_root_v1.json",
+    "planner_active_expanded_v2": "python/configs/phase9_agent_planner_active_expanded_v2.json",
+    "planner_set_v6_replay_expanded_v2": "python/configs/phase9_agent_planner_set_v6_replay_expanded_v2.json"
+  },
+  "arena_agent_order": [
+    "symbolic_root_v1",
+    "planner_active_expanded_v2",
+    "planner_set_v6_replay_expanded_v2",
+    "planner_set_v2_expanded_v1",
+    "planner_set_v2_wide_expanded_v1",
+    "planner_set_v5_expanded_v1",
+    "planner_set_v6_expanded_v1",
+    "planner_set_v6_margin_expanded_v1",
+    "planner_set_v6_rank_expanded_v1",
+    "planner_recurrent_expanded_v1",
+    "planner_moe_v1_expanded_v1",
+    "planner_moe_v2_expanded_v1"
+  ],
+  "reference_run_name": "planner_active_expanded_v2",
+  "teacher_engine_path": "/usr/games/stockfish18",
+  "teacher_depth": 5,
+  "teacher_nodes": null,
+  "teacher_movetime_ms": null,
+  "policy_temperature_cp": 64.0,
+  "mistake_deadzone_cp": 8.0,
+  "mistake_priority_scale_cp": 64.0,
+  "max_mistake_priority": 4.0,
+  "max_review_examples_per_agent": 2048,
+  "max_head_examples_per_agent": 2048,
+  "retrain_epochs": 1,
+  "retrain_learning_rate": 0.0002,
+  "retrain_batch_size": 128,
+  "retrain_include_non_mistakes": false,
+  "retrain_retain_base_train_paths": true,
+  "skip_missing_start_agents": true,
+  "planner_runs": [
+    {
+      "name": "planner_set_v2_expanded_v1",
+      "base_config_path": "python/configs/phase8_planner_corpus_suite_set_v2_expanded_v1.json",
+      "agent_template_spec_path": "python/configs/phase9_agent_planner_set_v2_expanded_v1.json",
+      "tags": [
+        "expanded_400k",
+        "phase9",
+        "evolution"
+      ]
+    },
+    {
+      "name": "planner_set_v2_wide_expanded_v1",
+      "base_config_path": "python/configs/phase8_planner_corpus_suite_set_v2_wide_expanded_v1.json",
+      "agent_template_spec_path": "python/configs/phase9_agent_planner_set_v2_wide_expanded_v1.json",
+      "tags": [
+        "expanded_400k",
+        "phase9",
+        "evolution",
+        "wide"
+      ]
+    },
+    {
+      "name": "planner_set_v5_expanded_v1",
+      "base_config_path": "python/configs/phase8_planner_corpus_suite_set_v5_expanded_v1.json",
+      "agent_template_spec_path": "python/configs/phase9_agent_planner_set_v5_expanded_v1.json",
+      "tags": [
+        "expanded_400k",
+        "phase9",
+        "evolution"
+      ]
+    },
+    {
+      "name": "planner_set_v6_expanded_v1",
+      "base_config_path": "python/configs/phase8_planner_corpus_suite_set_v6_expanded_v1.json",
+      "agent_template_spec_path": "python/configs/phase9_agent_planner_set_v6_expanded_v1.json",
+      "tags": [
+        "expanded_400k",
+        "phase9",
+        "evolution"
+      ]
+    },
+    {
+      "name": "planner_set_v6_margin_expanded_v1",
+      "base_config_path": "python/configs/phase8_planner_corpus_suite_set_v6_margin_expanded_v1.json",
+      "agent_template_spec_path": "python/configs/phase9_agent_planner_set_v6_margin_expanded_v1.json",
+      "tags": [
+        "expanded_400k",
+        "phase9",
+        "evolution",
+        "margin_aux"
+      ]
+    },
+    {
+      "name": "planner_set_v6_rank_expanded_v1",
+      "base_config_path": "python/configs/phase8_planner_corpus_suite_set_v6_rank_expanded_v1.json",
+      "agent_template_spec_path": "python/configs/phase9_agent_planner_set_v6_rank_expanded_v1.json",
+      "tags": [
+        "expanded_400k",
+        "phase9",
+        "evolution",
+        "rank_aux"
+      ]
+    },
+    {
+      "name": "planner_recurrent_expanded_v1",
+      "base_config_path": "python/configs/phase8_planner_corpus_suite_recurrent_v1_expanded_v1.json",
+      "agent_template_spec_path": "python/configs/phase9_agent_planner_recurrent_expanded_v1.json",
+      "tags": [
+        "expanded_400k",
+        "phase9",
+        "evolution",
+        "recurrent"
+      ]
+    },
+    {
+      "name": "planner_moe_v1_expanded_v1",
+      "base_config_path": "python/configs/phase8_planner_corpus_suite_moe_v1_expanded_v1.json",
+      "agent_template_spec_path": "python/configs/phase9_agent_planner_moe_v1_expanded_v1.json",
+      "tags": [
+        "expanded_400k",
+        "phase9",
+        "evolution",
+        "moe"
+      ]
+    },
+    {
+      "name": "planner_moe_v2_expanded_v1",
+      "base_config_path": "python/configs/phase8_planner_corpus_suite_moe_v2_expanded_v1.json",
+      "agent_template_spec_path": "python/configs/phase9_agent_planner_moe_v2_expanded_v1.json",
+      "tags": [
+        "expanded_400k",
+        "phase9",
+        "evolution",
+        "moe",
+        "complexity_head"
+      ]
+    }
+  ]
+}

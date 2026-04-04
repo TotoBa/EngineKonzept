@@ -1,0 +1,57 @@
+{
+  "seed": 17,
+  "output_dir": "/srv/schach/engine_training/phase8/planner_corpus_suite_moe_v2_expanded_v1",
+  "data": {
+    "train_path": "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/pgn_10k_train_v1/planner_head_train.jsonl",
+    "validation_path": "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/pgn_10k_validation_v1/planner_head_validation.jsonl",
+    "additional_train_paths": [
+      "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/merged_unique_122k_train_v1/planner_head_train.jsonl",
+      "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/unique_pi_400k_train_v1/planner_head_train.jsonl"
+    ],
+    "additional_validation_paths": [
+      "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/merged_unique_122k_validation_v1/planner_head_validation.jsonl",
+      "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/unique_pi_400k_validation_v1/planner_head_validation.jsonl"
+    ]
+  },
+  "moe": {
+    "num_experts": 4,
+    "top_k": 2,
+    "load_balance_weight": 0.05,
+    "expert_hidden_dim": 128,
+    "enable_complexity_head": true,
+    "easy_threshold": 0.35,
+    "hard_threshold": 0.75,
+    "complexity_loss_weight": 0.1
+  },
+  "model": {
+    "architecture": "moe_v1",
+    "hidden_dim": 256,
+    "hidden_layers": 2,
+    "action_embedding_dim": 64,
+    "latent_feature_dim": 0,
+    "dropout": 0.1
+  },
+  "optimization": {
+    "epochs": 12,
+    "batch_size": 128,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "teacher_policy_loss_weight": 1.0,
+    "teacher_kl_loss_weight": 0.25,
+    "teacher_score_loss_weight": 0.1,
+    "curriculum_priority_weight": 0.1,
+    "root_value_loss_weight": 0.05,
+    "root_gap_loss_weight": 0.05
+  },
+  "evaluation": {
+    "top_k": 3
+  },
+  "runtime": {
+    "torch_threads": 6,
+    "dataloader_workers": 0
+  },
+  "export": {
+    "bundle_dir": "/srv/schach/engine_training/models/planner/corpus_suite_moe_v2_expanded_v1",
+    "checkpoint_name": "checkpoint.pt"
+  }
+}

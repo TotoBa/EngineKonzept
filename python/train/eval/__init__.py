@@ -288,6 +288,34 @@ def __getattr__(name: str) -> Any:
             "run_selfplay_teacher_retrain_cycle": run_selfplay_teacher_retrain_cycle,
             "write_selfplay_teacher_retrain_cycle_spec": write_selfplay_teacher_retrain_cycle_spec,
         }[name]
+    if name in {
+        "PlannerEvolutionCampaignSpec",
+        "PlannerEvolutionRunSpec",
+        "build_planner_evolution_report",
+        "load_planner_evolution_campaign_spec",
+        "materialize_filtered_planner_workflow_summary",
+        "run_planner_evolution_campaign",
+        "write_planner_evolution_campaign_spec",
+    }:
+        from train.eval.evolution_campaign import (
+            PlannerEvolutionCampaignSpec,
+            PlannerEvolutionRunSpec,
+            build_planner_evolution_report,
+            load_planner_evolution_campaign_spec,
+            materialize_filtered_planner_workflow_summary,
+            run_planner_evolution_campaign,
+            write_planner_evolution_campaign_spec,
+        )
+
+        return {
+            "PlannerEvolutionCampaignSpec": PlannerEvolutionCampaignSpec,
+            "PlannerEvolutionRunSpec": PlannerEvolutionRunSpec,
+            "build_planner_evolution_report": build_planner_evolution_report,
+            "load_planner_evolution_campaign_spec": load_planner_evolution_campaign_spec,
+            "materialize_filtered_planner_workflow_summary": materialize_filtered_planner_workflow_summary,
+            "run_planner_evolution_campaign": run_planner_evolution_campaign,
+            "write_planner_evolution_campaign_spec": write_planner_evolution_campaign_spec,
+        }[name]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -295,6 +323,8 @@ __all__ = [
     "OpponentBaselineMetrics",
     "LoadedPlannerRuntime",
     "PlannerBaselineMetrics",
+    "PlannerEvolutionCampaignSpec",
+    "PlannerEvolutionRunSpec",
     "PlannerReplayCampaignRunSpec",
     "PlannerRootDecision",
     "PlannerRunSpec",
@@ -315,6 +345,7 @@ __all__ = [
     "build_planner_runtime_from_spec",
     "build_planner_verify_matrix",
     "build_phase9_expanded_curriculum_plan",
+    "build_planner_evolution_report",
     "build_selfplay_arena_matrix",
     "evaluate_symbolic_opponent_baseline",
     "evaluate_two_ply_planner_baseline",
@@ -324,15 +355,18 @@ __all__ = [
     "load_selfplay_arena_summary",
     "load_selfplay_arena_spec",
     "load_planner_runtime_from_spec_path",
+    "load_planner_evolution_campaign_spec",
     "load_selfplay_agent_spec",
     "load_symbolic_proposer_checkpoint",
     "load_selfplay_replay_campaign_spec",
     "load_selfplay_teacher_retrain_cycle_spec",
     "materialize_replay_campaign_planner_config",
+    "materialize_filtered_planner_workflow_summary",
     "open_max_plies_adjudicator",
     "play_selfplay_game",
     "predict_dynamics_latent",
     "run_selfplay_arena",
+    "run_planner_evolution_campaign",
     "run_selfplay_replay_campaign",
     "run_selfplay_teacher_retrain_cycle",
     "run_selfplay_session",
@@ -342,6 +376,7 @@ __all__ = [
     "write_selfplay_arena_spec",
     "write_selfplay_curriculum_plan",
     "write_selfplay_agent_spec",
+    "write_planner_evolution_campaign_spec",
     "write_selfplay_replay_campaign_spec",
     "write_selfplay_teacher_retrain_cycle_spec",
 ]

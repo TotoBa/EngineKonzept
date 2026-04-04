@@ -258,6 +258,24 @@ That run is intended to write, in one place:
 - one deterministic round-robin arena summary
 - one full arena matrix
 - one top-level campaign summary tying the whole sweep together
+
+There is now also a staged full-matrix evolution run:
+
+- config:
+  [phase9_evolution_fullmatrix_filtered_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_evolution_fullmatrix_filtered_v1.json)
+- launcher:
+  [run_phase9_evolution_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase9_evolution_longrun.sh)
+
+It is intended to write, under one output root:
+
+- `start/summary.json`
+- `after_fulltrain/summary.json`
+- `iterations/round_XX/summary.json` for `20` replay-aware rounds
+- `final/summary.json`
+- one `final_report.json`
+- one verify matrix and one arena matrix per stage
+
+This is the preferred artifact path when the question is not just "which arm wins one sweep?", but "how does the full family change from the current checkpoints through fulltrain and repeated selfplay correction?".
 - replay-aware curriculum plan:
   [curriculum_active_experimental_replay_expanded_v2.json](/home/torsten/EngineKonzept/artifacts/phase9/curriculum_active_experimental_replay_expanded_v2.json)
 - launcher:

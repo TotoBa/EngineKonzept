@@ -445,6 +445,32 @@ This long run is the right entry point when the goal is broad planner-family com
 4. run one seeded double round-robin arena over the trained family plus selected static references
 5. store the planner verify matrix, arena summary, arena matrix, and top-level campaign summary under one output root
 
+There is now also a wider staged evolution campaign:
+
+- orchestration module:
+  [evolution_campaign.py](/home/torsten/EngineKonzept/python/train/eval/evolution_campaign.py)
+- runner:
+  [run_phase9_evolution_campaign.py](/home/torsten/EngineKonzept/python/scripts/run_phase9_evolution_campaign.py)
+- launcher:
+  [run_phase9_evolution_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase9_evolution_longrun.sh)
+- config:
+  [phase9_evolution_fullmatrix_filtered_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_evolution_fullmatrix_filtered_v1.json)
+
+This is the current Phase-9 entry point when the goal is not one static sweep, but a time-series over planner evolution:
+
+1. `start` evaluates the currently available active, benchmark, and experimental arms
+2. `after_fulltrain` retrains the evolving family for `12` epochs on `10k + 122k + filtered 400k`
+3. `round_01` through `round_20` run replay-aware arena stages, post-game Stockfish18 review, and one-step warm-start planner retrains
+4. `final` reruns verify and arena after the last retrain step
+5. `final_report.json` aggregates best verify arms, best arena arms, and per-agent histories across all stages
+
+The evolving family now includes both MoE arms as first-class participants:
+
+- `planner_moe_v1_expanded_v1`
+- `planner_moe_v2_expanded_v1`
+
+The `400k` tier is filtered only for train/validation inside this campaign so the noisier tails and near-ambiguous teacher positions do not dominate the start-training stage, while verify still measures against the full three-tier holdout.
+
 Phase 9 now also supports optional engine adjudication exactly at the `max_plies` boundary.
 That path is intended to reduce unresolved `max_plies` endings without turning runtime into a classical search engine:
 

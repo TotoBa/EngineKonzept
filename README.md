@@ -114,6 +114,13 @@ There is now also a dedicated large pre-selfplay Planner campaign:
 
 It retrains the current expanded planner family over the full `10k + 122k + 400k` workflow for `12` epochs each, then runs one deterministic double round-robin arena over the freshly trained checkpoints and writes all summaries, verify metrics, resolved agent specs, and the arena matrix under one output root.
 
+There is now also a staged full-matrix evolution campaign:
+
+- config: [phase9_evolution_fullmatrix_filtered_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_evolution_fullmatrix_filtered_v1.json)
+- launcher: [run_phase9_evolution_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase9_evolution_longrun.sh)
+
+It starts with the current active, benchmark, and experimental planner family, includes both `moe_v1` and `moe_v2`, retrains the evolving arms for `12` epochs on `10k + 122k + filtered 400k`, then runs `20` replay-aware selfplay/retrain rounds. Each stage writes its own verify matrix, arena summary, arena matrix, and review statistics, plus one final report covering `start -> after_fulltrain -> round_01..round_20 -> final`.
+
 ## Phase 6 Snapshot
 
 The proposer is now accepted as a temporary frontier, and the repository includes a checkable latent-dynamics baseline plus larger-corpus Phase-6 follow-ups:
