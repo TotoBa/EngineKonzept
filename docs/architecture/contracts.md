@@ -60,6 +60,35 @@ The current golden scope is the fixed-width packed `230`-feature position vector
 - exact square-token block
 - exact rule-token block
 
+## StateContextV1
+
+This is the next richer symbolic state contract for LAPv1-style planner inputs.
+
+Status now:
+
+- implemented as a versioned Python-side contract
+- backed by a pure Python reference builder over `python-chess`
+- already emits both a flat feature vector and a sparse reachability graph
+- intentionally not yet mirrored into Rust in this step
+
+`StateContextV1` keeps the symbolic boundary intact:
+
+- exact attacker counts per square
+- exact king-reach flags per occupied square
+- exact pin-axis bits
+- exact x-ray slider counts
+- exact global rule-state features such as check, single-legal-move, castle/en-passant/promotion availability
+
+It also exports a sparse reachability graph as aligned edge lists:
+
+- `edge_src_square`
+- `edge_dst_square`
+- `edge_piece_type`
+
+The current Python reference builder uses deterministic board geometry only. It does not add material heuristics, handcrafted evaluation terms, or any learned estimate.
+
+This contract is the intended symbolic input gate for later LAPv1 encoders, while `CandidateContextV2` remains the move-side contract for exact legal candidates.
+
 ## CandidateContextV2
 
 This is the next root-candidate contract for proposer, offline search teachers, and later planner roots.
