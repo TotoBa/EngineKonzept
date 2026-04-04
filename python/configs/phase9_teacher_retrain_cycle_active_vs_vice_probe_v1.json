@@ -1,0 +1,27 @@
+{
+  "arena_spec_path": "python/configs/phase9_arena_active_vs_vice_teacher_probe_v1.json",
+  "batch_mode": "reciprocal_pair",
+  "max_mistake_priority": 4.0,
+  "mistake_deadzone_cp": 8.0,
+  "mistake_priority_scale_cp": 64.0,
+  "name": "phase9_teacher_retrain_cycle_active_vs_vice_probe_v1",
+  "output_root": "artifacts/phase9/teacher_retrain_cycle_active_vs_vice_probe_v1",
+  "policy_temperature_cp": 64.0,
+  "retrain_agents": [
+    {
+      "agent_name": "planner_active_expanded_v2",
+      "batch_size_override": 32,
+      "epochs_override": 1,
+      "learning_rate_override": 0.0002,
+      "planner_train_config_path": "python/configs/phase8_planner_corpus_suite_set_v6_margin_replay_expanded_v2.json",
+      "tags": [
+        "active",
+        "vice_probe",
+        "teacher_cycle"
+      ]
+    }
+  ],
+  "spec_version": 1,
+  "teacher_depth": 5,
+  "teacher_engine_path": "/usr/games/stockfish18"
+}

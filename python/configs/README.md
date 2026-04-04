@@ -214,3 +214,10 @@ The intended use is one arena Python process controlling several concurrent game
 
 - [phase9_replay_campaign_active_expanded_v2.json](/home/torsten/EngineKonzept/python/configs/phase9_replay_campaign_active_expanded_v2.json)
   Current preferred long-run replay campaign. Starts from the promoted expanded active arm plus the replay challenger, runs the broader adjudicated replay-aware expanded arena stage, rebuilds replay supervision, retrains the configured replay mirrors, and writes a held-out planner verify matrix.
+
+## Phase 9 Teacher Retrain Cycles
+
+- [phase9_arena_active_vs_vice_teacher_probe_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_vs_vice_teacher_probe_v1.json)
+  Small external-engine probe arena for the new teacher-retrain path. Keeps the seeded Thor-opening suite and color-swapped replay, but drops to one game per direction so the full review-and-retrain loop stays cheap.
+- [phase9_teacher_retrain_cycle_active_vs_vice_probe_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_teacher_retrain_cycle_active_vs_vice_probe_v1.json)
+  First versioned batched selfplay teacher-retrain cycle. Plays the small `vice` probe, reviews completed non-external moves with Stockfish18 at depth `5`, writes per-agent correction sets, and warm-start retrains the active planner checkpoint immediately afterward.

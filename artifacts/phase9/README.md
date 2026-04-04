@@ -130,6 +130,18 @@ That path now also supports small batched update cycles:
 - their planner checkpoints can be warm-start retrained immediately
 - the next batch then uses the updated checkpoint through a rewritten active agent spec
 
+The first versioned probe of that path is now materialized:
+
+- cycle summary:
+  [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/teacher_retrain_cycle_active_vs_vice_probe_v1/summary.json)
+
+Current probe summary:
+
+- `1` reciprocal batch against `vice`
+- `35` reviewed active-arm positions
+- `25` mistake-weighted planner-head rows
+- immediate warm-start retrain of the active planner arm
+
 The next training-facing follow-up is now materialized too:
 
 - replay supervision:

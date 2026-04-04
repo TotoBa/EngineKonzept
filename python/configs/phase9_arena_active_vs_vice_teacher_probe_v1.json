@@ -1,0 +1,39 @@
+{
+  "agent_specs": {
+    "planner_active_expanded_v2": "python/configs/phase9_agent_planner_active_expanded_v2.json",
+    "vice_v1": "python/configs/phase9_agent_uci_vice_v1.json"
+  },
+  "default_games": 1,
+  "default_initial_fens": [
+    "rn1qkbnr/ppp2ppp/8/3p4/8/6PB/PPPPP3/RNBQ1RK1 b kq - 0 6",
+    "rnb1qrk1/ppp1b1pp/3ppn2/5p2/2PP4/1PN2NP1/P3PPBP/R1BQ1RK1 b - - 0 8",
+    "r1bqkb1r/ppp1pppp/2npP2n/8/3P4/5N1P/PPP2PP1/RNBQKB1R b KQkq - 0 6",
+    "r1b1k2r/1pqnbppp/p2ppn2/6B1/3NPP2/2N2Q2/PPP3PP/2KR1B1R w kq - 5 10",
+    "rnbqkbnr/ppp2ppp/8/3p4/3PPp2/8/PPP1Q1PP/RNB1KBNR w KQkq - 0 5",
+    "r1b2rk1/2q1bppp/p2p1n2/np2p3/3PP3/5N1P/PPBN1PP1/R1BQR1K1 b - - 0 13",
+    "rnbqkb1r/ppp1pppp/5n2/8/3P4/2N2p2/PPP3PP/R1BQKBNR w KQkq - 0 5",
+    "rn1q1rk1/pp1nppbp/6p1/2p5/3PP1b1/1QN1BN2/PP3PPP/R3KB1R w KQ - 0 10",
+    "rnbqkb1r/ppp2ppp/4pn2/8/2pP4/6P1/PP2PPBP/RNBQK1NR w KQkq - 0 5",
+    "r1bq1rk1/pppnn1bp/3p2p1/3Ppp2/2P1P3/2N2P2/PP2B1PP/R1BQNRK1 w - - 0 11"
+  ],
+  "default_max_plies": 48,
+  "include_self_matches": false,
+  "matchups": [],
+  "max_plies_adjudication": {
+    "engine_path": "/usr/games/stockfish18",
+    "extension_step_plies": 16,
+    "max_extensions": 4,
+    "nodes": 128,
+    "score_threshold_pawns": 0.5
+  },
+  "metadata": {
+    "opening_source": "../Thor_CE/openings",
+    "purpose": "small teacher-retrain probe against vice"
+  },
+  "name": "phase9_active_vs_vice_teacher_probe_v1",
+  "opening_selection_seed": 20260404,
+  "parallel_workers": 6,
+  "round_robin_swap_colors": true,
+  "schedule_mode": "round_robin",
+  "spec_version": 1
+}

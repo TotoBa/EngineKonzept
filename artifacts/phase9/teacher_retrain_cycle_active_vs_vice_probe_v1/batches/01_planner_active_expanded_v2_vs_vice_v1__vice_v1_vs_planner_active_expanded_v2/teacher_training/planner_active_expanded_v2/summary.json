@@ -1,0 +1,20 @@
+{
+  "agent_spec_path": "/home/torsten/EngineKonzept/artifacts/phase9/teacher_retrain_cycle_active_vs_vice_probe_v1/active_agent_specs/planner_active_expanded_v2.json",
+  "planner_head_example_count": 25,
+  "planner_head_path": "/home/torsten/EngineKonzept/artifacts/phase9/teacher_retrain_cycle_active_vs_vice_probe_v1/batches/01_planner_active_expanded_v2_vs_vice_v1__vice_v1_vs_planner_active_expanded_v2/teacher_training/planner_active_expanded_v2/planner_head_train.jsonl",
+  "review_path": "/home/torsten/EngineKonzept/artifacts/phase9/teacher_retrain_cycle_active_vs_vice_probe_v1/batches/01_planner_active_expanded_v2_vs_vice_v1__vice_v1_vs_planner_active_expanded_v2/teacher_training/planner_active_expanded_v2/selfplay_teacher_review_train.jsonl",
+  "review_summary": {
+    "example_count": 35,
+    "mean_mistake_cp": 2921.171429,
+    "mean_mistake_priority": 1.406696,
+    "mistake_count": 25,
+    "outcome_counts": {
+      "loss": 35
+    },
+    "teacher_top1_match_count": 9,
+    "termination_counts": {
+      "checkmate": 11,
+      "engine_adjudication_black_advantage": 24
+    }
+  }
+}

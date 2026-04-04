@@ -107,6 +107,26 @@ The cycle runner is intentionally explicit rather than magical:
 - completed matchup batches are reviewed with Stockfish18
 - only the affected planner checkpoint is updated before the next batch starts
 
+The first versioned teacher-cycle probe is now materialized as well:
+
+- arena spec:
+  [phase9_arena_active_vs_vice_teacher_probe_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_vs_vice_teacher_probe_v1.json)
+- cycle spec:
+  [phase9_teacher_retrain_cycle_active_vs_vice_probe_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_teacher_retrain_cycle_active_vs_vice_probe_v1.json)
+- launcher:
+  [run_phase9_teacher_retrain_cycle_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase9_teacher_retrain_cycle_longrun.sh)
+- summary:
+  [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/teacher_retrain_cycle_active_vs_vice_probe_v1/summary.json)
+
+Observed probe result:
+
+- `1` reciprocal batch against `vice`
+- `35` reviewed non-external positions
+- `25` mistake-weighted planner-head training examples
+- immediate warm-start retrain of `planner_active_expanded_v2`
+
+This probe is intentionally small. Its purpose is to prove the cycle contract end to end, not yet to claim a strength jump from one micro-batch.
+
 ## First probe
 
 The first materialized probe keeps the loop deliberately small:

@@ -105,6 +105,8 @@ The newer proposer comparison now extends beyond the first three factorized deco
 
 The current `engine-app` binary will use that symbolic proposer bundle automatically when it can find [stockfish_pgn_symbolic_v1_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1). Override the bundle location with `ENGINEKONZEPT_PROPOSER_BUNDLE=/path/to/bundle` when needed.
 
+Phase 9 now also has a first end-to-end teacher-retrain probe on top of the arena stack: after a completed selfplay batch, `/usr/games/stockfish18` can review non-external moves at depth `5`, write per-agent correction sets, and immediately warm-start the affected planner checkpoint for the next batch. The versioned probe entry point is [phase9_teacher_retrain_cycle_active_vs_vice_probe_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_teacher_retrain_cycle_active_vs_vice_probe_v1.json) with launcher [run_phase9_teacher_retrain_cycle_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase9_teacher_retrain_cycle_longrun.sh).
+
 ## Phase 6 Snapshot
 
 The proposer is now accepted as a temporary frontier, and the repository includes a checkable latent-dynamics baseline plus larger-corpus Phase-6 follow-ups:

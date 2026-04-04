@@ -1,0 +1,32 @@
+{
+  "agent_kind": "planner",
+  "dynamics_checkpoint": null,
+  "external_engine_depth": null,
+  "external_engine_hash_mb": 16,
+  "external_engine_movetime_ms": null,
+  "external_engine_nodes": null,
+  "external_engine_options": {},
+  "external_engine_path": null,
+  "external_engine_threads": 1,
+  "metadata": {
+    "previous_planner_checkpoint": "/srv/schach/engine_training/models/planner/corpus_suite_set_v6_margin_replay_expanded_v2/checkpoint.pt",
+    "promoted_from": "planner_corpus_suite_set_v6_margin_replay_expanded_v2",
+    "role": "active",
+    "selfplay_teacher_cycle": "phase9_teacher_retrain_cycle_active_vs_vice_probe_v1",
+    "selfplay_teacher_cycle_batch": "01_planner_active_expanded_v2_vs_vice_v1__vice_v1_vs_planner_active_expanded_v2",
+    "stack": "symbolic_proposer + learned_opponent + bounded_planner_set_v6_margin_replay_expanded_v2"
+  },
+  "name": "planner_active_expanded_v2",
+  "opponent_checkpoint": "models/opponent/corpus_suite_set_v2_v1/checkpoint.pt",
+  "opponent_mode": "learned",
+  "planner_checkpoint": "/home/torsten/EngineKonzept/artifacts/phase9/teacher_retrain_cycle_active_vs_vice_probe_v1/batches/01_planner_active_expanded_v2_vs_vice_v1__vice_v1_vs_planner_active_expanded_v2/planner_models/planner_active_expanded_v2/checkpoint.pt",
+  "proposer_checkpoint": "models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+  "root_top_k": 4,
+  "spec_version": 1,
+  "tags": [
+    "active",
+    "expanded_400k",
+    "phase9",
+    "replay_promoted"
+  ]
+}

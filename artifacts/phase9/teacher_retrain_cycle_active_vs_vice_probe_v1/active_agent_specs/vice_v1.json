@@ -1,0 +1,29 @@
+{
+  "agent_kind": "uci_engine",
+  "dynamics_checkpoint": null,
+  "external_engine_depth": 3,
+  "external_engine_hash_mb": 16,
+  "external_engine_movetime_ms": null,
+  "external_engine_nodes": null,
+  "external_engine_options": {},
+  "external_engine_path": "/usr/games/vice",
+  "external_engine_threads": 1,
+  "metadata": {
+    "engine_family": "vice",
+    "purpose": "offline_arena_benchmark",
+    "role": "external_engine"
+  },
+  "name": "vice_v1",
+  "opponent_checkpoint": null,
+  "opponent_mode": "none",
+  "planner_checkpoint": null,
+  "proposer_checkpoint": null,
+  "root_top_k": 1,
+  "spec_version": 1,
+  "tags": [
+    "external",
+    "offline_benchmark",
+    "phase9",
+    "vice"
+  ]
+}
