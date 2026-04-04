@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from concurrent.futures import ProcessPoolExecutor
 from contextlib import nullcontext
 from dataclasses import dataclass, field
 import json
@@ -77,6 +78,7 @@ class SelfplayArenaSpec:
     default_games: int = 1
     default_max_plies: int = 32
     default_initial_fens: list[str] = field(default_factory=lambda: [STARTING_FEN])
+    parallel_workers: int = 1
     round_robin_swap_colors: bool = True
     include_self_matches: bool = False
     max_plies_adjudication: SelfplayMaxPliesAdjudicationSpec | None = None
@@ -96,6 +98,8 @@ class SelfplayArenaSpec:
             raise ValueError("arena default_games must be positive")
         if self.default_max_plies <= 0:
             raise ValueError("arena default_max_plies must be positive")
+        if self.parallel_workers <= 0:
+            raise ValueError("arena parallel_workers must be positive")
         if self.schedule_mode == "explicit":
             if not self.matchups:
                 raise ValueError("arena explicit schedule requires at least one matchup")
@@ -151,6 +155,7 @@ class SelfplayArenaSpec:
             "default_games": self.default_games,
             "default_max_plies": self.default_max_plies,
             "default_initial_fens": list(self.default_initial_fens),
+            "parallel_workers": self.parallel_workers,
             "round_robin_swap_colors": self.round_robin_swap_colors,
             "include_self_matches": self.include_self_matches,
             "max_plies_adjudication": (
@@ -181,6 +186,7 @@ class SelfplayArenaSpec:
                 _normalize_initial_fen(str(value))
                 for value in list(payload.get("default_initial_fens") or [STARTING_FEN])
             ],
+            parallel_workers=int(payload.get("parallel_workers", 1)),
             round_robin_swap_colors=bool(payload.get("round_robin_swap_colors", True)),
             include_self_matches=bool(payload.get("include_self_matches", False)),
             max_plies_adjudication=(
@@ -231,6 +237,24 @@ class ArenaMatchupResult:
         }
 
 
+@dataclass(frozen=True)
+class _ArenaMatchupJob:
+    """One serializable arena session job for sequential or process execution."""
+
+    matchup_index: int
+    matchup: SelfplayArenaMatchupSpec
+    repo_root: str
+    sessions_root: str
+    agent_specs: dict[str, str]
+    adjudication_spec: SelfplayMaxPliesAdjudicationSpec | None
+
+    @property
+    def session_path(self) -> Path:
+        return Path(self.sessions_root) / (
+            f"{self.matchup_index:02d}_{self.matchup.white_agent}_vs_{self.matchup.black_agent}.json"
+        )
+
+
 AgentBuilder = Callable[[str, Path, Path], Any]
 OracleLoader = Callable[[str], Any]
 
@@ -259,11 +283,7 @@ def run_selfplay_arena(
     sessions_root = output_root / "sessions"
     sessions_root.mkdir(parents=True, exist_ok=True)
 
-    builder = agent_builder or _default_agent_builder
-    agents = {
-        agent_name: builder(agent_name, _resolve_repo_path(repo_root, spec_path), repo_root)
-        for agent_name, spec_path in spec.agent_specs.items()
-    }
+    matchups = spec.expanded_matchups()
 
     matchup_results: list[ArenaMatchupResult] = []
     standings: dict[str, dict[str, object]] = {
@@ -278,39 +298,93 @@ def run_selfplay_arena(
         for agent_name in spec.agent_specs
     }
 
-    adjudication_cm = (
-        open_max_plies_adjudicator(spec.max_plies_adjudication)
-        if spec.max_plies_adjudication is not None
-        else nullcontext(None)
-    )
-    with adjudication_cm as adjudicator:
-        for matchup_index, matchup in enumerate(spec.expanded_matchups(), start=1):
-            session = run_selfplay_session(
-                white_agent=agents[matchup.white_agent],
-                black_agent=agents[matchup.black_agent],
-                repo_root=repo_root,
-                games=matchup.games,
-                initial_fens=[_normalize_initial_fen(fen) for fen in matchup.initial_fens],
-                max_plies=matchup.max_plies or spec.default_max_plies,
-                oracle_loader=oracle_loader,
-                adjudicator=adjudicator,
+    if spec.parallel_workers > 1:
+        if agent_builder is not None or oracle_loader is not None:
+            raise ValueError(
+                "parallel selfplay arena currently requires the default agent builder and oracle loader"
+            )
+        jobs = [
+            _ArenaMatchupJob(
+                matchup_index=matchup_index,
+                matchup=SelfplayArenaMatchupSpec(
+                    white_agent=matchup.white_agent,
+                    black_agent=matchup.black_agent,
+                    games=matchup.games,
+                    max_plies=matchup.max_plies or spec.default_max_plies,
+                    initial_fens=[_normalize_initial_fen(fen) for fen in matchup.initial_fens],
+                    tags=list(matchup.tags),
+                ),
+                repo_root=str(repo_root),
+                sessions_root=str(sessions_root),
+                agent_specs=dict(spec.agent_specs),
                 adjudication_spec=spec.max_plies_adjudication,
             )
-            session_path = sessions_root / (
-                f"{matchup_index:02d}_{matchup.white_agent}_vs_{matchup.black_agent}.json"
-            )
-            session_path.write_text(
-                json.dumps(session.to_dict(), indent=2, sort_keys=True) + "\n",
-                encoding="utf-8",
-            )
-            result = _summarize_matchup(
-                session=session,
-                white_agent=matchup.white_agent,
-                black_agent=matchup.black_agent,
-                session_path=session_path,
+            for matchup_index, matchup in enumerate(matchups, start=1)
+        ]
+        max_workers = min(spec.parallel_workers, len(jobs))
+        with ProcessPoolExecutor(max_workers=max_workers) as executor:
+            payloads = list(executor.map(_run_arena_matchup_job, jobs))
+        for payload in payloads:
+            result = ArenaMatchupResult(
+                name=str(payload["name"]),
+                white_agent=str(payload["white_agent"]),
+                black_agent=str(payload["black_agent"]),
+                session_path=str(payload["session_path"]),
+                game_count=int(payload["game_count"]),
+                mean_move_count=float(payload["mean_move_count"]),
+                white_score=float(payload["white_score"]),
+                black_score=float(payload["black_score"]),
+                result_counts={
+                    str(key): int(value)
+                    for key, value in dict(payload["result_counts"]).items()
+                },
+                termination_counts={
+                    str(key): int(value)
+                    for key, value in dict(payload["termination_counts"]).items()
+                },
             )
             matchup_results.append(result)
             _update_standings(standings, result)
+    else:
+        builder = agent_builder or _default_agent_builder
+        agents = {
+            agent_name: builder(agent_name, _resolve_repo_path(repo_root, spec_path), repo_root)
+            for agent_name, spec_path in spec.agent_specs.items()
+        }
+
+        adjudication_cm = (
+            open_max_plies_adjudicator(spec.max_plies_adjudication)
+            if spec.max_plies_adjudication is not None
+            else nullcontext(None)
+        )
+        with adjudication_cm as adjudicator:
+            for matchup_index, matchup in enumerate(matchups, start=1):
+                session = run_selfplay_session(
+                    white_agent=agents[matchup.white_agent],
+                    black_agent=agents[matchup.black_agent],
+                    repo_root=repo_root,
+                    games=matchup.games,
+                    initial_fens=[_normalize_initial_fen(fen) for fen in matchup.initial_fens],
+                    max_plies=matchup.max_plies or spec.default_max_plies,
+                    oracle_loader=oracle_loader,
+                    adjudicator=adjudicator,
+                    adjudication_spec=spec.max_plies_adjudication,
+                )
+                session_path = sessions_root / (
+                    f"{matchup_index:02d}_{matchup.white_agent}_vs_{matchup.black_agent}.json"
+                )
+                session_path.write_text(
+                    json.dumps(session.to_dict(), indent=2, sort_keys=True) + "\n",
+                    encoding="utf-8",
+                )
+                result = _summarize_matchup(
+                    session=session,
+                    white_agent=matchup.white_agent,
+                    black_agent=matchup.black_agent,
+                    session_path=session_path,
+                )
+                matchup_results.append(result)
+                _update_standings(standings, result)
 
     all_game_counts = [result.game_count for result in matchup_results]
     aggregate = {
@@ -324,6 +398,7 @@ def run_selfplay_arena(
         "arena_name": spec.name,
         "arena_spec_version": spec.spec_version,
         "schedule_mode": spec.schedule_mode,
+        "parallel_workers": spec.parallel_workers,
         "metadata": spec.metadata,
         "max_plies_adjudication": (
             spec.max_plies_adjudication.to_dict()
@@ -335,6 +410,50 @@ def run_selfplay_arena(
         "matchups": [result.to_dict() for result in matchup_results],
     }
     return summary
+
+
+def _run_arena_matchup_job(job: _ArenaMatchupJob) -> dict[str, object]:
+    """Run one arena matchup in an isolated process-friendly job."""
+    repo_root = Path(job.repo_root)
+    white_agent = _default_agent_builder(
+        job.matchup.white_agent,
+        _resolve_repo_path(repo_root, job.agent_specs[job.matchup.white_agent]),
+        repo_root,
+    )
+    black_agent = _default_agent_builder(
+        job.matchup.black_agent,
+        _resolve_repo_path(repo_root, job.agent_specs[job.matchup.black_agent]),
+        repo_root,
+    )
+    adjudication_cm = (
+        open_max_plies_adjudicator(job.adjudication_spec)
+        if job.adjudication_spec is not None
+        else nullcontext(None)
+    )
+    with adjudication_cm as adjudicator:
+        session = run_selfplay_session(
+            white_agent=white_agent,
+            black_agent=black_agent,
+            repo_root=repo_root,
+            games=job.matchup.games,
+            initial_fens=job.matchup.initial_fens,
+            max_plies=job.matchup.max_plies or 80,
+            oracle_loader=None,
+            adjudicator=adjudicator,
+            adjudication_spec=job.adjudication_spec,
+        )
+    session_path = job.session_path
+    session_path.parent.mkdir(parents=True, exist_ok=True)
+    session_path.write_text(
+        json.dumps(session.to_dict(), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return _summarize_matchup(
+        session=session,
+        white_agent=job.matchup.white_agent,
+        black_agent=job.matchup.black_agent,
+        session_path=session_path,
+    ).to_dict()
 
 
 def _default_agent_builder(agent_name: str, spec_path: Path, repo_root: Path) -> Any:

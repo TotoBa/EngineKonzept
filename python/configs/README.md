@@ -186,6 +186,9 @@ Arena specs now also support an optional `max_plies_adjudication` block:
 
 This is intended for bounded offline selfplay only. It adjudicates only after a game reaches `max_plies`; inside the neutral band the game is extended, outside the band it is resolved by the engine judge.
 
+Arena specs also support `parallel_workers` for offline process-level concurrency.
+The intended use is one arena session per worker while the adjudicator engine stays at `Threads=1`.
+
 ## Phase 9 Campaigns
 
 - [phase9_replay_campaign_active_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_replay_campaign_active_expanded_v1.json)

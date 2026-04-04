@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import csv
 from dataclasses import dataclass, field
+import io
 import json
 from pathlib import Path
 from typing import Any
@@ -115,3 +117,155 @@ def write_selfplay_initial_fen_suite(path: Path, suite: SelfplayInitialFenSuite)
     """Write a versioned initial-position suite as JSON."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(suite.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def build_opening_initial_fen_suite(
+    *,
+    name: str,
+    tsv_paths: list[Path],
+    entries_per_file: int = 2,
+    min_ply_count: int = 8,
+) -> SelfplayInitialFenSuite:
+    """Build a deterministic opening-position suite from TSV opening books."""
+    if not tsv_paths:
+        raise ValueError("opening suite requires at least one TSV path")
+    if entries_per_file <= 0:
+        raise ValueError("opening suite entries_per_file must be positive")
+    if min_ply_count <= 0:
+        raise ValueError("opening suite min_ply_count must be positive")
+
+    entries: list[SelfplayInitialFenEntry] = []
+    file_summaries: list[dict[str, object]] = []
+    for tsv_path in tsv_paths:
+        candidates = _load_opening_candidates(tsv_path=tsv_path, min_ply_count=min_ply_count)
+        selected_candidates = _select_evenly_spaced_candidates(
+            candidates=candidates,
+            target_count=min(entries_per_file, len(candidates)),
+        )
+        entries.extend(selected_candidates)
+        file_summaries.append(
+            {
+                "path": str(tsv_path),
+                "candidate_count": len(candidates),
+                "selected_count": len(selected_candidates),
+                "sample_ids": [entry.sample_id for entry in selected_candidates],
+            }
+        )
+    if not entries:
+        raise ValueError("opening suite selection produced no entries")
+    return SelfplayInitialFenSuite(
+        name=name,
+        entries=entries,
+        metadata={
+            "source": "thor_openings_tsv",
+            "entries_per_file": entries_per_file,
+            "min_ply_count": min_ply_count,
+            "file_summaries": file_summaries,
+        },
+    )
+
+
+def merge_selfplay_initial_fen_suites(
+    *,
+    name: str,
+    suites: list[SelfplayInitialFenSuite],
+    metadata: dict[str, Any] | None = None,
+) -> SelfplayInitialFenSuite:
+    """Merge one or more suites while preserving first-seen order and deduping by FEN."""
+    if not suites:
+        raise ValueError("merged selfplay initial FEN suite requires at least one source suite")
+    merged_entries: list[SelfplayInitialFenEntry] = []
+    seen_fens: set[str] = set()
+    for suite in suites:
+        for entry in suite.entries:
+            if entry.fen in seen_fens:
+                continue
+            merged_entries.append(entry)
+            seen_fens.add(entry.fen)
+    if not merged_entries:
+        raise ValueError("merged selfplay initial FEN suite produced no entries")
+    return SelfplayInitialFenSuite(
+        name=name,
+        entries=merged_entries,
+        metadata={
+            "source_suite_names": [suite.name for suite in suites],
+            **(metadata or {}),
+        },
+    )
+
+
+def _load_opening_candidates(
+    *,
+    tsv_path: Path,
+    min_ply_count: int,
+) -> list[SelfplayInitialFenEntry]:
+    try:
+        import chess.pgn
+    except ImportError as exc:  # pragma: no cover - exercised through CLI/tests with optional deps
+        raise RuntimeError("python-chess is required for opening FEN suite generation") from exc
+
+    candidates: list[SelfplayInitialFenEntry] = []
+    seen_fens: set[str] = set()
+    with tsv_path.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle, delimiter="\t")
+        for row_index, row in enumerate(reader, start=1):
+            pgn_moves = str(row.get("pgn") or "").strip()
+            if not pgn_moves:
+                continue
+            board = _parse_opening_board(chess_pgn=chess.pgn, pgn_moves=pgn_moves)
+            if board is None:
+                continue
+            ply_count = board.ply()
+            if ply_count < min_ply_count or board.is_game_over():
+                continue
+            fen = board.fen()
+            if fen in seen_fens:
+                continue
+            eco = str(row.get("eco") or tsv_path.stem.upper())
+            name = str(row.get("name") or f"{tsv_path.stem}:{row_index}")
+            seen_fens.add(fen)
+            candidates.append(
+                SelfplayInitialFenEntry(
+                    fen=fen,
+                    tier="thor_openings",
+                    sample_id=f"{tsv_path.stem}:{row_index}:{eco}",
+                    source_path=str(tsv_path),
+                    result="*",
+                    selection_score=float(ply_count),
+                    tags=["opening", "thor_openings", eco],
+                    metadata={
+                        "eco": eco,
+                        "opening_name": name,
+                        "ply_count": ply_count,
+                        "side_to_move": "w" if board.turn else "b",
+                    },
+                )
+            )
+    return candidates
+
+
+def _parse_opening_board(*, chess_pgn: Any, pgn_moves: str) -> Any | None:
+    pgn_text = '[Event "opening"]\n\n' + pgn_moves.strip() + " *\n"
+    game = chess_pgn.read_game(io.StringIO(pgn_text))
+    if game is None:
+        return None
+    board = game.board()
+    for move in game.mainline_moves():
+        board.push(move)
+    return board
+
+
+def _select_evenly_spaced_candidates(
+    *,
+    candidates: list[SelfplayInitialFenEntry],
+    target_count: int,
+) -> list[SelfplayInitialFenEntry]:
+    if target_count <= 0:
+        raise ValueError("target_count must be positive")
+    if len(candidates) <= target_count:
+        return list(candidates)
+    selected_indices = {
+        round((len(candidates) - 1) * index / (target_count - 1))
+        for index in range(target_count)
+    }
+    return [candidate for index, candidate in enumerate(candidates) if index in selected_indices]

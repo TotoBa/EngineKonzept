@@ -45,6 +45,7 @@ This first implementation is intentionally small and contract-first:
 - supports optional learned opponent and dynamics checkpoints when the chosen planner contract needs them
 - supports versioned JSON agent specs so future arm changes do not require another bespoke CLI layer
 - supports different white and black agents for later checkpoint-vs-checkpoint work
+- supports process-level arena parallelism via `parallel_workers`, so one arena session can run per CPU when the underlying engine stays single-threaded
 - writes reproducible JSON session artifacts
 - can flatten finished sessions into replay-buffer rows for later training and curriculum use
 
@@ -73,6 +74,12 @@ That means later changes can swap:
 - latent contract
 
 without changing the session runner itself.
+
+The versioned launch data around that contract is now also reusable:
+
+- curated dataset-derived initial-position suites
+- curated opening-derived initial-position suites
+- merged suites that combine both without changing the arena or campaign runner
 
 ## First probe
 
@@ -382,3 +389,6 @@ That path is intended to reduce unresolved `max_plies` endings without turning r
 - if the position is outside that neutral window, the game is adjudicated instead of ending as unresolved `*`
 
 The contract is versioned on the arena spec via `max_plies_adjudication`, so later architecture changes can reuse or replace the adjudicator without rewriting the arena/campaign runners.
+
+Arena specs now also carry `parallel_workers`.
+That is explicitly an offline orchestration knob, not a model or engine-contract change.

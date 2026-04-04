@@ -98,15 +98,17 @@ def test_arena_spec_round_trip_with_max_plies_adjudication() -> None:
         default_games=2,
         default_max_plies=12,
         default_initial_fens=["startpos"],
+        parallel_workers=6,
         max_plies_adjudication=SelfplayMaxPliesAdjudicationSpec(
             engine_path="/usr/games/stockfish18",
             nodes=64,
-            score_threshold_pawns=0.1,
+            score_threshold_pawns=0.3,
             extension_step_plies=8,
             max_extensions=2,
         ),
     )
     restored = SelfplayArenaSpec.from_dict(spec.to_dict())
+    assert restored.parallel_workers == 6
     assert restored.max_plies_adjudication is not None
     assert restored.max_plies_adjudication.engine_path == "/usr/games/stockfish18"
     assert restored.max_plies_adjudication.max_extensions == 2
@@ -180,3 +182,32 @@ def test_run_selfplay_arena_writes_sessions_and_standings(tmp_path: Path) -> Non
     assert session_path.exists()
     payload = json.loads(session_path.read_text(encoding="utf-8"))
     assert payload["aggregate"]["termination_counts"] == {"checkmate": 1}
+
+
+def test_parallel_selfplay_arena_requires_default_builders(tmp_path: Path) -> None:
+    spec = SelfplayArenaSpec(
+        name="parallel_arena",
+        agent_specs={"white_arm": "white.json", "black_arm": "black.json"},
+        schedule_mode="explicit",
+        matchups=[
+            SelfplayArenaMatchupSpec(
+                white_agent="white_arm",
+                black_agent="black_arm",
+                games=1,
+                max_plies=8,
+                initial_fens=["8/8/8/8/8/8/8/K6k w - - 0 1"],
+            )
+        ],
+        parallel_workers=2,
+    )
+    try:
+        run_selfplay_arena(
+            spec=spec,
+            repo_root=tmp_path,
+            output_root=tmp_path / "arena",
+            agent_builder=lambda *_args: None,
+        )
+    except ValueError as exc:
+        assert "parallel selfplay arena currently requires" in str(exc)
+    else:
+        raise AssertionError("parallel arena with custom builder should fail")
