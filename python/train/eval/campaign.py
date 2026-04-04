@@ -560,8 +560,11 @@ def _override_arena_spec(
         default_games=games_per_matchup or spec.default_games,
         default_max_plies=max_plies or spec.default_max_plies,
         default_initial_fens=list(spec.default_initial_fens),
+        parallel_workers=spec.parallel_workers,
+        opening_selection_seed=spec.opening_selection_seed,
         round_robin_swap_colors=spec.round_robin_swap_colors,
         include_self_matches=spec.include_self_matches,
+        max_plies_adjudication=spec.max_plies_adjudication,
         metadata=dict(spec.metadata),
         spec_version=spec.spec_version,
     )

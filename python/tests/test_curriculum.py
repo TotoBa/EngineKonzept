@@ -168,6 +168,8 @@ def test_build_curriculum_stage_arena_spec_applies_stage_overrides(tmp_path: Pat
                 "default_games": 1,
                 "default_max_plies": 8,
                 "default_initial_fens": ["startpos"],
+                "parallel_workers": 6,
+                "opening_selection_seed": 99,
                 "round_robin_swap_colors": True,
                 "include_self_matches": False,
                 "metadata": {},
@@ -196,6 +198,8 @@ def test_build_curriculum_stage_arena_spec_applies_stage_overrides(tmp_path: Pat
                 "default_games": 1,
                 "default_max_plies": 8,
                 "default_initial_fens": ["startpos"],
+                "parallel_workers": 6,
+                "opening_selection_seed": 99,
                 "round_robin_swap_colors": True,
                 "include_self_matches": False,
                 "metadata": {},
@@ -248,6 +252,8 @@ def test_build_curriculum_stage_arena_spec_applies_stage_overrides(tmp_path: Pat
     assert arena_spec.default_games == 6
     assert arena_spec.default_max_plies == 96
     assert arena_spec.default_initial_fens == ["8/8/8/8/8/8/8/K6k w - - 0 1"]
+    assert arena_spec.parallel_workers == 6
+    assert arena_spec.opening_selection_seed == 99
     assert set(arena_spec.agent_specs.values()) == set(plan.stages[1].agent_specs)
     assert arena_spec.metadata["curriculum_stage"] == "active_experimental_expanded_round_robin"
     assert arena_spec.metadata["initial_fen_count"] == 1

@@ -1,0 +1,35 @@
+{
+  "agent_specs": {
+    "planner_active_expanded_v2": "python/configs/phase9_agent_planner_active_expanded_v2.json",
+    "planner_recurrent_expanded_v1": "python/configs/phase9_agent_planner_recurrent_expanded_v1.json",
+    "planner_set_v2_expanded_v1": "python/configs/phase9_agent_planner_set_v2_expanded_v1.json",
+    "planner_set_v6_expanded_v1": "python/configs/phase9_agent_planner_set_v6_expanded_v1.json",
+    "planner_set_v6_margin_expanded_v1": "python/configs/phase9_agent_planner_set_v6_margin_expanded_v1.json",
+    "planner_set_v6_rank_expanded_v1": "python/configs/phase9_agent_planner_set_v6_rank_expanded_v1.json",
+    "planner_set_v6_replay_expanded_v2": "python/configs/phase9_agent_planner_set_v6_replay_expanded_v2.json",
+    "symbolic_root_v1": "python/configs/phase9_agent_symbolic_root_v1.json"
+  },
+  "default_games": 2,
+  "default_initial_fens": [
+    "startpos"
+  ],
+  "default_max_plies": 80,
+  "include_self_matches": false,
+  "matchups": [],
+  "max_plies_adjudication": {
+    "engine_path": "/usr/games/stockfish18",
+    "extension_step_plies": 16,
+    "max_extensions": 2,
+    "nodes": 64,
+    "score_threshold_pawns": 0.3
+  },
+  "metadata": {
+    "purpose": "post-promotion active plus experimental replay-aware selfplay suite on the broader adjudicated v2 start set"
+  },
+  "name": "phase9_active_experimental_replay_expanded_v2",
+  "opening_selection_seed": 20260404,
+  "parallel_workers": 6,
+  "round_robin_swap_colors": true,
+  "schedule_mode": "round_robin",
+  "spec_version": 1
+}

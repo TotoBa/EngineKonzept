@@ -241,6 +241,8 @@ def build_curriculum_stage_arena_spec(
             if initial_fen_suite is not None
             else list(arena_spec.default_initial_fens)
         ),
+        parallel_workers=arena_spec.parallel_workers,
+        opening_selection_seed=arena_spec.opening_selection_seed,
         round_robin_swap_colors=arena_spec.round_robin_swap_colors,
         include_self_matches=arena_spec.include_self_matches,
         max_plies_adjudication=arena_spec.max_plies_adjudication,

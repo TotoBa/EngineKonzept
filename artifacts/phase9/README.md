@@ -165,7 +165,7 @@ That stronger replay source has now also produced the first explicit expanded ac
 - replay challenger kept live:
   [phase9_agent_planner_set_v6_replay_expanded_v2.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v6_replay_expanded_v2.json)
 - next replay-aware arena suite:
-  [phase9_arena_active_experimental_replay_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_experimental_replay_expanded_v1.json)
+  [phase9_arena_active_experimental_replay_expanded_v2.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_experimental_replay_expanded_v2.json)
 
 Promotion summary:
 
@@ -206,9 +206,9 @@ It is intended to drive, in one reproducible pass:
 The current startable long-run entry point is:
 
 - config:
-  [phase9_replay_campaign_active_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_replay_campaign_active_expanded_v1.json)
+  [phase9_replay_campaign_active_expanded_v2.json](/home/torsten/EngineKonzept/python/configs/phase9_replay_campaign_active_expanded_v2.json)
 - replay-aware curriculum plan:
-  [curriculum_active_experimental_replay_expanded_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/curriculum_active_experimental_replay_expanded_v1.json)
+  [curriculum_active_experimental_replay_expanded_v2.json](/home/torsten/EngineKonzept/artifacts/phase9/curriculum_active_experimental_replay_expanded_v2.json)
 - launcher:
   [run_phase9_replay_campaign_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase9_replay_campaign_longrun.sh)
 
@@ -219,6 +219,9 @@ That path is intended to produce:
 - replay-buffer and replay-head artifacts
 - replay-mirror planner reruns
 - a planner verify matrix against the current active reference
+- deterministic opening sampling with paired color-swaps over the opening suite
+- bounded Stockfish18 adjudication after `max_plies`
+- one master arena process controlling up to `6` concurrent games
 
 For tiny smoke runs, the intended override is:
 

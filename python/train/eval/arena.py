@@ -8,6 +8,7 @@ from contextlib import nullcontext
 from dataclasses import dataclass, field
 import json
 from pathlib import Path
+import random
 import threading
 from typing import Any, Callable
 
@@ -82,6 +83,7 @@ class SelfplayArenaSpec:
     default_max_plies: int = 32
     default_initial_fens: list[str] = field(default_factory=lambda: [STARTING_FEN])
     parallel_workers: int = 1
+    opening_selection_seed: int | None = None
     round_robin_swap_colors: bool = True
     include_self_matches: bool = False
     max_plies_adjudication: SelfplayMaxPliesAdjudicationSpec | None = None
@@ -103,6 +105,8 @@ class SelfplayArenaSpec:
             raise ValueError("arena default_max_plies must be positive")
         if self.parallel_workers <= 0:
             raise ValueError("arena parallel_workers must be positive")
+        if self.opening_selection_seed is not None and self.opening_selection_seed < 0:
+            raise ValueError("arena opening_selection_seed must be non-negative when provided")
         if self.schedule_mode == "explicit":
             if not self.matchups:
                 raise ValueError("arena explicit schedule requires at least one matchup")
@@ -159,6 +163,7 @@ class SelfplayArenaSpec:
             "default_max_plies": self.default_max_plies,
             "default_initial_fens": list(self.default_initial_fens),
             "parallel_workers": self.parallel_workers,
+            "opening_selection_seed": self.opening_selection_seed,
             "round_robin_swap_colors": self.round_robin_swap_colors,
             "include_self_matches": self.include_self_matches,
             "max_plies_adjudication": (
@@ -190,6 +195,7 @@ class SelfplayArenaSpec:
                 for value in list(payload.get("default_initial_fens") or [STARTING_FEN])
             ],
             parallel_workers=int(payload.get("parallel_workers", 1)),
+            opening_selection_seed=_optional_int(payload.get("opening_selection_seed")),
             round_robin_swap_colors=bool(payload.get("round_robin_swap_colors", True)),
             include_self_matches=bool(payload.get("include_self_matches", False)),
             max_plies_adjudication=(
@@ -310,9 +316,10 @@ def run_selfplay_arena(
                 game_index=game_index,
                 white_agent=matchup.white_agent,
                 black_agent=matchup.black_agent,
-                initial_fen=_normalize_initial_fen(
-                    matchup.initial_fens[game_index % len(matchup.initial_fens)]
-                ),
+                initial_fen=_selected_initial_fens_for_matchup(
+                    spec=spec,
+                    matchup=matchup,
+                )[game_index],
                 max_plies=matchup.max_plies or spec.default_max_plies,
                 repo_root=str(repo_root),
                 agent_specs=dict(spec.agent_specs),
@@ -377,7 +384,7 @@ def run_selfplay_arena(
                     black_agent=agents[matchup.black_agent],
                     repo_root=repo_root,
                     games=matchup.games,
-                    initial_fens=[_normalize_initial_fen(fen) for fen in matchup.initial_fens],
+                    initial_fens=_selected_initial_fens_for_matchup(spec=spec, matchup=matchup),
                     max_plies=matchup.max_plies or spec.default_max_plies,
                     oracle_loader=oracle_loader,
                     adjudicator=adjudicator,
@@ -412,6 +419,7 @@ def run_selfplay_arena(
         "arena_spec_version": spec.spec_version,
         "schedule_mode": spec.schedule_mode,
         "parallel_workers": spec.parallel_workers,
+        "opening_selection_seed": spec.opening_selection_seed,
         "metadata": spec.metadata,
         "max_plies_adjudication": (
             spec.max_plies_adjudication.to_dict()
@@ -572,6 +580,26 @@ def _score_game_result(result: str) -> tuple[float, float]:
 def _resolve_repo_path(repo_root: Path, raw_path: str) -> Path:
     path = Path(raw_path)
     return path if path.is_absolute() else repo_root / path
+
+
+def _selected_initial_fens_for_matchup(
+    *,
+    spec: SelfplayArenaSpec,
+    matchup: SelfplayArenaMatchupSpec,
+) -> list[str]:
+    available_fens = [
+        _normalize_initial_fen(fen)
+        for fen in (matchup.initial_fens or spec.default_initial_fens)
+    ]
+    if not available_fens:
+        raise ValueError("arena matchup requires at least one initial FEN")
+    if spec.opening_selection_seed is None or len(available_fens) == 1:
+        return [available_fens[index % len(available_fens)] for index in range(matchup.games)]
+
+    unordered_pair = tuple(sorted((matchup.white_agent, matchup.black_agent)))
+    pair_seed = f"{spec.opening_selection_seed}:{unordered_pair[0]}:{unordered_pair[1]}"
+    rng = random.Random(pair_seed)
+    return [available_fens[rng.randrange(len(available_fens))] for _ in range(matchup.games)]
 
 
 def _normalize_initial_fen(value: str) -> str:

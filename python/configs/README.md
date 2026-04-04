@@ -177,8 +177,8 @@ These remain useful as small-corpus regression baselines, but they are no longer
   Main future-facing Phase-9 arena suite. It keeps the contract versioned and lists the active plus experimental planner arms so later selfplay reruns can start without another orchestration rewrite.
 - [phase9_arena_active_experimental_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_experimental_expanded_v1.json)
   Post-400k arena suite. Uses the future expanded planner checkpoints for the active arm and the currently tracked experimental follow-ups.
-- [phase9_arena_active_experimental_replay_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_experimental_replay_expanded_v1.json)
-  Replay-aware post-promotion arena suite. Keeps the promoted expanded active arm plus the older expanded family and the new replay challenger in the same versioned round-robin contract.
+- [phase9_arena_active_experimental_replay_expanded_v2.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_experimental_replay_expanded_v2.json)
+  Preferred replay-aware post-promotion arena suite. Keeps the promoted expanded active arm plus the older expanded family and the new replay challenger in the same versioned round-robin contract, samples openings deterministically via `opening_selection_seed`, and runs under one master arena process with `parallel_workers=6`.
 - [phase9_arena_active_replay_campaign_adjudicated_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_replay_campaign_adjudicated_v1.json)
   First direct active-vs-replay-campaign challenger comparison. Useful as a historical reference, but `startpos`-only and too color-biased to support promotion decisions by itself.
 - [phase9_arena_active_replay_campaign_adjudicated_v2.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_replay_campaign_adjudicated_v2.json)
@@ -199,5 +199,5 @@ The intended use is one arena Python process controlling several concurrent game
 
 ## Phase 9 Campaigns
 
-- [phase9_replay_campaign_active_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_replay_campaign_active_expanded_v1.json)
-  Current preferred long-run replay campaign. Starts from the promoted expanded active arm plus the replay challenger, runs the replay-aware expanded arena stage, rebuilds replay supervision, retrains the configured replay mirrors, and writes a held-out planner verify matrix.
+- [phase9_replay_campaign_active_expanded_v2.json](/home/torsten/EngineKonzept/python/configs/phase9_replay_campaign_active_expanded_v2.json)
+  Current preferred long-run replay campaign. Starts from the promoted expanded active arm plus the replay challenger, runs the broader adjudicated replay-aware expanded arena stage, rebuilds replay supervision, retrains the configured replay mirrors, and writes a held-out planner verify matrix.

@@ -99,6 +99,7 @@ def test_arena_spec_round_trip_with_max_plies_adjudication() -> None:
         default_max_plies=12,
         default_initial_fens=["startpos"],
         parallel_workers=6,
+        opening_selection_seed=17,
         max_plies_adjudication=SelfplayMaxPliesAdjudicationSpec(
             engine_path="/usr/games/stockfish18",
             nodes=64,
@@ -109,6 +110,7 @@ def test_arena_spec_round_trip_with_max_plies_adjudication() -> None:
     )
     restored = SelfplayArenaSpec.from_dict(spec.to_dict())
     assert restored.parallel_workers == 6
+    assert restored.opening_selection_seed == 17
     assert restored.max_plies_adjudication is not None
     assert restored.max_plies_adjudication.engine_path == "/usr/games/stockfish18"
     assert restored.max_plies_adjudication.max_extensions == 2
@@ -211,3 +213,65 @@ def test_parallel_selfplay_arena_requires_default_builders(tmp_path: Path) -> No
         assert "parallel selfplay arena currently requires" in str(exc)
     else:
         raise AssertionError("parallel arena with custom builder should fail")
+
+
+def test_opening_selection_seed_reuses_same_openings_across_swapped_colors(tmp_path: Path) -> None:
+    fen_a = "7k/6Q1/6K1/8/8/8/8/8 b - - 0 1"
+    fen_b = "7k/5Q2/6K1/8/8/8/8/8 b - - 0 1"
+    oracle_examples = {
+        fen_a: _make_example(
+            sample_id="fen_a",
+            fen=fen_a,
+            side_to_move="b",
+            legal_moves=[],
+            is_checkmate=True,
+        ),
+        fen_b: _make_example(
+            sample_id="fen_b",
+            fen=fen_b,
+            side_to_move="b",
+            legal_moves=[],
+            is_checkmate=True,
+        ),
+    }
+
+    spec = SelfplayArenaSpec(
+        name="seeded_openings",
+        agent_specs={"white_arm": "white.json", "black_arm": "black.json"},
+        schedule_mode="explicit",
+        matchups=[
+            SelfplayArenaMatchupSpec(
+                white_agent="white_arm",
+                black_agent="black_arm",
+                games=4,
+                max_plies=8,
+                initial_fens=[fen_a, fen_b],
+            ),
+            SelfplayArenaMatchupSpec(
+                white_agent="black_arm",
+                black_agent="white_arm",
+                games=4,
+                max_plies=8,
+                initial_fens=[fen_a, fen_b],
+            ),
+        ],
+        opening_selection_seed=23,
+    )
+    output_root = tmp_path / "arena"
+    summary = run_selfplay_arena(
+        spec=spec,
+        repo_root=tmp_path,
+        output_root=output_root,
+        agent_builder=lambda *_args: _FakeAgent(name="unused", move_map={}),
+        oracle_loader=lambda fen: oracle_examples[fen],
+    )
+    assert summary["aggregate"]["game_count"] == 8
+    first_session = json.loads(
+        (output_root / "sessions" / "01_white_arm_vs_black_arm.json").read_text(encoding="utf-8")
+    )
+    second_session = json.loads(
+        (output_root / "sessions" / "02_black_arm_vs_white_arm.json").read_text(encoding="utf-8")
+    )
+    first_initials = [game["initial_fen"] for game in first_session["games"]]
+    second_initials = [game["initial_fen"] for game in second_session["games"]]
+    assert first_initials == second_initials

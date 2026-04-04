@@ -1,0 +1,49 @@
+{
+  "spec_version": 1,
+  "name": "phase9_replay_campaign_active_expanded_v2",
+  "output_root": "/srv/schach/engine_training/phase9/replay_campaign_active_expanded_v2",
+  "curriculum_plan": "artifacts/phase9/curriculum_active_experimental_replay_expanded_v2.json",
+  "stage_name": "active_experimental_replay_expanded_round_robin",
+  "proposer_checkpoint": "models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+  "dynamics_checkpoint": "models/dynamics/dynamics_merged_unique_structured_v6_v1/checkpoint.pt",
+  "opponent_mode": "learned",
+  "opponent_checkpoint": "models/opponent/corpus_suite_set_v2_v1/checkpoint.pt",
+  "root_top_k": 4,
+  "replay_split": "train",
+  "verify_dataset_paths": [
+    "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/pgn_10k_verify_v1/planner_head_test.jsonl",
+    "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/merged_unique_122k_verify_v1/planner_head_test.jsonl",
+    "/srv/schach/engine_training/phase8/planner_workflow_fulltargets_expanded_v2/unique_pi_400k_verify_v1/planner_head_test.jsonl"
+  ],
+  "baseline_metrics": {
+    "planner_active_expanded_v2": "artifacts/phase8/planner_corpus_suite_set_v6_margin_replay_expanded_v2_verify.json",
+    "planner_set_v2_expanded_v1": "artifacts/phase8/planner_corpus_suite_set_v2_expanded_v1_verify.json",
+    "planner_set_v6_expanded_v1": "artifacts/phase8/planner_corpus_suite_set_v6_expanded_v1_verify.json",
+    "planner_set_v6_margin_expanded_v1": "artifacts/phase8/planner_corpus_suite_set_v6_margin_expanded_v1_verify.json",
+    "planner_set_v6_rank_expanded_v1": "artifacts/phase8/planner_corpus_suite_set_v6_rank_expanded_v1_verify.json",
+    "planner_set_v6_replay_expanded_v2": "artifacts/phase8/planner_corpus_suite_set_v6_replay_expanded_v2_verify.json"
+  },
+  "reference_run_name": "planner_active_expanded_v2",
+  "planner_runs": [
+    {
+      "name": "planner_set_v6_replay_campaign_v2",
+      "base_config_path": "python/configs/phase8_planner_corpus_suite_set_v6_replay_expanded_v2.json",
+      "compare_name": "planner_set_v6_replay_campaign_v2",
+      "tags": [
+        "experimental",
+        "replay_campaign",
+        "broader_adjudicated_starts"
+      ]
+    },
+    {
+      "name": "planner_set_v6_margin_replay_campaign_v2",
+      "base_config_path": "python/configs/phase8_planner_corpus_suite_set_v6_margin_replay_expanded_v2.json",
+      "compare_name": "planner_set_v6_margin_replay_campaign_v2",
+      "tags": [
+        "active",
+        "replay_campaign",
+        "broader_adjudicated_starts"
+      ]
+    }
+  ]
+}
