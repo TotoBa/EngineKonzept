@@ -3,20 +3,23 @@
 from __future__ import annotations
 
 from collections import Counter
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 from dataclasses import dataclass, field
 import json
 from pathlib import Path
+import threading
 from typing import Any, Callable
 
 from train.eval.agent_spec import load_selfplay_agent_spec
 from train.eval.planner_runtime import build_planner_runtime_from_spec
 from train.eval.selfplay import (
     STARTING_FEN,
+    SelfplayGameRecord,
     SelfplayMaxPliesAdjudicationSpec,
     SelfplaySessionRecord,
     open_max_plies_adjudicator,
+    play_selfplay_game,
     run_selfplay_session,
 )
 
@@ -238,25 +241,23 @@ class ArenaMatchupResult:
 
 
 @dataclass(frozen=True)
-class _ArenaMatchupJob:
-    """One serializable arena session job for sequential or process execution."""
+class _ArenaGameJob:
+    """One serializable single-game job for the master-threaded arena runner."""
 
     matchup_index: int
-    matchup: SelfplayArenaMatchupSpec
+    game_index: int
+    white_agent: str
+    black_agent: str
+    initial_fen: str
+    max_plies: int
     repo_root: str
-    sessions_root: str
     agent_specs: dict[str, str]
     adjudication_spec: SelfplayMaxPliesAdjudicationSpec | None
-
-    @property
-    def session_path(self) -> Path:
-        return Path(self.sessions_root) / (
-            f"{self.matchup_index:02d}_{self.matchup.white_agent}_vs_{self.matchup.black_agent}.json"
-        )
 
 
 AgentBuilder = Callable[[str, Path, Path], Any]
 OracleLoader = Callable[[str], Any]
+_ARENA_THREAD_LOCAL = threading.local()
 
 
 def load_selfplay_arena_spec(path: Path) -> SelfplayArenaSpec:
@@ -304,44 +305,56 @@ def run_selfplay_arena(
                 "parallel selfplay arena currently requires the default agent builder and oracle loader"
             )
         jobs = [
-            _ArenaMatchupJob(
+            _ArenaGameJob(
                 matchup_index=matchup_index,
-                matchup=SelfplayArenaMatchupSpec(
-                    white_agent=matchup.white_agent,
-                    black_agent=matchup.black_agent,
-                    games=matchup.games,
-                    max_plies=matchup.max_plies or spec.default_max_plies,
-                    initial_fens=[_normalize_initial_fen(fen) for fen in matchup.initial_fens],
-                    tags=list(matchup.tags),
+                game_index=game_index,
+                white_agent=matchup.white_agent,
+                black_agent=matchup.black_agent,
+                initial_fen=_normalize_initial_fen(
+                    matchup.initial_fens[game_index % len(matchup.initial_fens)]
                 ),
+                max_plies=matchup.max_plies or spec.default_max_plies,
                 repo_root=str(repo_root),
-                sessions_root=str(sessions_root),
                 agent_specs=dict(spec.agent_specs),
                 adjudication_spec=spec.max_plies_adjudication,
             )
             for matchup_index, matchup in enumerate(matchups, start=1)
+            for game_index in range(matchup.games)
         ]
+        grouped_games: dict[int, list[tuple[int, SelfplayGameRecord]]] = {
+            matchup_index: []
+            for matchup_index in range(1, len(matchups) + 1)
+        }
         max_workers = min(spec.parallel_workers, len(jobs))
-        with ProcessPoolExecutor(max_workers=max_workers) as executor:
-            payloads = list(executor.map(_run_arena_matchup_job, jobs))
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            payloads = list(executor.map(_run_arena_game_job, jobs))
+
         for payload in payloads:
-            result = ArenaMatchupResult(
-                name=str(payload["name"]),
-                white_agent=str(payload["white_agent"]),
-                black_agent=str(payload["black_agent"]),
-                session_path=str(payload["session_path"]),
-                game_count=int(payload["game_count"]),
-                mean_move_count=float(payload["mean_move_count"]),
-                white_score=float(payload["white_score"]),
-                black_score=float(payload["black_score"]),
-                result_counts={
-                    str(key): int(value)
-                    for key, value in dict(payload["result_counts"]).items()
-                },
-                termination_counts={
-                    str(key): int(value)
-                    for key, value in dict(payload["termination_counts"]).items()
-                },
+            grouped_games[int(payload["matchup_index"])].append(
+                (
+                    int(payload["game_index"]),
+                    SelfplayGameRecord.from_dict(dict(payload["game"])),
+                )
+            )
+
+        for matchup_index, matchup in enumerate(matchups, start=1):
+            session_games = [
+                game
+                for _game_index, game in sorted(grouped_games[matchup_index], key=lambda item: item[0])
+            ]
+            session = SelfplaySessionRecord(games=session_games)
+            session_path = sessions_root / (
+                f"{matchup_index:02d}_{matchup.white_agent}_vs_{matchup.black_agent}.json"
+            )
+            session_path.write_text(
+                json.dumps(session.to_dict(), indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            result = _summarize_matchup(
+                session=session,
+                white_agent=matchup.white_agent,
+                black_agent=matchup.black_agent,
+                session_path=session_path,
             )
             matchup_results.append(result)
             _update_standings(standings, result)
@@ -412,17 +425,17 @@ def run_selfplay_arena(
     return summary
 
 
-def _run_arena_matchup_job(job: _ArenaMatchupJob) -> dict[str, object]:
-    """Run one arena matchup in an isolated process-friendly job."""
+def _run_arena_game_job(job: _ArenaGameJob) -> dict[str, object]:
+    """Run one single game while keeping arena orchestration in the master process."""
     repo_root = Path(job.repo_root)
-    white_agent = _default_agent_builder(
-        job.matchup.white_agent,
-        _resolve_repo_path(repo_root, job.agent_specs[job.matchup.white_agent]),
+    white_agent = _load_thread_local_agent(
+        job.white_agent,
+        _resolve_repo_path(repo_root, job.agent_specs[job.white_agent]),
         repo_root,
     )
-    black_agent = _default_agent_builder(
-        job.matchup.black_agent,
-        _resolve_repo_path(repo_root, job.agent_specs[job.matchup.black_agent]),
+    black_agent = _load_thread_local_agent(
+        job.black_agent,
+        _resolve_repo_path(repo_root, job.agent_specs[job.black_agent]),
         repo_root,
     )
     adjudication_cm = (
@@ -431,29 +444,32 @@ def _run_arena_matchup_job(job: _ArenaMatchupJob) -> dict[str, object]:
         else nullcontext(None)
     )
     with adjudication_cm as adjudicator:
-        session = run_selfplay_session(
+        game = play_selfplay_game(
+            game_id=f"game_{job.game_index + 1:04d}",
             white_agent=white_agent,
             black_agent=black_agent,
             repo_root=repo_root,
-            games=job.matchup.games,
-            initial_fens=job.matchup.initial_fens,
-            max_plies=job.matchup.max_plies or 80,
-            oracle_loader=None,
+            initial_fen=job.initial_fen,
+            max_plies=job.max_plies,
             adjudicator=adjudicator,
             adjudication_spec=job.adjudication_spec,
         )
-    session_path = job.session_path
-    session_path.parent.mkdir(parents=True, exist_ok=True)
-    session_path.write_text(
-        json.dumps(session.to_dict(), indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    return _summarize_matchup(
-        session=session,
-        white_agent=job.matchup.white_agent,
-        black_agent=job.matchup.black_agent,
-        session_path=session_path,
-    ).to_dict()
+    return {
+        "matchup_index": job.matchup_index,
+        "game_index": job.game_index,
+        "game": game.to_dict(),
+    }
+
+
+def _load_thread_local_agent(agent_name: str, spec_path: Path, repo_root: Path) -> Any:
+    cache = getattr(_ARENA_THREAD_LOCAL, "agents", None)
+    if cache is None:
+        cache = {}
+        _ARENA_THREAD_LOCAL.agents = cache
+    cache_key = (agent_name, str(spec_path), str(repo_root))
+    if cache_key not in cache:
+        cache[cache_key] = _default_agent_builder(agent_name, spec_path, repo_root)
+    return cache[cache_key]
 
 
 def _default_agent_builder(agent_name: str, spec_path: Path, repo_root: Path) -> Any:

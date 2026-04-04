@@ -239,4 +239,4 @@ The supporting initial-position tooling is now broader as well:
 
 - [build_selfplay_opening_fen_suite.py](/home/torsten/EngineKonzept/python/scripts/build_selfplay_opening_fen_suite.py) can derive opening starts from TSV opening books such as `../Thor_CE/openings`
 - [merge_selfplay_initial_fen_suites.py](/home/torsten/EngineKonzept/python/scripts/merge_selfplay_initial_fen_suites.py) can combine curated dataset suites and opening suites into one deduped arena-start suite
-- arena specs can use those merged starts together with `parallel_workers` for larger adjudicated comparison runs
+- arena specs can use those merged starts together with `parallel_workers` for larger adjudicated comparison runs under one arena master process

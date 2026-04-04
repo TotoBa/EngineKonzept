@@ -45,7 +45,7 @@ This first implementation is intentionally small and contract-first:
 - supports optional learned opponent and dynamics checkpoints when the chosen planner contract needs them
 - supports versioned JSON agent specs so future arm changes do not require another bespoke CLI layer
 - supports different white and black agents for later checkpoint-vs-checkpoint work
-- supports process-level arena parallelism via `parallel_workers`, so one arena session can run per CPU when the underlying engine stays single-threaded
+- supports master-process arena parallelism via `parallel_workers`, so one game thread can run per CPU while the arena orchestration stays in one Python process
 - writes reproducible JSON session artifacts
 - can flatten finished sessions into replay-buffer rows for later training and curriculum use
 
@@ -392,3 +392,4 @@ The contract is versioned on the arena spec via `max_plies_adjudication`, so lat
 
 Arena specs now also carry `parallel_workers`.
 That is explicitly an offline orchestration knob, not a model or engine-contract change.
+The intended shape is one arena master process with several concurrent games, not several independent arena Python processes.
