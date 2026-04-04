@@ -163,7 +163,7 @@ These remain useful as small-corpus regression baselines, but they are no longer
 - [phase9_agent_planner_set_v6_replay_expanded_v2.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v6_replay_expanded_v2.json)
   Replay-mirror challenger over the stronger `Phase 9` replay source. Starts from the replay-only `set_v6` mirror and stays available as a direct experimental selfplay arm.
 - [phase9_agent_planner_active_expanded_v2.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_active_expanded_v2.json)
-  Current promoted expanded active selfplay agent spec. Points at the replay-promoted `set_v6_margin_replay_expanded_v2` planner checkpoint and replaces the older `set_v2_expanded` launch reference in the active slot.
+  Current promoted expanded active selfplay agent spec. Points at the replay-promoted `set_v6_margin_replay_expanded_v2` planner checkpoint, replaces the older `set_v2_expanded` launch reference, and remains active after the broader adjudicated direct replay-campaign check.
 - [phase9_agent_planner_set_v6_margin_replay_campaign_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v6_margin_replay_campaign_v1.json)
   Direct replay-campaign challenger carried forward from the long-run campaign verify matrix. It is currently the strongest replay-campaign challenger on held-out verify.
 - [phase9_agent_planner_set_v6_replay_campaign_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v6_replay_campaign_v1.json)

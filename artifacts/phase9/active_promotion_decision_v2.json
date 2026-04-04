@@ -1,0 +1,64 @@
+{
+  "arena_evidence": {
+    "arena_matrix_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_replay_campaign_adjudicated_v2.matrix.json",
+    "arena_summary_path": "/home/torsten/EngineKonzept/artifacts/phase9/arena_active_replay_campaign_adjudicated_v2.summary.json",
+    "matchup_count": 6,
+    "preferred_comparison": "broader_adjudicated_v2",
+    "ranking_by_score_rate": [
+      {
+        "agent": "planner_active_expanded_v2",
+        "score": 32.5,
+        "score_rate": 0.580357
+      },
+      {
+        "agent": "planner_set_v6_margin_replay_campaign_v1",
+        "score": 27.0,
+        "score_rate": 0.482143
+      },
+      {
+        "agent": "planner_set_v6_replay_campaign_v1",
+        "score": 24.5,
+        "score_rate": 0.4375
+      }
+    ]
+  },
+  "current_active_agent_spec": "python/configs/phase9_agent_planner_active_expanded_v2.json",
+  "decision": "keep_current_active",
+  "decision_name": "active_promotion_decision_v2",
+  "decision_version": 1,
+  "direct_head_to_head": {
+    "planner_active_expanded_v2_vs_planner_set_v6_margin_replay_campaign_v1": {
+      "game_count": 28,
+      "score": 16.0,
+      "score_rate": 0.571429
+    },
+    "planner_active_expanded_v2_vs_planner_set_v6_replay_campaign_v1": {
+      "game_count": 28,
+      "score": 16.5,
+      "score_rate": 0.589286
+    }
+  },
+  "notes": [
+    "The earlier startpos-only adjudicated v1 direct comparison stayed too color-biased to support promotion.",
+    "The broader v2 rerun used 14 curated starts: 4 harder dataset positions plus 10 Thor opening positions.",
+    "Held-out verify still slightly favors planner_set_v6_margin_replay_campaign_v1, but the broader direct arena does not confirm another promotion."
+  ],
+  "verify_evidence": {
+    "planner_active_expanded_v2": {
+      "root_top1_accuracy": 0.813475,
+      "teacher_root_mean_probability": 0.725571,
+      "teacher_root_mean_reciprocal_rank": 0.889894
+    },
+    "planner_set_v6_margin_replay_campaign_v1": {
+      "root_top1_accuracy": 0.81773,
+      "teacher_root_mean_probability": 0.745915,
+      "teacher_root_mean_reciprocal_rank": 0.891962
+    },
+    "planner_set_v6_replay_campaign_v1": {
+      "root_top1_accuracy": 0.814894,
+      "teacher_root_mean_probability": 0.742967,
+      "teacher_root_mean_reciprocal_rank": 0.890366
+    },
+    "verify_source": "/srv/schach/engine_training/phase9/replay_campaign_active_expanded_v1/summary.json"
+  }
+}

@@ -256,3 +256,4 @@ Current direct-comparison conclusion:
 
 - the active expanded arm still leads on the broader adjudicated arena
 - the replay-campaign challengers remain valuable, but this direct check does not justify another promotion yet
+- the versioned keep-active decision lives in [active_promotion_decision_v2.json](/home/torsten/EngineKonzept/artifacts/phase9/active_promotion_decision_v2.json)

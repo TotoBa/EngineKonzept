@@ -423,3 +423,7 @@ Important interpretation:
 - held-out verify still likes `planner_set_v6_margin_replay_campaign_v1` slightly better, but the direct broader arena does not confirm a promotion
 
 So the current active expanded arm stays unchanged for now.
+
+That decision is versioned here:
+
+- [active_promotion_decision_v2.json](/home/torsten/EngineKonzept/artifacts/phase9/active_promotion_decision_v2.json)
