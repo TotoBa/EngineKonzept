@@ -169,6 +169,15 @@ These remain useful as small-corpus regression baselines, but they are no longer
 - [phase9_agent_planner_set_v6_replay_campaign_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v6_replay_campaign_v1.json)
   Second replay-campaign challenger from the same long-run campaign. Kept live for direct arena comparison against the active expanded arm.
 
+Phase-9 agent specs now also support `agent_kind="uci_engine"` for offline arena benchmarking.
+Those specs use:
+
+- `external_engine_path`
+- one of `external_engine_nodes`, `external_engine_depth`, or `external_engine_movetime_ms`
+- optional `external_engine_threads`, `external_engine_hash_mb`, and `external_engine_options`
+
+This path is intentionally offline-only. It exists for arena/benchmark work, not as a runtime replacement for the learned planner stack.
+
 ## Phase 9 Arena Specs
 
 - [phase9_arena_active_probe_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_probe_v1.json)

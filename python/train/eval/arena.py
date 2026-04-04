@@ -13,6 +13,7 @@ import threading
 from typing import Any, Callable
 
 from train.eval.agent_spec import load_selfplay_agent_spec
+from train.eval.external_engine import build_external_engine_agent_from_spec
 from train.eval.planner_runtime import build_planner_runtime_from_spec
 from train.eval.selfplay import (
     STARTING_FEN,
@@ -436,12 +437,12 @@ def run_selfplay_arena(
 def _run_arena_game_job(job: _ArenaGameJob) -> dict[str, object]:
     """Run one single game while keeping arena orchestration in the master process."""
     repo_root = Path(job.repo_root)
-    white_agent = _load_thread_local_agent(
+    white_agent, close_white = _load_arena_job_agent(
         job.white_agent,
         _resolve_repo_path(repo_root, job.agent_specs[job.white_agent]),
         repo_root,
     )
-    black_agent = _load_thread_local_agent(
+    black_agent, close_black = _load_arena_job_agent(
         job.black_agent,
         _resolve_repo_path(repo_root, job.agent_specs[job.black_agent]),
         repo_root,
@@ -451,22 +452,37 @@ def _run_arena_game_job(job: _ArenaGameJob) -> dict[str, object]:
         if job.adjudication_spec is not None
         else nullcontext(None)
     )
-    with adjudication_cm as adjudicator:
-        game = play_selfplay_game(
-            game_id=f"game_{job.game_index + 1:04d}",
-            white_agent=white_agent,
-            black_agent=black_agent,
-            repo_root=repo_root,
-            initial_fen=job.initial_fen,
-            max_plies=job.max_plies,
-            adjudicator=adjudicator,
-            adjudication_spec=job.adjudication_spec,
-        )
+    try:
+        with adjudication_cm as adjudicator:
+            game = play_selfplay_game(
+                game_id=f"game_{job.game_index + 1:04d}",
+                white_agent=white_agent,
+                black_agent=black_agent,
+                repo_root=repo_root,
+                initial_fen=job.initial_fen,
+                max_plies=job.max_plies,
+                adjudicator=adjudicator,
+                adjudication_spec=job.adjudication_spec,
+            )
+    finally:
+        if close_white:
+            white_agent.close()
+        if close_black:
+            black_agent.close()
     return {
         "matchup_index": job.matchup_index,
         "game_index": job.game_index,
         "game": game.to_dict(),
     }
+
+
+def _load_arena_job_agent(agent_name: str, spec_path: Path, repo_root: Path) -> tuple[Any, bool]:
+    spec = load_selfplay_agent_spec(spec_path)
+    if spec.agent_kind == "uci_engine":
+        if spec.name != agent_name:
+            spec = SelfplayAgentProxySpec(spec=spec, name=agent_name).materialize()
+        return build_external_engine_agent_from_spec(spec, repo_root=repo_root), True
+    return _load_thread_local_agent(agent_name, spec_path, repo_root), False
 
 
 def _load_thread_local_agent(agent_name: str, spec_path: Path, repo_root: Path) -> Any:
@@ -484,6 +500,8 @@ def _default_agent_builder(agent_name: str, spec_path: Path, repo_root: Path) ->
     spec = load_selfplay_agent_spec(spec_path)
     if spec.name != agent_name:
         spec = SelfplayAgentProxySpec(spec=spec, name=agent_name).materialize()
+    if spec.agent_kind == "uci_engine":
+        return build_external_engine_agent_from_spec(spec, repo_root=repo_root)
     return build_planner_runtime_from_spec(spec, repo_root=repo_root)
 
 
@@ -503,6 +521,14 @@ class SelfplayAgentProxySpec:
             dynamics_checkpoint=self.spec.dynamics_checkpoint,
             opponent_mode=self.spec.opponent_mode,
             root_top_k=self.spec.root_top_k,
+            agent_kind=self.spec.agent_kind,
+            external_engine_path=self.spec.external_engine_path,
+            external_engine_nodes=self.spec.external_engine_nodes,
+            external_engine_depth=self.spec.external_engine_depth,
+            external_engine_movetime_ms=self.spec.external_engine_movetime_ms,
+            external_engine_threads=self.spec.external_engine_threads,
+            external_engine_hash_mb=self.spec.external_engine_hash_mb,
+            external_engine_options=dict(self.spec.external_engine_options),
             tags=list(self.spec.tags),
             metadata=dict(self.spec.metadata),
             spec_version=self.spec.spec_version,

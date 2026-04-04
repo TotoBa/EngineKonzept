@@ -45,6 +45,7 @@ This first implementation is intentionally small and contract-first:
 - supports optional learned opponent and dynamics checkpoints when the chosen planner contract needs them
 - supports versioned JSON agent specs so future arm changes do not require another bespoke CLI layer
 - supports different white and black agents for later checkpoint-vs-checkpoint work
+- supports offline-only external UCI-engine opponents through the same exact move/output contract, so arena benchmarking can compare the learned stack against third-party engines without changing the runtime architecture
 - supports master-process arena parallelism via `parallel_workers`, so one game thread can run per CPU while the arena orchestration stays in one Python process
 - writes reproducible JSON session artifacts
 - can flatten finished sessions into replay-buffer rows for later training and curriculum use
@@ -72,6 +73,7 @@ That means later changes can swap:
 - opponent family
 - planner backbone
 - latent contract
+- or an offline-only external UCI benchmark opponent
 
 without changing the session runner itself.
 

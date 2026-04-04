@@ -117,6 +117,16 @@ def __getattr__(name: str) -> Any:
             "load_selfplay_agent_spec": load_selfplay_agent_spec,
             "write_selfplay_agent_spec": write_selfplay_agent_spec,
         }[name]
+    if name in {"ExternalUciEngineAgent", "build_external_engine_agent_from_spec"}:
+        from train.eval.external_engine import (
+            ExternalUciEngineAgent,
+            build_external_engine_agent_from_spec,
+        )
+
+        return {
+            "ExternalUciEngineAgent": ExternalUciEngineAgent,
+            "build_external_engine_agent_from_spec": build_external_engine_agent_from_spec,
+        }[name]
     if name in {
         "SelfplayArenaMatchupSpec",
         "SelfplayArenaSpec",

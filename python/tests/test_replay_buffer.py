@@ -67,6 +67,23 @@ def test_selfplay_agent_spec_round_trip() -> None:
     assert restored == spec
 
 
+def test_uci_engine_agent_spec_round_trip() -> None:
+    spec = SelfplayAgentSpec(
+        name="vice_v1",
+        agent_kind="uci_engine",
+        proposer_checkpoint=None,
+        opponent_mode="none",
+        external_engine_path="/usr/games/vice",
+        external_engine_nodes=128,
+        external_engine_threads=1,
+        external_engine_hash_mb=16,
+        external_engine_options={"Book": "false"},
+        tags=["external", "offline_benchmark"],
+    )
+    restored = SelfplayAgentSpec.from_dict(spec.to_dict())
+    assert restored == spec
+
+
 def test_build_replay_buffer_entries_flattens_session() -> None:
     entries = build_replay_buffer_entries(_sample_session())
     assert len(entries) == 1
