@@ -116,3 +116,55 @@ It is an experimental arm that should be judged against the same bounded held-ou
 - then, only if promising, inside the same selfplay and replay loops as the active family
 
 The current preferred non-MoE references remain the bounded `set_v2` / `set_v6` planner line until a trained MoE run beats them on both holdout quality and practical selfplay behavior.
+
+## First Eval Result
+
+The first real `10k + 122k` MoE run is now complete:
+
+- config:
+  [phase9_planner_moe_v1_10k_122k_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_planner_moe_v1_10k_122k_v1.json)
+- compact report:
+  [first_eval_summary.json](/home/torsten/EngineKonzept/artifacts/moe_v1/first_eval_summary.json)
+- training summary:
+  [summary.json](/srv/schach/engine_training/phase9/planner_moe_v1_10k_122k_v1/summary.json)
+
+Held-out result:
+
+- `moe_v1_10k_122k_v1`: `top1=0.794141`, `MRR=0.878695`
+- reference `set_v2_10k_122k_expanded`: `top1=0.819336`, `MRR=0.889811`
+- reference `set_v6_10k_122k_expanded`: `top1=0.817383`, `MRR=0.890625`
+
+So the first trained MoE arm is currently below the established non-MoE planner line.
+
+## What The Analysis Says
+
+The offline routing analysis confirms that the first run did not fail because of a subtle tradeoff. The router mostly collapsed.
+
+Reports:
+
+- [moe_v1_10k_validation_analysis.json](/home/torsten/EngineKonzept/artifacts/moe_v1/moe_v1_10k_validation_analysis.json)
+- [moe_v1_122k_validation_analysis.json](/home/torsten/EngineKonzept/artifacts/moe_v1/moe_v1_122k_validation_analysis.json)
+- plots:
+  [plots_10k](/home/torsten/EngineKonzept/artifacts/moe_v1/plots_10k)
+  [plots_122k](/home/torsten/EngineKonzept/artifacts/moe_v1/plots_122k)
+
+The important findings are:
+
+- the router almost always selects the same Top-2 pair: experts `0` and `3`
+- experts `1` and `2` are effectively unused on both validation tiers
+- router entropy stays very low at about `0.087`
+- load-balance loss stays high at about `0.498`
+- the routing pattern barely changes across opening / middlegame / endgame, tactical level, or teacher-difficulty buckets
+
+That means the current `moe_v1` issue is not "experts specialize but still underperform". It is "routing never really diversifies".
+
+## Current Decision
+
+The repo should keep `moe_v1` as an experimental branch, but not promote it.
+
+The next MoE follow-up should be narrow and diagnostic:
+
+- keep the same bounded planner contract
+- enable the complexity head
+- increase load-balance pressure
+- rerun on the same `10k + 122k` suite before involving the wider selfplay loop

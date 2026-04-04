@@ -487,9 +487,35 @@ The first real MoE training/evaluation pass is now prepared as well:
 - launch script: [run_moe_v1_first_eval.sh](/home/torsten/EngineKonzept/python/scripts/run_moe_v1_first_eval.sh)
 - architecture note: [moe-planner.md](/home/torsten/EngineKonzept/docs/architecture/moe-planner.md)
 
-That first pass stays intentionally preparatory:
+That first pass is now also completed:
 
-- it reuses the preferred `10k + 122k` planner slice
-- it compares directly against the current `set_v2` and `set_v6` references
-- it is runtime-compatible at the agent-spec level
-- but it does not ship a trained MoE result into the repo yet
+- compact result:
+  [first_eval_summary.json](/home/torsten/EngineKonzept/artifacts/moe_v1/first_eval_summary.json)
+- training summary:
+  [summary.json](/srv/schach/engine_training/phase9/planner_moe_v1_10k_122k_v1/summary.json)
+
+Held-out result on `10k + 122k`:
+
+- `moe_v1_10k_122k_v1`: `root_top1_accuracy=0.794141`, `MRR=0.878695`
+- reference `set_v2_10k_122k_expanded`: `0.819336`, `0.889811`
+- reference `set_v6_10k_122k_expanded`: `0.817383`, `0.890625`
+
+The first trained MoE arm is therefore not currently competitive with the strongest bounded non-MoE planners.
+
+The routing analysis confirms the main failure mode:
+
+- [moe_v1_10k_validation_analysis.json](/home/torsten/EngineKonzept/artifacts/moe_v1/moe_v1_10k_validation_analysis.json)
+- [moe_v1_122k_validation_analysis.json](/home/torsten/EngineKonzept/artifacts/moe_v1/moe_v1_122k_validation_analysis.json)
+
+Key findings:
+
+- experts `0` and `3` are selected on effectively every validation example
+- experts `1` and `2` are effectively unused
+- router entropy stays near `0.087`
+- load-balance loss stays near `0.498`
+
+So the current repo decision is:
+
+- keep `moe_v1` experimental
+- do not promote it into the active planner family
+- only run a narrower `moe_v2` follow-up if it explicitly attacks routing collapse first

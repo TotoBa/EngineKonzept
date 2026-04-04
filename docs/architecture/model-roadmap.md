@@ -34,6 +34,14 @@ That implies the following near-term sequence:
 5. bounded recurrent planning
 6. only then heavier expert routing or option-style deliberation control
 
+The first real MoE planner result reinforces that ordering:
+
+- the repo now has a real `moe_v1` checkpoint and routing-analysis pass
+- but the first run underperforms the current `set_v2` / `set_v6` line
+- and the router collapses onto the same Top-2 experts across both validation tiers
+
+So heavier expert routing remains an experimental side branch, not the current mainline planner direction.
+
 ## What The Current Results Say
 
 The current `10,240 / 2,048` Pi-labeled Phase-5 corpus has nine externally checkable proposer arms:
