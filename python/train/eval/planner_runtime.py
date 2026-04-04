@@ -22,6 +22,7 @@ from train.eval.symbolic_proposer import (
     load_symbolic_proposer_checkpoint,
     score_symbolic_candidates,
 )
+from train.models.moe_planner import MoEPlannerHeadModel
 from train.models.planner import PlannerHeadModel
 from train.models.proposer import torch_is_available
 
@@ -191,7 +192,7 @@ class _PlannerCandidateRow:
 
 def load_planner_head_checkpoint(
     checkpoint_path: Path,
-) -> tuple[PlannerHeadModel, "PlannerTrainConfig"]:
+) -> tuple[Any, "PlannerTrainConfig"]:
     """Load a trained planner-head checkpoint for bounded runtime selection."""
     if torch is None or not torch_is_available():  # pragma: no cover - torch absent
         raise RuntimeError(
@@ -201,17 +202,7 @@ def load_planner_head_checkpoint(
 
     payload = torch.load(checkpoint_path, map_location="cpu")
     config = PlannerTrainConfig.from_dict(dict(payload["training_config"]))
-    model = PlannerHeadModel(
-        architecture=config.model.architecture,
-        hidden_dim=config.model.hidden_dim,
-        hidden_layers=config.model.hidden_layers,
-        action_embedding_dim=config.model.action_embedding_dim,
-        latent_feature_dim=config.model.latent_feature_dim,
-        deliberation_steps=config.model.deliberation_steps,
-        memory_slots=config.model.memory_slots,
-        dropout=config.model.dropout,
-        enable_candidate_rank_head=config.optimization.teacher_rank_loss_weight > 0.0,
-    )
+    model = _instantiate_planner_model(config)
     model.load_state_dict(dict(payload["model_state_dict"]))
     model.eval()
     return model, config
@@ -521,7 +512,7 @@ def _optional_repo_path(repo_root: Path, raw_path: str | None) -> Path | None:
 
 def _score_planner_rows(
     *,
-    planner_model: PlannerHeadModel,
+    planner_model: Any,
     planner_config: "PlannerTrainConfig | None",
     root_symbolic: Any,
     candidate_rows: Sequence[_PlannerCandidateRow],
@@ -583,3 +574,35 @@ def _score_planner_rows(
         )
     logits = outputs["logits"][0, : len(candidate_rows)].tolist()
     return [float(value) for value in logits]
+
+
+def _instantiate_planner_model(config: "PlannerTrainConfig") -> Any:
+    enable_candidate_rank_head = config.optimization.teacher_rank_loss_weight > 0.0
+    if config.model.architecture == "moe_v1":
+        assert config.moe is not None
+        return MoEPlannerHeadModel(
+            hidden_dim=config.model.hidden_dim,
+            hidden_layers=config.model.hidden_layers,
+            action_embedding_dim=config.model.action_embedding_dim,
+            latent_feature_dim=config.model.latent_feature_dim,
+            deliberation_steps=config.model.deliberation_steps,
+            dropout=config.model.dropout,
+            num_experts=config.moe.num_experts,
+            top_k=config.moe.top_k,
+            expert_hidden_dim=config.moe.expert_hidden_dim,
+            enable_complexity_head=config.moe.enable_complexity_head,
+            easy_threshold=config.moe.easy_threshold,
+            hard_threshold=config.moe.hard_threshold,
+            enable_candidate_rank_head=enable_candidate_rank_head,
+        )
+    return PlannerHeadModel(
+        architecture=config.model.architecture,
+        hidden_dim=config.model.hidden_dim,
+        hidden_layers=config.model.hidden_layers,
+        action_embedding_dim=config.model.action_embedding_dim,
+        latent_feature_dim=config.model.latent_feature_dim,
+        deliberation_steps=config.model.deliberation_steps,
+        memory_slots=config.model.memory_slots,
+        dropout=config.model.dropout,
+        enable_candidate_rank_head=enable_candidate_rank_head,
+    )

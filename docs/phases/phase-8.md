@@ -479,3 +479,17 @@ It also renders the first diagnostic plot set:
 - expert-by-phase heatmap
 - router-entropy histogram
 - complexity-score versus teacher-gap scatter
+
+The first real MoE training/evaluation pass is now prepared as well:
+
+- training config: [phase9_planner_moe_v1_10k_122k_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_planner_moe_v1_10k_122k_v1.json)
+- selfplay agent template: [phase9_agent_planner_moe_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_moe_v1.json)
+- launch script: [run_moe_v1_first_eval.sh](/home/torsten/EngineKonzept/python/scripts/run_moe_v1_first_eval.sh)
+- architecture note: [moe-planner.md](/home/torsten/EngineKonzept/docs/architecture/moe-planner.md)
+
+That first pass stays intentionally preparatory:
+
+- it reuses the preferred `10k + 122k` planner slice
+- it compares directly against the current `set_v2` and `set_v6` references
+- it is runtime-compatible at the agent-spec level
+- but it does not ship a trained MoE result into the repo yet
