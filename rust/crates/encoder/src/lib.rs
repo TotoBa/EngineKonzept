@@ -8,10 +8,18 @@
 //! This encoder does not normalize symmetries. Side to move, clocks, castling rights,
 //! en-passant state, and exact square locations intentionally affect the encoding.
 
+mod state_context;
+
 use std::array;
 
 use core_types::{Color, Piece, PieceKind};
 use position::Position;
+pub use state_context::{
+    ReachabilityEdge, StateContextV1, STATE_CONTEXT_V1_FEATURE_DIM,
+    STATE_CONTEXT_V1_GLOBAL_FEATURE_DIM, STATE_CONTEXT_V1_GLOBAL_FEATURE_ORDER,
+    STATE_CONTEXT_V1_SQUARE_FEATURE_DIM, STATE_CONTEXT_V1_SQUARE_FEATURE_ORDER,
+    STATE_CONTEXT_V1_VERSION,
+};
 
 pub const MAX_PIECE_TOKENS: usize = 32;
 pub const SQUARE_TOKEN_COUNT: usize = 64;

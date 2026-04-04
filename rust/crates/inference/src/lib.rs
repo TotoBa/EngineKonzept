@@ -179,6 +179,8 @@ pub struct ProposerInputSpec {
     pub feature_dim: u32,
     pub layout: ProposerInputLayout,
     #[serde(default)]
+    pub state_context_version: Option<u32>,
+    #[serde(default)]
     pub symbolic: Option<ProposerSymbolicInputSpec>,
 }
 
@@ -453,6 +455,7 @@ pub enum ProposerLoadError {
     },
     InvalidLegalityThreshold(f32),
     InvalidSymbolicMaxLegalCandidates(u32),
+    UnsupportedStateContextVersion(u32),
     UnsupportedSymbolicCandidateContextVersion(u32),
     InvalidSymbolicCandidateFeatureDim(u32),
     InvalidSymbolicCandidateFeatureOrder,
@@ -474,6 +477,7 @@ pub enum DynamicsLoadError {
     InvalidFeatureDim { expected: u32, found: u32 },
     InvalidActionSpaceFlatSize { expected: u32, found: u32 },
     InvalidActionDtype(String),
+    UnsupportedStateContextVersion(u32),
     UnsupportedSymbolicCandidateContextVersion(u32),
     InvalidSymbolicActionFeatureDim(u32),
     InvalidSymbolicActionFeatureOrder,
@@ -515,6 +519,9 @@ impl fmt::Display for ProposerLoadError {
             }
             Self::InvalidSymbolicMaxLegalCandidates(value) => {
                 write!(f, "invalid symbolic max_legal_candidates: {value}")
+            }
+            Self::UnsupportedStateContextVersion(value) => {
+                write!(f, "unsupported StateContext version: {value}")
             }
             Self::UnsupportedSymbolicCandidateContextVersion(value) => {
                 write!(f, "unsupported symbolic CandidateContext version: {value}")
@@ -559,6 +566,7 @@ impl Error for ProposerLoadError {
             | Self::InvalidOutputShape { .. }
             | Self::InvalidLegalityThreshold(_)
             | Self::InvalidSymbolicMaxLegalCandidates(_)
+            | Self::UnsupportedStateContextVersion(_)
             | Self::UnsupportedSymbolicCandidateContextVersion(_)
             | Self::InvalidSymbolicCandidateFeatureDim(_)
             | Self::InvalidSymbolicCandidateFeatureOrder
@@ -599,6 +607,9 @@ impl fmt::Display for DynamicsLoadError {
                     "invalid dynamics action dtype: expected int64, found {dtype}"
                 )
             }
+            Self::UnsupportedStateContextVersion(value) => {
+                write!(f, "unsupported StateContext version: {value}")
+            }
             Self::UnsupportedSymbolicCandidateContextVersion(value) => {
                 write!(f, "unsupported symbolic CandidateContext version: {value}")
             }
@@ -638,6 +649,7 @@ impl Error for DynamicsLoadError {
             | Self::InvalidFeatureDim { .. }
             | Self::InvalidActionSpaceFlatSize { .. }
             | Self::InvalidActionDtype(_)
+            | Self::UnsupportedStateContextVersion(_)
             | Self::UnsupportedSymbolicCandidateContextVersion(_)
             | Self::InvalidSymbolicActionFeatureDim(_)
             | Self::InvalidSymbolicActionFeatureOrder
@@ -758,6 +770,10 @@ pub fn validate_proposer_metadata(metadata: &ProposerMetadata) -> Result<(), Pro
             found: metadata.input.feature_dim,
         });
     }
+    validate_state_context_version(
+        metadata.input.state_context_version,
+        ProposerLoadError::UnsupportedStateContextVersion,
+    )?;
 
     let expected_flat_size = metadata.action_space.from_head_size
         * metadata.action_space.to_head_size
@@ -867,6 +883,10 @@ pub fn validate_dynamics_metadata(metadata: &DynamicsMetadata) -> Result<(), Dyn
             found: metadata.input.state.feature_dim,
         });
     }
+    validate_state_context_version(
+        metadata.input.state.state_context_version,
+        DynamicsLoadError::UnsupportedStateContextVersion,
+    )?;
 
     let expected_flat_size = metadata.input.action.from_head_size
         * metadata.input.action.to_head_size
@@ -927,6 +947,18 @@ fn validate_output_shape(
             actions: shape.actions,
             expected: expected_actions,
         });
+    }
+    Ok(())
+}
+
+fn validate_state_context_version<E>(
+    version: Option<u32>,
+    error: impl FnOnce(u32) -> E,
+) -> Result<(), E> {
+    if let Some(value) = version {
+        if value != 1 {
+            return Err(error(value));
+        }
     }
     Ok(())
 }
@@ -1523,6 +1555,20 @@ mod tests {
     }
 
     #[test]
+    fn validate_proposer_metadata_rejects_unsupported_state_context_version() {
+        let mut metadata = valid_metadata();
+        metadata["input"]["state_context_version"] = json!(2);
+
+        let parsed = serde_json::from_value(metadata).expect("metadata parses");
+        let error = validate_proposer_metadata(&parsed).expect_err("metadata should be rejected");
+
+        assert!(matches!(
+            error,
+            ProposerLoadError::UnsupportedStateContextVersion(2)
+        ));
+    }
+
+    #[test]
     fn validate_proposer_metadata_rejects_unsupported_candidate_context_version() {
         let mut metadata = valid_metadata();
         metadata["input"]["symbolic"] = json!({
@@ -1641,6 +1687,20 @@ mod tests {
         let error = validate_dynamics_metadata(&parsed).expect_err("metadata should be rejected");
 
         assert!(matches!(error, DynamicsLoadError::InvalidDriftHorizon(1)));
+    }
+
+    #[test]
+    fn validate_dynamics_metadata_rejects_unsupported_state_context_version() {
+        let mut metadata = valid_dynamics_metadata();
+        metadata["input"]["state"]["state_context_version"] = json!(2);
+
+        let parsed = serde_json::from_value(metadata).expect("metadata parses");
+        let error = validate_dynamics_metadata(&parsed).expect_err("metadata should be rejected");
+
+        assert!(matches!(
+            error,
+            DynamicsLoadError::UnsupportedStateContextVersion(2)
+        ));
     }
 
     #[test]

@@ -67,9 +67,10 @@ This is the next richer symbolic state contract for LAPv1-style planner inputs.
 Status now:
 
 - implemented as a versioned Python-side contract
+- mirrored into Rust in `rust/crates/encoder`
 - backed by a pure Python reference builder over `python-chess`
-- already emits both a flat feature vector and a sparse reachability graph
-- intentionally not yet mirrored into Rust in this step
+- emits both a flat feature vector and a sparse reachability graph
+- validated by a shared golden file under [state_context_v1_golden.json](/home/torsten/EngineKonzept/artifacts/golden/state_context_v1_golden.json)
 
 `StateContextV1` keeps the symbolic boundary intact:
 
