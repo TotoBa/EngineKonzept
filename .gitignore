@@ -16,4 +16,5 @@ __pycache__/
 !/models/.gitkeep
 /artifacts/*
 !/artifacts/.gitkeep
-
+!/artifacts/golden/
+!/artifacts/golden/**

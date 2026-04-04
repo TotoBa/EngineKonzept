@@ -18,9 +18,14 @@ pub const SQUARE_TOKEN_COUNT: usize = 64;
 pub const PIECE_TOKEN_WIDTH: usize = 3;
 pub const SQUARE_TOKEN_WIDTH: usize = 2;
 pub const RULE_TOKEN_WIDTH: usize = 6;
+pub const PIECE_TOKEN_CAPACITY: usize = MAX_PIECE_TOKENS;
+pub const POSITION_FEATURE_SIZE: usize = (PIECE_TOKEN_CAPACITY * PIECE_TOKEN_WIDTH)
+    + (SQUARE_TOKEN_COUNT * SQUARE_TOKEN_WIDTH)
+    + RULE_TOKEN_WIDTH;
 
 pub const EMPTY_OCCUPANT_CODE: u8 = 0;
 pub const NO_EN_PASSANT_SQUARE: u8 = 64;
+pub const PIECE_TOKEN_PADDING_VALUE: f32 = -1.0;
 
 /// Object-centric piece token ordered by board square.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -152,6 +157,42 @@ pub fn encode_position(position: &Position) -> EncodedPosition {
     }
 }
 
+/// Flatten the exact token encoder output into the fixed-width 230-dim model vector.
+#[must_use]
+pub fn pack_position_features(position: &Position) -> [f32; POSITION_FEATURE_SIZE] {
+    let encoded = encode_position(position);
+    let mut features = [0.0_f32; POSITION_FEATURE_SIZE];
+    let mut offset = 0;
+
+    for piece_index in 0..PIECE_TOKEN_CAPACITY {
+        if let Some(token) = encoded.piece_tokens.get(piece_index) {
+            let token_array = token.as_array();
+            features[offset] = token_array[0] as f32;
+            features[offset + 1] = token_array[1] as f32;
+            features[offset + 2] = token_array[2] as f32;
+        } else {
+            features[offset] = PIECE_TOKEN_PADDING_VALUE;
+            features[offset + 1] = PIECE_TOKEN_PADDING_VALUE;
+            features[offset + 2] = PIECE_TOKEN_PADDING_VALUE;
+        }
+        offset += PIECE_TOKEN_WIDTH;
+    }
+
+    for token in encoded.square_tokens {
+        let token_array = token.as_array();
+        features[offset] = token_array[0] as f32;
+        features[offset + 1] = token_array[1] as f32;
+        offset += SQUARE_TOKEN_WIDTH;
+    }
+
+    for value in encoded.rule_token.as_array() {
+        features[offset] = value as f32;
+        offset += 1;
+    }
+
+    features
+}
+
 fn color_index(color: Color) -> u8 {
     match color {
         Color::White => 0,
@@ -188,8 +229,8 @@ mod tests {
     use core_types::Square;
 
     use super::{
-        encode_position, EMPTY_OCCUPANT_CODE, NO_EN_PASSANT_SQUARE, RULE_TOKEN_WIDTH,
-        SQUARE_TOKEN_COUNT,
+        encode_position, pack_position_features, EMPTY_OCCUPANT_CODE, NO_EN_PASSANT_SQUARE,
+        PIECE_TOKEN_PADDING_VALUE, POSITION_FEATURE_SIZE, RULE_TOKEN_WIDTH, SQUARE_TOKEN_COUNT,
     };
     use position::Position;
 
@@ -264,5 +305,15 @@ mod tests {
         let encoded = encode_position(&position);
 
         assert_eq!(encoded.rule_token.en_passant_square, NO_EN_PASSANT_SQUARE);
+    }
+
+    #[test]
+    fn packed_features_use_documented_width_and_padding() {
+        let position =
+            Position::from_fen("8/8/8/8/3k4/8/4P3/4K3 w - - 0 1").expect("valid position");
+        let packed = pack_position_features(&position);
+
+        assert_eq!(packed.len(), POSITION_FEATURE_SIZE);
+        assert_eq!(packed[9], PIECE_TOKEN_PADDING_VALUE);
     }
 }

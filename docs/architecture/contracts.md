@@ -47,6 +47,19 @@ or
 
 Until that is done, feature evolution should be treated as high-risk.
 
+Status now:
+
+- the repo has shared encoder goldens in [encoder_golden_v1.json](/home/torsten/EngineKonzept/artifacts/golden/encoder_golden_v1.json)
+- Rust validates them in [golden_vectors.rs](/home/torsten/EngineKonzept/rust/crates/encoder/tests/golden_vectors.rs)
+- Python validates the same file in [test_golden_vectors.py](/home/torsten/EngineKonzept/python/tests/test_golden_vectors.py)
+- [check_golden_vectors.py](/home/torsten/EngineKonzept/python/scripts/check_golden_vectors.py) is the lightweight drift-check entry point for the Python side
+
+The current golden scope is the fixed-width packed `230`-feature position vector:
+
+- padded piece-token block
+- exact square-token block
+- exact rule-token block
+
 ## CandidateContextV2
 
 This is the next root-candidate contract for proposer, offline search teachers, and later planner roots.
