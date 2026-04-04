@@ -610,9 +610,9 @@ class PlannerModelConfig:
     dropout: float = 0.0
 
     def __post_init__(self) -> None:
-        if self.architecture not in {"set_v1", "set_v2", "set_v3", "set_v5", "set_v6", "set_v7", "recurrent_v1"}:
+        if self.architecture not in {"set_v1", "set_v2", "set_v3", "set_v5", "set_v6", "set_v7", "moe_v1", "recurrent_v1"}:
             raise ValueError(
-                "model.architecture must be 'set_v1', 'set_v2', 'set_v3', 'set_v5', 'set_v6', 'set_v7', or 'recurrent_v1'"
+                "model.architecture must be 'set_v1', 'set_v2', 'set_v3', 'set_v5', 'set_v6', 'set_v7', 'moe_v1', or 'recurrent_v1'"
             )
         if self.hidden_dim <= 0:
             raise ValueError("model.hidden_dim must be positive")
@@ -637,6 +637,28 @@ class PlannerModelConfig:
                 )
         if not 0.0 <= self.dropout < 1.0:
             raise ValueError("model.dropout must be in [0.0, 1.0)")
+
+
+@dataclass(frozen=True)
+class MoEConfig:
+    """Optional Mixture-of-Experts settings for experimental planner arms."""
+
+    num_experts: int = 4
+    top_k: int = 2
+    load_balance_weight: float = 0.01
+    expert_hidden_dim: int = 128
+
+    def __post_init__(self) -> None:
+        if self.num_experts <= 0:
+            raise ValueError("moe.num_experts must be positive")
+        if self.top_k <= 0:
+            raise ValueError("moe.top_k must be positive")
+        if self.top_k > self.num_experts:
+            raise ValueError("moe.top_k must not exceed moe.num_experts")
+        if self.load_balance_weight < 0.0:
+            raise ValueError("moe.load_balance_weight must be non-negative")
+        if self.expert_hidden_dim <= 0:
+            raise ValueError("moe.expert_hidden_dim must be positive")
 
 
 @dataclass(frozen=True)
@@ -731,6 +753,7 @@ class PlannerTrainConfig:
     initial_checkpoint: str | None
     data: PlannerDataConfig
     curriculum: PlannerCurriculumConfig | None
+    moe: MoEConfig | None
     model: PlannerModelConfig
     optimization: PlannerOptimizationConfig
     evaluation: PlannerEvaluationConfig
@@ -742,6 +765,10 @@ class PlannerTrainConfig:
             raise ValueError("seed must be non-negative")
         if not self.output_dir:
             raise ValueError("output_dir must be non-empty")
+        if self.model.architecture == "moe_v1" and self.moe is None:
+            raise ValueError("moe settings are required when model.architecture='moe_v1'")
+        if self.model.architecture != "moe_v1" and self.moe is not None:
+            raise ValueError("moe settings are only valid when model.architecture='moe_v1'")
 
     def to_dict(self) -> dict[str, Any]:
         """Return the JSON-friendly representation."""
@@ -773,6 +800,11 @@ class PlannerTrainConfig:
             curriculum=(
                 PlannerCurriculumConfig(**dict(payload["curriculum"]))
                 if isinstance(payload.get("curriculum"), dict)
+                else None
+            ),
+            moe=(
+                MoEConfig(**dict(payload["moe"]))
+                if isinstance(payload.get("moe"), dict)
                 else None
             ),
             model=PlannerModelConfig(**_mapping(payload, "model")),

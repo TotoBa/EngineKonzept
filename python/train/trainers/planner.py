@@ -14,6 +14,7 @@ from train.datasets.artifacts import SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE
 from train.datasets.contracts import candidate_context_feature_dim, transition_context_feature_dim
 from train.datasets.curriculum import CurriculumSampler
 from train.datasets.planner_head import PlannerHeadExample, load_planner_head_examples
+from train.models.moe_planner import MoEPlannerHeadModel
 from train.models.planner import PlannerHeadModel, torch, PLANNER_MODEL_NAME
 from train.models.proposer import torch_is_available
 
@@ -51,9 +52,12 @@ class PlannerMetrics:
     root_gap_examples: int
     teacher_margin_examples: int
     teacher_rank_examples: int
+    load_balance_loss: float = 0.0
+    router_entropy: float = 0.0
+    expert_activation_frequencies: tuple[float, ...] = ()
     examples_per_second: float = 0.0
 
-    def to_dict(self) -> dict[str, float | int]:
+    def to_dict(self) -> dict[str, object]:
         return {
             "total_examples": self.total_examples,
             "supervised_examples": self.supervised_examples,
@@ -83,6 +87,11 @@ class PlannerMetrics:
             "root_gap_examples": self.root_gap_examples,
             "teacher_margin_examples": self.teacher_margin_examples,
             "teacher_rank_examples": self.teacher_rank_examples,
+            "load_balance_loss": round(self.load_balance_loss, 6),
+            "router_entropy": round(self.router_entropy, 6),
+            "expert_activation_frequencies": [
+                round(value, 6) for value in self.expert_activation_frequencies
+            ],
             "examples_per_second": round(self.examples_per_second, 3),
         }
 
@@ -144,18 +153,7 @@ def train_planner(config: PlannerTrainConfig, *, repo_root: Path) -> PlannerTrai
         context="validation",
     )
 
-    model = PlannerHeadModel(
-        architecture=config.model.architecture,
-        hidden_dim=config.model.hidden_dim,
-        hidden_layers=config.model.hidden_layers,
-        action_embedding_dim=config.model.action_embedding_dim,
-        latent_feature_dim=config.model.latent_feature_dim,
-        deliberation_steps=config.model.deliberation_steps,
-        memory_slots=config.model.memory_slots,
-        dropout=config.model.dropout,
-        enable_pairwise_candidates=config.model.enable_pairwise_candidates,
-        enable_candidate_rank_head=config.optimization.teacher_rank_loss_weight > 0.0,
-    )
+    model = _build_planner_model(config)
     if config.initial_checkpoint is not None:
         initial_checkpoint_path = resolve_repo_path(repo_root, config.initial_checkpoint)
         initial_payload = torch.load(initial_checkpoint_path, map_location="cpu")
@@ -227,6 +225,7 @@ def train_planner(config: PlannerTrainConfig, *, repo_root: Path) -> PlannerTrai
             teacher_margin_weight=config.optimization.teacher_margin_loss_weight,
             teacher_rank_weight=config.optimization.teacher_rank_loss_weight,
             curriculum_priority_weight=config.optimization.curriculum_priority_weight,
+            load_balance_weight=(0.0 if config.moe is None else config.moe.load_balance_weight),
             root_value_weight=config.optimization.root_value_loss_weight,
             root_gap_weight=config.optimization.root_gap_loss_weight,
             top_k=config.evaluation.top_k,
@@ -242,6 +241,7 @@ def train_planner(config: PlannerTrainConfig, *, repo_root: Path) -> PlannerTrai
             teacher_margin_weight=config.optimization.teacher_margin_loss_weight,
             teacher_rank_weight=config.optimization.teacher_rank_loss_weight,
             curriculum_priority_weight=config.optimization.curriculum_priority_weight,
+            load_balance_weight=(0.0 if config.moe is None else config.moe.load_balance_weight),
             root_value_weight=config.optimization.root_value_loss_weight,
             root_gap_weight=config.optimization.root_gap_loss_weight,
             top_k=config.evaluation.top_k,
@@ -313,18 +313,7 @@ def evaluate_planner_checkpoint(
 
     payload = torch.load(checkpoint_path, map_location="cpu")
     config = PlannerTrainConfig.from_dict(dict(payload["training_config"]))
-    model = PlannerHeadModel(
-        architecture=config.model.architecture,
-        hidden_dim=config.model.hidden_dim,
-        hidden_layers=config.model.hidden_layers,
-        action_embedding_dim=config.model.action_embedding_dim,
-        latent_feature_dim=config.model.latent_feature_dim,
-        deliberation_steps=config.model.deliberation_steps,
-        memory_slots=config.model.memory_slots,
-        dropout=config.model.dropout,
-        enable_pairwise_candidates=config.model.enable_pairwise_candidates,
-        enable_candidate_rank_head=config.optimization.teacher_rank_loss_weight > 0.0,
-    )
+    model = _build_planner_model(config)
     model.load_state_dict(dict(payload["model_state_dict"]))
 
     if dataset_paths is not None:
@@ -362,6 +351,7 @@ def evaluate_planner_checkpoint(
         teacher_margin_weight=config.optimization.teacher_margin_loss_weight,
         teacher_rank_weight=config.optimization.teacher_rank_loss_weight,
         curriculum_priority_weight=config.optimization.curriculum_priority_weight,
+        load_balance_weight=(0.0 if config.moe is None else config.moe.load_balance_weight),
         root_value_weight=config.optimization.root_value_loss_weight,
         root_gap_weight=config.optimization.root_gap_loss_weight,
         top_k=top_k,
@@ -428,7 +418,7 @@ def _build_loader(
 
 
 def _run_epoch(
-    model: PlannerHeadModel,
+    model: Any,
     loader: Any,
     *,
     optimizer: Any | None,
@@ -439,6 +429,7 @@ def _run_epoch(
     teacher_margin_weight: float,
     teacher_rank_weight: float,
     curriculum_priority_weight: float,
+    load_balance_weight: float,
     root_value_weight: float,
     root_gap_weight: float,
     top_k: int,
@@ -468,6 +459,9 @@ def _run_epoch(
     root_value_abs_error_total = 0.0
     root_gap_abs_error_total = 0.0
     root_gap_examples = 0
+    load_balance_loss_total = 0.0
+    router_entropy_total = 0.0
+    expert_activation_totals: Any | None = None
 
     for batch in loader:
         outputs = model(
@@ -569,6 +563,10 @@ def _run_epoch(
             root_gap_loss = raw_gap_loss * batch["teacher_root_gap_mask"].to(raw_gap_loss.dtype)
         else:
             root_gap_loss = torch.zeros_like(ce_loss)
+        if outputs.get("load_balance_loss") is not None and load_balance_weight > 0.0:
+            load_balance_loss = outputs["load_balance_loss"]
+        else:
+            load_balance_loss = torch.tensor(0.0, dtype=ce_loss.dtype, device=ce_loss.device)
         example_weights = 1.0 + (
             curriculum_priority_weight * batch["curriculum_priorities"]
         )
@@ -581,7 +579,7 @@ def _run_epoch(
             + root_value_weight * root_value_loss
             + root_gap_weight * root_gap_loss
         ) * example_weights
-        mean_loss = loss.mean()
+        mean_loss = loss.mean() + (load_balance_weight * load_balance_loss)
 
         if training:
             assert optimizer is not None
@@ -592,8 +590,11 @@ def _run_epoch(
         probabilities = torch.softmax(logits, dim=1)
         ranking = torch.argsort(logits, dim=1, descending=True)
         teacher_indices = batch["teacher_top1_candidate_indices"]
-        total_examples += int(teacher_indices.shape[0])
-        total_loss += float(loss.sum().item())
+        batch_examples = int(teacher_indices.shape[0])
+        total_examples += batch_examples
+        total_loss += float(loss.sum().item()) + (
+            load_balance_weight * float(load_balance_loss.item()) * batch_examples
+        )
         teacher_policy_loss_total += float((ce_loss * example_weights).sum().item())
         teacher_kl_loss_total += float((kl_loss * example_weights).sum().item())
         teacher_score_loss_total += float((score_loss * example_weights).sum().item())
@@ -601,6 +602,14 @@ def _run_epoch(
         teacher_rank_loss_total += float((rank_loss * example_weights).sum().item())
         root_value_loss_total += float((root_value_loss * example_weights).sum().item())
         root_gap_loss_total += float((root_gap_loss * example_weights).sum().item())
+        load_balance_loss_total += float(load_balance_loss.item()) * batch_examples
+        if outputs.get("router_entropy") is not None:
+            router_entropy_total += float(outputs["router_entropy"].item()) * batch_examples
+        if outputs.get("expert_activation_counts") is not None:
+            if expert_activation_totals is None:
+                expert_activation_totals = outputs["expert_activation_counts"].detach().clone()
+            else:
+                expert_activation_totals = expert_activation_totals + outputs["expert_activation_counts"].detach()
         if outputs["candidate_score_prediction"] is not None and raw_score_loss is not None:
             score_mask = batch["teacher_candidate_score_mask"].to(
                 outputs["candidate_score_prediction"].dtype
@@ -668,6 +677,13 @@ def _run_epoch(
             teacher_probability_total += float(probabilities[row_index, teacher_index].item())
 
     elapsed = time.perf_counter() - started_at
+    if expert_activation_totals is None or total_examples == 0:
+        expert_activation_frequencies: tuple[float, ...] = ()
+    else:
+        expert_activation_frequencies = tuple(
+            float(value)
+            for value in (expert_activation_totals / float(total_examples)).tolist()
+        )
     return PlannerMetrics(
         total_examples=total_examples,
         supervised_examples=total_examples,
@@ -691,7 +707,39 @@ def _run_epoch(
         root_gap_examples=root_gap_examples,
         teacher_margin_examples=teacher_margin_examples,
         teacher_rank_examples=teacher_rank_examples,
+        load_balance_loss=_ratio(load_balance_loss_total, total_examples),
+        router_entropy=_ratio(router_entropy_total, total_examples),
+        expert_activation_frequencies=expert_activation_frequencies,
         examples_per_second=_ratio(total_examples, elapsed),
+    )
+
+
+def _build_planner_model(config: PlannerTrainConfig) -> Any:
+    enable_candidate_rank_head = config.optimization.teacher_rank_loss_weight > 0.0
+    if config.model.architecture == "moe_v1":
+        assert config.moe is not None
+        return MoEPlannerHeadModel(
+            hidden_dim=config.model.hidden_dim,
+            hidden_layers=config.model.hidden_layers,
+            action_embedding_dim=config.model.action_embedding_dim,
+            latent_feature_dim=config.model.latent_feature_dim,
+            dropout=config.model.dropout,
+            num_experts=config.moe.num_experts,
+            top_k=config.moe.top_k,
+            expert_hidden_dim=config.moe.expert_hidden_dim,
+            enable_candidate_rank_head=enable_candidate_rank_head,
+        )
+    return PlannerHeadModel(
+        architecture=config.model.architecture,
+        hidden_dim=config.model.hidden_dim,
+        hidden_layers=config.model.hidden_layers,
+        action_embedding_dim=config.model.action_embedding_dim,
+        latent_feature_dim=config.model.latent_feature_dim,
+        deliberation_steps=config.model.deliberation_steps,
+        memory_slots=config.model.memory_slots,
+        dropout=config.model.dropout,
+        enable_pairwise_candidates=config.model.enable_pairwise_candidates,
+        enable_candidate_rank_head=enable_candidate_rank_head,
     )
 
 

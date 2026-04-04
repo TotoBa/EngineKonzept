@@ -442,3 +442,12 @@ There is now also an optional candidate-refinement flag for the same planner fam
 - `PairwiseCandidateLayer` in [planner.py](/home/torsten/EngineKonzept/python/train/models/planner.py)
 - it applies a small masked self-attention pass over the bounded candidate set between the current projection stage and the candidate scorer
 - when the flag is omitted or `false`, planner behavior stays unchanged
+
+The next experimental planner arm is now also prepared from the Router-DAG direction in [arch.ideas.md](/home/torsten/EngineKonzept/docs/arch.ideas.md):
+
+- `moe_v1` in [moe_planner.py](/home/torsten/EngineKonzept/python/train/models/moe_planner.py)
+- it keeps the current bounded planner contract but replaces the final candidate scorer with a Top-2-routed expert mixture
+- `PlannerTrainConfig` now accepts an optional `moe` section in [config.py](/home/torsten/EngineKonzept/python/train/config.py) for expert count, top-k routing, expert hidden size, and load-balance weight
+- [planner.py](/home/torsten/EngineKonzept/python/train/trainers/planner.py) now logs `load_balance_loss`, `router_entropy`, and per-expert activation frequencies when the MoE arm is active
+- [phase9_planner_moe_v1_template.json](/home/torsten/EngineKonzept/python/configs/phase9_planner_moe_v1_template.json) is the prepared first-eval template for that arm
+- this step is intentionally model-and-trainer-only so far; no MoE training result is attached to it yet
