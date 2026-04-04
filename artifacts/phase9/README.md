@@ -240,3 +240,19 @@ The supporting initial-position tooling is now broader as well:
 - [build_selfplay_opening_fen_suite.py](/home/torsten/EngineKonzept/python/scripts/build_selfplay_opening_fen_suite.py) can derive opening starts from TSV opening books such as `../Thor_CE/openings`
 - [merge_selfplay_initial_fen_suites.py](/home/torsten/EngineKonzept/python/scripts/merge_selfplay_initial_fen_suites.py) can combine curated dataset suites and opening suites into one deduped arena-start suite
 - arena specs can use those merged starts together with `parallel_workers` for larger adjudicated comparison runs under one arena master process
+
+That broader direct comparison is now materialized too:
+
+- opening suite:
+  [initial_fens_thor_openings_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/initial_fens_thor_openings_v1.json)
+- mixed adjudicated suite:
+  [initial_fens_active_replay_campaign_adjudicated_v2.json](/home/torsten/EngineKonzept/artifacts/phase9/initial_fens_active_replay_campaign_adjudicated_v2.json)
+- direct comparison summary:
+  [arena_active_replay_campaign_adjudicated_v2.summary.json](/home/torsten/EngineKonzept/artifacts/phase9/arena_active_replay_campaign_adjudicated_v2.summary.json)
+- direct comparison matrix:
+  [arena_active_replay_campaign_adjudicated_v2.matrix.json](/home/torsten/EngineKonzept/artifacts/phase9/arena_active_replay_campaign_adjudicated_v2.matrix.json)
+
+Current direct-comparison conclusion:
+
+- the active expanded arm still leads on the broader adjudicated arena
+- the replay-campaign challengers remain valuable, but this direct check does not justify another promotion yet

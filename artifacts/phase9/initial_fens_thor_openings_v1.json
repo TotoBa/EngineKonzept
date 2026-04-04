@@ -1,0 +1,248 @@
+{
+  "entries": [
+    {
+      "fen": "rn1qkbnr/ppp2ppp/8/3p4/8/6PB/PPPPP3/RNBQ1RK1 b kq - 0 6",
+      "metadata": {
+        "eco": "A00",
+        "opening_name": "Amar Opening: Paris Gambit, Gent Gambit",
+        "ply_count": 11,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "a:3:A00",
+      "selection_score": 11.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A00"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnb1qrk1/ppp1b1pp/3ppn2/5p2/2PP4/1PN2NP1/P3PPBP/R1BQ1RK1 b - - 0 8",
+      "metadata": {
+        "eco": "A99",
+        "opening_name": "Dutch Defense: Classical Variation, Ilyin-Zhenevsky Variation, Modern Main Line",
+        "ply_count": 15,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "a:741:A99",
+      "selection_score": 15.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A99"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqkb1r/ppp1pppp/2npP2n/8/3P4/5N1P/PPP2PP1/RNBQKB1R b KQkq - 0 6",
+      "metadata": {
+        "eco": "B00",
+        "opening_name": "Nimzowitsch Defense: El Columpio Defense, El Columpio Gambit",
+        "ply_count": 11,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "b:24:B00",
+      "selection_score": 11.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B00"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1b1k2r/1pqnbppp/p2ppn2/6B1/3NPP2/2N2Q2/PPP3PP/2KR1B1R w kq - 5 10",
+      "metadata": {
+        "eco": "B99",
+        "opening_name": "Sicilian Defense: Najdorf Variation, Main Line",
+        "ply_count": 18,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "b:744:B99",
+      "selection_score": 18.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B99"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqkbnr/ppp2ppp/8/3p4/3PPp2/8/PPP1Q1PP/RNB1KBNR w KQkq - 0 5",
+      "metadata": {
+        "eco": "C00",
+        "opening_name": "French Defense: Hoffmann Gambit",
+        "ply_count": 8,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "c:15:C00",
+      "selection_score": 8.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C00"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1b2rk1/2q1bppp/p2p1n2/np2p3/3PP3/5N1P/PPBN1PP1/R1BQR1K1 b - - 0 13",
+      "metadata": {
+        "eco": "C99",
+        "opening_name": "Ruy Lopez: Closed, Chigorin Defense, Panov System",
+        "ply_count": 25,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "c:1200:C99",
+      "selection_score": 25.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C99"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqkb1r/ppp1pppp/5n2/8/3P4/2N2p2/PPP3PP/R1BQKBNR w KQkq - 0 5",
+      "metadata": {
+        "eco": "D00",
+        "opening_name": "Blackmar-Diemer Gambit Accepted",
+        "ply_count": 8,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "d:4:D00",
+      "selection_score": 8.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D00"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rn1q1rk1/pp1nppbp/6p1/2p5/3PP1b1/1QN1BN2/PP3PPP/R3KB1R w KQ - 0 10",
+      "metadata": {
+        "eco": "D99",
+        "opening_name": "Gr\u00fcnfeld Defense: Russian Variation, Yugoslav Variation",
+        "ply_count": 18,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "d:530:D99",
+      "selection_score": 18.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D99"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqkb1r/ppp2ppp/4pn2/8/2pP4/6P1/PP2PPBP/RNBQK1NR w KQkq - 0 5",
+      "metadata": {
+        "eco": "E02",
+        "opening_name": "Catalan Opening: Open Defense",
+        "ply_count": 8,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "e:8:E02",
+      "selection_score": 8.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E02"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bq1rk1/pppnn1bp/3p2p1/3Ppp2/2P1P3/2N2P2/PP2B1PP/R1BQNRK1 w - - 0 11",
+      "metadata": {
+        "eco": "E99",
+        "opening_name": "King's Indian Defense: Orthodox Variation, Classical System, Traditional Line",
+        "ply_count": 20,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "e:326:E99",
+      "selection_score": 20.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E99"
+      ],
+      "tier": "thor_openings"
+    }
+  ],
+  "metadata": {
+    "entries_per_file": 2,
+    "file_summaries": [
+      {
+        "candidate_count": 226,
+        "path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+        "sample_ids": [
+          "a:3:A00",
+          "a:741:A99"
+        ],
+        "selected_count": 2
+      },
+      {
+        "candidate_count": 416,
+        "path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+        "sample_ids": [
+          "b:24:B00",
+          "b:744:B99"
+        ],
+        "selected_count": 2
+      },
+      {
+        "candidate_count": 813,
+        "path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+        "sample_ids": [
+          "c:15:C00",
+          "c:1200:C99"
+        ],
+        "selected_count": 2
+      },
+      {
+        "candidate_count": 382,
+        "path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+        "sample_ids": [
+          "d:4:D00",
+          "d:530:D99"
+        ],
+        "selected_count": 2
+      },
+      {
+        "candidate_count": 283,
+        "path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+        "sample_ids": [
+          "e:8:E02",
+          "e:326:E99"
+        ],
+        "selected_count": 2
+      }
+    ],
+    "min_ply_count": 8,
+    "source": "thor_openings_tsv"
+  },
+  "name": "initial_fens_thor_openings_v1",
+  "spec_version": 1
+}

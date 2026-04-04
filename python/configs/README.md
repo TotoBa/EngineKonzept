@@ -164,6 +164,10 @@ These remain useful as small-corpus regression baselines, but they are no longer
   Replay-mirror challenger over the stronger `Phase 9` replay source. Starts from the replay-only `set_v6` mirror and stays available as a direct experimental selfplay arm.
 - [phase9_agent_planner_active_expanded_v2.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_active_expanded_v2.json)
   Current promoted expanded active selfplay agent spec. Points at the replay-promoted `set_v6_margin_replay_expanded_v2` planner checkpoint and replaces the older `set_v2_expanded` launch reference in the active slot.
+- [phase9_agent_planner_set_v6_margin_replay_campaign_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v6_margin_replay_campaign_v1.json)
+  Direct replay-campaign challenger carried forward from the long-run campaign verify matrix. It is currently the strongest replay-campaign challenger on held-out verify.
+- [phase9_agent_planner_set_v6_replay_campaign_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v6_replay_campaign_v1.json)
+  Second replay-campaign challenger from the same long-run campaign. Kept live for direct arena comparison against the active expanded arm.
 
 ## Phase 9 Arena Specs
 
@@ -175,6 +179,10 @@ These remain useful as small-corpus regression baselines, but they are no longer
   Post-400k arena suite. Uses the future expanded planner checkpoints for the active arm and the currently tracked experimental follow-ups.
 - [phase9_arena_active_experimental_replay_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_experimental_replay_expanded_v1.json)
   Replay-aware post-promotion arena suite. Keeps the promoted expanded active arm plus the older expanded family and the new replay challenger in the same versioned round-robin contract.
+- [phase9_arena_active_replay_campaign_adjudicated_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_replay_campaign_adjudicated_v1.json)
+  First direct active-vs-replay-campaign challenger comparison. Useful as a historical reference, but `startpos`-only and too color-biased to support promotion decisions by itself.
+- [phase9_arena_active_replay_campaign_adjudicated_v2.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_replay_campaign_adjudicated_v2.json)
+  Preferred direct challenger check. Uses `14` curated starts from dataset verify positions plus `../Thor_CE/openings`, bounded Stockfish adjudication, and `parallel_workers=6` under one arena master process.
 
 Arena specs now also support an optional `max_plies_adjudication` block:
 

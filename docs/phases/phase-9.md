@@ -393,3 +393,33 @@ The contract is versioned on the arena spec via `max_plies_adjudication`, so lat
 Arena specs now also carry `parallel_workers`.
 That is explicitly an offline orchestration knob, not a model or engine-contract change.
 The intended shape is one arena master process with several concurrent games, not several independent arena Python processes.
+
+The first direct replay-campaign challenger comparison is now also materialized:
+
+- replay-campaign challenger agent specs:
+  - [phase9_agent_planner_set_v6_margin_replay_campaign_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v6_margin_replay_campaign_v1.json)
+  - [phase9_agent_planner_set_v6_replay_campaign_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_agent_planner_set_v6_replay_campaign_v1.json)
+- adjudicated arena specs:
+  - [phase9_arena_active_replay_campaign_adjudicated_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_replay_campaign_adjudicated_v1.json)
+  - [phase9_arena_active_replay_campaign_adjudicated_v2.json](/home/torsten/EngineKonzept/python/configs/phase9_arena_active_replay_campaign_adjudicated_v2.json)
+- opening-derived suite:
+  [initial_fens_thor_openings_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/initial_fens_thor_openings_v1.json)
+- mixed adjudicated suite:
+  [initial_fens_active_replay_campaign_adjudicated_v2.json](/home/torsten/EngineKonzept/artifacts/phase9/initial_fens_active_replay_campaign_adjudicated_v2.json)
+- direct arena summary:
+  [arena_active_replay_campaign_adjudicated_v2.summary.json](/home/torsten/EngineKonzept/artifacts/phase9/arena_active_replay_campaign_adjudicated_v2.summary.json)
+- direct arena matrix:
+  [arena_active_replay_campaign_adjudicated_v2.matrix.json](/home/torsten/EngineKonzept/artifacts/phase9/arena_active_replay_campaign_adjudicated_v2.matrix.json)
+
+Important interpretation:
+
+- the original `v1` direct comparison over `startpos` only was too color-biased to drive promotion
+- the broader `v2` rerun uses `14` curated starts: `4` harder dataset positions plus `10` opening-derived positions from `../Thor_CE/openings`
+- `parallel_workers=6` now means one arena master process with six concurrent games
+- under that broader direct comparison the current active arm remains the clear leader:
+  - `planner_active_expanded_v2`: `score_rate=0.580357`
+  - `planner_set_v6_margin_replay_campaign_v1`: `0.482143`
+  - `planner_set_v6_replay_campaign_v1`: `0.4375`
+- held-out verify still likes `planner_set_v6_margin_replay_campaign_v1` slightly better, but the direct broader arena does not confirm a promotion
+
+So the current active expanded arm stays unchanged for now.

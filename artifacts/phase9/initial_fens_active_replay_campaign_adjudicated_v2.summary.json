@@ -1,0 +1,14 @@
+{
+  "entry_count": 14,
+  "metadata": {
+    "source_paths": [
+      "/home/torsten/EngineKonzept/artifacts/phase9/initial_fens_active_experimental_expanded_v1.json",
+      "/home/torsten/EngineKonzept/artifacts/phase9/initial_fens_thor_openings_v1.json"
+    ],
+    "source_suite_names": [
+      "phase9_active_experimental_expanded_v1",
+      "initial_fens_thor_openings_v1"
+    ]
+  },
+  "output_path": "/home/torsten/EngineKonzept/artifacts/phase9/initial_fens_active_replay_campaign_adjudicated_v2.json"
+}

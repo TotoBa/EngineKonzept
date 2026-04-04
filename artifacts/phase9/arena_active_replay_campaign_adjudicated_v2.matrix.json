@@ -1,0 +1,253 @@
+{
+  "agent_names": [
+    "planner_active_expanded_v2",
+    "planner_set_v6_margin_replay_campaign_v1",
+    "planner_set_v6_replay_campaign_v1"
+  ],
+  "aggregate": {
+    "game_count": 84,
+    "matchup_count": 6,
+    "mean_games_per_matchup": 14.0
+  },
+  "arena_name": "phase9_active_replay_campaign_adjudicated_v2",
+  "arena_spec_version": 1,
+  "matrix": {
+    "planner_active_expanded_v2": {
+      "planner_active_expanded_v2": {
+        "column_agent": "planner_active_expanded_v2",
+        "draws": 0,
+        "game_count": 0,
+        "losses": 0,
+        "result_counts": {},
+        "row_agent": "planner_active_expanded_v2",
+        "score": 0.0,
+        "score_rate": 0.0,
+        "termination_counts": {},
+        "unfinished": 0,
+        "wins": 0
+      },
+      "planner_set_v6_margin_replay_campaign_v1": {
+        "column_agent": "planner_set_v6_margin_replay_campaign_v1",
+        "draws": 6,
+        "game_count": 28,
+        "losses": 9,
+        "result_counts": {
+          "0-1": 13,
+          "1-0": 9,
+          "1/2-1/2": 6
+        },
+        "row_agent": "planner_active_expanded_v2",
+        "score": 16.0,
+        "score_rate": 0.571429,
+        "termination_counts": {
+          "checkmate": 2,
+          "engine_adjudication_black_advantage": 12,
+          "engine_adjudication_white_advantage": 8,
+          "threefold_repetition": 6
+        },
+        "unfinished": 0,
+        "wins": 13
+      },
+      "planner_set_v6_replay_campaign_v1": {
+        "column_agent": "planner_set_v6_replay_campaign_v1",
+        "draws": 9,
+        "game_count": 28,
+        "losses": 7,
+        "result_counts": {
+          "0-1": 11,
+          "1-0": 8,
+          "1/2-1/2": 9
+        },
+        "row_agent": "planner_active_expanded_v2",
+        "score": 16.5,
+        "score_rate": 0.589286,
+        "termination_counts": {
+          "checkmate": 5,
+          "engine_adjudication_black_advantage": 8,
+          "engine_adjudication_white_advantage": 6,
+          "threefold_repetition": 9
+        },
+        "unfinished": 0,
+        "wins": 12
+      }
+    },
+    "planner_set_v6_margin_replay_campaign_v1": {
+      "planner_active_expanded_v2": {
+        "column_agent": "planner_active_expanded_v2",
+        "draws": 6,
+        "game_count": 28,
+        "losses": 13,
+        "result_counts": {
+          "0-1": 13,
+          "1-0": 9,
+          "1/2-1/2": 6
+        },
+        "row_agent": "planner_set_v6_margin_replay_campaign_v1",
+        "score": 12.0,
+        "score_rate": 0.428571,
+        "termination_counts": {
+          "checkmate": 2,
+          "engine_adjudication_black_advantage": 12,
+          "engine_adjudication_white_advantage": 8,
+          "threefold_repetition": 6
+        },
+        "unfinished": 0,
+        "wins": 9
+      },
+      "planner_set_v6_margin_replay_campaign_v1": {
+        "column_agent": "planner_set_v6_margin_replay_campaign_v1",
+        "draws": 0,
+        "game_count": 0,
+        "losses": 0,
+        "result_counts": {},
+        "row_agent": "planner_set_v6_margin_replay_campaign_v1",
+        "score": 0.0,
+        "score_rate": 0.0,
+        "termination_counts": {},
+        "unfinished": 0,
+        "wins": 0
+      },
+      "planner_set_v6_replay_campaign_v1": {
+        "column_agent": "planner_set_v6_replay_campaign_v1",
+        "draws": 12,
+        "game_count": 28,
+        "losses": 7,
+        "result_counts": {
+          "0-1": 13,
+          "1-0": 3,
+          "1/2-1/2": 12
+        },
+        "row_agent": "planner_set_v6_margin_replay_campaign_v1",
+        "score": 15.0,
+        "score_rate": 0.535714,
+        "termination_counts": {
+          "checkmate": 3,
+          "engine_adjudication_black_advantage": 11,
+          "engine_adjudication_white_advantage": 2,
+          "stalemate": 1,
+          "threefold_repetition": 11
+        },
+        "unfinished": 0,
+        "wins": 9
+      }
+    },
+    "planner_set_v6_replay_campaign_v1": {
+      "planner_active_expanded_v2": {
+        "column_agent": "planner_active_expanded_v2",
+        "draws": 9,
+        "game_count": 28,
+        "losses": 12,
+        "result_counts": {
+          "0-1": 11,
+          "1-0": 8,
+          "1/2-1/2": 9
+        },
+        "row_agent": "planner_set_v6_replay_campaign_v1",
+        "score": 11.5,
+        "score_rate": 0.410714,
+        "termination_counts": {
+          "checkmate": 5,
+          "engine_adjudication_black_advantage": 8,
+          "engine_adjudication_white_advantage": 6,
+          "threefold_repetition": 9
+        },
+        "unfinished": 0,
+        "wins": 7
+      },
+      "planner_set_v6_margin_replay_campaign_v1": {
+        "column_agent": "planner_set_v6_margin_replay_campaign_v1",
+        "draws": 12,
+        "game_count": 28,
+        "losses": 9,
+        "result_counts": {
+          "0-1": 13,
+          "1-0": 3,
+          "1/2-1/2": 12
+        },
+        "row_agent": "planner_set_v6_replay_campaign_v1",
+        "score": 13.0,
+        "score_rate": 0.464286,
+        "termination_counts": {
+          "checkmate": 3,
+          "engine_adjudication_black_advantage": 11,
+          "engine_adjudication_white_advantage": 2,
+          "stalemate": 1,
+          "threefold_repetition": 11
+        },
+        "unfinished": 0,
+        "wins": 7
+      },
+      "planner_set_v6_replay_campaign_v1": {
+        "column_agent": "planner_set_v6_replay_campaign_v1",
+        "draws": 0,
+        "game_count": 0,
+        "losses": 0,
+        "result_counts": {},
+        "row_agent": "planner_set_v6_replay_campaign_v1",
+        "score": 0.0,
+        "score_rate": 0.0,
+        "termination_counts": {},
+        "unfinished": 0,
+        "wins": 0
+      }
+    }
+  },
+  "ranking_by_score_rate": [
+    {
+      "agent": "planner_active_expanded_v2",
+      "draws": 15,
+      "games": 56,
+      "losses": 16,
+      "score": 32.5,
+      "score_rate": 0.580357,
+      "unfinished": 0,
+      "wins": 25
+    },
+    {
+      "agent": "planner_set_v6_margin_replay_campaign_v1",
+      "draws": 18,
+      "games": 56,
+      "losses": 20,
+      "score": 27.0,
+      "score_rate": 0.482143,
+      "unfinished": 0,
+      "wins": 18
+    },
+    {
+      "agent": "planner_set_v6_replay_campaign_v1",
+      "draws": 21,
+      "games": 56,
+      "losses": 21,
+      "score": 24.5,
+      "score_rate": 0.4375,
+      "unfinished": 0,
+      "wins": 14
+    }
+  ],
+  "standings": {
+    "planner_active_expanded_v2": {
+      "draws": 15,
+      "games": 56,
+      "losses": 16,
+      "score": 32.5,
+      "unfinished": 0,
+      "wins": 25
+    },
+    "planner_set_v6_margin_replay_campaign_v1": {
+      "draws": 18,
+      "games": 56,
+      "losses": 20,
+      "score": 27.0,
+      "unfinished": 0,
+      "wins": 18
+    },
+    "planner_set_v6_replay_campaign_v1": {
+      "draws": 21,
+      "games": 56,
+      "losses": 21,
+      "score": 24.5,
+      "unfinished": 0,
+      "wins": 14
+    }
+  }
+}
