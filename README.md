@@ -29,6 +29,7 @@ The repository now covers Phase 8 foundations:
 - the first trained bounded planner arm over a multi-corpus workflow suite
 - the first small exact selfplay loop over proposer/opponent/planner contracts
 - post-game Stockfish-reviewed selfplay training-set generation for non-external agents
+- round-batched selfplay teacher-retraining over the active planner checkpoints
 - CI, lint, and test wiring
 - architecture and phase documentation
 

@@ -225,6 +225,28 @@ def __getattr__(name: str) -> Any:
             "run_selfplay_replay_campaign": run_selfplay_replay_campaign,
             "write_selfplay_replay_campaign_spec": write_selfplay_replay_campaign_spec,
         }[name]
+    if name in {
+        "SelfplayTeacherRetrainAgentSpec",
+        "SelfplayTeacherRetrainCycleSpec",
+        "load_selfplay_teacher_retrain_cycle_spec",
+        "run_selfplay_teacher_retrain_cycle",
+        "write_selfplay_teacher_retrain_cycle_spec",
+    }:
+        from train.eval.selfplay_training_cycle import (
+            SelfplayTeacherRetrainAgentSpec,
+            SelfplayTeacherRetrainCycleSpec,
+            load_selfplay_teacher_retrain_cycle_spec,
+            run_selfplay_teacher_retrain_cycle,
+            write_selfplay_teacher_retrain_cycle_spec,
+        )
+
+        return {
+            "SelfplayTeacherRetrainAgentSpec": SelfplayTeacherRetrainAgentSpec,
+            "SelfplayTeacherRetrainCycleSpec": SelfplayTeacherRetrainCycleSpec,
+            "load_selfplay_teacher_retrain_cycle_spec": load_selfplay_teacher_retrain_cycle_spec,
+            "run_selfplay_teacher_retrain_cycle": run_selfplay_teacher_retrain_cycle,
+            "write_selfplay_teacher_retrain_cycle_spec": write_selfplay_teacher_retrain_cycle_spec,
+        }[name]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -246,6 +268,8 @@ __all__ = [
     "SelfplayGameRecord",
     "SelfplayMaxPliesAdjudicationSpec",
     "SelfplaySessionRecord",
+    "SelfplayTeacherRetrainAgentSpec",
+    "SelfplayTeacherRetrainCycleSpec",
     "build_planner_runtime",
     "build_planner_runtime_from_spec",
     "build_planner_verify_matrix",
@@ -262,12 +286,14 @@ __all__ = [
     "load_selfplay_agent_spec",
     "load_symbolic_proposer_checkpoint",
     "load_selfplay_replay_campaign_spec",
+    "load_selfplay_teacher_retrain_cycle_spec",
     "materialize_replay_campaign_planner_config",
     "open_max_plies_adjudicator",
     "play_selfplay_game",
     "predict_dynamics_latent",
     "run_selfplay_arena",
     "run_selfplay_replay_campaign",
+    "run_selfplay_teacher_retrain_cycle",
     "run_selfplay_session",
     "score_opponent_candidates",
     "score_symbolic_candidates",
@@ -276,4 +302,5 @@ __all__ = [
     "write_selfplay_curriculum_plan",
     "write_selfplay_agent_spec",
     "write_selfplay_replay_campaign_spec",
+    "write_selfplay_teacher_retrain_cycle_spec",
 ]

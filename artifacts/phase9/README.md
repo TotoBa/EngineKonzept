@@ -14,6 +14,8 @@ Current contents:
   [summary.json](/home/torsten/EngineKonzept/artifacts/phase9/arena_active_probe_v1/summary.json)
 - post-game selfplay teacher-training builder:
   [build_selfplay_teacher_training_dataset.py](/home/torsten/EngineKonzept/python/scripts/build_selfplay_teacher_training_dataset.py)
+- round-batched selfplay teacher-retrain runner:
+  [run_selfplay_teacher_retrain_cycle.py](/home/torsten/EngineKonzept/python/scripts/run_selfplay_teacher_retrain_cycle.py)
 - first curriculum/launch plan:
   [curriculum_active_experimental_expanded_v1.json](/home/torsten/EngineKonzept/artifacts/phase9/curriculum_active_experimental_expanded_v1.json)
 - first expanded active-plus-experimental arena:
@@ -120,6 +122,13 @@ There is now also a slower but higher-quality post-game training path for non-ex
 - writes per-agent `selfplay_teacher_review_train.jsonl`
 - writes aligned per-agent `planner_head_train.jsonl`
 - scales the learning priority by measured mistake size instead of only final game outcome
+
+That path now also supports small batched update cycles:
+
+- one batch of completed matchups is played
+- the affected non-external agents get teacher-reviewed correction sets
+- their planner checkpoints can be warm-start retrained immediately
+- the next batch then uses the updated checkpoint through a rewritten active agent spec
 
 The next training-facing follow-up is now materialized too:
 

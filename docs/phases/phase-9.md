@@ -23,6 +23,7 @@ The repository now has the first small selfplay loop in Python:
 - [build_replay_buffer.py](/home/torsten/EngineKonzept/python/scripts/build_replay_buffer.py)
 - [build_curriculum_stage_replay_buffer.py](/home/torsten/EngineKonzept/python/scripts/build_curriculum_stage_replay_buffer.py)
 - [build_selfplay_teacher_training_dataset.py](/home/torsten/EngineKonzept/python/scripts/build_selfplay_teacher_training_dataset.py)
+- [run_selfplay_teacher_retrain_cycle.py](/home/torsten/EngineKonzept/python/scripts/run_selfplay_teacher_retrain_cycle.py)
 - [run_selfplay_arena.py](/home/torsten/EngineKonzept/python/scripts/run_selfplay_arena.py)
 - [run_selfplay_curriculum_stage.py](/home/torsten/EngineKonzept/python/scripts/run_selfplay_curriculum_stage.py)
 - [build_selfplay_curriculum_plan.py](/home/torsten/EngineKonzept/python/scripts/build_selfplay_curriculum_plan.py)
@@ -51,6 +52,7 @@ This first implementation is intentionally small and contract-first:
 - writes reproducible JSON session artifacts
 - can flatten finished sessions into replay-buffer rows for later training and curriculum use
 - can run a short Stockfish18 post-game review over completed sessions and write per-agent mistake-weighted planner training sets for non-external agents
+- can batch arena matchups into small selfplay-training rounds and warm-start planner checkpoints from those new mistake sets
 
 ## What it does not do yet
 
@@ -92,6 +94,18 @@ There is now also a separate post-game correction path on top of that runtime co
 - the review computes a regret-style mistake signal from `teacher_best_cp - played_cp`
 - a small deadzone suppresses depth-5 noise
 - the resulting per-agent `planner_head_train.jsonl` artifacts still reuse the same symbolic proposer, dynamics, and opponent contracts as the normal planner workflow
+
+That correction path now also has a first round-batched orchestrator:
+
+- [selfplay_training_cycle.py](/home/torsten/EngineKonzept/python/train/eval/selfplay_training_cycle.py)
+- [run_selfplay_teacher_retrain_cycle.py](/home/torsten/EngineKonzept/python/scripts/run_selfplay_teacher_retrain_cycle.py)
+
+The cycle runner is intentionally explicit rather than magical:
+
+- the arena spec stays the source of truth for who plays
+- a separate cycle spec names which non-external agents are warm-start retrainable
+- completed matchup batches are reviewed with Stockfish18
+- only the affected planner checkpoint is updated before the next batch starts
 
 ## First probe
 
