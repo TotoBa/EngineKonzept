@@ -198,6 +198,22 @@ def __getattr__(name: str) -> Any:
             "predict_dynamics_latent": predict_dynamics_latent,
         }[name]
     if name in {
+        "analyze_moe_expert_specialization",
+        "load_moe_planner_checkpoint",
+        "visualize_moe_routing_report",
+    }:
+        from train.eval.moe_analysis import (
+            analyze_moe_expert_specialization,
+            load_moe_planner_checkpoint,
+            visualize_moe_routing_report,
+        )
+
+        return {
+            "analyze_moe_expert_specialization": analyze_moe_expert_specialization,
+            "load_moe_planner_checkpoint": load_moe_planner_checkpoint,
+            "visualize_moe_routing_report": visualize_moe_routing_report,
+        }[name]
+    if name in {
         "PlannerReplayCampaignRunSpec",
         "SelfplayReplayCampaignSpec",
         "build_planner_verify_matrix",

@@ -460,3 +460,22 @@ That experimental arm now also carries the first Aufwand-nach-Bedarf extension f
 - [planner.py](/home/torsten/EngineKonzept/python/train/trainers/planner.py) logs `complexity_loss`, routed easy/medium/hard fractions, per-tier average expert counts, and a simple compute-savings estimate
 - when the complexity head is disabled, `moe_v1` remains identical to the earlier fixed-budget Top-2 router path
 - this is still intentionally untrained so far; the repo now has the contract, config, and metrics for the first real MoE evaluation pass
+
+The repo now also has offline MoE-analysis tooling for the next trained checkpoint:
+
+- [analyze_moe_expert_specialization.py](/home/torsten/EngineKonzept/python/scripts/analyze_moe_expert_specialization.py)
+- [visualize_moe_routing.py](/home/torsten/EngineKonzept/python/scripts/visualize_moe_routing.py)
+- [moe_analysis.py](/home/torsten/EngineKonzept/python/train/eval/moe_analysis.py)
+
+That tooling reads a trained `moe_v1` checkpoint plus `planner_head` artifacts and reports:
+
+- expert activation by opening/middlegame/endgame
+- expert activation by tactical level and teacher difficulty bucket
+- router entropy and optional complexity-score distributions
+- agreement rates between the two strongest routed experts
+
+It also renders the first diagnostic plot set:
+
+- expert-by-phase heatmap
+- router-entropy histogram
+- complexity-score versus teacher-gap scatter

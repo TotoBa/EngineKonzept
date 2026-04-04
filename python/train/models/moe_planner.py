@@ -496,6 +496,10 @@ if torch is not None and nn is not None:
                 "expert_activation_frequencies": router_outputs["expert_activation_frequencies"],
                 "router_weights": router_outputs["router_weights"],
                 "sparse_router_weights": router_outputs["sparse_router_weights"],
+                "expert_candidate_logits": expert_logits.masked_fill(
+                    ~candidate_mask.unsqueeze(1),
+                    -20.0,
+                ),
                 "complexity_score": complexity_score,
                 "complexity_tier_indices": tier_indices,
                 "selected_expert_counts": selected_expert_counts,
