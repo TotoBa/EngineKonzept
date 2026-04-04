@@ -275,6 +275,9 @@ It is intended to write, under one output root:
 - one `final_report.json`
 - one verify matrix and one arena matrix per stage
 
+Each arena stage now also writes a live `arena/progress.json` while games are running.
+That file is the intended low-latency status view before the stage-local `summary.json` is finished.
+
 This is the preferred artifact path when the question is not just "which arm wins one sweep?", but "how does the full family change from the current checkpoints through fulltrain and repeated selfplay correction?".
 - replay-aware curriculum plan:
   [curriculum_active_experimental_replay_expanded_v2.json](/home/torsten/EngineKonzept/artifacts/phase9/curriculum_active_experimental_replay_expanded_v2.json)

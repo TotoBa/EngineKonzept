@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import nullcontext
 from dataclasses import dataclass, field
 import json
@@ -290,8 +290,10 @@ def run_selfplay_arena(
     output_root.mkdir(parents=True, exist_ok=True)
     sessions_root = output_root / "sessions"
     sessions_root.mkdir(parents=True, exist_ok=True)
+    progress_path = output_root / "progress.json"
 
     matchups = spec.expanded_matchups()
+    total_games = sum(matchup.games for matchup in matchups)
 
     matchup_results: list[ArenaMatchupResult] = []
     standings: dict[str, dict[str, object]] = {
@@ -305,6 +307,20 @@ def run_selfplay_arena(
         }
         for agent_name in spec.agent_specs
     }
+    completed_games = 0
+    completed_matchups = 0
+
+    _write_arena_progress(
+        progress_path=progress_path,
+        arena_name=spec.name,
+        total_games=total_games,
+        completed_games=0,
+        total_matchups=len(matchups),
+        completed_matchups=0,
+        standings=standings,
+        last_game=None,
+        last_matchup=None,
+    )
 
     if spec.parallel_workers > 1:
         if agent_builder is not None or oracle_loader is not None:
@@ -333,39 +349,103 @@ def run_selfplay_arena(
             matchup_index: []
             for matchup_index in range(1, len(matchups) + 1)
         }
+        finalized_matchups: set[int] = set()
         max_workers = min(spec.parallel_workers, len(jobs))
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            payloads = list(executor.map(_run_arena_game_job, jobs))
-
-        for payload in payloads:
-            grouped_games[int(payload["matchup_index"])].append(
-                (
-                    int(payload["game_index"]),
-                    SelfplayGameRecord.from_dict(dict(payload["game"])),
+            future_to_job = {
+                executor.submit(_run_arena_game_job, job): job
+                for job in jobs
+            }
+            for future in as_completed(future_to_job):
+                payload = future.result()
+                job = future_to_job[future]
+                game = SelfplayGameRecord.from_dict(dict(payload["game"]))
+                grouped_games[int(payload["matchup_index"])].append(
+                    (int(payload["game_index"]), game)
                 )
-            )
+                completed_games += 1
+                print(
+                    f"[arena] {spec.name}: game {completed_games}/{total_games} "
+                    f"matchup {job.matchup_index}/{len(matchups)} "
+                    f"{job.white_agent} vs {job.black_agent} "
+                    f"result={game.result} termination={game.termination_reason} plies={game.move_count}",
+                    flush=True,
+                )
+                _write_arena_progress(
+                    progress_path=progress_path,
+                    arena_name=spec.name,
+                    total_games=total_games,
+                    completed_games=completed_games,
+                    total_matchups=len(matchups),
+                    completed_matchups=completed_matchups,
+                    standings=standings,
+                    last_game={
+                        "matchup_index": job.matchup_index,
+                        "game_index": job.game_index,
+                        "white_agent": job.white_agent,
+                        "black_agent": job.black_agent,
+                        "result": game.result,
+                        "termination_reason": game.termination_reason,
+                        "move_count": game.move_count,
+                    },
+                    last_matchup=None,
+                )
+
+                matchup = matchups[job.matchup_index - 1]
+                if (
+                    job.matchup_index not in finalized_matchups
+                    and len(grouped_games[job.matchup_index]) == matchup.games
+                ):
+                    result = _finalize_parallel_matchup(
+                        matchup_index=job.matchup_index,
+                        matchup=matchup,
+                        grouped_games=grouped_games,
+                        sessions_root=sessions_root,
+                        matchup_results=matchup_results,
+                        standings=standings,
+                    )
+                    finalized_matchups.add(job.matchup_index)
+                    completed_matchups += 1
+                    print(
+                        f"[arena] {spec.name}: matchup {completed_matchups}/{len(matchups)} "
+                        f"written {result.name} score={result.white_score}-{result.black_score}",
+                        flush=True,
+                    )
+                    _write_arena_progress(
+                        progress_path=progress_path,
+                        arena_name=spec.name,
+                        total_games=total_games,
+                        completed_games=completed_games,
+                        total_matchups=len(matchups),
+                        completed_matchups=completed_matchups,
+                        standings=standings,
+                        last_game=None,
+                        last_matchup=result.to_dict(),
+                    )
 
         for matchup_index, matchup in enumerate(matchups, start=1):
-            session_games = [
-                game
-                for _game_index, game in sorted(grouped_games[matchup_index], key=lambda item: item[0])
-            ]
-            session = SelfplaySessionRecord(games=session_games)
-            session_path = sessions_root / (
-                f"{matchup_index:02d}_{matchup.white_agent}_vs_{matchup.black_agent}.json"
+            if matchup_index in finalized_matchups:
+                continue
+            result = _finalize_parallel_matchup(
+                matchup_index=matchup_index,
+                matchup=matchup,
+                grouped_games=grouped_games,
+                sessions_root=sessions_root,
+                matchup_results=matchup_results,
+                standings=standings,
             )
-            session_path.write_text(
-                json.dumps(session.to_dict(), indent=2, sort_keys=True) + "\n",
-                encoding="utf-8",
+            completed_matchups += 1
+            _write_arena_progress(
+                progress_path=progress_path,
+                arena_name=spec.name,
+                total_games=total_games,
+                completed_games=completed_games,
+                total_matchups=len(matchups),
+                completed_matchups=completed_matchups,
+                standings=standings,
+                last_game=None,
+                last_matchup=result.to_dict(),
             )
-            result = _summarize_matchup(
-                session=session,
-                white_agent=matchup.white_agent,
-                black_agent=matchup.black_agent,
-                session_path=session_path,
-            )
-            matchup_results.append(result)
-            _update_standings(standings, result)
     else:
         builder = agent_builder or _default_agent_builder
         agents = {
@@ -406,6 +486,24 @@ def run_selfplay_arena(
                 )
                 matchup_results.append(result)
                 _update_standings(standings, result)
+                completed_games += matchup.games
+                completed_matchups += 1
+                print(
+                    f"[arena] {spec.name}: matchup {completed_matchups}/{len(matchups)} "
+                    f"written {result.name} score={result.white_score}-{result.black_score}",
+                    flush=True,
+                )
+                _write_arena_progress(
+                    progress_path=progress_path,
+                    arena_name=spec.name,
+                    total_games=total_games,
+                    completed_games=completed_games,
+                    total_matchups=len(matchups),
+                    completed_matchups=completed_matchups,
+                    standings=standings,
+                    last_game=None,
+                    last_matchup=result.to_dict(),
+                )
 
     all_game_counts = [result.game_count for result in matchup_results]
     aggregate = {
@@ -431,7 +529,81 @@ def run_selfplay_arena(
         "standings": standings,
         "matchups": [result.to_dict() for result in matchup_results],
     }
+    _write_arena_progress(
+        progress_path=progress_path,
+        arena_name=spec.name,
+        total_games=total_games,
+        completed_games=total_games,
+        total_matchups=len(matchups),
+        completed_matchups=len(matchups),
+        standings=standings,
+        last_game=None,
+        last_matchup=None,
+        status="completed",
+    )
     return summary
+
+
+def _finalize_parallel_matchup(
+    *,
+    matchup_index: int,
+    matchup: SelfplayArenaMatchupSpec,
+    grouped_games: dict[int, list[tuple[int, SelfplayGameRecord]]],
+    sessions_root: Path,
+    matchup_results: list[ArenaMatchupResult],
+    standings: dict[str, dict[str, object]],
+) -> ArenaMatchupResult:
+    session_games = [
+        game
+        for _game_index, game in sorted(grouped_games[matchup_index], key=lambda item: item[0])
+    ]
+    session = SelfplaySessionRecord(games=session_games)
+    session_path = sessions_root / (
+        f"{matchup_index:02d}_{matchup.white_agent}_vs_{matchup.black_agent}.json"
+    )
+    session_path.write_text(
+        json.dumps(session.to_dict(), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    result = _summarize_matchup(
+        session=session,
+        white_agent=matchup.white_agent,
+        black_agent=matchup.black_agent,
+        session_path=session_path,
+    )
+    matchup_results.append(result)
+    _update_standings(standings, result)
+    return result
+
+
+def _write_arena_progress(
+    *,
+    progress_path: Path,
+    arena_name: str,
+    total_games: int,
+    completed_games: int,
+    total_matchups: int,
+    completed_matchups: int,
+    standings: dict[str, dict[str, object]],
+    last_game: dict[str, object] | None,
+    last_matchup: dict[str, object] | None,
+    status: str = "running",
+) -> None:
+    payload = {
+        "arena_name": arena_name,
+        "status": status,
+        "completed_games": completed_games,
+        "total_games": total_games,
+        "completed_matchups": completed_matchups,
+        "total_matchups": total_matchups,
+        "standings": standings,
+        "last_game": last_game,
+        "last_matchup": last_matchup,
+    }
+    progress_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
 
 def _run_arena_game_job(job: _ArenaGameJob) -> dict[str, object]:

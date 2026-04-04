@@ -471,6 +471,15 @@ The evolving family now includes both MoE arms as first-class participants:
 
 The `400k` tier is filtered only for train/validation inside this campaign so the noisier tails and near-ambiguous teacher positions do not dominate the start-training stage, while verify still measures against the full three-tier holdout.
 
+The preferred evolution config now keeps the arena deliberately smaller:
+
+- `arena_default_games=1`
+- `round_robin_swap_colors=true`
+
+So each unordered pairing is still played twice overall, once per color direction, but the campaign does not multiply that further by another per-pair game count.
+
+Arena runs also now write a live [progress.json](/home/torsten/EngineKonzept/python/train/eval/arena.py) inside the arena output directory and emit flushed progress lines to stdout, so long-running stages can be monitored without waiting for the final `summary.json`.
+
 Phase 9 now also supports optional engine adjudication exactly at the `max_plies` boundary.
 That path is intended to reduce unresolved `max_plies` endings without turning runtime into a classical search engine:
 

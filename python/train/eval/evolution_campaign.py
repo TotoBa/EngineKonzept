@@ -400,6 +400,9 @@ def run_planner_evolution_campaign(
     selected_runs: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """Run the full planner-evolution campaign and return the summary payload."""
+    _log_evolution(
+        f"campaign={spec.name} output_root={spec.output_root} iterations={iterations_override or spec.iterations}"
+    )
     output_root = _resolve_repo_path(repo_root, Path(spec.output_root))
     output_root.mkdir(parents=True, exist_ok=True)
 
@@ -448,6 +451,7 @@ def run_planner_evolution_campaign(
     }
     iteration_summaries: list[dict[str, Any]] = []
     for iteration_index in range(1, iterations + 1):
+        _log_evolution(f"entering {iteration_index=}")
         iteration_summary = _run_iteration_stage(
             spec=spec,
             repo_root=repo_root,
@@ -636,6 +640,7 @@ def _run_start_stage(
     selected_run_names: set[str] | None,
 ) -> dict[str, Any]:
     stage_root = output_root / "start"
+    _log_evolution("stage=start")
     summary_path = stage_root / "summary.json"
     if skip_existing and summary_path.exists():
         return json.loads(summary_path.read_text(encoding="utf-8"))
@@ -694,6 +699,7 @@ def _run_fulltrain_stage(
     selected_run_names: set[str] | None,
 ) -> dict[str, Any]:
     stage_root = output_root / "after_fulltrain"
+    _log_evolution("stage=after_fulltrain")
     summary_path = stage_root / "summary.json"
     if skip_existing and summary_path.exists():
         return json.loads(summary_path.read_text(encoding="utf-8"))
@@ -796,6 +802,11 @@ def _run_fulltrain_stage(
         json.dumps(verify_matrix, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    if verify_matrix.get("ranking_by_top1"):
+        leader = verify_matrix["ranking_by_top1"][0]
+        _log_evolution(
+            f"after_fulltrain verify leader={leader['name']} top1={leader['root_top1_accuracy']:.6f}"
+        )
 
     ordered_specs = _ordered_agent_specs(active_agent_specs, order=spec.arena_agent_order)
     arena_summary_path, arena_matrix_path = _run_arena_stage(
@@ -832,6 +843,7 @@ def _run_iteration_stage(
 ) -> dict[str, Any]:
     stage_name = f"round_{iteration_index:02d}"
     stage_root = output_root / "iterations" / stage_name
+    _log_evolution(f"stage={stage_name}")
     summary_path = stage_root / "summary.json"
     if skip_existing and summary_path.exists():
         return json.loads(summary_path.read_text(encoding="utf-8"))
@@ -1013,6 +1025,11 @@ def _run_iteration_stage(
         json.dumps(verify_matrix, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    if verify_matrix.get("ranking_by_top1"):
+        leader = verify_matrix["ranking_by_top1"][0]
+        _log_evolution(
+            f"{stage_name} verify leader={leader['name']} top1={leader['root_top1_accuracy']:.6f}"
+        )
 
     summary = {
         "stage_name": stage_name,
@@ -1040,6 +1057,7 @@ def _run_final_stage(
     skip_existing: bool,
 ) -> dict[str, Any]:
     stage_root = output_root / "final"
+    _log_evolution("stage=final")
     summary_path = stage_root / "summary.json"
     if skip_existing and summary_path.exists():
         return json.loads(summary_path.read_text(encoding="utf-8"))
@@ -1107,6 +1125,11 @@ def _run_arena_stage(
         default_max_plies=spec.arena_default_max_plies,
         opening_selection_seed=spec.arena_opening_selection_seed,
     )
+    matchup_count = len(resolved_arena_spec.expanded_matchups())
+    total_games = sum(matchup.games for matchup in resolved_arena_spec.expanded_matchups())
+    _log_evolution(
+        f"arena stage={stage_name} agents={len(agent_spec_paths)} matchups={matchup_count} total_games={total_games}"
+    )
     arena_root = stage_root / "arena"
     arena_root.mkdir(parents=True, exist_ok=True)
     resolved_arena_spec_path = arena_root / "arena_spec.resolved.json"
@@ -1134,6 +1157,10 @@ def _run_arena_stage(
     arena_matrix_path = stage_root / "arena_matrix.json"
     write_selfplay_arena_matrix(arena_matrix_path, arena_matrix)
     return arena_summary_path, arena_matrix_path
+
+
+def _log_evolution(message: str) -> None:
+    print(f"[evolution] {message}", flush=True)
 
 
 def _materialize_start_agent_specs(

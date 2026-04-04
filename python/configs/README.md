@@ -243,7 +243,7 @@ The intended use is one arena Python process controlling several concurrent game
 - [phase9_fulltrain_then_arena_expanded_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_fulltrain_then_arena_expanded_v1.json)
   Large full-data planner-family campaign. Retrains the configured expanded planner arms on `10k + 122k + 400k` for `12` epochs each, then runs one deterministic double round-robin arena and writes the verify plus arena matrices under one output root.
 - [phase9_evolution_fullmatrix_filtered_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_evolution_fullmatrix_filtered_v1.json)
-  Stage-tracking evolution campaign. Evaluates the current family at `start`, retrains the evolving arms on `10k + 122k + filtered 400k`, then runs `20` replay-aware selfplay/retrain rounds and writes per-stage verify matrices, arena matrices, teacher-review summaries, and one `final_report.json`. Includes both `moe_v1` and `moe_v2` in the same full-matrix sweep.
+  Stage-tracking evolution campaign. Evaluates the current family at `start`, retrains the evolving arms on `10k + 122k + filtered 400k`, then runs `20` replay-aware selfplay/retrain rounds and writes per-stage verify matrices, arena matrices, teacher-review summaries, and one `final_report.json`. Includes both `moe_v1` and `moe_v2` in the same full-matrix sweep. The current preferred setting keeps `arena_default_games=1`, so color-swapped round-robin still gives two games per unordered pairing overall without exploding the stage size.
 
 ## Phase 9 Teacher Retrain Cycles
 

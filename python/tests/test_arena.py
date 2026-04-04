@@ -182,6 +182,11 @@ def test_run_selfplay_arena_writes_sessions_and_standings(tmp_path: Path) -> Non
     assert summary["standings"]["black_arm"]["losses"] == 1
     session_path = output_root / "sessions" / "01_white_arm_vs_black_arm.json"
     assert session_path.exists()
+    progress_path = output_root / "progress.json"
+    assert progress_path.exists()
+    progress_payload = json.loads(progress_path.read_text(encoding="utf-8"))
+    assert progress_payload["status"] == "completed"
+    assert progress_payload["completed_games"] == 1
     payload = json.loads(session_path.read_text(encoding="utf-8"))
     assert payload["aggregate"]["termination_counts"] == {"checkmate": 1}
 
