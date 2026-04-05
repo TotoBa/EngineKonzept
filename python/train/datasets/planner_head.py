@@ -409,6 +409,9 @@ def build_planner_head_examples(
     root_top_k: int,
     max_examples: int | None,
     repo_root: Path,
+    dataset_examples_override: Sequence[DatasetExample] | None = None,
+    teacher_examples_override: Sequence[Any] | None = None,
+    curriculum_examples_override: Sequence[Any] | None = None,
 ) -> list[PlannerHeadExample]:
     """Build bounded root-planning examples from the current workflow artifacts."""
 
@@ -419,13 +422,25 @@ def build_planner_head_examples(
     if opponent_mode == "learned" and opponent_checkpoint is None:
         raise ValueError("opponent_checkpoint is required when opponent_mode='learned'")
 
-    dataset_examples = load_split_examples(dataset_dir, split)
+    dataset_examples = (
+        list(dataset_examples_override)
+        if dataset_examples_override is not None
+        else load_split_examples(dataset_dir, split)
+    )
     if not dataset_examples:
         raise ValueError(f"dataset split is empty: {split}")
     dataset_by_sample_id = {example.sample_id: example for example in dataset_examples}
-    teacher_examples = load_search_teacher_examples(search_teacher_path)
+    teacher_examples = (
+        list(teacher_examples_override)
+        if teacher_examples_override is not None
+        else load_search_teacher_examples(search_teacher_path)
+    )
     curriculum_by_sample_id: dict[str, Any] = {}
-    if search_curriculum_path is not None and search_curriculum_path.exists():
+    if curriculum_examples_override is not None:
+        curriculum_by_sample_id = {
+            example.sample_id: example for example in curriculum_examples_override
+        }
+    elif search_curriculum_path is not None and search_curriculum_path.exists():
         curriculum_by_sample_id = {
             example.sample_id: example
             for example in load_search_curriculum_examples(search_curriculum_path)

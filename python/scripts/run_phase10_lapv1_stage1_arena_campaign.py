@@ -54,6 +54,7 @@ class Phase10Lapv1ArenaCampaignSpec:
     teacher_multipv: int = 8
     teacher_policy_temperature_cp: float = 100.0
     teacher_top_k: int = 8
+    workflow_chunk_size: int = 2048
     workflow_log_every: int = 1000
     lapv1_config_path: str = ""
     lapv1_agent_spec_path: str = ""
@@ -93,6 +94,7 @@ class Phase10Lapv1ArenaCampaignSpec:
             teacher_multipv=int(payload.get("teacher_multipv", 8)),
             teacher_policy_temperature_cp=float(payload.get("teacher_policy_temperature_cp", 100.0)),
             teacher_top_k=int(payload.get("teacher_top_k", 8)),
+            workflow_chunk_size=int(payload.get("workflow_chunk_size", 2048)),
             workflow_log_every=int(payload.get("workflow_log_every", 1000)),
             lapv1_config_path=str(payload["lapv1_config_path"]),
             lapv1_agent_spec_path=str(payload["lapv1_agent_spec_path"]),
@@ -303,6 +305,8 @@ def _run_workflow_build(spec: Phase10Lapv1ArenaCampaignSpec) -> None:
         str(spec.teacher_top_k),
         "--root-top-k",
         "4",
+        "--chunk-size",
+        str(spec.workflow_chunk_size),
         "--log-every",
         str(spec.workflow_log_every),
         "--skip-existing",

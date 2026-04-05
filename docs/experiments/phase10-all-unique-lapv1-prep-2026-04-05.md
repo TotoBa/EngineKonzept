@@ -105,6 +105,10 @@ Status visibility is now explicit in every long stage:
 - LAPv1 training logs mid-epoch batch progress
 - arena writes `progress.json`
 
+The workflow build is also explicitly chunked. The all-unique train split is sliced into bounded workflow/planner-head chunks and merged afterwards, so the large teacher-analysis pass no longer needs to keep the entire split in memory at once.
+
+That chunked path replaced the earlier monolithic attempt after the first full all-unique workflow build was killed by the host during the train-split teacher pass.
+
 ## Intent
 
 This prep keeps the architectural boundary intact:

@@ -274,6 +274,7 @@ That path intentionally:
 - keeps those reference arms fixed
 - trains only LAPv1 up front for `2` epochs on the new merged all-unique corpus
 - then benchmarks LAPv1 in an 8-agent arena against those six arms plus `vice`
+- builds the all-unique LAPv1 workflow in bounded chunks so the train tier can scale past the earlier single-process memory limit
 
 The current all-unique raw source for that bootstrap is:
 

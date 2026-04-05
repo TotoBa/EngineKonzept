@@ -8,6 +8,9 @@ from pathlib import Path
 
 from train.datasets import (
     build_planner_head_examples,
+    load_search_curriculum_examples,
+    load_search_teacher_examples,
+    load_split_examples_range,
     planner_head_artifact_name,
     write_planner_head_artifact,
 )
@@ -31,6 +34,7 @@ def main() -> int:
     )
     parser.add_argument("--opponent-checkpoint", type=Path)
     parser.add_argument("--root-top-k", type=int, default=4)
+    parser.add_argument("--start-index", type=int, default=0)
     parser.add_argument("--max-examples", type=int)
     parser.add_argument("--output-path", type=Path)
     args = parser.parse_args()
@@ -59,6 +63,18 @@ def main() -> int:
         else dataset_dir / planner_head_artifact_name(args.split)
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    dataset_examples = load_split_examples_range(
+        dataset_dir,
+        args.split,
+        start_index=args.start_index,
+        max_examples=args.max_examples,
+    )
+    teacher_examples = load_search_teacher_examples(teacher_path)
+    curriculum_examples = (
+        load_search_curriculum_examples(curriculum_path)
+        if curriculum_path is not None and curriculum_path.exists()
+        else None
+    )
 
     examples = build_planner_head_examples(
         dataset_dir=dataset_dir,
@@ -70,8 +86,11 @@ def main() -> int:
         opponent_mode=args.opponent_mode,
         opponent_checkpoint=opponent_checkpoint,
         root_top_k=args.root_top_k,
-        max_examples=args.max_examples,
+        max_examples=None,
         repo_root=REPO_ROOT,
+        dataset_examples_override=dataset_examples,
+        teacher_examples_override=teacher_examples,
+        curriculum_examples_override=curriculum_examples,
     )
     write_planner_head_artifact(output_path, examples)
     summary = {
@@ -84,6 +103,7 @@ def main() -> int:
         "opponent_mode": args.opponent_mode,
         "opponent_checkpoint": str(opponent_checkpoint) if opponent_checkpoint is not None else None,
         "root_top_k": args.root_top_k,
+        "start_index": args.start_index,
         "max_examples": args.max_examples,
         "output_path": str(output_path),
         "example_count": len(examples),

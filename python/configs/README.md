@@ -282,6 +282,8 @@ Use [run_lapv1_stage1_train.sh](/home/torsten/EngineKonzept/python/scripts/run_l
 - [phase10_lapv1_stage1_arena_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage1_arena_all_unique_v1.json)
   Versioned long-run spec for the next Phase-10 bootstrap benchmark. It materializes the merged all-unique raw corpus into exact dataset artifacts, builds the full LAPv1 workflow with progress logging, trains LAPv1 Stage-T1 for `2` epochs, selects the strongest six current planner-family references from the last completed `vice` arena by final internal standings with verify tie-breaks, and then runs the resulting 8-agent arena against `vice_v2`.
 
+  The Phase-10 workflow build is now explicitly chunked via `workflow_chunk_size`, so the large all-unique train split is processed in bounded slices instead of one monolithic teacher/disagreement/planner-head pass.
+
 Use [run_phase10_lapv1_stage1_arena_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase10_lapv1_stage1_arena_longrun.sh) to execute that full path. The long run now emits:
 
 - chunk-level Phase-5 materialization logs

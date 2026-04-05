@@ -6,12 +6,13 @@ import argparse
 import json
 from pathlib import Path
 import subprocess
+from statistics import fmean
 from typing import Any, Sequence
 
 import chess
 import chess.engine
 
-from train.datasets import load_split_examples
+from train.datasets import load_split_examples_range
 from train.datasets.artifacts import build_symbolic_proposer_example
 from train.datasets.opponent_head import (
     build_opponent_head_examples,
@@ -54,8 +55,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--multipv", type=int, default=8)
     parser.add_argument("--policy-temperature-cp", type=float, default=100.0)
     parser.add_argument("--top-k", type=int, default=8)
+    parser.add_argument("--start-index", type=int, default=0)
     parser.add_argument("--max-examples", type=int, default=256)
     parser.add_argument("--log-every", type=int, default=0)
+    parser.add_argument("--skip-opponent-head", action="store_true")
     args = parser.parse_args(argv)
 
     dataset_dir = _resolve_repo_path(args.dataset_dir)
@@ -64,10 +67,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     output_dir = _resolve_repo_path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    dataset_examples = load_split_examples(dataset_dir, args.split)
+    dataset_examples = load_split_examples_range(
+        dataset_dir,
+        args.split,
+        start_index=args.start_index,
+        max_examples=args.max_examples,
+    )
     if not dataset_examples:
         raise ValueError(f"dataset split is empty: {args.split}")
-    selected_examples = list(dataset_examples[: args.max_examples])
+    selected_examples = list(dataset_examples)
 
     teacher_examples, trace_examples = _build_teacher_and_trace_examples(
         selected_examples,
@@ -92,11 +100,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         trace_examples,
         disagreement_examples,
     )
-    opponent_examples = build_opponent_head_examples(
-        selected_examples,
-        trace_examples,
-        curriculum_examples,
-        repo_root=REPO_ROOT,
+    opponent_examples = (
+        []
+        if args.skip_opponent_head
+        else build_opponent_head_examples(
+            selected_examples,
+            trace_examples,
+            curriculum_examples,
+            repo_root=REPO_ROOT,
+        )
     )
 
     teacher_path = output_dir / search_teacher_artifact_name(args.split)
@@ -109,28 +121,30 @@ def main(argv: Sequence[str] | None = None) -> int:
     write_search_trace_artifact(trace_path, trace_examples)
     write_search_disagreement_artifact(disagreement_path, disagreement_examples)
     write_search_curriculum_artifact(curriculum_path, curriculum_examples)
-    write_opponent_head_artifact(opponent_path, opponent_examples)
+    if not args.skip_opponent_head:
+        write_opponent_head_artifact(opponent_path, opponent_examples)
 
     summary = {
         "dataset_dir": str(dataset_dir),
         "split": args.split,
+        "start_index": args.start_index,
         "output_dir": str(output_dir),
         "checkpoint": str(checkpoint_path),
         "teacher_engine": str(teacher_engine),
         "teacher_nodes": args.nodes,
         "teacher_multipv": args.multipv,
         "example_count": len(selected_examples),
+        "skip_opponent_head": bool(args.skip_opponent_head),
         "reply_supervised_count": sum(
             1 for example in opponent_examples if example.teacher_reply_action_index is not None
         ),
         "teacher_coverage_ratio": (
-            sum(example.teacher_coverage_ratio for example in teacher_examples) / len(teacher_examples)
+            fmean(example.teacher_coverage_ratio for example in teacher_examples)
             if teacher_examples
             else 0.0
         ),
         "curriculum_priority_mean": (
-            sum(example.curriculum_priority for example in curriculum_examples)
-            / len(curriculum_examples)
+            fmean(example.curriculum_priority for example in curriculum_examples)
             if curriculum_examples
             else 0.0
         ),

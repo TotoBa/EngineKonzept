@@ -18,6 +18,7 @@
   "teacher_multipv": 8,
   "teacher_policy_temperature_cp": 100.0,
   "teacher_top_k": 8,
+  "workflow_chunk_size": 2048,
   "workflow_log_every": 1000,
   "lapv1_config_path": "python/configs/phase10_lapv1_stage1_all_unique_v1.json",
   "lapv1_agent_spec_path": "python/configs/phase10_agent_lapv1_stage1_all_unique_v1.json",
@@ -79,7 +80,7 @@
     "vice_v2": "python/configs/phase9_agent_uci_vice_v2.json"
   },
   "initial_fen_suite_path": "artifacts/phase9/initial_fens_active_replay_campaign_adjudicated_v2.json",
-  "arena_default_games": 1,
+  "arena_default_games": 4,
   "arena_parallel_workers": 6,
   "arena_default_max_plies": 96,
   "arena_opening_selection_seed": 20260404,

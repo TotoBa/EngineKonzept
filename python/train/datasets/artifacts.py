@@ -336,6 +336,37 @@ def load_split_examples(dataset_path: Path, split: str) -> list[DatasetExample]:
     return [example for example in load_dataset_examples(dataset_path) if example.split == split]
 
 
+def load_split_examples_range(
+    dataset_path: Path,
+    split: str,
+    *,
+    start_index: int = 0,
+    max_examples: int | None = None,
+) -> list[DatasetExample]:
+    """Load a contiguous slice of examples for one split without loading the full split."""
+    if split not in SUPPORTED_SPLITS:
+        raise ValueError(f"unsupported split: {split}")
+    if start_index < 0:
+        raise ValueError("start_index must be non-negative")
+    if max_examples is not None and max_examples < 0:
+        raise ValueError("max_examples must be non-negative when provided")
+    if max_examples == 0:
+        return []
+
+    if dataset_path.is_dir():
+        split_path = dataset_path / f"{split}.jsonl"
+        if split_path.exists():
+            return _load_examples_from_jsonl_range(
+                split_path,
+                start_index=start_index,
+                max_examples=max_examples,
+            )
+
+    split_examples = load_split_examples(dataset_path, split)
+    end_index = None if max_examples is None else start_index + max_examples
+    return split_examples[start_index:end_index]
+
+
 def load_proposer_examples(
     dataset_path: Path,
     split: str,
@@ -717,6 +748,33 @@ def _load_examples_from_jsonl(path: Path) -> list[DatasetExample]:
         if not line:
             continue
         examples.append(DatasetExample.from_json(line, source=f"{path}:{line_number}"))
+    return examples
+
+
+def _load_examples_from_jsonl_range(
+    path: Path,
+    *,
+    start_index: int,
+    max_examples: int | None,
+) -> list[DatasetExample]:
+    if not path.exists():
+        raise FileNotFoundError(f"dataset artifact not found: {path}")
+
+    examples: list[DatasetExample] = []
+    end_index = None if max_examples is None else start_index + max_examples
+    current_index = 0
+    with path.open(encoding="utf-8") as handle:
+        for line_number, raw_line in enumerate(handle, 1):
+            line = raw_line.strip()
+            if not line:
+                continue
+            if current_index < start_index:
+                current_index += 1
+                continue
+            if end_index is not None and current_index >= end_index:
+                break
+            examples.append(DatasetExample.from_json(line, source=f"{path}:{line_number}"))
+            current_index += 1
     return examples
 
 
