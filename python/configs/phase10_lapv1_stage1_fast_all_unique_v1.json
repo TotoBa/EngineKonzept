@@ -17,7 +17,7 @@
       "num_heads": 4,
       "feedforward_dim": 1024,
       "dropout": 0.0,
-      "max_edge_count": 96
+      "max_edge_count": 128
     },
     "state_embedder": {
       "intention_dim": 48,
@@ -29,7 +29,7 @@
       "num_heads": 8,
       "feedforward_dim": 1024,
       "dropout": 0.0,
-      "max_edge_count": 96
+      "max_edge_count": 128
     },
     "value_head": {
       "state_dim": 320,
