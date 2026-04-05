@@ -46,6 +46,7 @@ _STATE_CONTEXT_GLOBAL_DIM = len(state_context_v1_feature_spec()["global_feature_
 _PIECE_ROLE_CLASS_COUNT = 7
 _CP_TARGET_SCALE = 256.0
 _GAP_TARGET_SCALE = 128.0
+_ROOT_VALUE_TARGET_CLIP_CP = 1024.0
 
 
 @dataclass(frozen=True)
@@ -1046,7 +1047,13 @@ def _collate_examples(examples: Sequence[_PreparedLAPv1Example]) -> dict[str, to
         ),
         "teacher_policy": teacher_policy,
         "teacher_root_value_cp": torch.tensor(
-            [example.teacher_root_value_cp for example in examples],
+            [
+                max(
+                    -_ROOT_VALUE_TARGET_CLIP_CP,
+                    min(_ROOT_VALUE_TARGET_CLIP_CP, example.teacher_root_value_cp),
+                )
+                for example in examples
+            ],
             dtype=torch.float32,
         ),
         "teacher_wdl_target": torch.tensor(

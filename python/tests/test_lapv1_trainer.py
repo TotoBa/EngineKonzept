@@ -19,7 +19,12 @@ from train.datasets.planner_head import PlannerHeadExample
 from train.datasets.schema import PositionEncoding
 from train.models.lapv1 import LAPv1Config
 from train.trainers import evaluate_lapv1_checkpoint, train_lapv1
-from train.trainers.lapv1 import LAPv1OptimizationConfig, LAPv1TrainConfig
+from train.trainers.lapv1 import (
+    LAPv1OptimizationConfig,
+    LAPv1TrainConfig,
+    _collate_examples,
+    _prepare_example,
+)
 
 
 pytest.importorskip("torch")
@@ -123,6 +128,18 @@ def test_lapv1_optimization_config_validates_log_interval_batches() -> None:
 
     with pytest.raises(ValueError, match="log_interval_batches"):
         LAPv1OptimizationConfig(log_interval_batches=0)
+
+
+def test_lapv1_collate_clips_extreme_root_value_targets() -> None:
+    example = _planner_example(
+        "mate-like",
+        teacher_index=0,
+        teacher_cp=99999.0,
+        teacher_gap=20.0,
+    )
+    prepared = _prepare_example(example)
+    batch = _collate_examples([prepared])
+    assert float(batch["teacher_root_value_cp"][0].item()) == 1024.0
 
 
 def test_train_lapv1_stage1_emits_batch_progress_logs(
