@@ -117,6 +117,93 @@ def test_lapv1_optimization_config_validates_max_grad_norm() -> None:
         LAPv1OptimizationConfig(max_grad_norm=0.0)
 
 
+def test_lapv1_optimization_config_validates_log_interval_batches() -> None:
+    config = LAPv1OptimizationConfig(log_interval_batches=4)
+    assert config.log_interval_batches == 4
+
+    with pytest.raises(ValueError, match="log_interval_batches"):
+        LAPv1OptimizationConfig(log_interval_batches=0)
+
+
+def test_train_lapv1_stage1_emits_batch_progress_logs(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    train_path = tmp_path / "lapv1_train.jsonl"
+    validation_path = tmp_path / "lapv1_validation.jsonl"
+    _write_examples(
+        train_path,
+        [
+            _planner_example("train-1", teacher_index=0, teacher_cp=60.0, teacher_gap=40.0),
+            _planner_example("train-2", teacher_index=1, teacher_cp=10.0, teacher_gap=10.0),
+            _planner_example("train-3", teacher_index=0, teacher_cp=-40.0, teacher_gap=25.0),
+            _planner_example("train-4", teacher_index=1, teacher_cp=35.0, teacher_gap=15.0),
+        ],
+    )
+    _write_examples(
+        validation_path,
+        [
+            _planner_example("validation-1", teacher_index=0, teacher_cp=50.0, teacher_gap=30.0),
+            _planner_example("validation-2", teacher_index=1, teacher_cp=0.0, teacher_gap=5.0),
+        ],
+    )
+
+    config = LAPv1TrainConfig(
+        seed=17,
+        output_dir=str(tmp_path / "lapv1_out"),
+        stage="T1",
+        data=PlannerDataConfig(
+            train_path=str(train_path),
+            validation_path=str(validation_path),
+        ),
+        model=LAPv1Config.from_mapping(
+            {
+                "deliberation": {"max_inner_steps": 0, "min_inner_steps": 0},
+                "opponent_head": {
+                    "architecture": "set_v2",
+                    "hidden_dim": 64,
+                    "hidden_layers": 1,
+                    "action_embedding_dim": 16,
+                    "dropout": 0.0,
+                },
+                "value_head": {"hidden_dim": 1024},
+                "policy_head": {
+                    "hidden_dim": 512,
+                    "action_embedding_dim": 32,
+                    "feedforward_dim": 1024,
+                },
+                "state_embedder": {"feedforward_dim": 1024},
+                "intention_encoder": {"feedforward_dim": 1024},
+            }
+        ),
+        optimization=LAPv1OptimizationConfig(
+            epochs=1,
+            batch_size=2,
+            learning_rate=1e-3,
+            weight_decay=0.0,
+            max_grad_norm=1.0,
+            log_interval_batches=1,
+            value_wdl_weight=1.0,
+            value_cp_weight=0.25,
+            sharpness_weight=0.1,
+            policy_ce_weight=1.0,
+            policy_kl_weight=0.25,
+            policy_margin_weight=0.1,
+            policy_rank_weight=0.1,
+            intention_aux_weight=0.05,
+        ),
+        evaluation=PlannerEvaluationConfig(top_k=3),
+        runtime=PlannerRuntimeConfig(torch_threads=1, dataloader_workers=0),
+        export=PlannerExportConfig(bundle_dir=str(tmp_path / "bundle")),
+    )
+
+    train_lapv1(config, repo_root=tmp_path)
+
+    captured = capsys.readouterr()
+    assert "batch=1/2" in captured.out
+    assert "batch=2/2" in captured.out
+
+
 def _write_examples(path: Path, examples: list[PlannerHeadExample]) -> None:
     path.write_text(
         "".join(json.dumps(example.to_dict()) + "\n" for example in examples),

@@ -261,7 +261,7 @@ The intended use is one arena Python process controlling several concurrent game
 ## Phase 10 LAPv1 Configs
 
 - [phase10_lapv1_stage1_10k_122k_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage1_10k_122k_v1.json)
-  First prepared LAPv1 Stage-T1 config. Reuses the preferred filtered `10k + 122k` planner-head workflow slice, keeps deliberation disabled via `max_inner_steps=0`, and targets the first static-head bootstrap run under [models/lapv1/stage1_10k_122k_v1](/home/torsten/EngineKonzept/models/lapv1/stage1_10k_122k_v1). The current reference uses a conservative `learning_rate=3e-4` plus `max_grad_norm=1.0` for large-model CPU stability.
+  First prepared LAPv1 Stage-T1 config. Reuses the preferred filtered `10k + 122k` planner-head workflow slice, keeps deliberation disabled via `max_inner_steps=0`, and targets the first static-head bootstrap run under [models/lapv1/stage1_10k_122k_v1](/home/torsten/EngineKonzept/models/lapv1/stage1_10k_122k_v1). The current reference uses a conservative `learning_rate=3e-4` plus `max_grad_norm=1.0` for large-model CPU stability and now sets `log_interval_batches=128` so long CPU runs emit mid-epoch batch progress instead of waiting only for the epoch summary.
 
 - [phase10_agent_lapv1_stage1_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_agent_lapv1_stage1_v1.json)
   First LAPv1 runtime/selfplay spec. It points at the future Stage-T1 checkpoint path, pins `state_context_version=1`, and keeps deliberation disabled until the first real Stage-T1 bootstrap run has produced a checkpoint.

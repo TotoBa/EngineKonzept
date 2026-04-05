@@ -57,6 +57,7 @@ class LAPv1OptimizationConfig:
     learning_rate: float = 1e-3
     weight_decay: float = 0.0
     max_grad_norm: float | None = 1.0
+    log_interval_batches: int = 128
     value_wdl_weight: float = 1.0
     value_cp_weight: float = 0.25
     sharpness_weight: float = 0.1
@@ -79,6 +80,8 @@ class LAPv1OptimizationConfig:
             raise ValueError("optimization.weight_decay must be non-negative")
         if self.max_grad_norm is not None and self.max_grad_norm <= 0.0:
             raise ValueError("optimization.max_grad_norm must be positive when set")
+        if self.log_interval_batches <= 0:
+            raise ValueError("optimization.log_interval_batches must be positive")
         for name in (
             "value_wdl_weight",
             "value_cp_weight",
@@ -393,6 +396,8 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
             top_k=config.evaluation.top_k,
             stage=config.stage,
             stage2=config.stage2,
+            epoch=epoch,
+            total_epochs=config.optimization.epochs,
         )
         validation_metrics = _run_epoch(
             model=model,
@@ -406,6 +411,8 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
             top_k=config.evaluation.top_k,
             stage=config.stage,
             stage2=config.stage2,
+            epoch=epoch,
+            total_epochs=config.optimization.epochs,
         )
         history_entry = {
             "epoch": epoch,
@@ -554,6 +561,8 @@ def evaluate_lapv1_checkpoint(
         top_k=top_k,
         stage=stage,
         stage2=stage2,
+        epoch=1,
+        total_epochs=1,
     )
 
 
@@ -707,6 +716,8 @@ def _run_epoch(
     top_k: int,
     stage: str,
     stage2: LAPv1Stage2Config | None,
+    epoch: int,
+    total_epochs: int,
 ) -> LAPv1Metrics:
     if training:
         model.train()
@@ -739,10 +750,11 @@ def _run_epoch(
     order = list(range(len(examples)))
     if training:
         random.Random(seed).shuffle(order)
+    total_batches = max((len(order) + batch_size - 1) // batch_size, 1)
 
     context = torch.enable_grad() if training else torch.inference_mode()
     with context:
-        for batch_start in range(0, len(order), batch_size):
+        for batch_index, batch_start in enumerate(range(0, len(order), batch_size), start=1):
             batch_examples = [examples[index] for index in order[batch_start : batch_start + batch_size]]
             batch = _collate_examples(batch_examples)
             outputs = model(
@@ -893,6 +905,22 @@ def _run_epoch(
                     if flag
                 )
                 total_trace_steps += len(step_rollback_flags)
+            if training and (
+                batch_index % optimization.log_interval_batches == 0
+                or batch_index == total_batches
+            ):
+                elapsed = max(time.perf_counter() - start_time, 1e-9)
+                print(
+                    "[lapv1-train] "
+                    f"epoch={epoch}/{total_epochs} "
+                    f"batch={batch_index}/{total_batches} "
+                    f"stage={stage} "
+                    f"examples={total_examples}/{len(examples)} "
+                    f"loss={total_loss / total_examples:.4f} "
+                    f"top1={correct_top1 / total_examples:.4f} "
+                    f"ex_per_s={total_examples / elapsed:.2f}",
+                    flush=True,
+                )
             del sigma_value
 
     duration = max(time.perf_counter() - start_time, 1e-9)
