@@ -222,6 +222,11 @@ The repository now includes a model-only Python core loop in
 with deterministic rollback-focused unit tests. It remains isolated from the
 runtime until the later LAPv1 wrapper and runtime steps.
 
+The first full model-only wrapper now also exists in
+[lapv1.py](/home/torsten/EngineKonzept/python/train/models/lapv1.py). It
+composes the new encoder/embedder/head stack with bounded deliberation and the
+existing opponent head, but still does not add trainer glue or runtime wiring.
+
 ## Runtime Flow
 
 ```text

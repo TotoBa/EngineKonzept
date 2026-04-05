@@ -133,6 +133,86 @@ class SharpnessHeadConfig:
 
 
 @dataclass(frozen=True)
+class LargePolicyHeadConfig:
+    """Standalone LAPv1 large candidate-policy-head hyperparameters."""
+
+    state_dim: int = 512
+    hidden_dim: int = 896
+    action_embedding_dim: int = 96
+    num_layers: int = 4
+    num_heads: int = 8
+    feedforward_dim: int = 1792
+    dropout: float = 0.0
+
+    def __post_init__(self) -> None:
+        if self.state_dim <= 0:
+            raise ValueError("large_policy_head.state_dim must be positive")
+        if self.hidden_dim <= 0:
+            raise ValueError("large_policy_head.hidden_dim must be positive")
+        if self.action_embedding_dim <= 0:
+            raise ValueError("large_policy_head.action_embedding_dim must be positive")
+        if self.num_layers <= 0:
+            raise ValueError("large_policy_head.num_layers must be positive")
+        if self.num_heads <= 0:
+            raise ValueError("large_policy_head.num_heads must be positive")
+        if self.hidden_dim % self.num_heads != 0:
+            raise ValueError(
+                "large_policy_head.hidden_dim must be divisible by large_policy_head.num_heads"
+            )
+        if self.feedforward_dim <= self.hidden_dim:
+            raise ValueError(
+                "large_policy_head.feedforward_dim must be larger than large_policy_head.hidden_dim"
+            )
+        if not 0.0 <= self.dropout < 1.0:
+            raise ValueError("large_policy_head.dropout must be in [0.0, 1.0)")
+
+
+@dataclass(frozen=True)
+class DeliberationConfig:
+    """Standalone LAPv1 bounded deliberation-loop hyperparameters."""
+
+    state_dim: int = 512
+    memory_dim: int = 256
+    memory_slots: int = 16
+    action_embedding_dim: int = 64
+    top_k_refine: int = 3
+    max_inner_steps: int = 8
+    min_inner_steps: int = 2
+    q_threshold: float = 0.3
+    rollback_threshold: float = 40.0
+    top1_stable_steps: int = 3
+    rollback_buffer_size: int = 4
+
+    def __post_init__(self) -> None:
+        if self.state_dim <= 0:
+            raise ValueError("deliberation.state_dim must be positive")
+        if self.memory_dim <= 0:
+            raise ValueError("deliberation.memory_dim must be positive")
+        if self.memory_slots <= 0:
+            raise ValueError("deliberation.memory_slots must be positive")
+        if self.action_embedding_dim <= 0:
+            raise ValueError("deliberation.action_embedding_dim must be positive")
+        if self.top_k_refine <= 0:
+            raise ValueError("deliberation.top_k_refine must be positive")
+        if self.max_inner_steps < 0:
+            raise ValueError("deliberation.max_inner_steps must be non-negative")
+        if self.min_inner_steps < 0:
+            raise ValueError("deliberation.min_inner_steps must be non-negative")
+        if self.min_inner_steps > self.max_inner_steps:
+            raise ValueError(
+                "deliberation.min_inner_steps must not exceed deliberation.max_inner_steps"
+            )
+        if not 0.0 <= self.q_threshold <= 1.0:
+            raise ValueError("deliberation.q_threshold must be in [0.0, 1.0]")
+        if self.rollback_threshold < 0.0:
+            raise ValueError("deliberation.rollback_threshold must be non-negative")
+        if self.top1_stable_steps <= 0:
+            raise ValueError("deliberation.top1_stable_steps must be positive")
+        if self.rollback_buffer_size <= 0:
+            raise ValueError("deliberation.rollback_buffer_size must be positive")
+
+
+@dataclass(frozen=True)
 class ProposerDataConfig:
     """Dataset and split selection for proposer training."""
 
@@ -729,9 +809,9 @@ class PlannerModelConfig:
     dropout: float = 0.0
 
     def __post_init__(self) -> None:
-        if self.architecture not in {"set_v1", "set_v2", "set_v3", "set_v5", "set_v6", "set_v7", "moe_v1", "recurrent_v1"}:
+        if self.architecture not in {"set_v1", "set_v2", "set_v3", "set_v5", "set_v6", "set_v7", "moe_v1", "recurrent_v1", "lapv1"}:
             raise ValueError(
-                "model.architecture must be 'set_v1', 'set_v2', 'set_v3', 'set_v5', 'set_v6', 'set_v7', 'moe_v1', or 'recurrent_v1'"
+                "model.architecture must be 'set_v1', 'set_v2', 'set_v3', 'set_v5', 'set_v6', 'set_v7', 'moe_v1', 'recurrent_v1', or 'lapv1'"
             )
         if self.hidden_dim <= 0:
             raise ValueError("model.hidden_dim must be positive")
@@ -882,6 +962,7 @@ class PlannerTrainConfig:
     seed: int
     output_dir: str
     initial_checkpoint: str | None
+    lapv1: dict[str, Any] | None
     data: PlannerDataConfig
     curriculum: PlannerCurriculumConfig | None
     moe: MoEConfig | None
@@ -900,6 +981,10 @@ class PlannerTrainConfig:
             raise ValueError("moe settings are required when model.architecture='moe_v1'")
         if self.model.architecture != "moe_v1" and self.moe is not None:
             raise ValueError("moe settings are only valid when model.architecture='moe_v1'")
+        if self.model.architecture == "lapv1" and self.lapv1 is None:
+            raise ValueError("lapv1 settings are required when model.architecture='lapv1'")
+        if self.model.architecture != "lapv1" and self.lapv1 is not None:
+            raise ValueError("lapv1 settings are only valid when model.architecture='lapv1'")
 
     def to_dict(self) -> dict[str, Any]:
         """Return the JSON-friendly representation."""
@@ -916,6 +1001,11 @@ class PlannerTrainConfig:
                 None
                 if payload.get("initial_checkpoint") in (None, "")
                 else str(payload["initial_checkpoint"])
+            ),
+            lapv1=(
+                None
+                if payload.get("lapv1") is None
+                else dict(_mapping(payload, "lapv1"))
             ),
             data=PlannerDataConfig(
                 train_path=str(data_payload["train_path"]),

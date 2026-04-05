@@ -196,7 +196,11 @@ if torch is not None and nn is not None:
                 nn.Linear(256, 1),
             )
 
-        def forward(self, transitioned_latents: torch.Tensor) -> torch.Tensor:
+        def forward(
+            self,
+            transitioned_latents: torch.Tensor,
+            **_kwargs: Any,
+        ) -> torch.Tensor:
             return self.network(transitioned_latents).squeeze(2)
 
 
@@ -286,6 +290,8 @@ if torch is not None and nn is not None:
             *,
             single_legal_move: bool = False,
             candidate_uci: list[list[str]] | None = None,
+            candidate_features: torch.Tensor | None = None,
+            global_features: torch.Tensor | None = None,
         ) -> dict[str, Any]:
             """Run the bounded latent refinement loop and emit a structured trace."""
             if z_root.ndim != 2 or z_root.shape[1] != self.state_dim:
@@ -308,7 +314,7 @@ if torch is not None and nn is not None:
                 raise ValueError("candidate_mask must align with candidate_action_indices")
 
             legal_counts = candidate_mask.sum(dim=1)
-            if single_legal_move or bool(torch.all(legal_counts <= 1)):
+            if single_legal_move or bool(torch.all(legal_counts <= 1)) or self.max_inner_steps == 0:
                 masked_scores = initial_candidate_scores.masked_fill(
                     ~candidate_mask,
                     float("-inf"),
@@ -371,7 +377,15 @@ if torch is not None and nn is not None:
                 )
                 selected_action_indices = candidate_action_indices.gather(1, selected_indices)
                 transitioned_latents = self.transition(z_t, selected_action_indices)
-                selected_reply_signals = self.reply_signal_projector(transitioned_latents)
+                selected_reply_signals = self.reply_signal_projector(
+                    transitioned_latents,
+                    z_t=z_t,
+                    selected_action_indices=selected_action_indices,
+                    candidate_action_indices=candidate_action_indices,
+                    candidate_features=candidate_features,
+                    candidate_mask=candidate_mask,
+                    global_features=global_features,
+                )
                 refined_reply_signals = torch.zeros_like(finite_scores)
                 refined_reply_signals.scatter_(1, selected_indices, selected_reply_signals)
 

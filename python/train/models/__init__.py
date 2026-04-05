@@ -26,6 +26,7 @@ if TYPE_CHECKING:
         KingSpecialHead,
         PieceIntentionEncoder,
     )
+    from train.models.lapv1 import LAPV1_MODEL_NAME, LAPv1Config, LAPv1Model
     from train.models.opponent import OPPONENT_MODEL_NAME, OpponentHeadModel
     from train.models.planner import PLANNER_MODEL_NAME, PlannerHeadModel
     from train.models.policy_head_large import (
@@ -113,6 +114,9 @@ __all__ = [
     "DeliberationTraceStep",
     "INTENTION_ENCODER_MODEL_NAME",
     "KingSpecialHead",
+    "LAPV1_MODEL_NAME",
+    "LAPv1Config",
+    "LAPv1Model",
     "LegalityPolicyProposer",
     "LatentTransition",
     "LARGE_POLICY_HEAD_MODEL_NAME",
