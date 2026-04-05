@@ -55,6 +55,7 @@ class LAPv1OptimizationConfig:
     batch_size: int = 8
     learning_rate: float = 1e-3
     weight_decay: float = 0.0
+    max_grad_norm: float | None = 1.0
     value_wdl_weight: float = 1.0
     value_cp_weight: float = 0.25
     sharpness_weight: float = 0.1
@@ -75,6 +76,8 @@ class LAPv1OptimizationConfig:
             raise ValueError("optimization.learning_rate must be positive")
         if self.weight_decay < 0.0:
             raise ValueError("optimization.weight_decay must be non-negative")
+        if self.max_grad_norm is not None and self.max_grad_norm <= 0.0:
+            raise ValueError("optimization.max_grad_norm must be positive when set")
         for name in (
             "value_wdl_weight",
             "value_cp_weight",
@@ -755,6 +758,11 @@ def _run_epoch(
             cp_score = outputs["final_value"]["cp_score"].squeeze(1)
             sigma_value = outputs["final_value"]["sigma_value"].squeeze(1)
             sharpness = model.sharpness_head(outputs["z_root"]).squeeze(1)
+            if not torch.isfinite(sharpness).all():
+                raise RuntimeError(
+                    "non-finite sharpness probabilities encountered during LAPv1 training"
+                )
+            sharpness = sharpness.clamp(1e-6, 1.0 - 1e-6)
             piece_role_logits = aux_probe(outputs["piece_intentions"])
             step_sharpness_tensors = tuple(outputs["step_sharpness_tensors"])
             step_value_cp_tensors = tuple(outputs["step_value_cp_tensors"])
@@ -833,6 +841,11 @@ def _run_epoch(
                 assert optimizer is not None
                 optimizer.zero_grad()
                 loss.backward()
+                if optimization.max_grad_norm is not None:
+                    torch.nn.utils.clip_grad_norm_(
+                        list(model.parameters()) + list(aux_probe.parameters()),
+                        max_norm=optimization.max_grad_norm,
+                    )
                 optimizer.step()
 
             probabilities = torch.softmax(logits, dim=1)
@@ -1077,7 +1090,10 @@ def _trace_sharpness_target_loss(
     if not step_sharpness_tensors:
         return torch.zeros((), dtype=sharpness_target.dtype, device=sharpness_target.device)
     losses = [
-        torch.nn.functional.binary_cross_entropy(step_sharpness, sharpness_target)
+        torch.nn.functional.binary_cross_entropy(
+            step_sharpness.clamp(1e-6, 1.0 - 1e-6),
+            sharpness_target,
+        )
         for step_sharpness in step_sharpness_tensors
     ]
     return torch.stack(losses).mean()

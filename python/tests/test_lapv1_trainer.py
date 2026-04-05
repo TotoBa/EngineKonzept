@@ -79,6 +79,7 @@ def test_train_and_evaluate_lapv1_stage1_on_tiny_cpu_dataset(tmp_path: Path) -> 
             batch_size=2,
             learning_rate=1e-3,
             weight_decay=0.0,
+            max_grad_norm=1.0,
             value_wdl_weight=1.0,
             value_cp_weight=0.25,
             sharpness_weight=0.1,
@@ -106,6 +107,14 @@ def test_train_and_evaluate_lapv1_stage1_on_tiny_cpu_dataset(tmp_path: Path) -> 
     assert 0.0 <= metrics.root_top1_accuracy <= 1.0
     assert 0.0 <= metrics.root_top3_accuracy <= 1.0
     assert metrics.total_loss >= 0.0
+
+
+def test_lapv1_optimization_config_validates_max_grad_norm() -> None:
+    config = LAPv1OptimizationConfig(max_grad_norm=0.5)
+    assert config.max_grad_norm == 0.5
+
+    with pytest.raises(ValueError, match="max_grad_norm"):
+        LAPv1OptimizationConfig(max_grad_norm=0.0)
 
 
 def _write_examples(path: Path, examples: list[PlannerHeadExample]) -> None:

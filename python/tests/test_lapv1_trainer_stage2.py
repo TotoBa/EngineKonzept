@@ -85,6 +85,7 @@ def test_train_lapv1_stage2_logs_monotonicity_and_rollback_stats(tmp_path: Path)
             batch_size=2,
             learning_rate=1e-3,
             weight_decay=0.0,
+            max_grad_norm=1.0,
             value_wdl_weight=1.0,
             value_cp_weight=0.25,
             sharpness_weight=0.1,
