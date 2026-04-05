@@ -382,11 +382,12 @@ def load_planner_head_examples(path: Path) -> list[PlannerHeadExample]:
     if not path.exists():
         raise FileNotFoundError(f"planner head artifact not found: {path}")
     examples: list[PlannerHeadExample] = []
-    for line_number, raw_line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-        line = raw_line.strip()
-        if not line:
-            continue
-        examples.append(PlannerHeadExample.from_json(line, source=f"{path}:{line_number}"))
+    with path.open("r", encoding="utf-8") as handle:
+        for line_number, raw_line in enumerate(handle, 1):
+            line = raw_line.strip()
+            if not line:
+                continue
+            examples.append(PlannerHeadExample.from_json(line, source=f"{path}:{line_number}"))
     return examples
 
 

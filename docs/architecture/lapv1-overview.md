@@ -243,6 +243,11 @@ output plus robustly clipped root-value targets so rare mate/sentinel labels
 cannot dominate the early regression loss. The same bootstrap path now also
 clips raw teacher top1-top2 gap targets before they feed LAPv1 margin
 supervision, so extreme mate-gap labels do not swamp the bounded policy losses.
+The same trainer now also reads `planner_head` JSONL artifacts lazily via file
+offset indexes instead of materializing the entire split into RAM up front. That
+change was required once the all-unique Stage-T1 run moved past `675k` train
+examples: the earlier eager path reached host OOM pressure before the first real
+epoch could start.
 
 The same trainer now also supports a first stage-T2 extension with
 deliberation enabled under a bounded `max_inner_steps` curriculum,
@@ -289,6 +294,17 @@ The first direct benchmark template is now also prepared in
 It keeps the future LAPv1 Stage-T1 agent, the strongest kept planner baselines,
 and `vice_v2` inside one seeded round-robin suite, but remains config-only until
 the first trained LAPv1 checkpoint exists.
+
+## Remaining Scale TODOs
+
+The first all-unique memory pass exposed the next obvious scaling hotspots.
+They are not blocking the current LAPv1 Stage-T1 resume, but they are the next
+cleanup targets if later runs hit memory pressure again:
+
+- [planner.py](/home/torsten/EngineKonzept/python/train/trainers/planner.py) still eagerly loads full `planner_head` corpora
+- [evolution_campaign.py](/home/torsten/EngineKonzept/python/train/eval/evolution_campaign.py) still reads verify artifacts eagerly when assembling matrices
+- [moe_analysis.py](/home/torsten/EngineKonzept/python/train/eval/moe_analysis.py) still assumes full in-memory `planner_head` access
+- several JSONL dataset loaders still use eager `read_text(...).splitlines()` paths and should move to streaming readers when they become part of large-corpus jobs
 
 ## Runtime Flow
 

@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from bisect import bisect_right
 from dataclasses import asdict, dataclass
 import json
 import random
 from pathlib import Path
 import time
-from typing import Any, Mapping, Sequence
+from typing import Any, BinaryIO, Mapping, Sequence
 
 from train.config import (
     PlannerDataConfig,
@@ -28,7 +29,7 @@ from train.datasets.contracts import (
     build_state_context_v1,
     state_context_v1_feature_spec,
 )
-from train.datasets.planner_head import PlannerHeadExample, load_planner_head_examples
+from train.datasets.planner_head import PlannerHeadExample
 from train.datasets.schema import DatasetExample, PositionEncoding, TacticalAnnotations
 from train.models.intention_encoder import torch
 from train.models.lapv1 import LAPV1_MODEL_NAME, LAPv1Config, LAPv1Model
@@ -304,6 +305,87 @@ class _PreparedLAPv1Example:
     curriculum_priority: float
 
 
+class _LazyPreparedLAPv1Dataset(Sequence[_PreparedLAPv1Example]):
+    """Disk-backed planner-head dataset that prepares LAPv1 examples on demand."""
+
+    def __init__(self, paths: Sequence[Path]) -> None:
+        self._paths = tuple(paths)
+        self._offsets_per_path: list[list[int]] = []
+        self._line_numbers_per_path: list[list[int]] = []
+        self._cumulative_sizes: list[int] = []
+        self._handles: list[BinaryIO | None] = [None] * len(self._paths)
+        running_total = 0
+        for path in self._paths:
+            offsets: list[int] = []
+            line_numbers: list[int] = []
+            with path.open("rb") as handle:
+                line_number = 0
+                while True:
+                    offset = handle.tell()
+                    raw_line = handle.readline()
+                    if not raw_line:
+                        break
+                    line_number += 1
+                    if raw_line.strip():
+                        offsets.append(offset)
+                        line_numbers.append(line_number)
+            self._offsets_per_path.append(offsets)
+            self._line_numbers_per_path.append(line_numbers)
+            running_total += len(offsets)
+            self._cumulative_sizes.append(running_total)
+
+    def __len__(self) -> int:
+        if not self._cumulative_sizes:
+            return 0
+        return self._cumulative_sizes[-1]
+
+    def __getitem__(
+        self,
+        index: int | slice,
+    ) -> _PreparedLAPv1Example | list[_PreparedLAPv1Example]:
+        if isinstance(index, slice):
+            return [
+                self[position]
+                for position in range(*index.indices(len(self)))
+            ]
+        if index < 0:
+            index += len(self)
+        if not 0 <= index < len(self):
+            raise IndexError("dataset index out of range")
+        path_index = bisect_right(self._cumulative_sizes, index)
+        previous_total = 0 if path_index == 0 else self._cumulative_sizes[path_index - 1]
+        local_index = index - previous_total
+        handle = self._file_handle(path_index)
+        handle.seek(self._offsets_per_path[path_index][local_index])
+        raw_line = handle.readline()
+        if not raw_line:
+            raise IndexError("planner head line missing at indexed offset")
+        line = raw_line.decode("utf-8").strip()
+        if not line:
+            raise ValueError("indexed planner head line was unexpectedly blank")
+        path = self._paths[path_index]
+        line_number = self._line_numbers_per_path[path_index][local_index]
+        return _prepare_example(
+            PlannerHeadExample.from_json(line, source=f"{path}:{line_number}")
+        )
+
+    def close(self) -> None:
+        for index, handle in enumerate(self._handles):
+            if handle is not None:
+                handle.close()
+                self._handles[index] = None
+
+    def _file_handle(self, path_index: int) -> BinaryIO:
+        handle = self._handles[path_index]
+        if handle is None or handle.closed:
+            handle = self._paths[path_index].open("rb")
+            self._handles[path_index] = handle
+        return handle
+
+    def __del__(self) -> None:  # pragma: no cover - best-effort cleanup
+        self.close()
+
+
 if torch is not None:
 
     class _PieceRoleAuxProbe(torch.nn.Module):
@@ -334,22 +416,23 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
     _set_seed(config.seed)
     _configure_torch_runtime(config.runtime.torch_threads)
 
-    train_examples = _prepare_examples_from_paths(
+    train_examples = _build_lazy_dataset(
         [resolve_repo_path(repo_root, path) for path in config.data.resolved_train_paths()]
     )
-    validation_examples = _prepare_examples_from_paths(
+    validation_examples = _build_lazy_dataset(
         [resolve_repo_path(repo_root, path) for path in config.data.resolved_validation_paths()]
     )
-    if not train_examples:
+    if len(train_examples) == 0:
         raise ValueError("training artifact is empty")
-    if not validation_examples:
+    if len(validation_examples) == 0:
         raise ValueError("validation artifact is empty")
 
     print(
         "[lapv1-train] "
         f"stage={config.stage} output_dir={output_dir} bundle_dir={bundle_dir} "
         f"epochs={config.optimization.epochs} batch_size={config.optimization.batch_size} "
-        f"train_examples={len(train_examples)} validation_examples={len(validation_examples)}",
+        f"train_examples={len(train_examples)} validation_examples={len(validation_examples)} "
+        "data_access=lazy_jsonl",
         flush=True,
     )
 
@@ -376,80 +459,84 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
         for name, tensor in aux_probe.state_dict().items()
     }
 
-    for epoch in range(1, config.optimization.epochs + 1):
-        current_max_inner_steps = _current_max_inner_steps(
-            config=config,
-            epoch=epoch,
-        )
-        model.deliberation_loop.max_inner_steps = current_max_inner_steps
-        model.deliberation_loop.min_inner_steps = min(
-            config.model.deliberation.min_inner_steps,
-            current_max_inner_steps,
-        )
-        train_metrics = _run_epoch(
-            model=model,
-            aux_probe=aux_probe,
-            examples=train_examples,
-            batch_size=config.optimization.batch_size,
-            optimizer=optimizer,
-            training=True,
-            seed=config.seed + epoch,
-            optimization=config.optimization,
-            top_k=config.evaluation.top_k,
-            stage=config.stage,
-            stage2=config.stage2,
-            epoch=epoch,
-            total_epochs=config.optimization.epochs,
-        )
-        validation_metrics = _run_epoch(
-            model=model,
-            aux_probe=aux_probe,
-            examples=validation_examples,
-            batch_size=config.optimization.batch_size,
-            optimizer=None,
-            training=False,
-            seed=config.seed,
-            optimization=config.optimization,
-            top_k=config.evaluation.top_k,
-            stage=config.stage,
-            stage2=config.stage2,
-            epoch=epoch,
-            total_epochs=config.optimization.epochs,
-        )
-        history_entry = {
-            "epoch": epoch,
-            "max_inner_steps": current_max_inner_steps,
-            "train": train_metrics.to_dict(),
-            "validation": validation_metrics.to_dict(),
-        }
-        history.append(history_entry)
-        print(
-            "[lapv1-train] "
-            f"epoch={epoch}/{config.optimization.epochs} "
-            f"stage={config.stage} "
-            f"max_inner_steps={current_max_inner_steps} "
-            f"train_loss={train_metrics.total_loss:.4f} "
-            f"val_top1={validation_metrics.root_top1_accuracy:.4f} "
-            f"val_mrr={validation_metrics.teacher_root_mean_reciprocal_rank:.4f} "
-            f"rollbacks={validation_metrics.rollbacks} "
-            f"rollback_hit_rate={validation_metrics.rollback_hit_rate:.4f}",
-            flush=True,
-        )
+    try:
+        for epoch in range(1, config.optimization.epochs + 1):
+            current_max_inner_steps = _current_max_inner_steps(
+                config=config,
+                epoch=epoch,
+            )
+            model.deliberation_loop.max_inner_steps = current_max_inner_steps
+            model.deliberation_loop.min_inner_steps = min(
+                config.model.deliberation.min_inner_steps,
+                current_max_inner_steps,
+            )
+            train_metrics = _run_epoch(
+                model=model,
+                aux_probe=aux_probe,
+                examples=train_examples,
+                batch_size=config.optimization.batch_size,
+                optimizer=optimizer,
+                training=True,
+                seed=config.seed + epoch,
+                optimization=config.optimization,
+                top_k=config.evaluation.top_k,
+                stage=config.stage,
+                stage2=config.stage2,
+                epoch=epoch,
+                total_epochs=config.optimization.epochs,
+            )
+            validation_metrics = _run_epoch(
+                model=model,
+                aux_probe=aux_probe,
+                examples=validation_examples,
+                batch_size=config.optimization.batch_size,
+                optimizer=None,
+                training=False,
+                seed=config.seed,
+                optimization=config.optimization,
+                top_k=config.evaluation.top_k,
+                stage=config.stage,
+                stage2=config.stage2,
+                epoch=epoch,
+                total_epochs=config.optimization.epochs,
+            )
+            history_entry = {
+                "epoch": epoch,
+                "max_inner_steps": current_max_inner_steps,
+                "train": train_metrics.to_dict(),
+                "validation": validation_metrics.to_dict(),
+            }
+            history.append(history_entry)
+            print(
+                "[lapv1-train] "
+                f"epoch={epoch}/{config.optimization.epochs} "
+                f"stage={config.stage} "
+                f"max_inner_steps={current_max_inner_steps} "
+                f"train_loss={train_metrics.total_loss:.4f} "
+                f"val_top1={validation_metrics.root_top1_accuracy:.4f} "
+                f"val_mrr={validation_metrics.teacher_root_mean_reciprocal_rank:.4f} "
+                f"rollbacks={validation_metrics.rollbacks} "
+                f"rollback_hit_rate={validation_metrics.rollback_hit_rate:.4f}",
+                flush=True,
+            )
 
-        if best_validation is None or _is_better_validation(
-            validation_metrics,
-            best_validation,
-        ):
-            best_epoch = epoch
-            best_validation = validation_metrics
-            best_model_state = {
-                name: tensor.detach().clone()
-                for name, tensor in model.state_dict().items()
-            }
-            best_aux_state = {
-                name: tensor.detach().clone()
-                for name, tensor in aux_probe.state_dict().items()
-            }
+            if best_validation is None or _is_better_validation(
+                validation_metrics,
+                best_validation,
+            ):
+                best_epoch = epoch
+                best_validation = validation_metrics
+                best_model_state = {
+                    name: tensor.detach().clone()
+                    for name, tensor in model.state_dict().items()
+                }
+                best_aux_state = {
+                    name: tensor.detach().clone()
+                    for name, tensor in aux_probe.state_dict().items()
+                }
+    finally:
+        train_examples.close()
+        validation_examples.close()
 
     assert best_validation is not None
     model.load_state_dict(best_model_state)
@@ -547,33 +634,32 @@ def evaluate_lapv1_checkpoint(
         if dataset_path is not None
         else Path(str(training_config["data"]["validation_path"]))
     )
-    examples = _prepare_examples_from_paths([effective_dataset_path])
+    examples = _build_lazy_dataset([effective_dataset_path])
     optimization = LAPv1OptimizationConfig(
         **dict(training_config["optimization"])
     )
-    return _run_epoch(
-        model=model,
-        aux_probe=aux_probe,
-        examples=examples,
-        batch_size=int(training_config["optimization"]["batch_size"]),
-        optimizer=None,
-        training=False,
-        seed=int(training_config["seed"]),
-        optimization=optimization,
-        top_k=top_k,
-        stage=stage,
-        stage2=stage2,
-        epoch=1,
-        total_epochs=1,
-    )
+    try:
+        return _run_epoch(
+            model=model,
+            aux_probe=aux_probe,
+            examples=examples,
+            batch_size=int(training_config["optimization"]["batch_size"]),
+            optimizer=None,
+            training=False,
+            seed=int(training_config["seed"]),
+            optimization=optimization,
+            top_k=top_k,
+            stage=stage,
+            stage2=stage2,
+            epoch=1,
+            total_epochs=1,
+        )
+    finally:
+        examples.close()
 
 
-def _prepare_examples_from_paths(paths: Sequence[Path]) -> list[_PreparedLAPv1Example]:
-    prepared: list[_PreparedLAPv1Example] = []
-    for path in paths:
-        for example in load_planner_head_examples(path):
-            prepared.append(_prepare_example(example))
-    return prepared
+def _build_lazy_dataset(paths: Sequence[Path]) -> _LazyPreparedLAPv1Dataset:
+    return _LazyPreparedLAPv1Dataset(paths)
 
 
 def _prepare_example(example: PlannerHeadExample) -> _PreparedLAPv1Example:

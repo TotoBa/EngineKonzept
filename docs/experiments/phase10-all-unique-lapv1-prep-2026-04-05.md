@@ -109,6 +109,17 @@ The workflow build is also explicitly chunked. The all-unique train split is sli
 
 That chunked path replaced the earlier monolithic attempt after the first full all-unique workflow build was killed by the host during the train-split teacher pass.
 
+The follow-up LAPv1 Stage-T1 resume also no longer preloads the complete
+`planner_head_train.jsonl` into RAM. The trainer now builds a lightweight file
+offset index and prepares examples per batch on demand, which removes the
+earlier `~24 GiB RSS` spike before the first real epoch.
+
+Remaining scale TODOs observed during this prep/resume cycle:
+
+- planner-family trainers outside LAPv1 still load `planner_head` artifacts eagerly
+- MoE analysis still assumes in-memory `planner_head` access
+- verify/matrix tooling in some later campaigns should be converted to streaming readers if they move onto larger corpora
+
 ## Intent
 
 This prep keeps the architectural boundary intact:

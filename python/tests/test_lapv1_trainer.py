@@ -23,6 +23,7 @@ from train.trainers import evaluate_lapv1_checkpoint, train_lapv1
 from train.trainers.lapv1 import (
     LAPv1OptimizationConfig,
     LAPv1TrainConfig,
+    _build_lazy_dataset,
     _collate_examples,
     _policy_margin_loss,
     _prepare_example,
@@ -204,6 +205,32 @@ def test_policy_margin_loss_caps_raw_gap_targets_locally() -> None:
         reduction="none",
     ).mean()
     assert torch.allclose(loss, expected)
+
+
+def test_lapv1_lazy_dataset_indexes_multiple_jsonl_files(tmp_path: Path) -> None:
+    first_path = tmp_path / "part1.jsonl"
+    second_path = tmp_path / "part2.jsonl"
+    _write_examples(
+        first_path,
+        [
+            _planner_example("train-1", teacher_index=0, teacher_cp=60.0, teacher_gap=40.0),
+            _planner_example("train-2", teacher_index=1, teacher_cp=10.0, teacher_gap=10.0),
+        ],
+    )
+    _write_examples(
+        second_path,
+        [
+            _planner_example("train-3", teacher_index=0, teacher_cp=-40.0, teacher_gap=25.0),
+        ],
+    )
+
+    dataset = _build_lazy_dataset([first_path, second_path])
+    try:
+        assert len(dataset) == 3
+        assert dataset[0].sample_id == "train-1"
+        assert dataset[2].sample_id == "train-3"
+    finally:
+        dataset.close()
 
 
 def test_train_lapv1_stage1_emits_batch_progress_logs(
