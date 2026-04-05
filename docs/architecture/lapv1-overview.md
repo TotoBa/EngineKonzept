@@ -249,6 +249,35 @@ change was required once the all-unique Stage-T1 run moved past `675k` train
 examples: the earlier eager path reached host OOM pressure before the first real
 epoch could start.
 
+For the next all-unique Stage-T1 bootstrap, the workflow now also materializes a
+dedicated `lapv1_<split>.jsonl` artifact family. Those artifacts precompute the
+LAPv1-side training inputs that previously had to be reconstructed inside the
+trainer from `fen` plus packed root features:
+
+- `piece_tokens`
+- `square_tokens`
+- `state_context_global`
+- `reachability_*` sparse edge lists
+- normalized teacher WDL / sharpness targets
+
+That extra workflow layer keeps the Phase-10 contract explicit and removes the
+most expensive per-example Python reconstruction from the training loop.
+
+The original all-unique bootstrap config
+[phase10_lapv1_stage1_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage1_all_unique_v1.json)
+remains as the larger historical reference. The preferred restart target is now
+the smaller fast follow-up:
+
+- [phase10_lapv1_stage1_fast_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage1_fast_all_unique_v1.json)
+- [phase10_agent_lapv1_stage1_fast_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_agent_lapv1_stage1_fast_all_unique_v1.json)
+- [phase10_lapv1_stage1_fast_arena_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage1_fast_arena_all_unique_v1.json)
+- [run_phase10_lapv1_stage1_fast_arena_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase10_lapv1_stage1_fast_arena_longrun.sh)
+
+That fast variant cuts the Stage-T1 bootstrap model from roughly `77.3M`
+parameters (`~295 MB` FP32) to `19.8M` parameters (`~75.7 MB` FP32), raises the
+batch size to `12`, and keeps the first all-unique LAPv1 benchmark within a
+realistic CPU budget before the arena stage.
+
 The same trainer now also supports a first stage-T2 extension with
 deliberation enabled under a bounded `max_inner_steps` curriculum,
 additional sharpness-target supervision on the emitted trace, a

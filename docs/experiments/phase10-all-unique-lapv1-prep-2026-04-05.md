@@ -114,11 +114,37 @@ The follow-up LAPv1 Stage-T1 resume also no longer preloads the complete
 offset index and prepares examples per batch on demand, which removes the
 earlier `~24 GiB RSS` spike before the first real epoch.
 
+The next restart no longer trains directly from `planner_head_<split>.jsonl`
+either. The Phase-10 workflow now materializes dedicated `lapv1_<split>.jsonl`
+artifacts that precompute the LAPv1-side piece tokens, square tokens,
+state-context globals, reachability edges, and bounded teacher targets once
+during workflow build. The trainer then consumes those precomputed LAPv1
+artifacts directly.
+
+The preferred restart target is therefore no longer the large
+[phase10_lapv1_stage1_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage1_all_unique_v1.json)
+reference. It is now the smaller fast variant:
+
+- [phase10_lapv1_stage1_fast_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage1_fast_all_unique_v1.json)
+- [phase10_agent_lapv1_stage1_fast_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_agent_lapv1_stage1_fast_all_unique_v1.json)
+- [phase10_lapv1_stage1_fast_arena_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage1_fast_arena_all_unique_v1.json)
+- [run_phase10_lapv1_stage1_fast_arena_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase10_lapv1_stage1_fast_arena_longrun.sh)
+
+That restart path keeps the same all-unique corpus and reference-arm arena, but
+changes three things deliberately:
+
+- dedicated precomputed `lapv1_*` training artifacts
+- smaller `lapv1_stage1_fast_all_unique_v1` model (`19.8M` params instead of `77.3M`)
+- `batch_size=12` for materially better CPU throughput
+
 Remaining scale TODOs observed during this prep/resume cycle:
 
 - planner-family trainers outside LAPv1 still load `planner_head` artifacts eagerly
 - MoE analysis still assumes in-memory `planner_head` access
 - verify/matrix tooling in some later campaigns should be converted to streaming readers if they move onto larger corpora
+- if later Phase-10 or Phase-11 paths reuse large `planner_head` or `lapv1`
+  artifacts, keep them on lazy readers instead of regressing to eager JSONL
+  materialization
 
 ## Intent
 

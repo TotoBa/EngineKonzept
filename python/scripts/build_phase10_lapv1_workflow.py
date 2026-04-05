@@ -18,11 +18,13 @@ from train.datasets import (
     search_teacher_artifact_name,
     search_traces_artifact_name,
 )
+from train.datasets.lapv1_training import lapv1_training_artifact_name
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 _WORKFLOW_SCRIPT = REPO_ROOT / "python" / "scripts" / "build_opponent_workflow_dataset.py"
 _PLANNER_HEAD_SCRIPT = REPO_ROOT / "python" / "scripts" / "build_planner_head_dataset.py"
+_LAPV1_TRAINING_SCRIPT = REPO_ROOT / "python" / "scripts" / "build_lapv1_training_dataset.py"
 
 
 def main() -> int:
@@ -107,11 +109,15 @@ def main() -> int:
         planner_head_path = output_dir / planner_head_artifact_name(str(split_spec["canonical_split"]))
         workflow_summary_path = output_dir / "summary.json"
         planner_head_summary_path = output_dir / "planner_head.summary.json"
+        lapv1_artifact_path = output_dir / lapv1_training_artifact_name(str(split_spec["canonical_split"]))
+        lapv1_summary_path = output_dir / "lapv1.summary.json"
         if (
             not args.skip_existing
             or not planner_head_path.exists()
             or not workflow_summary_path.exists()
             or not planner_head_summary_path.exists()
+            or not lapv1_artifact_path.exists()
+            or not lapv1_summary_path.exists()
         ):
             _log(
                 f"[workflow] chunked build for {split_name}: split={split_spec['split']} "
@@ -136,14 +142,23 @@ def main() -> int:
             )
         split_summary = json.loads(workflow_summary_path.read_text(encoding="utf-8"))
         planner_head_summary = json.loads(planner_head_summary_path.read_text(encoding="utf-8"))
+        lapv1_summary = json.loads(lapv1_summary_path.read_text(encoding="utf-8"))
         summary_key = "verify_paths" if split_name.endswith("verify") else f"{split_spec['split']}_paths"
         summary[summary_key].append(str(planner_head_path))
+        lapv1_summary_key = (
+            "lapv1_verify_paths"
+            if split_name.endswith("verify")
+            else f"lapv1_{split_spec['split']}_paths"
+        )
+        summary.setdefault(lapv1_summary_key, []).append(str(lapv1_artifact_path))
         summary["tiers"][split_name] = {
             "dataset_dir": str(split_spec["dataset_dir"]),
             "workflow_dir": str(output_dir),
             "planner_head_path": str(planner_head_path),
+            "lapv1_path": str(lapv1_artifact_path),
             "workflow_summary": split_summary,
             "planner_head_summary": planner_head_summary,
+            "lapv1_summary": lapv1_summary,
         }
 
     summary_path = output_root / "summary.json"
@@ -182,16 +197,13 @@ def _build_chunked_split_workflow(
         workflow_summary_path = chunk_dir / "workflow.summary.json"
         planner_head_path = chunk_dir / planner_head_artifact_name(canonical_split)
         planner_head_summary_path = chunk_dir / "planner_head.summary.json"
+        lapv1_path = chunk_dir / lapv1_training_artifact_name(canonical_split)
+        lapv1_summary_path = chunk_dir / "lapv1.summary.json"
         _log(
             f"[workflow:{split}] chunk {chunk_index}/{total_chunks} "
             f"start={start_index} count={example_count}"
         )
-        if (
-            not skip_existing
-            or not workflow_summary_path.exists()
-            or not planner_head_path.exists()
-            or not planner_head_summary_path.exists()
-        ):
+        if not skip_existing or not workflow_summary_path.exists():
             _run_workflow_build(
                 dataset_dir=dataset_dir,
                 split=split,
@@ -206,6 +218,7 @@ def _build_chunked_split_workflow(
                 top_k=top_k,
                 log_every=log_every,
             )
+        if not skip_existing or not planner_head_path.exists() or not planner_head_summary_path.exists():
             _run_planner_head_build(
                 dataset_dir=dataset_dir,
                 canonical_split=canonical_split,
@@ -216,6 +229,12 @@ def _build_chunked_split_workflow(
                 root_top_k=root_top_k,
                 output_path=planner_head_path,
             )
+        if not skip_existing or not lapv1_path.exists() or not lapv1_summary_path.exists():
+            _run_lapv1_training_artifact_build(
+                planner_head_path=planner_head_path,
+                output_path=lapv1_path,
+                log_every=log_every,
+            )
         chunk_records.append(
             {
                 "index": chunk_index,
@@ -225,6 +244,8 @@ def _build_chunked_split_workflow(
                 "workflow_summary_path": str(workflow_summary_path),
                 "planner_head_path": str(planner_head_path),
                 "planner_head_summary_path": str(planner_head_summary_path),
+                "lapv1_path": str(lapv1_path),
+                "lapv1_summary_path": str(lapv1_summary_path),
             }
         )
 
@@ -259,6 +280,10 @@ def _build_chunked_split_workflow(
     _merge_chunk_artifact(
         output_path=output_dir / planner_head_artifact_name(canonical_split),
         chunk_paths=[Path(record["planner_head_path"]) for record in chunk_records],
+    )
+    _merge_chunk_artifact(
+        output_path=output_dir / lapv1_training_artifact_name(canonical_split),
+        chunk_paths=[Path(record["lapv1_path"]) for record in chunk_records],
     )
 
     opponent_chunk_paths = [
@@ -298,6 +323,16 @@ def _build_chunked_split_workflow(
     )
     (output_dir / "planner_head.summary.json").write_text(
         json.dumps(planner_head_summary, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    lapv1_summary = _aggregate_lapv1_chunk_summaries(
+        split=canonical_split,
+        output_path=output_dir / lapv1_training_artifact_name(canonical_split),
+        chunk_records=chunk_records,
+    )
+    (output_dir / "lapv1.summary.json").write_text(
+        json.dumps(lapv1_summary, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
 
@@ -379,6 +414,35 @@ def _aggregate_planner_head_chunk_summaries(
         "max_examples": sum(int(summary["example_count"]) for summary in chunk_summaries),
         "output_path": str(output_path),
         "example_count": sum(int(summary["example_count"]) for summary in chunk_summaries),
+        "mean_curriculum_priority": _weighted_mean(
+            chunk_summaries,
+            weight_key="example_count",
+            value_key="mean_curriculum_priority",
+        ),
+        "chunk_count": len(chunk_records),
+        "chunks": list(chunk_records),
+    }
+
+
+def _aggregate_lapv1_chunk_summaries(
+    *,
+    split: str,
+    output_path: Path,
+    chunk_records: Sequence[dict[str, Any]],
+) -> dict[str, Any]:
+    chunk_summaries = [
+        json.loads(Path(record["lapv1_summary_path"]).read_text(encoding="utf-8"))
+        for record in chunk_records
+    ]
+    return {
+        "split": split,
+        "output_path": str(output_path),
+        "example_count": sum(int(summary["example_count"]) for summary in chunk_summaries),
+        "mean_candidate_count": _weighted_mean(
+            chunk_summaries,
+            weight_key="example_count",
+            value_key="mean_candidate_count",
+        ),
         "mean_curriculum_priority": _weighted_mean(
             chunk_summaries,
             weight_key="example_count",
@@ -509,6 +573,26 @@ def _run_planner_head_build(
     summary_path = output_path.parent / "summary.json"
     planner_head_summary_path = output_path.parent / "planner_head.summary.json"
     planner_head_summary_path.write_text(summary_path.read_text(encoding="utf-8"), encoding="utf-8")
+
+
+def _run_lapv1_training_artifact_build(
+    *,
+    planner_head_path: Path,
+    output_path: Path,
+    log_every: int,
+) -> None:
+    command = [
+        sys.executable,
+        "-u",
+        str(_LAPV1_TRAINING_SCRIPT),
+        "--planner-head-path",
+        str(planner_head_path),
+        "--output-path",
+        str(output_path),
+        "--log-every",
+        str(log_every),
+    ]
+    subprocess.run(command, cwd=REPO_ROOT, check=True)
 
 
 def _load_dataset_summary(dataset_dir: Path) -> dict[str, Any]:

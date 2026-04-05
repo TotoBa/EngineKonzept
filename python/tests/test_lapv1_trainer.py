@@ -15,6 +15,11 @@ from train.datasets.artifacts import (
     SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE,
     pack_position_features,
 )
+from train.datasets.lapv1_training import (
+    lapv1_training_example_from_planner_head,
+    load_lapv1_training_examples,
+    write_lapv1_training_artifact,
+)
 from train.datasets.planner_head import PlannerHeadExample
 from train.datasets.schema import PositionEncoding
 from train.models.lapv1 import LAPv1Config
@@ -231,6 +236,94 @@ def test_lapv1_lazy_dataset_indexes_multiple_jsonl_files(tmp_path: Path) -> None
         assert dataset[2].sample_id == "train-3"
     finally:
         dataset.close()
+
+
+def test_train_lapv1_stage1_on_precomputed_lapv1_artifact(tmp_path: Path) -> None:
+    train_path = tmp_path / "lapv1_train.jsonl"
+    validation_path = tmp_path / "lapv1_validation.jsonl"
+    train_examples = [
+        lapv1_training_example_from_planner_head(
+            _planner_example("train-1", teacher_index=0, teacher_cp=60.0, teacher_gap=40.0)
+        ),
+        lapv1_training_example_from_planner_head(
+            _planner_example("train-2", teacher_index=1, teacher_cp=10.0, teacher_gap=10.0)
+        ),
+    ]
+    validation_examples = [
+        lapv1_training_example_from_planner_head(
+            _planner_example("validation-1", teacher_index=0, teacher_cp=50.0, teacher_gap=30.0)
+        ),
+    ]
+    write_lapv1_training_artifact(train_path, train_examples)
+    write_lapv1_training_artifact(validation_path, validation_examples)
+
+    config = LAPv1TrainConfig(
+        seed=19,
+        output_dir=str(tmp_path / "lapv1_out"),
+        stage="T1",
+        data=PlannerDataConfig(
+            train_path=str(train_path),
+            validation_path=str(validation_path),
+        ),
+        model=LAPv1Config.from_mapping(
+            {
+                "deliberation": {"max_inner_steps": 0, "min_inner_steps": 0},
+                "opponent_head": {
+                    "architecture": "set_v2",
+                    "hidden_dim": 64,
+                    "hidden_layers": 1,
+                    "action_embedding_dim": 16,
+                    "dropout": 0.0,
+                },
+                "value_head": {"hidden_dim": 1024},
+                "policy_head": {
+                    "hidden_dim": 512,
+                    "action_embedding_dim": 32,
+                    "feedforward_dim": 1024,
+                },
+                "state_embedder": {"feedforward_dim": 1024},
+                "intention_encoder": {"feedforward_dim": 1024},
+            }
+        ),
+        optimization=LAPv1OptimizationConfig(
+            epochs=1,
+            batch_size=1,
+            learning_rate=1e-3,
+            weight_decay=0.0,
+            max_grad_norm=1.0,
+            log_interval_batches=1,
+            value_wdl_weight=1.0,
+            value_cp_weight=0.25,
+            sharpness_weight=0.1,
+            policy_ce_weight=1.0,
+            policy_kl_weight=0.25,
+            policy_margin_weight=0.1,
+            policy_rank_weight=0.1,
+            intention_aux_weight=0.05,
+        ),
+        evaluation=PlannerEvaluationConfig(top_k=3),
+        runtime=PlannerRuntimeConfig(torch_threads=1, dataloader_workers=0),
+        export=PlannerExportConfig(bundle_dir=str(tmp_path / "bundle")),
+    )
+
+    run = train_lapv1(config, repo_root=tmp_path)
+
+    assert Path(run.export_paths["checkpoint"]).exists()
+    assert run.best_epoch == 1
+
+
+def test_lapv1_training_artifact_roundtrip(tmp_path: Path) -> None:
+    source_example = lapv1_training_example_from_planner_head(
+        _planner_example("roundtrip", teacher_index=0, teacher_cp=25.0, teacher_gap=15.0)
+    )
+    artifact_path = tmp_path / "lapv1_train.jsonl"
+    write_lapv1_training_artifact(artifact_path, [source_example])
+
+    loaded = load_lapv1_training_examples(artifact_path)
+
+    assert len(loaded) == 1
+    assert loaded[0].sample_id == "roundtrip"
+    assert loaded[0].candidate_action_indices == source_example.candidate_action_indices
 
 
 def test_train_lapv1_stage1_emits_batch_progress_logs(

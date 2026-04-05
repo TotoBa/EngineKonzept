@@ -274,7 +274,7 @@ Use [run_lapv1_stage1_first_eval.sh](/home/torsten/EngineKonzept/python/scripts/
 Use [run_lapv1_stage1_train.sh](/home/torsten/EngineKonzept/python/scripts/run_lapv1_stage1_train.sh) or [train_lapv1.py](/home/torsten/EngineKonzept/python/scripts/train_lapv1.py) for the first actual Stage-T1 bootstrap run, and [eval_lapv1.py](/home/torsten/EngineKonzept/python/scripts/eval_lapv1.py) for held-out evaluation of saved checkpoints.
 
 - [phase10_lapv1_stage1_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage1_all_unique_v1.json)
-  Prepared all-data Stage-T1 follow-up. Points at the future full all-unique planner-head workflow under `/srv/schach/engine_training/phase10/lapv1_workflow_all_unique_v1`, keeps deliberation disabled, and reduces the bootstrap run to `2` epochs so the next large run can stage LAPv1 once before the arena instead of spending time on the older `10k + 122k` setup.
+  Prepared all-data Stage-T1 follow-up. This is now the larger historical reference config. It points at the full all-unique Phase-10 workflow, keeps deliberation disabled, and was the first attempt to bootstrap LAPv1 once before the arena over the merged all-unique corpus.
 
 - [phase10_agent_lapv1_stage1_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_agent_lapv1_stage1_all_unique_v1.json)
   Runtime/arena spec for that all-unique Stage-T1 checkpoint.
@@ -296,6 +296,17 @@ The new all-unique raw tier feeding that run is:
 - [phase5_stockfish_all_unique_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_all_unique_v1)
 
 It merges the previous `merged_unique`, the prior `400k` unique tier, and the imported `1m` Pi snapshot with hard verify-over-train precedence and later-source replacement on duplicate FENs.
+
+- [phase10_lapv1_stage1_fast_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage1_fast_all_unique_v1.json)
+  Preferred all-unique Stage-T1 restart config. It consumes the dedicated precomputed `lapv1_train.jsonl` and `lapv1_validation.jsonl` artifacts emitted by the Phase-10 workflow, shrinks the model to about `19.8M` parameters (`~75.7 MB` FP32), raises the bootstrap batch size to `12`, keeps deliberation disabled, and stays at `2` epochs so the Phase-10 benchmark remains CPU-feasible before the arena.
+
+- [phase10_agent_lapv1_stage1_fast_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_agent_lapv1_stage1_fast_all_unique_v1.json)
+  Runtime/arena spec for the preferred fast all-unique Stage-T1 checkpoint.
+
+- [phase10_lapv1_stage1_fast_arena_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage1_fast_arena_all_unique_v1.json)
+  Preferred Phase-10 all-unique long-run spec. It reuses the same merged all-unique raw corpus and reference-arm selection logic as the larger historical run, but rebuilds missing Phase-10 workflow artifacts including the new `lapv1_<split>.jsonl` layer, trains the smaller fast LAPv1 Stage-T1 checkpoint for `2` epochs, and then runs the 8-agent arena against the strongest six current internal references plus `vice_v2`.
+
+Use [run_phase10_lapv1_stage1_fast_arena_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase10_lapv1_stage1_fast_arena_longrun.sh) for the preferred current restart path.
 
 The next planned LAPv1 configs keep the same namespace and data-contract boundary:
 

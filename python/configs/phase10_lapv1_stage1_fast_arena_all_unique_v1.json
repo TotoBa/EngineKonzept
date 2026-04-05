@@ -1,0 +1,96 @@
+{
+  "spec_version": 1,
+  "name": "phase10_lapv1_stage1_fast_arena_all_unique_v1",
+  "output_root": "/srv/schach/engine_training/phase10/lapv1_stage1_fast_arena_all_unique_v1",
+  "merged_raw_dir": "artifacts/datasets/phase5_stockfish_all_unique_v1",
+  "train_dataset_dir": "artifacts/datasets/phase5_stockfish_all_unique_train_v1",
+  "verify_dataset_dir": "artifacts/datasets/phase5_stockfish_all_unique_verify_v1",
+  "phase5_source_name": "stockfish-unique-pgn",
+  "phase5_seed": "phase5-stockfish-all-unique-v1",
+  "phase5_oracle_workers": 6,
+  "phase5_oracle_batch_size": 0,
+  "phase5_chunk_size": 5000,
+  "phase5_log_every_chunks": 1,
+  "workflow_output_root": "/srv/schach/engine_training/phase10/lapv1_workflow_all_unique_v1",
+  "proposer_checkpoint": "models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+  "teacher_engine_path": "/usr/games/stockfish18",
+  "teacher_nodes": 64,
+  "teacher_multipv": 8,
+  "teacher_policy_temperature_cp": 100.0,
+  "teacher_top_k": 8,
+  "workflow_chunk_size": 2048,
+  "workflow_log_every": 1000,
+  "lapv1_config_path": "python/configs/phase10_lapv1_stage1_fast_all_unique_v1.json",
+  "lapv1_agent_spec_path": "python/configs/phase10_agent_lapv1_stage1_fast_all_unique_v1.json",
+  "lapv1_verify_output_path": "/srv/schach/engine_training/phase10/lapv1_workflow_all_unique_v1/all_unique_verify_v1/lapv1_test.jsonl",
+  "reference_arena_summary_path": "/srv/schach/engine_training/phase9/evolution_round03_vice_v1/final/arena/summary.json",
+  "reference_verify_matrix_path": "/srv/schach/engine_training/phase9/evolution_round03_vice_v1/final/planner_verify_matrix.json",
+  "reference_agents": [
+    {
+      "name": "planner_active_expanded_v2",
+      "spec_path": "python/configs/phase9_agent_planner_active_expanded_v2.json"
+    },
+    {
+      "name": "planner_moe_v1_expanded_v1",
+      "spec_path": "python/configs/phase9_agent_planner_moe_v1_expanded_v1.json"
+    },
+    {
+      "name": "planner_moe_v2_expanded_v1",
+      "spec_path": "python/configs/phase9_agent_planner_moe_v2_expanded_v1.json"
+    },
+    {
+      "name": "planner_recurrent_expanded_v1",
+      "spec_path": "python/configs/phase9_agent_planner_recurrent_expanded_v1.json"
+    },
+    {
+      "name": "planner_set_v2_expanded_v1",
+      "spec_path": "python/configs/phase9_agent_planner_set_v2_expanded_v1.json"
+    },
+    {
+      "name": "planner_set_v2_wide_expanded_v1",
+      "spec_path": "python/configs/phase9_agent_planner_set_v2_wide_expanded_v1.json"
+    },
+    {
+      "name": "planner_set_v5_expanded_v1",
+      "spec_path": "python/configs/phase9_agent_planner_set_v5_expanded_v1.json"
+    },
+    {
+      "name": "planner_set_v6_expanded_v1",
+      "spec_path": "python/configs/phase9_agent_planner_set_v6_expanded_v1.json"
+    },
+    {
+      "name": "planner_set_v6_margin_expanded_v1",
+      "spec_path": "python/configs/phase9_agent_planner_set_v6_margin_expanded_v1.json"
+    },
+    {
+      "name": "planner_set_v6_rank_expanded_v1",
+      "spec_path": "python/configs/phase9_agent_planner_set_v6_rank_expanded_v1.json"
+    },
+    {
+      "name": "planner_set_v6_replay_expanded_v2",
+      "spec_path": "python/configs/phase9_agent_planner_set_v6_replay_expanded_v2.json"
+    }
+  ],
+  "reference_excluded_agents": [
+    "symbolic_root_v1",
+    "vice_v2"
+  ],
+  "top_reference_agents_count": 6,
+  "benchmark_agent_specs": {
+    "vice_v2": "python/configs/phase9_agent_uci_vice_v2.json"
+  },
+  "initial_fen_suite_path": "artifacts/phase9/initial_fens_active_replay_campaign_adjudicated_v2.json",
+  "arena_default_games": 4,
+  "arena_parallel_workers": 6,
+  "arena_default_max_plies": 96,
+  "arena_opening_selection_seed": 20260404,
+  "max_plies_adjudication": {
+    "engine_path": "/usr/games/stockfish18",
+    "score_threshold_pawns": 0.3,
+    "extension_step_plies": 16,
+    "max_extensions": 4,
+    "nodes": 128,
+    "depth": null,
+    "movetime_ms": null
+  }
+}

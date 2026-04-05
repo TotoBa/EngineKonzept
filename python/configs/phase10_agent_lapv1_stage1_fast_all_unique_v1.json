@@ -1,0 +1,18 @@
+{
+  "spec_version": 1,
+  "name": "lapv1_stage1_fast_all_unique_v1",
+  "agent_kind": "lapv1",
+  "lapv1_checkpoint": "models/lapv1/stage1_fast_all_unique_v1/bundle/checkpoint.pt",
+  "state_context_version": 1,
+  "deliberation_max_inner_steps": 0,
+  "deliberation_q_threshold": 0.3,
+  "tags": [
+    "lapv1",
+    "stage1",
+    "fast",
+    "all_unique"
+  ],
+  "metadata": {
+    "description": "LAPv1 Stage1 fast bootstrap over the merged all-unique Phase-5 corpus."
+  }
+}

@@ -160,6 +160,17 @@ def run_phase10_lapv1_stage1_arena_campaign(
 ) -> dict[str, Any]:
     output_root = _resolve_repo_path(Path(spec.output_root))
     output_root.mkdir(parents=True, exist_ok=True)
+    lapv1_config_path = _resolve_repo_path(Path(spec.lapv1_config_path))
+    lapv1_config = load_lapv1_train_config(lapv1_config_path)
+    lapv1_train_paths = [
+        _resolve_repo_path(Path(path))
+        for path in lapv1_config.data.resolved_train_paths()
+    ]
+    lapv1_validation_paths = [
+        _resolve_repo_path(Path(path))
+        for path in lapv1_config.data.resolved_validation_paths()
+    ]
+    lapv1_verify_path = _resolve_repo_path(Path(spec.lapv1_verify_output_path))
 
     selected_reference_agents = _select_reference_agents(spec)
     plan = {
@@ -167,7 +178,7 @@ def run_phase10_lapv1_stage1_arena_campaign(
         "output_root": str(output_root),
         "selected_reference_agents": selected_reference_agents,
         "benchmark_agents": spec.benchmark_agent_specs,
-        "lapv1_config_path": str(_resolve_repo_path(Path(spec.lapv1_config_path))),
+        "lapv1_config_path": str(lapv1_config_path),
         "lapv1_agent_spec_path": str(_resolve_repo_path(Path(spec.lapv1_agent_spec_path))),
     }
     if dry_run:
@@ -183,14 +194,18 @@ def run_phase10_lapv1_stage1_arena_campaign(
 
     _log("[phase10] building full LAPv1 workflow")
     workflow_summary_path = _resolve_repo_path(Path(spec.workflow_output_root)) / "summary.json"
-    if not skip_existing or not workflow_summary_path.exists():
+    if (
+        not skip_existing
+        or not workflow_summary_path.exists()
+        or any(not path.exists() for path in lapv1_train_paths)
+        or any(not path.exists() for path in lapv1_validation_paths)
+        or not lapv1_verify_path.exists()
+    ):
         _run_workflow_build(spec)
     else:
         _log("[phase10] reusing existing LAPv1 workflow artifacts")
 
     _log("[phase10] training LAPv1 Stage1")
-    lapv1_config_path = _resolve_repo_path(Path(spec.lapv1_config_path))
-    lapv1_config = load_lapv1_train_config(lapv1_config_path)
     lapv1_checkpoint = _resolve_repo_path(Path(lapv1_config.export.bundle_dir)) / lapv1_config.export.checkpoint_name
     lapv1_summary_path = _resolve_repo_path(Path(lapv1_config.output_dir)) / "summary.json"
     if not skip_existing or not lapv1_checkpoint.exists() or not lapv1_summary_path.exists():
@@ -201,7 +216,7 @@ def run_phase10_lapv1_stage1_arena_campaign(
     _log("[phase10] evaluating LAPv1 verify holdout")
     lapv1_verify_metrics = evaluate_lapv1_checkpoint(
         lapv1_checkpoint,
-        dataset_path=_resolve_repo_path(Path(spec.lapv1_verify_output_path)),
+        dataset_path=lapv1_verify_path,
         top_k=lapv1_config.evaluation.top_k,
     ).to_dict()
     lapv1_verify_path = output_root / "lapv1_verify.json"

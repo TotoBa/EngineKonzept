@@ -17,33 +17,18 @@ from train.config import (
     PlannerRuntimeConfig,
     resolve_repo_path,
 )
-from train.datasets.artifacts import (
-    PIECE_TOKEN_CAPACITY,
-    PIECE_TOKEN_PADDING_VALUE,
-    PIECE_TOKEN_WIDTH,
-    SQUARE_TOKEN_COUNT,
-    SQUARE_TOKEN_WIDTH,
-    split_position_features,
-)
-from train.datasets.contracts import (
-    build_state_context_v1,
-    state_context_v1_feature_spec,
+from train.datasets.lapv1_training import (
+    LAPv1TrainingExample,
+    lapv1_training_example_from_planner_head,
 )
 from train.datasets.planner_head import PlannerHeadExample
-from train.datasets.schema import DatasetExample, PositionEncoding, TacticalAnnotations
 from train.models.intention_encoder import torch
 from train.models.lapv1 import LAPV1_MODEL_NAME, LAPv1Config, LAPv1Model
 from train.models.policy_head_large import MASKED_CANDIDATE_LOGIT_VALUE
 from train.models.proposer import torch_is_available
 
-try:
-    import chess
-except ModuleNotFoundError:  # pragma: no cover - exercised when chess is absent
-    chess = None
-
 
 LAPV1_STAGE1_NAME = "lapv1_stage1"
-_STATE_CONTEXT_GLOBAL_DIM = len(state_context_v1_feature_spec()["global_feature_order"])
 _PIECE_ROLE_CLASS_COUNT = 7
 _CP_TARGET_SCALE = 256.0
 _GAP_TARGET_SCALE = 128.0
@@ -285,24 +270,7 @@ class LAPv1TrainingRun:
         }
 
 
-@dataclass(frozen=True)
-class _PreparedLAPv1Example:
-    sample_id: str
-    piece_tokens: list[list[int]]
-    square_tokens: list[list[float]]
-    state_context_global: list[float]
-    reachability_edges: list[list[int]]
-    candidate_action_indices: list[int]
-    candidate_features: list[list[float]]
-    candidate_mask: list[bool]
-    teacher_top1_candidate_index: int
-    teacher_policy: list[float]
-    teacher_root_value_cp: float
-    teacher_wdl_target: int
-    sharpness_target: float
-    teacher_top1_minus_top2_cp: float | None
-    teacher_candidate_rank_bucket_targets: list[int] | None
-    curriculum_priority: float
+_PreparedLAPv1Example = LAPv1TrainingExample
 
 
 class _LazyPreparedLAPv1Dataset(Sequence[_PreparedLAPv1Example]):
@@ -312,12 +280,14 @@ class _LazyPreparedLAPv1Dataset(Sequence[_PreparedLAPv1Example]):
         self._paths = tuple(paths)
         self._offsets_per_path: list[list[int]] = []
         self._line_numbers_per_path: list[list[int]] = []
+        self._source_kinds: list[str] = []
         self._cumulative_sizes: list[int] = []
         self._handles: list[BinaryIO | None] = [None] * len(self._paths)
         running_total = 0
         for path in self._paths:
             offsets: list[int] = []
             line_numbers: list[int] = []
+            source_kind = "lapv1"
             with path.open("rb") as handle:
                 line_number = 0
                 while True:
@@ -327,10 +297,13 @@ class _LazyPreparedLAPv1Dataset(Sequence[_PreparedLAPv1Example]):
                         break
                     line_number += 1
                     if raw_line.strip():
+                        if not offsets:
+                            source_kind = _detect_lapv1_source_kind(raw_line, source=str(path))
                         offsets.append(offset)
                         line_numbers.append(line_number)
             self._offsets_per_path.append(offsets)
             self._line_numbers_per_path.append(line_numbers)
+            self._source_kinds.append(source_kind)
             running_total += len(offsets)
             self._cumulative_sizes.append(running_total)
 
@@ -365,9 +338,11 @@ class _LazyPreparedLAPv1Dataset(Sequence[_PreparedLAPv1Example]):
             raise ValueError("indexed planner head line was unexpectedly blank")
         path = self._paths[path_index]
         line_number = self._line_numbers_per_path[path_index][local_index]
-        return _prepare_example(
-            PlannerHeadExample.from_json(line, source=f"{path}:{line_number}")
-        )
+        if self._source_kinds[path_index] == "planner_head":
+            return _prepare_example(
+                PlannerHeadExample.from_json(line, source=f"{path}:{line_number}")
+            )
+        return LAPv1TrainingExample.from_json(line, source=f"{path}:{line_number}")
 
     def close(self) -> None:
         for index, handle in enumerate(self._handles):
@@ -402,10 +377,6 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
     if torch is None or not torch_is_available():  # pragma: no cover
         raise RuntimeError(
             "PyTorch is required for LAPv1 training. Install the 'train' extra or torch."
-        )
-    if chess is None:  # pragma: no cover
-        raise RuntimeError(
-            "python-chess is required for LAPv1 training. Install the 'train' extra."
         )
 
     output_dir = resolve_repo_path(repo_root, config.output_dir)
@@ -663,132 +634,21 @@ def _build_lazy_dataset(paths: Sequence[Path]) -> _LazyPreparedLAPv1Dataset:
 
 
 def _prepare_example(example: PlannerHeadExample) -> _PreparedLAPv1Example:
-    feature_sections = split_position_features(example.feature_vector)
-    piece_tokens = _decode_piece_tokens(feature_sections["piece"])
-    square_tokens = _decode_square_tokens(feature_sections["square"])
-    state_context = build_state_context_v1(_dataset_example_for_fen(example.fen))
-    global_features = state_context.feature_values[-_STATE_CONTEXT_GLOBAL_DIM :]
-    reachability_edges = [
-        [src, dst, piece_type]
-        for src, dst, piece_type in zip(
-            state_context.edge_src_square,
-            state_context.edge_dst_square,
-            state_context.edge_piece_type,
-            strict=True,
-        )
-    ]
-    return _PreparedLAPv1Example(
-        sample_id=example.sample_id,
-        piece_tokens=piece_tokens,
-        square_tokens=square_tokens,
-        state_context_global=global_features,
-        reachability_edges=reachability_edges,
-        candidate_action_indices=list(example.candidate_action_indices),
-        candidate_features=[list(row) for row in example.candidate_features],
-        candidate_mask=[True] * len(example.candidate_action_indices),
-        teacher_top1_candidate_index=example.teacher_top1_candidate_index,
-        teacher_policy=_normalize_policy(example.teacher_policy),
-        teacher_root_value_cp=example.teacher_root_value_cp,
-        teacher_wdl_target=_wdl_target_from_cp(example.teacher_root_value_cp),
-        sharpness_target=_sharpness_target(example.teacher_top1_minus_top2_cp),
-        teacher_top1_minus_top2_cp=example.teacher_top1_minus_top2_cp,
-        teacher_candidate_rank_bucket_targets=(
-            None
-            if example.teacher_candidate_rank_bucket_targets is None
-            else list(example.teacher_candidate_rank_bucket_targets)
-        ),
-        curriculum_priority=example.curriculum_priority,
-    )
+    return lapv1_training_example_from_planner_head(example)
 
 
-def _dataset_example_for_fen(fen: str) -> DatasetExample:
-    if chess is None:  # pragma: no cover
-        raise RuntimeError(
-            "python-chess is required for LAPv1 example preparation."
-        )
-    board = chess.Board(fen)
-    legal_moves = [move.uci() for move in board.legal_moves]
-    return DatasetExample(
-        sample_id=f"lapv1:{fen}",
-        split="test",
-        source="lapv1",
-        fen=fen,
-        side_to_move="w" if board.turn else "b",
-        selected_move_uci=None,
-        selected_action_encoding=None,
-        next_fen=None,
-        legal_moves=legal_moves,
-        legal_action_encodings=[[0, 0, index] for index, _move in enumerate(legal_moves)],
-        position_encoding=PositionEncoding(
-            piece_tokens=[],
-            square_tokens=[[square_index, 0] for square_index in range(64)],
-            rule_token=[0, 0, -1, 0, 1, 0],
-        ),
-        wdl_target=None,
-        annotations=TacticalAnnotations(
-            in_check=board.is_check(),
-            is_checkmate=board.is_checkmate(),
-            is_stalemate=board.is_stalemate(),
-            has_legal_en_passant=any(board.is_en_passant(move) for move in board.legal_moves),
-            has_legal_castle=any(board.is_castling(move) for move in board.legal_moves),
-            has_legal_promotion=any(move.promotion is not None for move in board.legal_moves),
-            is_low_material_endgame=len(board.piece_map()) <= 6,
-            legal_move_count=len(legal_moves),
-            piece_count=len(board.piece_map()),
-            selected_move_is_capture=None,
-            selected_move_is_promotion=None,
-            selected_move_is_castle=None,
-            selected_move_is_en_passant=None,
-            selected_move_gives_check=None,
-        ),
-        result=None,
-        metadata={},
-    )
-
-
-def _decode_piece_tokens(values: Sequence[float]) -> list[list[int]]:
-    tokens: list[list[int]] = []
-    for offset in range(0, len(values), PIECE_TOKEN_WIDTH):
-        row = [int(round(value)) for value in values[offset : offset + PIECE_TOKEN_WIDTH]]
-        if row[0] == PIECE_TOKEN_PADDING_VALUE:
-            tokens.append([-1, -1, -1])
-        else:
-            tokens.append(row)
-    if len(tokens) != PIECE_TOKEN_CAPACITY:
-        raise ValueError("piece token slice does not decode to capacity rows")
-    return tokens
-
-
-def _decode_square_tokens(values: Sequence[float]) -> list[list[float]]:
-    tokens: list[list[float]] = []
-    for offset in range(0, len(values), SQUARE_TOKEN_WIDTH):
-        row = [float(value) for value in values[offset : offset + SQUARE_TOKEN_WIDTH]]
-        tokens.append(row)
-    if len(tokens) != SQUARE_TOKEN_COUNT:
-        raise ValueError("square token slice does not decode to 64 rows")
-    return tokens
-
-
-def _normalize_policy(policy: Sequence[float]) -> list[float]:
-    values = [max(0.0, float(value)) for value in policy]
-    total = sum(values)
-    if total <= 0.0:
-        return [1.0 / len(values)] * len(values)
-    return [value / total for value in values]
-
-
-def _wdl_target_from_cp(cp_value: float) -> int:
-    if cp_value > 20.0:
-        return 2
-    if cp_value < -20.0:
-        return 0
-    return 1
-
-
-def _sharpness_target(gap_cp: float | None) -> float:
-    if gap_cp is None:
-        return 0.0
-    return 1.0 if abs(gap_cp) < 20.0 else 0.0
+def _detect_lapv1_source_kind(raw_line: bytes, *, source: str) -> str:
+    try:
+        payload = json.loads(raw_line.decode("utf-8"))
+    except json.JSONDecodeError as exc:  # pragma: no cover - exercised on corrupt artifacts
+        raise ValueError(f"{source}: failed to parse LAPv1 source probe line") from exc
+    if not isinstance(payload, dict):
+        raise ValueError(f"{source}: expected JSON object per artifact line")
+    if "piece_tokens" in payload and "state_context_global" in payload:
+        return "lapv1"
+    if "feature_vector" in payload and "fen" in payload:
+        return "planner_head"
+    raise ValueError(f"{source}: unsupported artifact line schema for LAPv1 training")
 
 
 def _run_epoch(
