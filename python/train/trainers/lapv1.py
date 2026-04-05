@@ -1088,13 +1088,18 @@ def _policy_margin_loss(
     teacher_top1_candidate_index: torch.Tensor,
     gap_targets_cp: torch.Tensor,
 ) -> torch.Tensor:
+    candidate_counts = candidate_mask.sum(dim=1)
+    margin_mask = candidate_counts > 1
+    if not bool(margin_mask.any().item()):
+        return torch.zeros((), dtype=logits.dtype, device=logits.device)
     other_mask = candidate_mask.clone()
     other_mask.scatter_(1, teacher_top1_candidate_index.unsqueeze(1), False)
     other_logits = logits.masked_fill(~other_mask, MASKED_CANDIDATE_LOGIT_VALUE)
     best_other = other_logits.max(dim=1).values
     teacher_logits = logits.gather(1, teacher_top1_candidate_index.unsqueeze(1)).squeeze(1)
     target_margin = gap_targets_cp.clamp_min(0.0) / _GAP_TARGET_SCALE
-    return torch.nn.functional.mse_loss(teacher_logits - best_other, target_margin)
+    raw_loss = torch.square((teacher_logits - best_other) - target_margin)
+    return raw_loss[margin_mask].mean()
 
 
 def _policy_rank_loss(

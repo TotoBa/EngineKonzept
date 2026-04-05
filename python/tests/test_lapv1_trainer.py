@@ -18,11 +18,13 @@ from train.datasets.artifacts import (
 from train.datasets.planner_head import PlannerHeadExample
 from train.datasets.schema import PositionEncoding
 from train.models.lapv1 import LAPv1Config
+from train.models.intention_encoder import torch
 from train.trainers import evaluate_lapv1_checkpoint, train_lapv1
 from train.trainers.lapv1 import (
     LAPv1OptimizationConfig,
     LAPv1TrainConfig,
     _collate_examples,
+    _policy_margin_loss,
     _prepare_example,
 )
 
@@ -152,6 +154,20 @@ def test_lapv1_collate_clips_extreme_root_gap_targets() -> None:
     prepared = _prepare_example(example)
     batch = _collate_examples([prepared])
     assert float(batch["teacher_top1_minus_top2_cp"][0].item()) == 512.0
+
+
+def test_policy_margin_loss_ignores_single_candidate_rows() -> None:
+    assert torch is not None
+
+    logits = torch.tensor([[5.0, -1.0e9], [2.0, 1.0]], dtype=torch.float32)
+    candidate_mask = torch.tensor([[True, False], [True, True]], dtype=torch.bool)
+    teacher_top1 = torch.tensor([0, 0], dtype=torch.long)
+    gap_targets = torch.tensor([40.0, 20.0], dtype=torch.float32)
+
+    loss = _policy_margin_loss(logits, candidate_mask, teacher_top1, gap_targets)
+
+    assert torch.isfinite(loss)
+    assert float(loss.item()) >= 0.0
 
 
 def test_train_lapv1_stage1_emits_batch_progress_logs(
