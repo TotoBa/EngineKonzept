@@ -171,6 +171,10 @@ The repository now includes model-only Python references for the first two head
 types in [value_head.py](/home/torsten/EngineKonzept/python/train/models/value_head.py).
 They remain isolated from the planner until the later LAPv1 integration steps.
 
+The large candidate-scoring policy path now also has a model-only reference in
+[policy_head_large.py](/home/torsten/EngineKonzept/python/train/models/policy_head_large.py),
+again still isolated from the planner.
+
 ### Bounded Recurrent Deliberation Loop
 
 The deliberation loop is the central runtime mechanism.
