@@ -235,8 +235,8 @@ if torch is not None and nn is not None:
                 raise ValueError("memory_dim must be positive")
             if memory_slots <= 0:
                 raise ValueError("memory_slots must be positive")
-            if max_inner_steps <= 0:
-                raise ValueError("max_inner_steps must be positive")
+            if max_inner_steps < 0:
+                raise ValueError("max_inner_steps must be non-negative")
             if min_inner_steps < 0:
                 raise ValueError("min_inner_steps must be non-negative")
             if min_inner_steps > max_inner_steps:

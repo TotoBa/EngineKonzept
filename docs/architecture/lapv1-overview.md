@@ -227,6 +227,12 @@ The first full model-only wrapper now also exists in
 composes the new encoder/embedder/head stack with bounded deliberation and the
 existing opponent head, but still does not add trainer glue or runtime wiring.
 
+The repository now also contains the first static-head stage-T1 trainer in
+[lapv1.py](/home/torsten/EngineKonzept/python/train/trainers/lapv1.py). It
+trains the wrapper with deliberation disabled on existing `planner_head`
+artifacts by reconstructing LAPv1-side inputs from `fen` plus packed root
+features, without yet enabling full deliberation-on training.
+
 ## Runtime Flow
 
 ```text

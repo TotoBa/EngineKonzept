@@ -6,6 +6,12 @@ from train.trainers.dynamics import (
     evaluate_dynamics_checkpoint,
     train_dynamics,
 )
+from train.trainers.lapv1 import (
+    LAPv1Metrics,
+    LAPv1TrainingRun,
+    evaluate_lapv1_checkpoint,
+    train_lapv1,
+)
 from train.trainers.opponent import (
     OpponentMetrics,
     OpponentTrainingRun,
@@ -28,12 +34,14 @@ from train.trainers.proposer import (
 
 def module_purpose() -> str:
     """Describe the current responsibility of the trainer package."""
-    return "Legality/policy proposer, latent dynamics, opponent-head, and planner-head training loops and metrics"
+    return "Legality/policy proposer, LAPv1 static-head, latent dynamics, opponent-head, and planner-head training loops and metrics"
 
 
 __all__ = [
     "DynamicsMetrics",
     "DynamicsTrainingRun",
+    "LAPv1Metrics",
+    "LAPv1TrainingRun",
     "OpponentMetrics",
     "OpponentTrainingRun",
     "PlannerMetrics",
@@ -41,11 +49,13 @@ __all__ = [
     "ProposerMetrics",
     "ProposerTrainingRun",
     "evaluate_dynamics_checkpoint",
+    "evaluate_lapv1_checkpoint",
     "evaluate_opponent_checkpoint",
     "evaluate_planner_checkpoint",
     "evaluate_proposer_checkpoint",
     "module_purpose",
     "train_opponent",
+    "train_lapv1",
     "train_dynamics",
     "train_planner",
     "train_proposer",
