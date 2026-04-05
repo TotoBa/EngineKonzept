@@ -152,6 +152,10 @@ It produces:
 
 The intended implementation is a relational transformer with mixed token self-attention and graph-masked attention.
 
+The repository now also includes a model-only Python reference in
+[state_embedder.py](/home/torsten/EngineKonzept/python/train/models/state_embedder.py).
+It remains isolated from the planner until the later LAPv1 integration steps.
+
 ### Heads
 
 LAPv1 uses one shared latent root with several specialized heads:

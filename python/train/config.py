@@ -49,6 +49,50 @@ class IntentionEncoderConfig:
 
 
 @dataclass(frozen=True)
+class StateEmbedderConfig:
+    """Standalone LAPv1 relational state-embedder hyperparameters."""
+
+    intention_dim: int = 64
+    square_input_dim: int = 2
+    global_dim: int = 11
+    hidden_dim: int = 256
+    state_dim: int = 512
+    num_layers: int = 6
+    num_heads: int = 8
+    feedforward_dim: int = 2816
+    dropout: float = 0.0
+    max_edge_count: int = 128
+
+    def __post_init__(self) -> None:
+        if self.intention_dim <= 0:
+            raise ValueError("state_embedder.intention_dim must be positive")
+        if self.square_input_dim <= 0:
+            raise ValueError("state_embedder.square_input_dim must be positive")
+        if self.global_dim <= 0:
+            raise ValueError("state_embedder.global_dim must be positive")
+        if self.hidden_dim <= 0:
+            raise ValueError("state_embedder.hidden_dim must be positive")
+        if self.state_dim <= 0:
+            raise ValueError("state_embedder.state_dim must be positive")
+        if self.num_layers <= 0:
+            raise ValueError("state_embedder.num_layers must be positive")
+        if self.num_heads <= 0:
+            raise ValueError("state_embedder.num_heads must be positive")
+        if self.hidden_dim % self.num_heads != 0:
+            raise ValueError(
+                "state_embedder.hidden_dim must be divisible by state_embedder.num_heads"
+            )
+        if self.feedforward_dim <= self.hidden_dim:
+            raise ValueError(
+                "state_embedder.feedforward_dim must be larger than state_embedder.hidden_dim"
+            )
+        if not 0.0 <= self.dropout < 1.0:
+            raise ValueError("state_embedder.dropout must be in [0.0, 1.0)")
+        if self.max_edge_count <= 0:
+            raise ValueError("state_embedder.max_edge_count must be positive")
+
+
+@dataclass(frozen=True)
 class ProposerDataConfig:
     """Dataset and split selection for proposer training."""
 

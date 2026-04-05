@@ -9,11 +9,12 @@ from train.models.intention_encoder import (
 from train.models.opponent import OPPONENT_MODEL_NAME, OpponentHeadModel
 from train.models.planner import PLANNER_MODEL_NAME, PlannerHeadModel
 from train.models.proposer import LegalityPolicyProposer, MODEL_NAME, torch_is_available
+from train.models.state_embedder import RelationalStateEmbedder, STATE_EMBEDDER_MODEL_NAME
 
 
 def module_purpose() -> str:
     """Describe the current responsibility of the model package."""
-    return "Legality/policy proposer, piece-intention encoder, latent dynamics, opponent-head, and planner-head model definitions"
+    return "Legality/policy proposer, piece-intention encoder, state embedder, latent dynamics, opponent-head, and planner-head model definitions"
 
 
 __all__ = [
@@ -28,6 +29,8 @@ __all__ = [
     "PlannerHeadModel",
     "PieceIntentionEncoder",
     "OpponentHeadModel",
+    "RelationalStateEmbedder",
+    "STATE_EMBEDDER_MODEL_NAME",
     "module_purpose",
     "torch_is_available",
 ]
