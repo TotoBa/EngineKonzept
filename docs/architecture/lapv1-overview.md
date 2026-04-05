@@ -167,6 +167,10 @@ LAPv1 uses one shared latent root with several specialized heads:
 
 The value and policy heads are intentionally large. The architecture prefers richer learned scoring over more classical search structure.
 
+The repository now includes model-only Python references for the first two head
+types in [value_head.py](/home/torsten/EngineKonzept/python/train/models/value_head.py).
+They remain isolated from the planner until the later LAPv1 integration steps.
+
 ### Bounded Recurrent Deliberation Loop
 
 The deliberation loop is the central runtime mechanism.

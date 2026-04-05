@@ -93,6 +93,46 @@ class StateEmbedderConfig:
 
 
 @dataclass(frozen=True)
+class ValueHeadConfig:
+    """Standalone LAPv1 value-head hyperparameters."""
+
+    state_dim: int = 512
+    memory_dim: int = 256
+    hidden_dim: int = 2816
+    hidden_layers: int = 4
+    dropout: float = 0.0
+
+    def __post_init__(self) -> None:
+        if self.state_dim <= 0:
+            raise ValueError("value_head.state_dim must be positive")
+        if self.memory_dim <= 0:
+            raise ValueError("value_head.memory_dim must be positive")
+        if self.hidden_dim <= 0:
+            raise ValueError("value_head.hidden_dim must be positive")
+        if self.hidden_layers <= 0:
+            raise ValueError("value_head.hidden_layers must be positive")
+        if not 0.0 <= self.dropout < 1.0:
+            raise ValueError("value_head.dropout must be in [0.0, 1.0)")
+
+
+@dataclass(frozen=True)
+class SharpnessHeadConfig:
+    """Standalone LAPv1 sharpness-head hyperparameters."""
+
+    state_dim: int = 512
+    hidden_dim: int = 128
+    dropout: float = 0.0
+
+    def __post_init__(self) -> None:
+        if self.state_dim <= 0:
+            raise ValueError("sharpness_head.state_dim must be positive")
+        if self.hidden_dim <= 0:
+            raise ValueError("sharpness_head.hidden_dim must be positive")
+        if not 0.0 <= self.dropout < 1.0:
+            raise ValueError("sharpness_head.dropout must be in [0.0, 1.0)")
+
+
+@dataclass(frozen=True)
 class ProposerDataConfig:
     """Dataset and split selection for proposer training."""
 
