@@ -1098,7 +1098,11 @@ def _policy_margin_loss(
     best_other = other_logits.max(dim=1).values
     teacher_logits = logits.gather(1, teacher_top1_candidate_index.unsqueeze(1)).squeeze(1)
     target_margin = gap_targets_cp.clamp_min(0.0) / _GAP_TARGET_SCALE
-    raw_loss = torch.square((teacher_logits - best_other) - target_margin)
+    raw_loss = torch.nn.functional.smooth_l1_loss(
+        teacher_logits - best_other,
+        target_margin,
+        reduction="none",
+    )
     return raw_loss[margin_mask].mean()
 
 

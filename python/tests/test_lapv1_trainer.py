@@ -170,6 +170,24 @@ def test_policy_margin_loss_ignores_single_candidate_rows() -> None:
     assert float(loss.item()) >= 0.0
 
 
+def test_policy_margin_loss_uses_smooth_l1_on_valid_rows() -> None:
+    assert torch is not None
+
+    logits = torch.tensor([[3.0, 1.0]], dtype=torch.float32)
+    candidate_mask = torch.tensor([[True, True]], dtype=torch.bool)
+    teacher_top1 = torch.tensor([0], dtype=torch.long)
+    gap_targets = torch.tensor([128.0], dtype=torch.float32)
+
+    loss = _policy_margin_loss(logits, candidate_mask, teacher_top1, gap_targets)
+
+    expected = torch.nn.functional.smooth_l1_loss(
+        torch.tensor([2.0], dtype=torch.float32),
+        torch.tensor([1.0], dtype=torch.float32),
+        reduction="none",
+    ).mean()
+    assert torch.allclose(loss, expected)
+
+
 def test_train_lapv1_stage1_emits_batch_progress_logs(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
