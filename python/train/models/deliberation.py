@@ -326,6 +326,9 @@ if torch is not None and nn is not None:
                     "refined_top1_action_index": top1_actions,
                     "trace": DeliberationTrace(steps=[]),
                     "step_count": 0,
+                    "step_value_cp_tensors": (),
+                    "step_sharpness_tensors": (),
+                    "step_rollback_flags": (),
                     "final_z": z_root,
                     "final_memory": torch.zeros(
                         (z_root.shape[0], self.memory_slots, self.memory_dim),
@@ -342,6 +345,9 @@ if torch is not None and nn is not None:
             )
             C_t = initial_candidate_scores.masked_fill(~candidate_mask, float("-inf"))
             trace_steps: list[DeliberationTraceStep] = []
+            step_value_cp_tensors: list[torch.Tensor] = []
+            step_sharpness_tensors: list[torch.Tensor] = []
+            step_rollback_flags: list[bool] = []
             top1_history: list[list[int]] = []
             snapshots: deque[tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]] = deque(
                 maxlen=self.rollback_buffer_size
@@ -431,6 +437,9 @@ if torch is not None and nn is not None:
                         rollback_fired=rollback_fired,
                     )
                 )
+                step_value_cp_tensors.append(value_cp.clone())
+                step_sharpness_tensors.append(sharpness.clone())
+                step_rollback_flags.append(rollback_fired)
 
             final_top1_indices = torch.argmax(C_t, dim=1)
             final_top1_actions = candidate_action_indices.gather(
@@ -442,6 +451,9 @@ if torch is not None and nn is not None:
                 "refined_top1_action_index": final_top1_actions,
                 "trace": DeliberationTrace(steps=trace_steps),
                 "step_count": len(trace_steps),
+                "step_value_cp_tensors": tuple(step_value_cp_tensors),
+                "step_sharpness_tensors": tuple(step_sharpness_tensors),
+                "step_rollback_flags": tuple(step_rollback_flags),
                 "final_z": z_t,
                 "final_memory": M_t,
             }

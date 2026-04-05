@@ -8,7 +8,9 @@ from train.trainers.dynamics import (
 )
 from train.trainers.lapv1 import (
     LAPv1Metrics,
+    LAPv1Stage2Config,
     LAPv1TrainingRun,
+    LAPv1TrainConfig,
     count_lapv1_model_parameters,
     evaluate_lapv1_checkpoint,
     load_lapv1_train_config,
@@ -43,7 +45,9 @@ __all__ = [
     "DynamicsMetrics",
     "DynamicsTrainingRun",
     "LAPv1Metrics",
+    "LAPv1Stage2Config",
     "LAPv1TrainingRun",
+    "LAPv1TrainConfig",
     "count_lapv1_model_parameters",
     "OpponentMetrics",
     "OpponentTrainingRun",

@@ -1,4 +1,4 @@
-"""Stage-T1 trainer and evaluation helpers for the model-only LAPv1 wrapper."""
+"""Stage-T1/T2 trainer and evaluation helpers for the model-only LAPv1 wrapper."""
 
 from __future__ import annotations
 
@@ -49,7 +49,7 @@ _GAP_TARGET_SCALE = 128.0
 
 @dataclass(frozen=True)
 class LAPv1OptimizationConfig:
-    """Optimizer and loss weighting settings for static-head LAPv1 stage T1."""
+    """Optimizer and loss weighting settings for LAPv1 stage T1/T2."""
 
     epochs: int = 1
     batch_size: int = 8
@@ -63,6 +63,8 @@ class LAPv1OptimizationConfig:
     policy_margin_weight: float = 0.0
     policy_rank_weight: float = 0.0
     intention_aux_weight: float = 0.0
+    sharpness_target_loss_weight: float = 0.0
+    deliberation_monotonicity_weight: float = 0.0
 
     def __post_init__(self) -> None:
         if self.epochs <= 0:
@@ -82,14 +84,29 @@ class LAPv1OptimizationConfig:
             "policy_margin_weight",
             "policy_rank_weight",
             "intention_aux_weight",
+            "sharpness_target_loss_weight",
+            "deliberation_monotonicity_weight",
         ):
             if getattr(self, name) < 0.0:
                 raise ValueError(f"optimization.{name} must be non-negative")
 
 
 @dataclass(frozen=True)
+class LAPv1Stage2Config:
+    """Trainer-only curriculum and auxiliary-loss settings for LAPv1 stage T2."""
+
+    max_inner_steps_schedule: tuple[int, ...] = (2, 4, 8)
+
+    def __post_init__(self) -> None:
+        if not self.max_inner_steps_schedule:
+            raise ValueError("stage2.max_inner_steps_schedule must be non-empty")
+        if any(step <= 0 for step in self.max_inner_steps_schedule):
+            raise ValueError("stage2.max_inner_steps_schedule entries must be positive")
+
+
+@dataclass(frozen=True)
 class LAPv1TrainConfig:
-    """Full configuration for LAPv1 static-head stage-T1 training."""
+    """Full configuration for LAPv1 stage-T1/T2 training."""
 
     seed: int
     output_dir: str
@@ -100,16 +117,29 @@ class LAPv1TrainConfig:
     evaluation: PlannerEvaluationConfig
     runtime: PlannerRuntimeConfig
     export: PlannerExportConfig
+    stage2: LAPv1Stage2Config | None = None
 
     def __post_init__(self) -> None:
         if self.seed < 0:
             raise ValueError("seed must be non-negative")
         if not self.output_dir:
             raise ValueError("output_dir must be non-empty")
-        if self.stage != "T1":
-            raise ValueError("stage must be 'T1'")
-        if self.model.deliberation.max_inner_steps != 0:
-            raise ValueError("stage T1 requires model.deliberation.max_inner_steps == 0")
+        if self.stage not in {"T1", "T2"}:
+            raise ValueError("stage must be 'T1' or 'T2'")
+        if self.stage == "T1":
+            if self.stage2 is not None:
+                raise ValueError("stage2 settings are only valid when stage='T2'")
+            if self.model.deliberation.max_inner_steps != 0:
+                raise ValueError("stage T1 requires model.deliberation.max_inner_steps == 0")
+        else:
+            if self.stage2 is None:
+                raise ValueError("stage2 settings are required when stage='T2'")
+            if self.model.deliberation.max_inner_steps <= 0:
+                raise ValueError("stage T2 requires model.deliberation.max_inner_steps > 0")
+            if max(self.stage2.max_inner_steps_schedule) > self.model.deliberation.max_inner_steps:
+                raise ValueError(
+                    "stage2.max_inner_steps_schedule must not exceed model.deliberation.max_inner_steps"
+                )
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -139,6 +169,11 @@ class LAPv1TrainConfig:
             seed=int(payload.get("seed", 0)),
             output_dir=str(payload["output_dir"]),
             stage=str(payload["stage"]),
+            stage2=(
+                None
+                if payload.get("stage2") is None
+                else LAPv1Stage2Config(**dict(payload["stage2"]))
+            ),
             data=PlannerDataConfig(
                 train_path=str(data_payload["train_path"]),
                 validation_path=str(data_payload["validation_path"]),
@@ -167,15 +202,20 @@ class LAPv1Metrics:
     value_wdl_loss: float
     value_cp_loss: float
     sharpness_loss: float
+    sharpness_target_loss: float
     policy_ce_loss: float
     policy_kl_loss: float
     policy_margin_loss: float
     policy_rank_loss: float
     intention_aux_loss: float
+    deliberation_monotonicity_loss: float
     root_top1_accuracy: float
     root_top3_accuracy: float
     teacher_root_mean_reciprocal_rank: float
     teacher_root_mean_probability: float
+    rollbacks: int
+    mean_rollback_step: float
+    rollback_hit_rate: float
     examples_per_second: float
 
     def to_dict(self) -> dict[str, object]:
@@ -186,11 +226,16 @@ class LAPv1Metrics:
             "value_wdl_loss": round(self.value_wdl_loss, 6),
             "value_cp_loss": round(self.value_cp_loss, 6),
             "sharpness_loss": round(self.sharpness_loss, 6),
+            "sharpness_target_loss": round(self.sharpness_target_loss, 6),
             "policy_ce_loss": round(self.policy_ce_loss, 6),
             "policy_kl_loss": round(self.policy_kl_loss, 6),
             "policy_margin_loss": round(self.policy_margin_loss, 6),
             "policy_rank_loss": round(self.policy_rank_loss, 6),
             "intention_aux_loss": round(self.intention_aux_loss, 6),
+            "deliberation_monotonicity_loss": round(
+                self.deliberation_monotonicity_loss,
+                6,
+            ),
             "root_top1_accuracy": round(self.root_top1_accuracy, 6),
             "root_top3_accuracy": round(self.root_top3_accuracy, 6),
             "teacher_root_mean_reciprocal_rank": round(
@@ -201,6 +246,9 @@ class LAPv1Metrics:
                 self.teacher_root_mean_probability,
                 6,
             ),
+            "rollbacks": self.rollbacks,
+            "mean_rollback_step": round(self.mean_rollback_step, 6),
+            "rollback_hit_rate": round(self.rollback_hit_rate, 6),
             "examples_per_second": round(self.examples_per_second, 3),
         }
 
@@ -259,7 +307,7 @@ if torch is not None:
 
 
 def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRun:
-    """Train static LAPv1 heads on planner-head artifacts with deliberation off."""
+    """Train LAPv1 heads on planner-head artifacts for stage T1 or T2."""
     if torch is None or not torch_is_available():  # pragma: no cover
         raise RuntimeError(
             "PyTorch is required for LAPv1 training. Install the 'train' extra or torch."
@@ -320,6 +368,15 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
     }
 
     for epoch in range(1, config.optimization.epochs + 1):
+        current_max_inner_steps = _current_max_inner_steps(
+            config=config,
+            epoch=epoch,
+        )
+        model.deliberation_loop.max_inner_steps = current_max_inner_steps
+        model.deliberation_loop.min_inner_steps = min(
+            config.model.deliberation.min_inner_steps,
+            current_max_inner_steps,
+        )
         train_metrics = _run_epoch(
             model=model,
             aux_probe=aux_probe,
@@ -330,6 +387,8 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
             seed=config.seed + epoch,
             optimization=config.optimization,
             top_k=config.evaluation.top_k,
+            stage=config.stage,
+            stage2=config.stage2,
         )
         validation_metrics = _run_epoch(
             model=model,
@@ -341,9 +400,12 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
             seed=config.seed,
             optimization=config.optimization,
             top_k=config.evaluation.top_k,
+            stage=config.stage,
+            stage2=config.stage2,
         )
         history_entry = {
             "epoch": epoch,
+            "max_inner_steps": current_max_inner_steps,
             "train": train_metrics.to_dict(),
             "validation": validation_metrics.to_dict(),
         }
@@ -351,9 +413,13 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
         print(
             "[lapv1-train] "
             f"epoch={epoch}/{config.optimization.epochs} "
+            f"stage={config.stage} "
+            f"max_inner_steps={current_max_inner_steps} "
             f"train_loss={train_metrics.total_loss:.4f} "
             f"val_top1={validation_metrics.root_top1_accuracy:.4f} "
-            f"val_mrr={validation_metrics.teacher_root_mean_reciprocal_rank:.4f}",
+            f"val_mrr={validation_metrics.teacher_root_mean_reciprocal_rank:.4f} "
+            f"rollbacks={validation_metrics.rollbacks} "
+            f"rollback_hit_rate={validation_metrics.rollback_hit_rate:.4f}",
             flush=True,
         )
 
@@ -428,7 +494,7 @@ def evaluate_lapv1_checkpoint(
     dataset_path: Path | str | None = None,
     top_k: int = 3,
 ) -> LAPv1Metrics:
-    """Evaluate a saved LAPv1 stage-T1 checkpoint on one planner-head artifact."""
+    """Evaluate a saved LAPv1 stage-T1/T2 checkpoint on one planner-head artifact."""
     if torch is None or not torch_is_available():  # pragma: no cover
         raise RuntimeError(
             "PyTorch is required for LAPv1 evaluation. Install the 'train' extra or torch."
@@ -442,8 +508,19 @@ def evaluate_lapv1_checkpoint(
         )
 
     training_config = dict(payload["training_config"])
+    stage = str(training_config["stage"])
+    stage2_payload = training_config.get("stage2")
+    stage2 = (
+        None if stage2_payload is None else LAPv1Stage2Config(**dict(stage2_payload))
+    )
     lapv1_config = LAPv1Config.from_mapping(dict(training_config["model"]))
     model = LAPv1Model(lapv1_config)
+    if stage == "T2" and stage2 is not None:
+        model.deliberation_loop.max_inner_steps = max(stage2.max_inner_steps_schedule)
+        model.deliberation_loop.min_inner_steps = min(
+            lapv1_config.deliberation.min_inner_steps,
+            model.deliberation_loop.max_inner_steps,
+        )
     model.load_state_dict(dict(payload["model_state_dict"]))
     aux_probe = _PieceRoleAuxProbe(
         intention_dim=lapv1_config.intention_encoder.intention_dim
@@ -471,6 +548,8 @@ def evaluate_lapv1_checkpoint(
         seed=int(training_config["seed"]),
         optimization=optimization,
         top_k=top_k,
+        stage=stage,
+        stage2=stage2,
     )
 
 
@@ -622,6 +701,8 @@ def _run_epoch(
     seed: int,
     optimization: LAPv1OptimizationConfig,
     top_k: int,
+    stage: str,
+    stage2: LAPv1Stage2Config | None,
 ) -> LAPv1Metrics:
     if training:
         model.train()
@@ -636,15 +717,20 @@ def _run_epoch(
     total_value_wdl = 0.0
     total_value_cp = 0.0
     total_sharpness = 0.0
+    total_sharpness_target = 0.0
     total_policy_ce = 0.0
     total_policy_kl = 0.0
     total_policy_margin = 0.0
     total_policy_rank = 0.0
     total_intention_aux = 0.0
+    total_monotonicity = 0.0
     correct_top1 = 0
     correct_topk = 0
     reciprocal_rank_sum = 0.0
     teacher_probability_sum = 0.0
+    rollback_count = 0
+    rollback_step_sum = 0.0
+    total_trace_steps = 0
 
     order = list(range(len(examples)))
     if training:
@@ -670,6 +756,9 @@ def _run_epoch(
             sigma_value = outputs["final_value"]["sigma_value"].squeeze(1)
             sharpness = model.sharpness_head(outputs["z_root"]).squeeze(1)
             piece_role_logits = aux_probe(outputs["piece_intentions"])
+            step_sharpness_tensors = tuple(outputs["step_sharpness_tensors"])
+            step_value_cp_tensors = tuple(outputs["step_value_cp_tensors"])
+            step_rollback_flags = tuple(outputs["step_rollback_flags"])
 
             value_wdl_loss = torch.nn.functional.cross_entropy(
                 wdl_logits,
@@ -681,6 +770,10 @@ def _run_epoch(
             )
             sharpness_loss = torch.nn.functional.binary_cross_entropy(
                 sharpness,
+                batch["sharpness_target"],
+            )
+            sharpness_target_loss = _trace_sharpness_target_loss(
+                step_sharpness_tensors,
                 batch["sharpness_target"],
             )
             policy_ce_loss = torch.nn.functional.cross_entropy(
@@ -711,16 +804,29 @@ def _run_epoch(
                 piece_role_logits.reshape(-1, _PIECE_ROLE_CLASS_COUNT),
                 batch["piece_role_targets"].reshape(-1),
             )
+            if step_value_cp_tensors:
+                deliberation_monotonicity_loss = _deliberation_monotonicity_loss(
+                    step_value_cp_tensors,
+                    step_rollback_flags,
+                )
+            else:
+                deliberation_monotonicity_loss = torch.zeros(
+                    (),
+                    dtype=logits.dtype,
+                    device=logits.device,
+                )
 
             loss = (
                 optimization.value_wdl_weight * value_wdl_loss
                 + optimization.value_cp_weight * value_cp_loss
                 + optimization.sharpness_weight * sharpness_loss
+                + optimization.sharpness_target_loss_weight * sharpness_target_loss
                 + optimization.policy_ce_weight * policy_ce_loss
                 + optimization.policy_kl_weight * policy_kl_loss
                 + optimization.policy_margin_weight * policy_margin_loss
                 + optimization.policy_rank_weight * policy_rank_loss
                 + optimization.intention_aux_weight * intention_aux_loss
+                + optimization.deliberation_monotonicity_weight * deliberation_monotonicity_loss
             )
 
             if training:
@@ -737,11 +843,13 @@ def _run_epoch(
             total_value_wdl += float(value_wdl_loss.item()) * len(batch_examples)
             total_value_cp += float(value_cp_loss.item()) * len(batch_examples)
             total_sharpness += float(sharpness_loss.item()) * len(batch_examples)
+            total_sharpness_target += float(sharpness_target_loss.item()) * len(batch_examples)
             total_policy_ce += float(policy_ce_loss.item()) * len(batch_examples)
             total_policy_kl += float(policy_kl_loss.item()) * len(batch_examples)
             total_policy_margin += float(policy_margin_loss.item()) * len(batch_examples)
             total_policy_rank += float(policy_rank_loss.item()) * len(batch_examples)
             total_intention_aux += float(intention_aux_loss.item()) * len(batch_examples)
+            total_monotonicity += float(deliberation_monotonicity_loss.item()) * len(batch_examples)
             correct_top1 += int(
                 torch.sum(top1_indices == batch["teacher_top1_candidate_index"]).item()
             )
@@ -762,6 +870,15 @@ def _run_epoch(
                     )
                 ).item()
             ) * len(batch_examples)
+            if stage == "T2" and stage2 is not None:
+                batch_rollbacks = sum(1 for flag in step_rollback_flags if flag)
+                rollback_count += batch_rollbacks
+                rollback_step_sum += sum(
+                    float(step_index)
+                    for step_index, flag in enumerate(step_rollback_flags)
+                    if flag
+                )
+                total_trace_steps += len(step_rollback_flags)
             del sigma_value
 
     duration = max(time.perf_counter() - start_time, 1e-9)
@@ -772,15 +889,24 @@ def _run_epoch(
         value_wdl_loss=total_value_wdl / total_examples,
         value_cp_loss=total_value_cp / total_examples,
         sharpness_loss=total_sharpness / total_examples,
+        sharpness_target_loss=total_sharpness_target / total_examples,
         policy_ce_loss=total_policy_ce / total_examples,
         policy_kl_loss=total_policy_kl / total_examples,
         policy_margin_loss=total_policy_margin / total_examples,
         policy_rank_loss=total_policy_rank / total_examples,
         intention_aux_loss=total_intention_aux / total_examples,
+        deliberation_monotonicity_loss=total_monotonicity / total_examples,
         root_top1_accuracy=correct_top1 / total_examples,
         root_top3_accuracy=correct_topk / total_examples,
         teacher_root_mean_reciprocal_rank=reciprocal_rank_sum / total_examples,
         teacher_root_mean_probability=teacher_probability_sum / total_examples,
+        rollbacks=rollback_count,
+        mean_rollback_step=(
+            0.0 if rollback_count == 0 else rollback_step_sum / rollback_count
+        ),
+        rollback_hit_rate=(
+            0.0 if total_trace_steps == 0 else rollback_count / total_trace_steps
+        ),
         examples_per_second=total_examples / duration,
     )
 
@@ -944,6 +1070,46 @@ def _policy_rank_loss(
     return torch.stack(losses).mean()
 
 
+def _trace_sharpness_target_loss(
+    step_sharpness_tensors: Sequence[torch.Tensor],
+    sharpness_target: torch.Tensor,
+) -> torch.Tensor:
+    if not step_sharpness_tensors:
+        return torch.zeros((), dtype=sharpness_target.dtype, device=sharpness_target.device)
+    losses = [
+        torch.nn.functional.binary_cross_entropy(step_sharpness, sharpness_target)
+        for step_sharpness in step_sharpness_tensors
+    ]
+    return torch.stack(losses).mean()
+
+
+def _deliberation_monotonicity_loss(
+    step_value_cp_tensors: Sequence[torch.Tensor],
+    step_rollback_flags: Sequence[bool],
+) -> torch.Tensor:
+    if not step_value_cp_tensors:
+        raise ValueError("deliberation_monotonicity_loss requires at least one trace tensor")
+    if len(step_value_cp_tensors) < 2:
+        reference = step_value_cp_tensors[0]
+        return torch.zeros((), dtype=reference.dtype, device=reference.device)
+    penalties: list[torch.Tensor] = []
+    for previous_values, current_values, rollback_fired in zip(
+        step_value_cp_tensors[:-1],
+        step_value_cp_tensors[1:],
+        step_rollback_flags[1:],
+        strict=True,
+    ):
+        if rollback_fired:
+            continue
+        penalties.append(
+            torch.nn.functional.relu(previous_values - current_values).mean() / _GAP_TARGET_SCALE
+        )
+    if not penalties:
+        reference = step_value_cp_tensors[0]
+        return torch.zeros((), dtype=reference.dtype, device=reference.device)
+    return torch.stack(penalties).mean()
+
+
 def _mean_reciprocal_rank(
     logits: torch.Tensor,
     teacher_top1_candidate_index: torch.Tensor,
@@ -968,6 +1134,22 @@ def _is_better_validation(current: LAPv1Metrics, best: LAPv1Metrics) -> bool:
         -best.total_loss,
     )
     return current_key > best_key
+
+
+def _current_max_inner_steps(
+    *,
+    config: LAPv1TrainConfig,
+    epoch: int,
+) -> int:
+    if config.stage == "T1":
+        return 0
+    assert config.stage2 is not None
+    schedule = config.stage2.max_inner_steps_schedule
+    schedule_index = min(
+        ((epoch - 1) * len(schedule)) // config.optimization.epochs,
+        len(schedule) - 1,
+    )
+    return schedule[schedule_index]
 
 
 def _set_seed(seed: int) -> None:

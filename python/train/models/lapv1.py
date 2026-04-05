@@ -302,6 +302,9 @@ if torch is not None and nn is not None:
                     "sigma_value": sigma_value,
                 },
                 "deliberation_trace": deliberation_outputs["trace"],
+                "step_value_cp_tensors": deliberation_outputs["step_value_cp_tensors"],
+                "step_sharpness_tensors": deliberation_outputs["step_sharpness_tensors"],
+                "step_rollback_flags": deliberation_outputs["step_rollback_flags"],
                 "refined_top1_action_index": deliberation_outputs[
                     "refined_top1_action_index"
                 ],

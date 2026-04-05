@@ -233,6 +233,13 @@ trains the wrapper with deliberation disabled on existing `planner_head`
 artifacts by reconstructing LAPv1-side inputs from `fen` plus packed root
 features, without yet enabling full deliberation-on training.
 
+The same trainer now also supports a first stage-T2 extension with
+deliberation enabled under a bounded `max_inner_steps` curriculum,
+additional sharpness-target supervision on the emitted trace, a
+deliberation-monotonicity auxiliary loss, and rollback statistics in the
+epoch metrics. No real stage-T2 run config is prepared yet; the support is
+kept trainer-local until the first dedicated LAPv1 follow-up config exists.
+
 ## Runtime Flow
 
 ```text
