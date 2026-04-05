@@ -9,7 +9,9 @@ from train.trainers.dynamics import (
 from train.trainers.lapv1 import (
     LAPv1Metrics,
     LAPv1TrainingRun,
+    count_lapv1_model_parameters,
     evaluate_lapv1_checkpoint,
+    load_lapv1_train_config,
     train_lapv1,
 )
 from train.trainers.opponent import (
@@ -42,6 +44,7 @@ __all__ = [
     "DynamicsTrainingRun",
     "LAPv1Metrics",
     "LAPv1TrainingRun",
+    "count_lapv1_model_parameters",
     "OpponentMetrics",
     "OpponentTrainingRun",
     "PlannerMetrics",
@@ -50,6 +53,7 @@ __all__ = [
     "ProposerTrainingRun",
     "evaluate_dynamics_checkpoint",
     "evaluate_lapv1_checkpoint",
+    "load_lapv1_train_config",
     "evaluate_opponent_checkpoint",
     "evaluate_planner_checkpoint",
     "evaluate_proposer_checkpoint",

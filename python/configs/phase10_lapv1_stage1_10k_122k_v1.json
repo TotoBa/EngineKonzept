@@ -1,0 +1,105 @@
+{
+  "seed": 11,
+  "output_dir": "models/lapv1/stage1_10k_122k_v1",
+  "stage": "T1",
+  "data": {
+    "train_path": "/srv/schach/engine_training/phase8/planner_workflow_expanded_v1/pgn_10k_train_v1/planner_head_train.jsonl",
+    "validation_path": "/srv/schach/engine_training/phase8/planner_workflow_expanded_v1/pgn_10k_validation_v1/planner_head_validation.jsonl",
+    "additional_train_paths": [
+      "/srv/schach/engine_training/phase8/planner_workflow_expanded_v1/merged_unique_122k_train_v1/planner_head_train.jsonl"
+    ],
+    "additional_validation_paths": [
+      "/srv/schach/engine_training/phase8/planner_workflow_expanded_v1/merged_unique_122k_validation_v1/planner_head_validation.jsonl"
+    ]
+  },
+  "model": {
+    "architecture": "lapv1",
+    "intention_encoder": {
+      "hidden_dim": 128,
+      "intention_dim": 64,
+      "num_layers": 4,
+      "num_heads": 4,
+      "feedforward_dim": 4096,
+      "dropout": 0.0,
+      "max_edge_count": 128
+    },
+    "state_embedder": {
+      "intention_dim": 64,
+      "square_input_dim": 2,
+      "global_dim": 11,
+      "hidden_dim": 256,
+      "state_dim": 512,
+      "num_layers": 6,
+      "num_heads": 8,
+      "feedforward_dim": 2816,
+      "dropout": 0.0,
+      "max_edge_count": 128
+    },
+    "value_head": {
+      "state_dim": 512,
+      "memory_dim": 256,
+      "hidden_dim": 2560,
+      "hidden_layers": 4,
+      "dropout": 0.0
+    },
+    "sharpness_head": {
+      "state_dim": 512,
+      "hidden_dim": 128,
+      "dropout": 0.0
+    },
+    "policy_head": {
+      "state_dim": 512,
+      "hidden_dim": 896,
+      "action_embedding_dim": 96,
+      "num_layers": 4,
+      "num_heads": 8,
+      "feedforward_dim": 1792,
+      "dropout": 0.0
+    },
+    "opponent_head": {
+      "architecture": "set_v2",
+      "hidden_dim": 256,
+      "hidden_layers": 2,
+      "action_embedding_dim": 64,
+      "dropout": 0.1
+    },
+    "deliberation": {
+      "state_dim": 512,
+      "memory_dim": 256,
+      "memory_slots": 16,
+      "action_embedding_dim": 64,
+      "top_k_refine": 3,
+      "max_inner_steps": 0,
+      "min_inner_steps": 0,
+      "q_threshold": 0.3,
+      "rollback_threshold": 40.0,
+      "top1_stable_steps": 3,
+      "rollback_buffer_size": 4
+    }
+  },
+  "optimization": {
+    "epochs": 20,
+    "batch_size": 4,
+    "learning_rate": 0.0005,
+    "weight_decay": 0.0001,
+    "value_wdl_weight": 1.0,
+    "value_cp_weight": 0.25,
+    "sharpness_weight": 0.1,
+    "policy_ce_weight": 1.0,
+    "policy_kl_weight": 0.25,
+    "policy_margin_weight": 0.1,
+    "policy_rank_weight": 0.1,
+    "intention_aux_weight": 0.05
+  },
+  "evaluation": {
+    "top_k": 3
+  },
+  "runtime": {
+    "torch_threads": 6,
+    "dataloader_workers": 0
+  },
+  "export": {
+    "bundle_dir": "models/lapv1/stage1_10k_122k_v1/bundle",
+    "checkpoint_name": "checkpoint.pt"
+  }
+}

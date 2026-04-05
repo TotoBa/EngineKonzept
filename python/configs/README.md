@@ -1,4 +1,4 @@
-# Phase 5/6/7/8 Config Guide
+# Phase 5/6/7/8/9/10 Config Guide
 
 This directory contains the externally checkable proposer-training and dynamics-training configs.
 
@@ -257,3 +257,16 @@ The intended use is one arena Python process controlling several concurrent game
   Small external-engine probe arena for the new teacher-retrain path. Keeps the seeded Thor-opening suite and color-swapped replay, but drops to one game per direction so the full review-and-retrain loop stays cheap.
 - [phase9_teacher_retrain_cycle_active_vs_vice_probe_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_teacher_retrain_cycle_active_vs_vice_probe_v1.json)
   First versioned batched selfplay teacher-retrain cycle. Plays the small `vice` probe, reviews completed non-external moves with Stockfish18 at depth `5`, writes per-agent correction sets, and warm-start retrains the active planner checkpoint immediately afterward.
+
+## Phase 10 LAPv1 Configs
+
+- [phase10_lapv1_stage1_10k_122k_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage1_10k_122k_v1.json)
+  First prepared LAPv1 Stage-T1 config. Reuses the preferred filtered `10k + 122k` planner-head workflow slice, keeps deliberation disabled via `max_inner_steps=0`, and targets the first static-head bootstrap run under [models/lapv1/stage1_10k_122k_v1](/home/torsten/EngineKonzept/models/lapv1/stage1_10k_122k_v1).
+
+Use [run_lapv1_stage1_first_eval.sh](/home/torsten/EngineKonzept/python/scripts/run_lapv1_stage1_first_eval.sh) to validate that the config loads, the referenced planner-head artifacts exist, and the expected LAPv1 parameter count matches the current wrapper before starting any real Stage-T1 training.
+
+The next planned LAPv1 configs keep the same namespace and data-contract boundary:
+
+- Stage T2: deliberation-on curriculum over the same `10k + 122k` workflow slice
+- Stage T3: opponent-integrated LAPv1 follow-up
+- Stage T4: selfplay/retrain LAPv1 arena and replay configs

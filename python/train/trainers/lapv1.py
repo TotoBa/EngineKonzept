@@ -7,7 +7,7 @@ import json
 import random
 from pathlib import Path
 import time
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 from train.config import (
     PlannerDataConfig,
@@ -113,6 +113,48 @@ class LAPv1TrainConfig:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "LAPv1TrainConfig":
+        """Parse one JSON-like LAPv1 training config."""
+        data_payload = payload.get("data")
+        if not isinstance(data_payload, Mapping):
+            raise ValueError("data must be a JSON object")
+        model_payload = payload.get("model")
+        if not isinstance(model_payload, Mapping):
+            raise ValueError("model must be a JSON object")
+        architecture = str(model_payload.get("architecture", "lapv1"))
+        if architecture != "lapv1":
+            raise ValueError("model.architecture must be 'lapv1'")
+        optimization_payload = payload.get("optimization")
+        if not isinstance(optimization_payload, Mapping):
+            raise ValueError("optimization must be a JSON object")
+        evaluation_payload = payload.get("evaluation")
+        if not isinstance(evaluation_payload, Mapping):
+            raise ValueError("evaluation must be a JSON object")
+        export_payload = payload.get("export")
+        if not isinstance(export_payload, Mapping):
+            raise ValueError("export must be a JSON object")
+        return cls(
+            seed=int(payload.get("seed", 0)),
+            output_dir=str(payload["output_dir"]),
+            stage=str(payload["stage"]),
+            data=PlannerDataConfig(
+                train_path=str(data_payload["train_path"]),
+                validation_path=str(data_payload["validation_path"]),
+                additional_train_paths=tuple(
+                    str(path) for path in data_payload.get("additional_train_paths", [])
+                ),
+                additional_validation_paths=tuple(
+                    str(path) for path in data_payload.get("additional_validation_paths", [])
+                ),
+            ),
+            model=LAPv1Config.from_mapping(dict(model_payload)),
+            optimization=LAPv1OptimizationConfig(**dict(optimization_payload)),
+            evaluation=PlannerEvaluationConfig(**dict(evaluation_payload)),
+            runtime=PlannerRuntimeConfig(**dict(payload.get("runtime", {}))),
+            export=PlannerExportConfig(**dict(export_payload)),
+        )
 
 
 @dataclass(frozen=True)
@@ -359,6 +401,25 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
         encoding="utf-8",
     )
     return summary
+
+
+def load_lapv1_train_config(path: Path | str) -> LAPv1TrainConfig:
+    """Load a LAPv1 training config from JSON."""
+    config_path = Path(path)
+    payload = json.loads(config_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"{config_path}: training config root must be an object")
+    return LAPv1TrainConfig.from_dict(payload)
+
+
+def count_lapv1_model_parameters(config: LAPv1TrainConfig) -> int:
+    """Return the instantiated LAPv1 model parameter count for one config."""
+    if torch is None or not torch_is_available():  # pragma: no cover
+        raise RuntimeError(
+            "PyTorch is required for LAPv1 model inspection. Install the 'train' extra or torch."
+        )
+    model = LAPv1Model(config.model)
+    return sum(parameter.numel() for parameter in model.parameters())
 
 
 def evaluate_lapv1_checkpoint(
