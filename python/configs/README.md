@@ -271,6 +271,8 @@ The intended use is one arena Python process controlling several concurrent game
 
 Use [run_lapv1_stage1_first_eval.sh](/home/torsten/EngineKonzept/python/scripts/run_lapv1_stage1_first_eval.sh) to validate that the config loads, the referenced planner-head artifacts exist, and the expected LAPv1 parameter count matches the current wrapper before starting any real Stage-T1 training.
 
+Use [run_lapv1_stage1_train.sh](/home/torsten/EngineKonzept/python/scripts/run_lapv1_stage1_train.sh) or [train_lapv1.py](/home/torsten/EngineKonzept/python/scripts/train_lapv1.py) for the first actual Stage-T1 bootstrap run, and [eval_lapv1.py](/home/torsten/EngineKonzept/python/scripts/eval_lapv1.py) for held-out evaluation of saved checkpoints.
+
 The next planned LAPv1 configs keep the same namespace and data-contract boundary:
 
 - Stage T2: deliberation-on curriculum over the same `10k + 122k` workflow slice

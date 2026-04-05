@@ -231,7 +231,11 @@ The repository now also contains the first static-head stage-T1 trainer in
 [lapv1.py](/home/torsten/EngineKonzept/python/train/trainers/lapv1.py). It
 trains the wrapper with deliberation disabled on existing `planner_head`
 artifacts by reconstructing LAPv1-side inputs from `fen` plus packed root
-features, without yet enabling full deliberation-on training.
+features, without yet enabling full deliberation-on training. The prepared CLI
+entry points for that first run are now
+[train_lapv1.py](/home/torsten/EngineKonzept/python/scripts/train_lapv1.py),
+[eval_lapv1.py](/home/torsten/EngineKonzept/python/scripts/eval_lapv1.py), and
+[run_lapv1_stage1_train.sh](/home/torsten/EngineKonzept/python/scripts/run_lapv1_stage1_train.sh).
 
 The same trainer now also supports a first stage-T2 extension with
 deliberation enabled under a bounded `max_inner_steps` curriculum,
