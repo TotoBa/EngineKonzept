@@ -236,6 +236,9 @@ entry points for that first run are now
 [train_lapv1.py](/home/torsten/EngineKonzept/python/scripts/train_lapv1.py),
 [eval_lapv1.py](/home/torsten/EngineKonzept/python/scripts/eval_lapv1.py), and
 [run_lapv1_stage1_train.sh](/home/torsten/EngineKonzept/python/scripts/run_lapv1_stage1_train.sh).
+The current Stage-T1 bootstrap path also keeps candidate masking finite and
+clips gradients conservatively to reduce early large-model CPU-training
+instability.
 
 The same trainer now also supports a first stage-T2 extension with
 deliberation enabled under a bounded `max_inner_steps` curriculum,

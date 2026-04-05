@@ -4,7 +4,10 @@ import pytest
 
 from train.datasets.contracts import candidate_context_feature_dim
 from train.models.intention_encoder import torch
-from train.models.policy_head_large import LargePolicyHead
+from train.models.policy_head_large import (
+    MASKED_CANDIDATE_LOGIT_VALUE,
+    LargePolicyHead,
+)
 
 
 pytestmark = pytest.mark.skipif(torch is None, reason="PyTorch not installed")
@@ -43,7 +46,7 @@ def test_large_policy_head_output_shape_matches_candidate_count() -> None:
     assert tuple(logits.shape) == (2, 5)
 
 
-def test_masked_candidates_produce_negative_infinity_logits() -> None:
+def test_masked_candidates_produce_large_negative_finite_logits() -> None:
     model = LargePolicyHead()
     logits = model(
         _sample_root(),
@@ -52,9 +55,12 @@ def test_masked_candidates_produce_negative_infinity_logits() -> None:
         _sample_mask(),
     )
 
-    assert torch.isneginf(logits[0, 3])
-    assert torch.isneginf(logits[0, 4])
-    assert torch.isneginf(logits[1, 2])
+    assert torch.isfinite(logits[0, 3])
+    assert torch.isfinite(logits[0, 4])
+    assert torch.isfinite(logits[1, 2])
+    assert float(logits[0, 3].detach()) == MASKED_CANDIDATE_LOGIT_VALUE
+    assert float(logits[0, 4].detach()) == MASKED_CANDIDATE_LOGIT_VALUE
+    assert float(logits[1, 2].detach()) == MASKED_CANDIDATE_LOGIT_VALUE
     assert torch.isfinite(logits[0, 0])
 
 

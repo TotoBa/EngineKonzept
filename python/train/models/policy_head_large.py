@@ -16,6 +16,7 @@ except ModuleNotFoundError:  # pragma: no cover - exercised when torch is absent
 LARGE_POLICY_HEAD_MODEL_NAME = "lapv1_large_policy_head"
 LARGE_POLICY_CANDIDATE_FEATURE_DIM = candidate_context_feature_dim(2)
 DEFAULT_STATE_DIM = 512
+MASKED_CANDIDATE_LOGIT_VALUE = -1e9
 
 
 if torch is not None and nn is not None:
@@ -197,4 +198,4 @@ if torch is not None and nn is not None:
                     candidate_mask=candidate_mask,
                 )
             logits = self.scorer(candidate_hidden).squeeze(2)
-            return logits.masked_fill(~candidate_mask, float("-inf"))
+            return logits.masked_fill(~candidate_mask, MASKED_CANDIDATE_LOGIT_VALUE)

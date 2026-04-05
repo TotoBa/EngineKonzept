@@ -16,6 +16,9 @@ except ModuleNotFoundError:  # pragma: no cover - exercised when torch is absent
     nn = None
 
 
+MASKED_CANDIDATE_SCORE_VALUE = -1e9
+
+
 DELIBERATION_MODEL_NAME = "lapv1_deliberation"
 
 
@@ -117,7 +120,7 @@ if torch is not None and nn is not None:
         ) -> torch.Tensor:
             """Return per-batch candidate indices ordered by current score."""
             del z_t, sigma_t
-            masked_scores = C_t.masked_fill(~candidate_mask, float("-inf"))
+            masked_scores = C_t.masked_fill(~candidate_mask, MASKED_CANDIDATE_SCORE_VALUE)
             selected_count = min(self.top_k, masked_scores.shape[1])
             return torch.topk(masked_scores, k=selected_count, dim=1).indices
 
@@ -317,7 +320,7 @@ if torch is not None and nn is not None:
             if single_legal_move or bool(torch.all(legal_counts <= 1)) or self.max_inner_steps == 0:
                 masked_scores = initial_candidate_scores.masked_fill(
                     ~candidate_mask,
-                    float("-inf"),
+                    MASKED_CANDIDATE_SCORE_VALUE,
                 )
                 top1_indices = torch.argmax(masked_scores, dim=1)
                 top1_actions = candidate_action_indices.gather(1, top1_indices.unsqueeze(1)).squeeze(1)
@@ -343,7 +346,10 @@ if torch is not None and nn is not None:
                 dtype=z_root.dtype,
                 device=z_root.device,
             )
-            C_t = initial_candidate_scores.masked_fill(~candidate_mask, float("-inf"))
+            C_t = initial_candidate_scores.masked_fill(
+                ~candidate_mask,
+                MASKED_CANDIDATE_SCORE_VALUE,
+            )
             trace_steps: list[DeliberationTraceStep] = []
             step_value_cp_tensors: list[torch.Tensor] = []
             step_sharpness_tensors: list[torch.Tensor] = []
@@ -396,7 +402,10 @@ if torch is not None and nn is not None:
                 refined_reply_signals.scatter_(1, selected_indices, selected_reply_signals)
 
                 z_next, M_next, C_next = self.cell(z_t, M_t, finite_scores, refined_reply_signals)
-                C_next = C_next.masked_fill(~candidate_mask, float("-inf"))
+                C_next = C_next.masked_fill(
+                    ~candidate_mask,
+                    MASKED_CANDIDATE_SCORE_VALUE,
+                )
                 next_value_cp, _next_uncertainty = self.value_projector(
                     z_next,
                     M_next,
@@ -412,7 +421,10 @@ if torch is not None and nn is not None:
                     C_t = snapshot_C.clone()
                     penalty = torch.full_like(selected_reply_signals, 1.0)
                     C_t.scatter_add_(1, selected_indices, -penalty)
-                    C_t = C_t.masked_fill(~candidate_mask, float("-inf"))
+                    C_t = C_t.masked_fill(
+                        ~candidate_mask,
+                        MASKED_CANDIDATE_SCORE_VALUE,
+                    )
                 else:
                     z_t = z_next
                     M_t = M_next
@@ -467,7 +479,10 @@ def _build_pv_scratch(
     candidate_uci: list[list[str]] | None,
 ) -> list[list[str]]:
     top_k = min(3, candidate_scores.shape[1])
-    masked_scores = candidate_scores.masked_fill(~candidate_mask, float("-inf"))
+    masked_scores = candidate_scores.masked_fill(
+        ~candidate_mask,
+        MASKED_CANDIDATE_SCORE_VALUE,
+    )
     topk_indices = torch.topk(masked_scores, k=top_k, dim=1).indices.tolist()
     action_indices = candidate_action_indices.tolist()
     pv_scratch: list[list[str]] = []

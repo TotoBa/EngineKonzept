@@ -32,6 +32,7 @@ from train.datasets.planner_head import PlannerHeadExample, load_planner_head_ex
 from train.datasets.schema import DatasetExample, PositionEncoding, TacticalAnnotations
 from train.models.intention_encoder import torch
 from train.models.lapv1 import LAPV1_MODEL_NAME, LAPv1Config, LAPv1Model
+from train.models.policy_head_large import MASKED_CANDIDATE_LOGIT_VALUE
 from train.models.proposer import torch_is_available
 
 try:
@@ -1050,7 +1051,7 @@ def _policy_margin_loss(
 ) -> torch.Tensor:
     other_mask = candidate_mask.clone()
     other_mask.scatter_(1, teacher_top1_candidate_index.unsqueeze(1), False)
-    other_logits = logits.masked_fill(~other_mask, float("-inf"))
+    other_logits = logits.masked_fill(~other_mask, MASKED_CANDIDATE_LOGIT_VALUE)
     best_other = other_logits.max(dim=1).values
     teacher_logits = logits.gather(1, teacher_top1_candidate_index.unsqueeze(1)).squeeze(1)
     target_margin = gap_targets_cp.clamp_min(0.0) / _GAP_TARGET_SCALE
