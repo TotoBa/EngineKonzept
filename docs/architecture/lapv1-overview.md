@@ -217,6 +217,11 @@ Every inner step should emit a trace record containing:
 
 The future UCI `info depth ... pv ...` output is intended to reflect these learned deliberation steps, not classical search depths.
 
+The repository now includes a model-only Python core loop in
+[deliberation.py](/home/torsten/EngineKonzept/python/train/models/deliberation.py)
+with deterministic rollback-focused unit tests. It remains isolated from the
+runtime until the later LAPv1 wrapper and runtime steps.
+
 ## Runtime Flow
 
 ```text
