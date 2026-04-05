@@ -449,3 +449,38 @@ Harden the system with benchmarks, regression tracking, optimization, and failur
 - new checkpoints are comparable
 - regressions are caught automatically
 - hot-path optimizations preserve architectural boundaries
+
+---
+
+# Phase 10 — LAPv1 unified planner (supplemental architecture track)
+
+This supplemental track does not renumber the canonical milestone sequence above.
+It records the current unification target for the planner family before any future
+planner-driven UCI promotion is attempted.
+
+## Goal
+Unify the current planner-arm zoo behind one bounded latent-adversarial planner
+stack that keeps exact legality symbolic, keeps runtime compute bounded, and
+stays observably distinct from classical search.
+
+## Non-goals
+- no alpha-beta, negamax, PVS, TT-search, or quiescence runtime
+- no handcrafted static evaluation fallback
+- no removal of existing planner checkpoints until LAPv1 beats them empirically
+- no unbounded inner-loop recursion or hidden search-tree expansion
+
+## Deliverables
+- versioned symbolic `StateContextV1` alongside `CandidateContextV2`
+- piece-intention encoder
+- relational state embedder producing `z_root` and uncertainty
+- large value and candidate-policy heads
+- bounded recurrent deliberation loop with rollback-safe trace emission
+- wrapper model and staged trainer support (`T1` static heads, `T2` deliberation-on)
+- runtime-facing LAPv1 agent contract and benchmark-ready arena template
+- migration plan for which older planner arms stay as references vs. deprecate
+
+## Exit criteria
+- LAPv1 reaches a prepared-and-testable state without disturbing existing runtime paths
+- LAPv1 stays inside the architectural boundaries from `AGENTS.md`
+- the repository documents which current planner arms remain benchmarks during migration
+- promotion pressure is defined empirically rather than assumed architecturally

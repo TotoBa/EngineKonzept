@@ -12,3 +12,7 @@ Current long-run notes:
 
 - [phase9-evolution-custom-v1-stop-summary-2026-04-04.md](/home/torsten/EngineKonzept/docs/experiments/phase9-evolution-custom-v1-stop-summary-2026-04-04.md)
 - [phase9-evolution-round03-vice-v1-summary-2026-04-05.md](/home/torsten/EngineKonzept/docs/experiments/phase9-evolution-round03-vice-v1-summary-2026-04-05.md)
+
+Current planner-migration notes:
+
+- [lapv1-migration-plan-2026-04-05.md](/home/torsten/EngineKonzept/docs/experiments/lapv1-migration-plan-2026-04-05.md)

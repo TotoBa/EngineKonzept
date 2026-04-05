@@ -9,7 +9,7 @@ The target runtime path is:
 
 ## Current Scope
 
-The repository now covers Phase 8 foundations:
+The repository now covers Phase 8 foundations plus prepared LAPv1 scaffolding:
 
 - root project rules and execution plans
 - Rust workspace boundaries and placeholder future crates
@@ -30,6 +30,7 @@ The repository now covers Phase 8 foundations:
 - the first small exact selfplay loop over proposer/opponent/planner contracts
 - post-game Stockfish-reviewed selfplay training-set generation for non-external agents
 - round-batched selfplay teacher-retraining over the active planner checkpoints
+- prepared-but-untrained LAPv1 scaffolding for the next unified planner stack, including `StateContextV1`, piece-intention/state-embedder references, large value/policy heads, bounded deliberation, staged trainer support, and runtime/arena templates
 - CI, lint, and test wiring
 - architecture and phase documentation
 
