@@ -205,6 +205,7 @@ if torch is not None and nn is not None:
                 memory_dim=config.value_head.memory_dim,
                 hidden_dim=config.value_head.hidden_dim,
                 hidden_layers=config.value_head.hidden_layers,
+                cp_score_cap=config.value_head.cp_score_cap,
                 dropout=config.value_head.dropout,
             )
             self.sharpness_head = SharpnessHead(

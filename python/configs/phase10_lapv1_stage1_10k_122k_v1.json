@@ -40,6 +40,7 @@
       "memory_dim": 256,
       "hidden_dim": 2560,
       "hidden_layers": 4,
+      "cp_score_cap": 1024.0,
       "dropout": 0.0
     },
     "sharpness_head": {

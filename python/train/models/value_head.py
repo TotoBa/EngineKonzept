@@ -46,6 +46,7 @@ if torch is not None and nn is not None:
             memory_dim: int = DEFAULT_MEMORY_DIM,
             hidden_dim: int = 2816,
             hidden_layers: int = 4,
+            cp_score_cap: float = 1024.0,
             dropout: float = 0.0,
         ) -> None:
             super().__init__()
@@ -57,6 +58,8 @@ if torch is not None and nn is not None:
                 raise ValueError("hidden_dim must be positive")
             if hidden_layers <= 0:
                 raise ValueError("hidden_layers must be positive")
+            if cp_score_cap <= 0.0:
+                raise ValueError("cp_score_cap must be positive")
             if not 0.0 <= dropout < 1.0:
                 raise ValueError("dropout must be in [0.0, 1.0)")
 
@@ -64,6 +67,7 @@ if torch is not None and nn is not None:
             self.memory_dim = memory_dim
             self.hidden_dim = hidden_dim
             self.hidden_layers = hidden_layers
+            self.cp_score_cap = cp_score_cap
             self.memory_projection = nn.Sequential(
                 nn.Linear(memory_dim, state_dim),
                 nn.LayerNorm(state_dim),
@@ -97,7 +101,7 @@ if torch is not None and nn is not None:
 
             hidden = self.backbone(z_root)
             wdl_logits = self.wdl_head(hidden)
-            cp_score = self.cp_head(hidden)
+            cp_score = torch.tanh(self.cp_head(hidden)) * self.cp_score_cap
             sigma_value = torch.nn.functional.softplus(self.sigma_head(hidden)) + 1e-6
             return wdl_logits, cp_score, sigma_value
 

@@ -25,6 +25,8 @@ def test_value_head_output_shapes_are_correct() -> None:
     assert tuple(wdl_logits.shape) == (2, 3)
     assert tuple(cp_score.shape) == (2, 1)
     assert tuple(sigma_value.shape) == (2, 1)
+    assert bool(torch.all(cp_score >= -1024.0))
+    assert bool(torch.all(cp_score <= 1024.0))
 
 
 def test_wdl_logits_softmax_sums_to_one() -> None:
@@ -71,4 +73,5 @@ def test_value_and_sharpness_configs_validate_defaults() -> None:
 
     assert value_config.hidden_dim == 2816
     assert value_config.hidden_layers == 4
+    assert value_config.cp_score_cap == 1024.0
     assert sharpness_config.hidden_dim == 128

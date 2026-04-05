@@ -100,6 +100,7 @@ class ValueHeadConfig:
     memory_dim: int = 256
     hidden_dim: int = 2816
     hidden_layers: int = 4
+    cp_score_cap: float = 1024.0
     dropout: float = 0.0
 
     def __post_init__(self) -> None:
@@ -111,6 +112,8 @@ class ValueHeadConfig:
             raise ValueError("value_head.hidden_dim must be positive")
         if self.hidden_layers <= 0:
             raise ValueError("value_head.hidden_layers must be positive")
+        if self.cp_score_cap <= 0.0:
+            raise ValueError("value_head.cp_score_cap must be positive")
         if not 0.0 <= self.dropout < 1.0:
             raise ValueError("value_head.dropout must be in [0.0, 1.0)")
 
