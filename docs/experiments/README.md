@@ -16,3 +16,4 @@ Current long-run notes:
 Current planner-migration notes:
 
 - [lapv1-migration-plan-2026-04-05.md](/home/torsten/EngineKonzept/docs/experiments/lapv1-migration-plan-2026-04-05.md)
+- [phase10-all-unique-lapv1-prep-2026-04-05.md](/home/torsten/EngineKonzept/docs/experiments/phase10-all-unique-lapv1-prep-2026-04-05.md)

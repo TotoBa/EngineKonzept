@@ -55,6 +55,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--policy-temperature-cp", type=float, default=100.0)
     parser.add_argument("--top-k", type=int, default=8)
     parser.add_argument("--max-examples", type=int, default=256)
+    parser.add_argument("--log-every", type=int, default=0)
     args = parser.parse_args(argv)
 
     dataset_dir = _resolve_repo_path(args.dataset_dir)
@@ -74,6 +75,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         nodes=args.nodes,
         multipv=args.multipv,
         policy_temperature_cp=args.policy_temperature_cp,
+        log_every=args.log_every,
+        split=args.split,
+    )
+    _log(
+        f"[workflow:{args.split}] building disagreements/curriculum/opponent "
+        f"for {len(selected_examples)} examples"
     )
     disagreement_examples = build_search_disagreement_examples(
         selected_examples,
@@ -147,11 +154,14 @@ def _build_teacher_and_trace_examples(
     nodes: int,
     multipv: int,
     policy_temperature_cp: float,
+    log_every: int,
+    split: str,
 ) -> tuple[list[Any], list[Any]]:
     teacher_examples: list[Any] = []
     trace_examples: list[Any] = []
     with _UciTeacher(teacher_engine_path, multipv=multipv) as teacher:
-        for example in examples:
+        total = len(examples)
+        for index, example in enumerate(examples, start=1):
             symbolic_example = build_symbolic_proposer_example(
                 example,
                 candidate_context_version=2,
@@ -193,6 +203,11 @@ def _build_teacher_and_trace_examples(
                     policy_temperature_cp=policy_temperature_cp,
                 )
             )
+            if log_every > 0 and (index % log_every == 0 or index == total):
+                _log(
+                    f"[workflow:{split}] analysed {index}/{total} positions "
+                    f"with teacher={teacher_engine_path}"
+                )
     return teacher_examples, trace_examples
 
 
@@ -308,6 +323,10 @@ def _parse_analysis_line(line: str, *, turn: bool) -> tuple[int, dict[str, Any]]
 
 def _resolve_repo_path(path: Path) -> Path:
     return path if path.is_absolute() else REPO_ROOT / path
+
+
+def _log(message: str) -> None:
+    print(message, flush=True)
 
 
 if __name__ == "__main__":

@@ -273,6 +273,28 @@ Use [run_lapv1_stage1_first_eval.sh](/home/torsten/EngineKonzept/python/scripts/
 
 Use [run_lapv1_stage1_train.sh](/home/torsten/EngineKonzept/python/scripts/run_lapv1_stage1_train.sh) or [train_lapv1.py](/home/torsten/EngineKonzept/python/scripts/train_lapv1.py) for the first actual Stage-T1 bootstrap run, and [eval_lapv1.py](/home/torsten/EngineKonzept/python/scripts/eval_lapv1.py) for held-out evaluation of saved checkpoints.
 
+- [phase10_lapv1_stage1_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage1_all_unique_v1.json)
+  Prepared all-data Stage-T1 follow-up. Points at the future full all-unique planner-head workflow under `/srv/schach/engine_training/phase10/lapv1_workflow_all_unique_v1`, keeps deliberation disabled, and reduces the bootstrap run to `2` epochs so the next large run can stage LAPv1 once before the arena instead of spending time on the older `10k + 122k` setup.
+
+- [phase10_agent_lapv1_stage1_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_agent_lapv1_stage1_all_unique_v1.json)
+  Runtime/arena spec for that all-unique Stage-T1 checkpoint.
+
+- [phase10_lapv1_stage1_arena_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage1_arena_all_unique_v1.json)
+  Versioned long-run spec for the next Phase-10 bootstrap benchmark. It materializes the merged all-unique raw corpus into exact dataset artifacts, builds the full LAPv1 workflow with progress logging, trains LAPv1 Stage-T1 for `2` epochs, selects the strongest six current planner-family references from the last completed `vice` arena by final internal standings with verify tie-breaks, and then runs the resulting 8-agent arena against `vice_v2`.
+
+Use [run_phase10_lapv1_stage1_arena_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase10_lapv1_stage1_arena_longrun.sh) to execute that full path. The long run now emits:
+
+- chunk-level Phase-5 materialization logs
+- teacher-analysis workflow progress logs
+- mid-epoch LAPv1 batch logs
+- arena `progress.json`
+
+The new all-unique raw tier feeding that run is:
+
+- [phase5_stockfish_all_unique_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_all_unique_v1)
+
+It merges the previous `merged_unique`, the prior `400k` unique tier, and the imported `1m` Pi snapshot with hard verify-over-train precedence and later-source replacement on duplicate FENs.
+
 The next planned LAPv1 configs keep the same namespace and data-contract boundary:
 
 - Stage T2: deliberation-on curriculum over the same `10k + 122k` workflow slice

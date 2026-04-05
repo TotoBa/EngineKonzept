@@ -258,6 +258,29 @@ That path can already load an LAPv1 checkpoint, rebuild exact candidate inputs
 from `StateContextV1` and `CandidateContextV2`, emit a bounded deliberation
 trace, and choose a final legal move through the existing selfplay-agent
 contract. It remains offline/runtime-glue only until the first real Stage-T1
+arena bootstrap exists.
+
+The next prepared bootstrap path is now the all-data Stage-T1 setup:
+
+- [phase10_lapv1_stage1_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage1_all_unique_v1.json)
+- [phase10_agent_lapv1_stage1_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_agent_lapv1_stage1_all_unique_v1.json)
+- [build_phase10_lapv1_workflow.py](/home/torsten/EngineKonzept/python/scripts/build_phase10_lapv1_workflow.py)
+- [run_phase10_lapv1_stage1_arena_campaign.py](/home/torsten/EngineKonzept/python/scripts/run_phase10_lapv1_stage1_arena_campaign.py)
+- [run_phase10_lapv1_stage1_arena_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase10_lapv1_stage1_arena_longrun.sh)
+
+That path intentionally:
+
+- reuses the strongest six current planner-family reference arms from the last completed `vice` run
+- keeps those reference arms fixed
+- trains only LAPv1 up front for `2` epochs on the new merged all-unique corpus
+- then benchmarks LAPv1 in an 8-agent arena against those six arms plus `vice`
+
+The current all-unique raw source for that bootstrap is:
+
+- [phase5_stockfish_all_unique_v1](/home/torsten/EngineKonzept/artifacts/datasets/phase5_stockfish_all_unique_v1)
+
+with the intake and selection rationale documented in
+[phase10-all-unique-lapv1-prep-2026-04-05.md](/home/torsten/EngineKonzept/docs/experiments/phase10-all-unique-lapv1-prep-2026-04-05.md).
 checkpoint is trained.
 
 The first direct benchmark template is now also prepared in
