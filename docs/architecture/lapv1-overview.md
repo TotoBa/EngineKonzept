@@ -249,6 +249,12 @@ trace, and choose a final legal move through the existing selfplay-agent
 contract. It remains offline/runtime-glue only until the first real Stage-T1
 checkpoint is trained.
 
+The first direct benchmark template is now also prepared in
+[phase10_arena_lapv1_vs_baseline_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_arena_lapv1_vs_baseline_v1.json).
+It keeps the future LAPv1 Stage-T1 agent, the strongest kept planner baselines,
+and `vice_v2` inside one seeded round-robin suite, but remains config-only until
+the first trained LAPv1 checkpoint exists.
+
 ## Runtime Flow
 
 ```text
