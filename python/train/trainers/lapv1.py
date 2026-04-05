@@ -47,6 +47,7 @@ _PIECE_ROLE_CLASS_COUNT = 7
 _CP_TARGET_SCALE = 256.0
 _GAP_TARGET_SCALE = 128.0
 _ROOT_VALUE_TARGET_CLIP_CP = 1024.0
+_ROOT_GAP_TARGET_CLIP_CP = 512.0
 
 
 @dataclass(frozen=True)
@@ -1068,7 +1069,10 @@ def _collate_examples(examples: Sequence[_PreparedLAPv1Example]) -> dict[str, to
             [
                 0.0
                 if example.teacher_top1_minus_top2_cp is None
-                else example.teacher_top1_minus_top2_cp
+                else max(
+                    -_ROOT_GAP_TARGET_CLIP_CP,
+                    min(_ROOT_GAP_TARGET_CLIP_CP, example.teacher_top1_minus_top2_cp),
+                )
                 for example in examples
             ],
             dtype=torch.float32,

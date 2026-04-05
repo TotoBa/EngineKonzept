@@ -142,6 +142,18 @@ def test_lapv1_collate_clips_extreme_root_value_targets() -> None:
     assert float(batch["teacher_root_value_cp"][0].item()) == 1024.0
 
 
+def test_lapv1_collate_clips_extreme_root_gap_targets() -> None:
+    example = _planner_example(
+        "gap-like",
+        teacher_index=0,
+        teacher_cp=25.0,
+        teacher_gap=100063.0,
+    )
+    prepared = _prepare_example(example)
+    batch = _collate_examples([prepared])
+    assert float(batch["teacher_top1_minus_top2_cp"][0].item()) == 512.0
+
+
 def test_train_lapv1_stage1_emits_batch_progress_logs(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],

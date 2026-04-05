@@ -240,7 +240,9 @@ The current Stage-T1 bootstrap path also keeps candidate masking finite and
 clips gradients conservatively to reduce early large-model CPU-training
 instability. The current bootstrap value path also uses a bounded `cp_score`
 output plus robustly clipped root-value targets so rare mate/sentinel labels
-cannot dominate the early regression loss.
+cannot dominate the early regression loss. The same bootstrap path now also
+clips raw teacher top1-top2 gap targets before they feed LAPv1 margin
+supervision, so extreme mate-gap labels do not swamp the bounded policy losses.
 
 The same trainer now also supports a first stage-T2 extension with
 deliberation enabled under a bounded `max_inner_steps` curriculum,
