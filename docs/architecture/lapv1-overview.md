@@ -240,6 +240,15 @@ deliberation-monotonicity auxiliary loss, and rollback statistics in the
 epoch metrics. No real stage-T2 run config is prepared yet; the support is
 kept trainer-local until the first dedicated LAPv1 follow-up config exists.
 
+The first runtime-facing LAPv1 glue now also exists in
+[lapv1_runtime.py](/home/torsten/EngineKonzept/python/train/eval/lapv1_runtime.py)
+plus [phase10_agent_lapv1_stage1_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_agent_lapv1_stage1_v1.json).
+That path can already load an LAPv1 checkpoint, rebuild exact candidate inputs
+from `StateContextV1` and `CandidateContextV2`, emit a bounded deliberation
+trace, and choose a final legal move through the existing selfplay-agent
+contract. It remains offline/runtime-glue only until the first real Stage-T1
+checkpoint is trained.
+
 ## Runtime Flow
 
 ```text

@@ -1,0 +1,16 @@
+{
+  "spec_version": 1,
+  "name": "lapv1_stage1_v1",
+  "agent_kind": "lapv1",
+  "lapv1_checkpoint": "models/lapv1/stage1_10k_122k_v1/bundle/checkpoint.pt",
+  "state_context_version": 1,
+  "deliberation_max_inner_steps": 0,
+  "deliberation_q_threshold": 0.3,
+  "tags": [
+    "lapv1",
+    "stage1"
+  ],
+  "metadata": {
+    "description": "First LAPv1 agent-spec placeholder. It becomes valid once the Stage-T1 bootstrap checkpoint exists."
+  }
+}

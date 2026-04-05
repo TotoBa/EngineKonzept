@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 
-SUPPORTED_AGENT_KINDS = {"planner", "uci_engine"}
+SUPPORTED_AGENT_KINDS = {"planner", "uci_engine", "lapv1"}
 SUPPORTED_OPPONENT_MODES = {"none", "symbolic", "learned"}
 SELFPLAY_AGENT_SPEC_VERSION = 1
 
@@ -20,11 +20,15 @@ class SelfplayAgentSpec:
     name: str
     proposer_checkpoint: str | None = None
     planner_checkpoint: str | None = None
+    lapv1_checkpoint: str | None = None
     opponent_checkpoint: str | None = None
     dynamics_checkpoint: str | None = None
     opponent_mode: str = "symbolic"
     root_top_k: int = 4
     agent_kind: str = "planner"
+    state_context_version: int = 1
+    deliberation_max_inner_steps: int | None = None
+    deliberation_q_threshold: float | None = None
     external_engine_path: str | None = None
     external_engine_nodes: int | None = None
     external_engine_depth: int | None = None
@@ -45,6 +49,18 @@ class SelfplayAgentSpec:
             raise ValueError(f"unsupported opponent_mode: {self.opponent_mode}")
         if self.root_top_k <= 0:
             raise ValueError("root_top_k must be positive")
+        if self.state_context_version <= 0:
+            raise ValueError("state_context_version must be positive")
+        if (
+            self.deliberation_max_inner_steps is not None
+            and self.deliberation_max_inner_steps < 0
+        ):
+            raise ValueError("deliberation_max_inner_steps must be non-negative when provided")
+        if (
+            self.deliberation_q_threshold is not None
+            and not 0.0 <= self.deliberation_q_threshold <= 1.0
+        ):
+            raise ValueError("deliberation_q_threshold must be in [0.0, 1.0] when provided")
         if self.external_engine_threads <= 0:
             raise ValueError("external_engine_threads must be positive")
         if self.external_engine_hash_mb is not None and self.external_engine_hash_mb <= 0:
@@ -56,6 +72,8 @@ class SelfplayAgentSpec:
         if self.agent_kind == "planner":
             if not self.proposer_checkpoint:
                 raise ValueError("planner agent proposer_checkpoint must be non-empty")
+            if self.lapv1_checkpoint is not None:
+                raise ValueError("planner agent must not include lapv1_checkpoint")
             if self.opponent_mode == "learned" and self.opponent_checkpoint is None:
                 raise ValueError("learned opponent_mode requires opponent_checkpoint")
             if self.planner_checkpoint is None:
@@ -67,6 +85,22 @@ class SelfplayAgentSpec:
                 raise ValueError(
                     "external engine fields are not allowed for planner agents"
                 )
+            return
+
+        if self.agent_kind == "lapv1":
+            if not self.lapv1_checkpoint:
+                raise ValueError("lapv1 agent requires lapv1_checkpoint")
+            if self.state_context_version != 1:
+                raise ValueError("lapv1 agent currently requires state_context_version == 1")
+            if (
+                self.proposer_checkpoint is not None
+                or self.planner_checkpoint is not None
+                or self.opponent_checkpoint is not None
+                or self.dynamics_checkpoint is not None
+            ):
+                raise ValueError("lapv1 agent must not include planner-family checkpoints")
+            if self.external_engine_path is not None:
+                raise ValueError("external engine fields are not allowed for lapv1 agents")
             return
 
         if not self.external_engine_path:
@@ -99,11 +133,15 @@ class SelfplayAgentSpec:
             "name": self.name,
             "proposer_checkpoint": self.proposer_checkpoint,
             "planner_checkpoint": self.planner_checkpoint,
+            "lapv1_checkpoint": self.lapv1_checkpoint,
             "opponent_checkpoint": self.opponent_checkpoint,
             "dynamics_checkpoint": self.dynamics_checkpoint,
             "opponent_mode": self.opponent_mode,
             "root_top_k": self.root_top_k,
             "agent_kind": self.agent_kind,
+            "state_context_version": self.state_context_version,
+            "deliberation_max_inner_steps": self.deliberation_max_inner_steps,
+            "deliberation_q_threshold": self.deliberation_q_threshold,
             "external_engine_path": self.external_engine_path,
             "external_engine_nodes": self.external_engine_nodes,
             "external_engine_depth": self.external_engine_depth,
@@ -122,11 +160,15 @@ class SelfplayAgentSpec:
             name=str(payload["name"]),
             proposer_checkpoint=_optional_str(payload.get("proposer_checkpoint")),
             planner_checkpoint=_optional_str(payload.get("planner_checkpoint")),
+            lapv1_checkpoint=_optional_str(payload.get("lapv1_checkpoint")),
             opponent_checkpoint=_optional_str(payload.get("opponent_checkpoint")),
             dynamics_checkpoint=_optional_str(payload.get("dynamics_checkpoint")),
             opponent_mode=str(payload.get("opponent_mode", "symbolic")),
             root_top_k=int(payload.get("root_top_k", 4)),
             agent_kind=str(payload.get("agent_kind", "planner")),
+            state_context_version=int(payload.get("state_context_version", 1)),
+            deliberation_max_inner_steps=_optional_int(payload.get("deliberation_max_inner_steps")),
+            deliberation_q_threshold=_optional_float(payload.get("deliberation_q_threshold")),
             external_engine_path=_optional_str(payload.get("external_engine_path")),
             external_engine_nodes=_optional_int(payload.get("external_engine_nodes")),
             external_engine_depth=_optional_int(payload.get("external_engine_depth")),
@@ -170,3 +212,9 @@ def _optional_int(value: object) -> int | None:
     if value is None:
         return None
     return int(value)
+
+
+def _optional_float(value: object) -> float | None:
+    if value is None:
+        return None
+    return float(value)

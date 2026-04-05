@@ -128,6 +128,28 @@ def __getattr__(name: str) -> Any:
             "build_external_engine_agent_from_spec": build_external_engine_agent_from_spec,
         }[name]
     if name in {
+        "LoadedLAPv1Runtime",
+        "build_lapv1_runtime",
+        "build_lapv1_runtime_from_spec",
+        "load_lapv1_checkpoint",
+        "load_lapv1_runtime_from_spec_path",
+    }:
+        from train.eval.lapv1_runtime import (
+            LoadedLAPv1Runtime,
+            build_lapv1_runtime,
+            build_lapv1_runtime_from_spec,
+            load_lapv1_checkpoint,
+            load_lapv1_runtime_from_spec_path,
+        )
+
+        return {
+            "LoadedLAPv1Runtime": LoadedLAPv1Runtime,
+            "build_lapv1_runtime": build_lapv1_runtime,
+            "build_lapv1_runtime_from_spec": build_lapv1_runtime_from_spec,
+            "load_lapv1_checkpoint": load_lapv1_checkpoint,
+            "load_lapv1_runtime_from_spec_path": load_lapv1_runtime_from_spec_path,
+        }[name]
+    if name in {
         "SelfplayArenaMatchupSpec",
         "SelfplayArenaSpec",
         "load_selfplay_arena_spec",
@@ -320,6 +342,7 @@ def __getattr__(name: str) -> Any:
 
 
 __all__ = [
+    "LoadedLAPv1Runtime",
     "OpponentBaselineMetrics",
     "LoadedPlannerRuntime",
     "PlannerBaselineMetrics",
@@ -341,6 +364,8 @@ __all__ = [
     "SelfplaySessionRecord",
     "SelfplayTeacherRetrainAgentSpec",
     "SelfplayTeacherRetrainCycleSpec",
+    "build_lapv1_runtime",
+    "build_lapv1_runtime_from_spec",
     "build_planner_runtime",
     "build_planner_runtime_from_spec",
     "build_planner_verify_matrix",
@@ -350,6 +375,8 @@ __all__ = [
     "evaluate_symbolic_opponent_baseline",
     "evaluate_two_ply_planner_baseline",
     "load_dynamics_checkpoint",
+    "load_lapv1_checkpoint",
+    "load_lapv1_runtime_from_spec_path",
     "load_opponent_head_checkpoint",
     "load_planner_head_checkpoint",
     "load_selfplay_arena_summary",

@@ -14,6 +14,7 @@ from typing import Any, Callable
 
 from train.eval.agent_spec import load_selfplay_agent_spec
 from train.eval.external_engine import build_external_engine_agent_from_spec
+from train.eval.lapv1_runtime import build_lapv1_runtime_from_spec
 from train.eval.planner_runtime import build_planner_runtime_from_spec
 from train.eval.selfplay import (
     STARTING_FEN,
@@ -674,6 +675,8 @@ def _default_agent_builder(agent_name: str, spec_path: Path, repo_root: Path) ->
         spec = SelfplayAgentProxySpec(spec=spec, name=agent_name).materialize()
     if spec.agent_kind == "uci_engine":
         return build_external_engine_agent_from_spec(spec, repo_root=repo_root)
+    if spec.agent_kind == "lapv1":
+        return build_lapv1_runtime_from_spec(spec, repo_root=repo_root)
     return build_planner_runtime_from_spec(spec, repo_root=repo_root)
 
 
@@ -689,11 +692,15 @@ class SelfplayAgentProxySpec:
             name=self.name,
             proposer_checkpoint=self.spec.proposer_checkpoint,
             planner_checkpoint=self.spec.planner_checkpoint,
+            lapv1_checkpoint=self.spec.lapv1_checkpoint,
             opponent_checkpoint=self.spec.opponent_checkpoint,
             dynamics_checkpoint=self.spec.dynamics_checkpoint,
             opponent_mode=self.spec.opponent_mode,
             root_top_k=self.spec.root_top_k,
             agent_kind=self.spec.agent_kind,
+            state_context_version=self.spec.state_context_version,
+            deliberation_max_inner_steps=self.spec.deliberation_max_inner_steps,
+            deliberation_q_threshold=self.spec.deliberation_q_threshold,
             external_engine_path=self.spec.external_engine_path,
             external_engine_nodes=self.spec.external_engine_nodes,
             external_engine_depth=self.spec.external_engine_depth,

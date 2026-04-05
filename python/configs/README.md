@@ -263,6 +263,9 @@ The intended use is one arena Python process controlling several concurrent game
 - [phase10_lapv1_stage1_10k_122k_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage1_10k_122k_v1.json)
   First prepared LAPv1 Stage-T1 config. Reuses the preferred filtered `10k + 122k` planner-head workflow slice, keeps deliberation disabled via `max_inner_steps=0`, and targets the first static-head bootstrap run under [models/lapv1/stage1_10k_122k_v1](/home/torsten/EngineKonzept/models/lapv1/stage1_10k_122k_v1).
 
+- [phase10_agent_lapv1_stage1_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_agent_lapv1_stage1_v1.json)
+  First LAPv1 runtime/selfplay spec. It points at the future Stage-T1 checkpoint path, pins `state_context_version=1`, and keeps deliberation disabled until the first real Stage-T1 bootstrap run has produced a checkpoint.
+
 Use [run_lapv1_stage1_first_eval.sh](/home/torsten/EngineKonzept/python/scripts/run_lapv1_stage1_first_eval.sh) to validate that the config loads, the referenced planner-head artifacts exist, and the expected LAPv1 parameter count matches the current wrapper before starting any real Stage-T1 training.
 
 The next planned LAPv1 configs keep the same namespace and data-contract boundary:
