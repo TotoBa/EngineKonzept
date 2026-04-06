@@ -384,7 +384,7 @@ def _build_resolved_arena_spec(
 ) -> SelfplayArenaSpec:
     initial_fens = load_selfplay_initial_fen_suite(
         _resolve_repo_path(Path(spec.initial_fen_suite_path))
-    ).initial_fens
+    ).fen_list()
     agent_specs = {
         "lapv1_stage1_all_unique_v1": str(_resolve_repo_path(Path(spec.lapv1_agent_spec_path))),
         **{
