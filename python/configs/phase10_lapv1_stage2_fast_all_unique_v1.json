@@ -77,11 +77,11 @@
   },
   "optimization": {
     "epochs": 2,
-    "batch_size": 256,
+    "batch_size": 1024,
     "learning_rate": 0.00025,
     "weight_decay": 0.0001,
     "max_grad_norm": 1.0,
-    "log_interval_batches": 24,
+    "log_interval_batches": 2,
     "value_wdl_weight": 1.0,
     "value_cp_weight": 0.25,
     "sharpness_weight": 0.1,
