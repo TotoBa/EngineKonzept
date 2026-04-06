@@ -194,6 +194,11 @@ At each bounded step it:
 4. updates candidate scores and planner memory
 5. decides whether to stop, continue, or roll back to a previous latent snapshot
 
+The current implementation now treats halting and rollback as per-example
+decisions inside a batch. Earlier prototypes applied those gates at batch scope,
+which made large-batch T2 training distort the inner-loop statistics and the
+effective update path.
+
 Hard boundaries:
 
 - no recursive tree expansion

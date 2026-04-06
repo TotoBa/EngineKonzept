@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections import deque
 from dataclasses import dataclass
 from typing import Any
 
@@ -332,6 +331,8 @@ if torch is not None and nn is not None:
                     "step_value_cp_tensors": (),
                     "step_sharpness_tensors": (),
                     "step_candidate_score_tensors": (),
+                    "step_active_masks": (),
+                    "step_rollback_masks": (),
                     "step_rollback_flags": (),
                     "final_z": z_root,
                     "final_memory": torch.zeros(
@@ -355,17 +356,11 @@ if torch is not None and nn is not None:
             step_value_cp_tensors: list[torch.Tensor] = []
             step_sharpness_tensors: list[torch.Tensor] = []
             step_candidate_score_tensors: list[torch.Tensor] = []
+            step_active_masks: list[torch.Tensor] = []
+            step_rollback_masks: list[torch.Tensor] = []
             step_rollback_flags: list[bool] = []
             top1_history: list[list[int]] = []
-            snapshots: deque[tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]] = deque(
-                maxlen=self.rollback_buffer_size
-            )
-            base_value_cp, base_uncertainty = self.value_projector(
-                z_t,
-                M_t,
-                torch.where(torch.isfinite(C_t), C_t, torch.zeros_like(C_t)),
-            )
-            snapshots.append((z_t.clone(), M_t.clone(), C_t.clone(), base_value_cp.clone()))
+            active_mask = legal_counts > 1
 
             for step_index in range(self.max_inner_steps):
                 finite_scores = torch.where(torch.isfinite(C_t), C_t, torch.zeros_like(C_t))
@@ -375,13 +370,21 @@ if torch is not None and nn is not None:
                 top1_actions = candidate_action_indices.gather(1, top1_indices.unsqueeze(1)).squeeze(1)
                 top1_history.append(top1_actions.tolist())
 
+                stop_mask = torch.zeros_like(active_mask)
                 if step_index >= self.min_inner_steps:
-                    if bool(torch.all(sharpness < self.q_threshold)):
-                        break
+                    stop_mask = active_mask & (sharpness < self.q_threshold)
                     if len(top1_history) >= self.top1_stable_steps:
-                        recent = top1_history[-self.top1_stable_steps :]
-                        if all(row == recent[0] for row in recent[1:]):
-                            break
+                        recent = torch.tensor(
+                            top1_history[-self.top1_stable_steps :],
+                            dtype=top1_actions.dtype,
+                            device=top1_actions.device,
+                        ).transpose(0, 1)
+                        stable_mask = (recent == recent[:, :1]).all(dim=1)
+                        stop_mask = stop_mask | (active_mask & stable_mask)
+
+                step_active_mask = active_mask & ~stop_mask
+                if not bool(step_active_mask.any().item()):
+                    break
 
                 selected_indices = self.selector(
                     z_t,
@@ -400,6 +403,11 @@ if torch is not None and nn is not None:
                     candidate_mask=candidate_mask,
                     global_features=global_features,
                 )
+                selected_reply_signals = torch.where(
+                    step_active_mask.unsqueeze(1),
+                    selected_reply_signals,
+                    torch.zeros_like(selected_reply_signals),
+                )
                 refined_reply_signals = torch.zeros_like(finite_scores)
                 refined_reply_signals.scatter_(1, selected_indices, selected_reply_signals)
 
@@ -414,24 +422,32 @@ if torch is not None and nn is not None:
                     torch.where(torch.isfinite(C_next), C_next, torch.zeros_like(C_next)),
                 )
 
-                rollback_fired = False
-                if torch.any((value_cp - next_value_cp) > self.rollback_threshold):
-                    rollback_fired = True
-                    snapshot_z, snapshot_M, snapshot_C, _snapshot_value = snapshots[-1]
-                    z_t = snapshot_z.clone()
-                    M_t = snapshot_M.clone()
-                    C_t = snapshot_C.clone()
-                    penalty = torch.full_like(selected_reply_signals, 1.0)
-                    C_t.scatter_add_(1, selected_indices, -penalty)
-                    C_t = C_t.masked_fill(
-                        ~candidate_mask,
-                        MASKED_CANDIDATE_SCORE_VALUE,
-                    )
-                else:
-                    z_t = z_next
-                    M_t = M_next
-                    C_t = C_next
-                    snapshots.append((z_t.clone(), M_t.clone(), C_t.clone(), next_value_cp.clone()))
+                rollback_mask = step_active_mask & (
+                    (value_cp - next_value_cp) > self.rollback_threshold
+                )
+                rollback_fired = bool(rollback_mask.any().item())
+                accept_mask = step_active_mask & ~rollback_mask
+                rollback_penalties = torch.zeros_like(finite_scores)
+                rollback_penalties.scatter_(
+                    1,
+                    selected_indices,
+                    torch.ones_like(selected_reply_signals),
+                )
+                rollback_penalties = rollback_penalties * rollback_mask.unsqueeze(1).to(
+                    rollback_penalties.dtype
+                )
+                rollback_scores = (C_t - rollback_penalties).masked_fill(
+                    ~candidate_mask,
+                    MASKED_CANDIDATE_SCORE_VALUE,
+                )
+                z_t = torch.where(accept_mask.unsqueeze(1), z_next, z_t)
+                M_t = torch.where(accept_mask.view(-1, 1, 1), M_next, M_t)
+                C_t = torch.where(
+                    accept_mask.unsqueeze(1),
+                    C_next,
+                    torch.where(rollback_mask.unsqueeze(1), rollback_scores, C_t),
+                )
+                active_mask = step_active_mask
 
                 pv_scratch = _build_pv_scratch(
                     candidate_action_indices=candidate_action_indices,
@@ -439,10 +455,16 @@ if torch is not None and nn is not None:
                     candidate_mask=candidate_mask,
                     candidate_uci=candidate_uci,
                 )
+                selected_candidates = [
+                    selected_indices[batch_index].tolist()
+                    if bool(step_active_mask[batch_index].item())
+                    else []
+                    for batch_index in range(z_root.shape[0])
+                ]
                 trace_steps.append(
                     DeliberationTraceStep(
                         step=step_index,
-                        selected_candidates=selected_indices.tolist(),
+                        selected_candidates=selected_candidates,
                         top1_action_index=top1_actions.tolist(),
                         top1_value_cp=value_cp.tolist(),
                         sharpness=sharpness.tolist(),
@@ -454,6 +476,8 @@ if torch is not None and nn is not None:
                 step_value_cp_tensors.append(value_cp.clone())
                 step_sharpness_tensors.append(sharpness.clone())
                 step_candidate_score_tensors.append(C_t.clone())
+                step_active_masks.append(step_active_mask.clone())
+                step_rollback_masks.append(rollback_mask.clone())
                 step_rollback_flags.append(rollback_fired)
 
             final_top1_indices = torch.argmax(C_t, dim=1)
@@ -469,6 +493,8 @@ if torch is not None and nn is not None:
                 "step_value_cp_tensors": tuple(step_value_cp_tensors),
                 "step_sharpness_tensors": tuple(step_sharpness_tensors),
                 "step_candidate_score_tensors": tuple(step_candidate_score_tensors),
+                "step_active_masks": tuple(step_active_masks),
+                "step_rollback_masks": tuple(step_rollback_masks),
                 "step_rollback_flags": tuple(step_rollback_flags),
                 "final_z": z_t,
                 "final_memory": M_t,

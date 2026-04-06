@@ -42,6 +42,40 @@ class ScriptedValueProjector(torch.nn.Module):
         )
 
 
+class PerExampleSharpness(torch.nn.Module):
+    def __init__(self, values: list[float]) -> None:
+        super().__init__()
+        self.values = values
+
+    def forward(self, z_t: torch.Tensor) -> torch.Tensor:
+        return torch.tensor(
+            self.values,
+            dtype=z_t.dtype,
+            device=z_t.device,
+        )
+
+
+class ScriptedPerExampleValueProjector(torch.nn.Module):
+    def __init__(self, values: list[list[float]]) -> None:
+        super().__init__()
+        self.values = values
+        self.calls = 0
+
+    def forward(
+        self,
+        z_t: torch.Tensor,
+        M_t: torch.Tensor,
+        C_t: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        del M_t, C_t
+        values = self.values[min(self.calls, len(self.values) - 1)]
+        self.calls += 1
+        return (
+            torch.tensor(values, dtype=z_t.dtype, device=z_t.device),
+            torch.full((z_t.shape[0],), 0.5, dtype=z_t.dtype, device=z_t.device),
+        )
+
+
 def _sample_inputs() -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     z_root = torch.randn((2, 512), dtype=torch.float32)
     candidate_action_indices = torch.tensor(
@@ -97,11 +131,47 @@ def test_rollback_fires_on_synthetic_value_regression() -> None:
         min_inner_steps=0,
         rollback_threshold=40.0,
         sharpness_projector=ConstantSharpness(1.0),
-        value_projector=ScriptedValueProjector([100.0, 100.0, 10.0, 100.0]),
+        value_projector=ScriptedValueProjector([100.0, 10.0, 100.0]),
     )
     outputs = loop(*_sample_inputs())
 
     assert any(step.rollback_fired for step in outputs["trace"].steps)
+
+
+def test_halt_is_applied_per_example_not_batch_global() -> None:
+    loop = DeliberationLoop(
+        max_inner_steps=2,
+        min_inner_steps=0,
+        q_threshold=0.3,
+        sharpness_projector=PerExampleSharpness([0.1, 1.0]),
+    )
+
+    outputs = loop(*_sample_inputs())
+
+    assert outputs["step_count"] == 2
+    assert outputs["step_active_masks"][0].tolist() == [False, True]
+    assert outputs["step_active_masks"][1].tolist() == [False, True]
+
+
+def test_rollback_is_applied_per_example_not_batch_global() -> None:
+    loop = DeliberationLoop(
+        max_inner_steps=1,
+        min_inner_steps=0,
+        rollback_threshold=40.0,
+        sharpness_projector=ConstantSharpness(1.0),
+        value_projector=ScriptedPerExampleValueProjector(
+            [
+                [100.0, 100.0],
+                [10.0, 95.0],
+            ]
+        ),
+    )
+
+    outputs = loop(*_sample_inputs())
+
+    assert outputs["step_count"] == 1
+    assert outputs["step_rollback_masks"][0].tolist() == [True, False]
+    assert outputs["step_rollback_flags"] == (True,)
 
 
 def test_deliberation_loop_is_deterministic_for_fixed_seed() -> None:

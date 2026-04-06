@@ -308,6 +308,8 @@ if torch is not None and nn is not None:
                 "step_candidate_score_tensors": deliberation_outputs[
                     "step_candidate_score_tensors"
                 ],
+                "step_active_masks": deliberation_outputs["step_active_masks"],
+                "step_rollback_masks": deliberation_outputs["step_rollback_masks"],
                 "step_rollback_flags": deliberation_outputs["step_rollback_flags"],
                 "refined_top1_action_index": deliberation_outputs[
                     "refined_top1_action_index"

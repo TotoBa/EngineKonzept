@@ -84,6 +84,8 @@ def test_lapv1_forward_pass_produces_expected_shapes() -> None:
     assert tuple(outputs["final_value"]["sigma_value"].shape) == (2, 1)
     assert tuple(outputs["refined_top1_action_index"].shape) == (2,)
     assert "step_candidate_score_tensors" in outputs
+    assert "step_active_masks" in outputs
+    assert "step_rollback_masks" in outputs
 
 
 def test_lapv1_trace_length_respects_max_inner_steps() -> None:

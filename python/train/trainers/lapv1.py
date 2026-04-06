@@ -754,7 +754,8 @@ def _run_epoch(
             step_sharpness_tensors = tuple(outputs["step_sharpness_tensors"])
             step_value_cp_tensors = tuple(outputs["step_value_cp_tensors"])
             step_candidate_score_tensors = tuple(outputs["step_candidate_score_tensors"])
-            step_rollback_flags = tuple(outputs["step_rollback_flags"])
+            step_active_masks = tuple(outputs["step_active_masks"])
+            step_rollback_masks = tuple(outputs["step_rollback_masks"])
 
             value_wdl_loss = torch.nn.functional.cross_entropy(
                 wdl_logits,
@@ -771,6 +772,7 @@ def _run_epoch(
             sharpness_target_loss = _trace_sharpness_target_loss(
                 step_sharpness_tensors,
                 batch["sharpness_target"],
+                step_active_masks,
             )
             policy_ce_loss = torch.nn.functional.cross_entropy(
                 logits,
@@ -803,7 +805,8 @@ def _run_epoch(
             if step_value_cp_tensors:
                 deliberation_monotonicity_loss = _deliberation_monotonicity_loss(
                     step_value_cp_tensors,
-                    step_rollback_flags,
+                    step_active_masks,
+                    step_rollback_masks,
                 )
             else:
                 deliberation_monotonicity_loss = torch.zeros(
@@ -814,6 +817,7 @@ def _run_epoch(
             deliberation_step_policy_loss = _trace_policy_ce_loss(
                 step_candidate_score_tensors,
                 batch["teacher_top1_candidate_index"],
+                step_active_masks,
             )
 
             loss = (
@@ -878,14 +882,20 @@ def _run_epoch(
                 ).item()
             ) * len(batch_examples)
             if stage == "T2" and stage2 is not None:
-                batch_rollbacks = sum(1 for flag in step_rollback_flags if flag)
+                batch_rollbacks = sum(
+                    int(mask.sum().item())
+                    for mask in step_rollback_masks
+                )
                 rollback_count += batch_rollbacks
                 rollback_step_sum += sum(
                     float(step_index)
-                    for step_index, flag in enumerate(step_rollback_flags)
-                    if flag
+                    * float(mask.sum().item())
+                    for step_index, mask in enumerate(step_rollback_masks)
                 )
-                total_trace_steps += len(step_rollback_flags)
+                total_trace_steps += sum(
+                    int(mask.sum().item())
+                    for mask in step_active_masks
+                )
             if training and (
                 batch_index % optimization.log_interval_batches == 0
                 or batch_index == total_batches
@@ -1115,6 +1125,7 @@ def _policy_rank_loss(
 def _trace_policy_ce_loss(
     step_candidate_score_tensors: Sequence[torch.Tensor],
     teacher_top1_candidate_index: torch.Tensor,
+    step_active_masks: Sequence[torch.Tensor],
 ) -> torch.Tensor:
     if not step_candidate_score_tensors:
         return torch.zeros(
@@ -1122,35 +1133,59 @@ def _trace_policy_ce_loss(
             dtype=teacher_top1_candidate_index.dtype,
             device=teacher_top1_candidate_index.device,
         ).float()
-    losses = [
-        torch.nn.functional.cross_entropy(
+    losses: list[torch.Tensor] = []
+    for step_logits, step_active in zip(
+        step_candidate_score_tensors,
+        step_active_masks,
+        strict=True,
+    ):
+        if not bool(step_active.any().item()):
+            continue
+        per_example = torch.nn.functional.cross_entropy(
             step_logits,
             teacher_top1_candidate_index,
+            reduction="none",
         )
-        for step_logits in step_candidate_score_tensors
-    ]
+        losses.append(per_example[step_active].mean())
+    if not losses:
+        return torch.zeros(
+            (),
+            dtype=step_candidate_score_tensors[0].dtype,
+            device=step_candidate_score_tensors[0].device,
+        )
     return torch.stack(losses).mean()
 
 
 def _trace_sharpness_target_loss(
     step_sharpness_tensors: Sequence[torch.Tensor],
     sharpness_target: torch.Tensor,
+    step_active_masks: Sequence[torch.Tensor],
 ) -> torch.Tensor:
     if not step_sharpness_tensors:
         return torch.zeros((), dtype=sharpness_target.dtype, device=sharpness_target.device)
-    losses = [
-        torch.nn.functional.binary_cross_entropy(
+    losses: list[torch.Tensor] = []
+    for step_sharpness, step_active in zip(
+        step_sharpness_tensors,
+        step_active_masks,
+        strict=True,
+    ):
+        if not bool(step_active.any().item()):
+            continue
+        per_example = torch.nn.functional.binary_cross_entropy(
             step_sharpness.clamp(1e-6, 1.0 - 1e-6),
             sharpness_target,
+            reduction="none",
         )
-        for step_sharpness in step_sharpness_tensors
-    ]
+        losses.append(per_example[step_active].mean())
+    if not losses:
+        return torch.zeros((), dtype=sharpness_target.dtype, device=sharpness_target.device)
     return torch.stack(losses).mean()
 
 
 def _deliberation_monotonicity_loss(
     step_value_cp_tensors: Sequence[torch.Tensor],
-    step_rollback_flags: Sequence[bool],
+    step_active_masks: Sequence[torch.Tensor],
+    step_rollback_masks: Sequence[torch.Tensor],
 ) -> torch.Tensor:
     if not step_value_cp_tensors:
         raise ValueError("deliberation_monotonicity_loss requires at least one trace tensor")
@@ -1158,16 +1193,20 @@ def _deliberation_monotonicity_loss(
         reference = step_value_cp_tensors[0]
         return torch.zeros((), dtype=reference.dtype, device=reference.device)
     penalties: list[torch.Tensor] = []
-    for previous_values, current_values, rollback_fired in zip(
+    for previous_values, current_values, previous_active, current_active, current_rollback in zip(
         step_value_cp_tensors[:-1],
         step_value_cp_tensors[1:],
-        step_rollback_flags[1:],
+        step_active_masks[:-1],
+        step_active_masks[1:],
+        step_rollback_masks[1:],
         strict=True,
     ):
-        if rollback_fired:
+        valid_mask = previous_active & current_active & ~current_rollback
+        if not bool(valid_mask.any().item()):
             continue
         penalties.append(
-            torch.nn.functional.relu(previous_values - current_values).mean() / _GAP_TARGET_SCALE
+            torch.nn.functional.relu(previous_values - current_values)[valid_mask].mean()
+            / _GAP_TARGET_SCALE
         )
     if not penalties:
         reference = step_value_cp_tensors[0]

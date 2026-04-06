@@ -41,6 +41,21 @@ The trainer now also supervises the intermediate candidate-score tensors emitted
 after each actual deliberation step. This makes the first extra step trainable
 as a first-class target instead of a side effect.
 
+3. Deliberation control must be per-example, not batch-global.
+
+The original T2 prototype still let halting and rollback fire at batch level.
+That meant one bad example in a large batch could force rollback semantics onto
+every other example, and one sharp/easy example could stop the whole batch
+early. The follow-up path now treats:
+
+- halting
+- rollback
+- rollback-rate accounting
+- step-loss masking
+
+as per-example decisions. This is a structural fix, not just a hyperparameter
+change.
+
 ## Budget semantics
 
 The runtime budget contract is now treated explicitly as:
