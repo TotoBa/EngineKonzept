@@ -315,8 +315,19 @@ class LAPv1Metrics:
     teacher_root_mean_reciprocal_rank: float
     teacher_root_mean_probability: float
     rollbacks: int
+    rollback_examples: int
     mean_rollback_step: float
     rollback_hit_rate: float
+    rollback_example_rate: float
+    initial_root_top1_accuracy: float
+    initial_root_top3_accuracy: float
+    initial_teacher_root_mean_reciprocal_rank: float
+    top1_changed_rate: float
+    teacher_rank_improved_rate: float
+    teacher_rank_degraded_rate: float
+    mean_teacher_rank_delta: float
+    mean_inner_steps_executed: float
+    step_histogram: dict[str, int]
     examples_per_second: float
 
     def to_dict(self) -> dict[str, object]:
@@ -352,8 +363,22 @@ class LAPv1Metrics:
                 6,
             ),
             "rollbacks": self.rollbacks,
+            "rollback_examples": self.rollback_examples,
             "mean_rollback_step": round(self.mean_rollback_step, 6),
             "rollback_hit_rate": round(self.rollback_hit_rate, 6),
+            "rollback_example_rate": round(self.rollback_example_rate, 6),
+            "initial_root_top1_accuracy": round(self.initial_root_top1_accuracy, 6),
+            "initial_root_top3_accuracy": round(self.initial_root_top3_accuracy, 6),
+            "initial_teacher_root_mean_reciprocal_rank": round(
+                self.initial_teacher_root_mean_reciprocal_rank,
+                6,
+            ),
+            "top1_changed_rate": round(self.top1_changed_rate, 6),
+            "teacher_rank_improved_rate": round(self.teacher_rank_improved_rate, 6),
+            "teacher_rank_degraded_rate": round(self.teacher_rank_degraded_rate, 6),
+            "mean_teacher_rank_delta": round(self.mean_teacher_rank_delta, 6),
+            "mean_inner_steps_executed": round(self.mean_inner_steps_executed, 6),
+            "step_histogram": dict(self.step_histogram),
             "examples_per_second": round(self.examples_per_second, 3),
         }
 
@@ -651,9 +676,15 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
                 f"max_inner_steps={current_max_inner_steps} "
                 f"train_loss={train_metrics.total_loss:.4f} "
                 f"val_top1={validation_metrics.root_top1_accuracy:.4f} "
+                f"root_top1={validation_metrics.initial_root_top1_accuracy:.4f} "
                 f"val_mrr={validation_metrics.teacher_root_mean_reciprocal_rank:.4f} "
+                f"root_mrr={validation_metrics.initial_teacher_root_mean_reciprocal_rank:.4f} "
+                f"top1_changed={validation_metrics.top1_changed_rate:.4f} "
+                f"rank_gain={validation_metrics.mean_teacher_rank_delta:.4f} "
+                f"mean_steps={validation_metrics.mean_inner_steps_executed:.4f} "
                 f"rollbacks={validation_metrics.rollbacks} "
-                f"rollback_hit_rate={validation_metrics.rollback_hit_rate:.4f}",
+                f"rollback_hit_rate={validation_metrics.rollback_hit_rate:.4f} "
+                f"rollback_example_rate={validation_metrics.rollback_example_rate:.4f}",
                 flush=True,
             )
 
@@ -864,11 +895,20 @@ def _run_epoch(
     total_step_policy = 0.0
     correct_top1 = 0
     correct_topk = 0
+    initial_correct_top1 = 0
+    initial_correct_topk = 0
     reciprocal_rank_sum = 0.0
+    initial_reciprocal_rank_sum = 0.0
     teacher_probability_sum = 0.0
     rollback_count = 0
+    rollback_example_count = 0
     rollback_step_sum = 0.0
     total_trace_steps = 0
+    top1_changed_count = 0
+    teacher_rank_improved_count = 0
+    teacher_rank_degraded_count = 0
+    teacher_rank_delta_sum = 0.0
+    step_histogram: dict[str, int] = {}
 
     order = list(range(len(examples)))
     if training:
@@ -889,6 +929,7 @@ def _run_epoch(
                 batch["candidate_action_indices"],
                 batch["candidate_mask"],
             )
+            initial_logits = outputs["initial_policy_logits"]
             logits = outputs["final_policy_logits"]
             wdl_logits = outputs["final_value"]["wdl_logits"]
             cp_score = outputs["final_value"]["cp_score"].squeeze(1)
@@ -996,7 +1037,21 @@ def _run_epoch(
 
             probabilities = torch.softmax(logits, dim=1)
             top1_indices = torch.argmax(logits, dim=1)
+            initial_top1_indices = torch.argmax(initial_logits, dim=1)
             topk_indices = torch.topk(logits, k=min(top_k, logits.shape[1]), dim=1).indices
+            initial_topk_indices = torch.topk(
+                initial_logits,
+                k=min(top_k, initial_logits.shape[1]),
+                dim=1,
+            ).indices
+            teacher_ranks = _teacher_ranks(
+                logits,
+                batch["teacher_top1_candidate_index"],
+            )
+            initial_teacher_ranks = _teacher_ranks(
+                initial_logits,
+                batch["teacher_top1_candidate_index"],
+            )
             total_examples += len(batch_examples)
             total_loss += float(loss.item()) * len(batch_examples)
             total_value_wdl += float(value_wdl_loss.item()) * len(batch_examples)
@@ -1018,10 +1073,18 @@ def _run_epoch(
                     topk_indices == batch["teacher_top1_candidate_index"].unsqueeze(1)
                 ).item()
             )
-            reciprocal_rank_sum += _mean_reciprocal_rank(
-                logits,
-                batch["teacher_top1_candidate_index"],
-            ) * len(batch_examples)
+            initial_correct_top1 += int(
+                torch.sum(initial_top1_indices == batch["teacher_top1_candidate_index"]).item()
+            )
+            initial_correct_topk += int(
+                torch.sum(
+                    initial_topk_indices == batch["teacher_top1_candidate_index"].unsqueeze(1)
+                ).item()
+            )
+            reciprocal_rank_sum += float((1.0 / teacher_ranks.float()).sum().item())
+            initial_reciprocal_rank_sum += float(
+                (1.0 / initial_teacher_ranks.float()).sum().item()
+            )
             teacher_probability_sum += float(
                 torch.mean(
                     probabilities.gather(
@@ -1030,12 +1093,26 @@ def _run_epoch(
                     )
                 ).item()
             ) * len(batch_examples)
+            top1_changed_count += int(torch.sum(top1_indices != initial_top1_indices).item())
+            teacher_rank_improved_count += int(
+                torch.sum(teacher_ranks < initial_teacher_ranks).item()
+            )
+            teacher_rank_degraded_count += int(
+                torch.sum(teacher_ranks > initial_teacher_ranks).item()
+            )
+            teacher_rank_delta_sum += float(
+                torch.sum((initial_teacher_ranks - teacher_ranks).float()).item()
+            )
             if stage == "T2" and stage2 is not None:
                 batch_rollbacks = sum(
                     int(mask.sum().item())
                     for mask in step_rollback_masks
                 )
                 rollback_count += batch_rollbacks
+                if step_rollback_masks:
+                    rollback_example_count += int(
+                        torch.stack(step_rollback_masks, dim=0).any(dim=0).sum().item()
+                    )
                 rollback_step_sum += sum(
                     float(step_index)
                     * float(mask.sum().item())
@@ -1045,6 +1122,21 @@ def _run_epoch(
                     int(mask.sum().item())
                     for mask in step_active_masks
                 )
+                if step_active_masks:
+                    batch_step_counts = torch.stack(step_active_masks, dim=0).sum(dim=0)
+                else:
+                    batch_step_counts = torch.zeros(
+                        len(batch_examples),
+                        dtype=torch.long,
+                    )
+            else:
+                batch_step_counts = torch.zeros(
+                    len(batch_examples),
+                    dtype=torch.long,
+                )
+            for step_count in batch_step_counts.tolist():
+                histogram_key = str(int(step_count))
+                step_histogram[histogram_key] = step_histogram.get(histogram_key, 0) + 1
             if training and (
                 batch_index % optimization.log_interval_batches == 0
                 or batch_index == total_batches
@@ -1084,12 +1176,25 @@ def _run_epoch(
         teacher_root_mean_reciprocal_rank=reciprocal_rank_sum / total_examples,
         teacher_root_mean_probability=teacher_probability_sum / total_examples,
         rollbacks=rollback_count,
+        rollback_examples=rollback_example_count,
         mean_rollback_step=(
             0.0 if rollback_count == 0 else rollback_step_sum / rollback_count
         ),
         rollback_hit_rate=(
             0.0 if total_trace_steps == 0 else rollback_count / total_trace_steps
         ),
+        rollback_example_rate=rollback_example_count / total_examples,
+        initial_root_top1_accuracy=initial_correct_top1 / total_examples,
+        initial_root_top3_accuracy=initial_correct_topk / total_examples,
+        initial_teacher_root_mean_reciprocal_rank=(
+            initial_reciprocal_rank_sum / total_examples
+        ),
+        top1_changed_rate=top1_changed_count / total_examples,
+        teacher_rank_improved_rate=teacher_rank_improved_count / total_examples,
+        teacher_rank_degraded_rate=teacher_rank_degraded_count / total_examples,
+        mean_teacher_rank_delta=teacher_rank_delta_sum / total_examples,
+        mean_inner_steps_executed=total_trace_steps / total_examples,
+        step_histogram=dict(sorted(step_histogram.items(), key=lambda item: int(item[0]))),
         examples_per_second=total_examples / duration,
     )
 
@@ -1439,16 +1544,18 @@ def _set_trainable_parameter_groups(
     return selected_parameters, parameter_count
 
 
-def _mean_reciprocal_rank(
+def _teacher_ranks(
     logits: torch.Tensor,
     teacher_top1_candidate_index: torch.Tensor,
-) -> float:
-    reciprocal_rank_sum = 0.0
+) -> torch.Tensor:
+    ranks: list[int] = []
     for row_logits, teacher_index in zip(logits, teacher_top1_candidate_index, strict=True):
         ranked_indices = torch.argsort(row_logits, descending=True)
-        rank = int(torch.nonzero(ranked_indices == teacher_index, as_tuple=False)[0, 0].item()) + 1
-        reciprocal_rank_sum += 1.0 / rank
-    return reciprocal_rank_sum / logits.shape[0]
+        rank = int(
+            torch.nonzero(ranked_indices == teacher_index, as_tuple=False)[0, 0].item()
+        ) + 1
+        ranks.append(rank)
+    return torch.tensor(ranks, dtype=torch.long, device=teacher_top1_candidate_index.device)
 
 
 def _is_better_validation(current: LAPv1Metrics, best: LAPv1Metrics) -> bool:

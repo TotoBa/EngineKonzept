@@ -112,6 +112,10 @@ def test_train_lapv1_stage2_logs_monotonicity_and_rollback_stats(tmp_path: Path)
     assert first_epoch["train"]["deliberation_step_policy_loss"] >= 0.0
     assert "rollbacks" in first_epoch["train"]
     assert "rollback_hit_rate" in first_epoch["train"]
+    assert "rollback_example_rate" in first_epoch["train"]
+    assert "initial_root_top1_accuracy" in first_epoch["validation"]
+    assert "top1_changed_rate" in first_epoch["validation"]
+    assert "step_histogram" in first_epoch["validation"]
     assert first_epoch["train"]["rollback_hit_rate"] >= 0.0
     assert first_epoch["validation"]["deliberation_monotonicity_loss"] >= 0.0
 

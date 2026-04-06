@@ -82,6 +82,20 @@ pass and trains the inner loop to emit `final_candidate_deltas`, with final
 ranking computed as `root + delta`. This makes it much easier to measure
 whether extra steps help or hurt relative to the starting root choice.
 
+6. The trainer must report root-vs-final improvement explicitly.
+
+The current follow-up path now records:
+
+- root vs final `top1`
+- root vs final `MRR`
+- `top1_changed_rate`
+- teacher-rank improved/degraded rates
+- per-example rollback rate
+- mean executed steps plus a step histogram
+
+The inner-loop status stream that UDI wants later is still a separate runtime
+task, but the training/eval side now exposes the same core questions already.
+
 ## Budget semantics
 
 The runtime budget contract is now treated explicitly as:

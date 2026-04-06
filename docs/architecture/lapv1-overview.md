@@ -216,6 +216,18 @@ The current inner-loop update is also residual over the root policy scores:
 This preserves the useful Stage-T1 root prior and lets additional inner steps
 learn targeted corrections instead of repeatedly rewriting the full score vector.
 
+Stage-T2 diagnostics now explicitly compare root vs final behavior:
+
+- root `top1` / root `MRR`
+- final `top1` / final `MRR`
+- `top1_changed_rate`
+- teacher-rank improvement/degradation rates
+- per-example rollback rate
+- mean executed inner steps and step histogram
+
+That makes later UCI-side trace work much easier because the training summary now
+already exposes whether deeper budgets actually helped.
+
 Hard boundaries:
 
 - no recursive tree expansion
