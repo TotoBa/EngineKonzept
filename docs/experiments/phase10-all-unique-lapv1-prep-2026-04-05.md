@@ -176,11 +176,10 @@ The key deltas over Stage-T1 are:
 - warm-start from the completed fast Stage-T1 checkpoint
 - real `stage='T2'` training with schedule `1 -> 2 -> 4`
 - explicit intermediate step-policy supervision for the inner loop
-- much larger warm-start batch size on this host (`1024` instead of `12`)
-  because the current fast trainer stayed well below the host limit even after
-  rising into the `~4 GiB RSS` range at `batch_size=256`
-- frequent logging for this run (`log_interval_batches=2`) so the long T2
-  warm-start remains observable while testing the much larger batch regime
+- larger warm-start batch size on this host (`512` instead of `12`) after the
+  more aggressive `1024` test traded too much throughput for memory footprint
+- periodic logging for this run (`log_interval_batches=48`) so the long T2
+  warm-start remains observable without materially hurting throughput
 - four LAPv1 runtime variants from the same trained checkpoint:
   `inner0`, `inner1`, `inner2`, `auto4`
 
