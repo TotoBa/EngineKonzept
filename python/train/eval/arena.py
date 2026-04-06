@@ -531,6 +531,11 @@ def run_selfplay_arena(
         "standings": standings,
         "matchups": [result.to_dict() for result in matchup_results],
     }
+    summary_path = output_root / "summary.json"
+    summary_path.write_text(
+        json.dumps(summary, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     _write_arena_progress(
         progress_path=progress_path,
         arena_name=spec.name,
@@ -538,6 +543,98 @@ def run_selfplay_arena(
         completed_games=total_games,
         total_matchups=len(matchups),
         completed_matchups=len(matchups),
+        standings=standings,
+        last_game=None,
+        last_matchup=None,
+        status="completed",
+    )
+    return summary
+
+
+def rebuild_selfplay_arena_summary(
+    *,
+    spec: SelfplayArenaSpec,
+    output_root: Path,
+) -> dict[str, object]:
+    """Reconstruct one arena summary from completed session files on disk."""
+    sessions_root = output_root / "sessions"
+    if not sessions_root.exists():
+        raise ValueError(f"{sessions_root}: arena sessions directory does not exist")
+
+    session_paths = sorted(sessions_root.glob("*.json"))
+    if not session_paths:
+        raise ValueError(f"{sessions_root}: no arena session files found")
+
+    matchup_results: list[ArenaMatchupResult] = []
+    standings: dict[str, dict[str, object]] = {
+        agent_name: {
+            "games": 0,
+            "wins": 0,
+            "losses": 0,
+            "draws": 0,
+            "unfinished": 0,
+            "score": 0.0,
+        }
+        for agent_name in spec.agent_specs
+    }
+
+    total_games = 0
+    for session_path in session_paths:
+        payload = json.loads(session_path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError(f"{session_path}: arena session root must be a JSON object")
+        session = SelfplaySessionRecord.from_dict(payload)
+        if not session.games:
+            raise ValueError(f"{session_path}: arena session contained no games")
+        white_agent = session.games[0].white_agent
+        black_agent = session.games[0].black_agent
+        result = _summarize_matchup(
+            session=session,
+            white_agent=white_agent,
+            black_agent=black_agent,
+            session_path=session_path,
+        )
+        matchup_results.append(result)
+        _update_standings(standings, result)
+        total_games += result.game_count
+
+    aggregate = {
+        "matchup_count": len(matchup_results),
+        "game_count": total_games,
+        "mean_games_per_matchup": round(
+            total_games / len(matchup_results),
+            3,
+        ) if matchup_results else 0.0,
+    }
+    summary = {
+        "arena_name": spec.name,
+        "arena_spec_version": spec.spec_version,
+        "schedule_mode": spec.schedule_mode,
+        "parallel_workers": spec.parallel_workers,
+        "opening_selection_seed": spec.opening_selection_seed,
+        "metadata": spec.metadata,
+        "max_plies_adjudication": (
+            spec.max_plies_adjudication.to_dict()
+            if spec.max_plies_adjudication is not None
+            else None
+        ),
+        "aggregate": aggregate,
+        "standings": standings,
+        "matchups": [result.to_dict() for result in matchup_results],
+    }
+    summary_path = output_root / "summary.json"
+    summary_path.write_text(
+        json.dumps(summary, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    progress_path = output_root / "progress.json"
+    _write_arena_progress(
+        progress_path=progress_path,
+        arena_name=spec.name,
+        total_games=total_games,
+        completed_games=total_games,
+        total_matchups=len(matchup_results),
+        completed_matchups=len(matchup_results),
         standings=standings,
         last_game=None,
         last_matchup=None,

@@ -9,6 +9,7 @@ from train.eval.arena import (
     SelfplayArenaMatchupSpec,
     SelfplayArenaSpec,
     _selected_initial_fens_for_arena,
+    rebuild_selfplay_arena_summary,
     run_selfplay_arena,
 )
 from train.eval.planner_runtime import PlannerRootDecision
@@ -181,10 +182,93 @@ def test_run_selfplay_arena_writes_sessions_and_standings(tmp_path: Path) -> Non
     assert summary["aggregate"]["game_count"] == 1
     assert summary["standings"]["white_arm"]["wins"] == 1
     assert summary["standings"]["black_arm"]["losses"] == 1
+    summary_path = output_root / "summary.json"
+    assert summary_path.exists()
+    summary_payload = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert summary_payload["aggregate"]["game_count"] == 1
     session_path = output_root / "sessions" / "01_white_arm_vs_black_arm.json"
     assert session_path.exists()
     progress_path = output_root / "progress.json"
     assert progress_path.exists()
+
+
+def test_rebuild_selfplay_arena_summary_recovers_missing_summary(tmp_path: Path) -> None:
+    start_fen = "8/8/8/8/8/8/8/K6k w - - 0 1"
+    mate_fen = "7k/6Q1/6K1/8/8/8/8/8 b - - 0 1"
+    oracle_examples = {
+        start_fen: _make_example(
+            sample_id="root",
+            fen=start_fen,
+            side_to_move="w",
+            legal_moves=["e2e4"],
+        ),
+        mate_fen: _make_example(
+            sample_id="mate",
+            fen=mate_fen,
+            side_to_move="b",
+            legal_moves=[],
+            is_checkmate=True,
+        ),
+    }
+
+    def _agent_builder(agent_name: str, _spec_path: Path, _repo_root: Path) -> _FakeAgent:
+        return _FakeAgent(
+            name=agent_name,
+            move_map={
+                start_fen: PlannerRootDecision(
+                    move_uci="e2e4",
+                    action_index=0,
+                    next_fen=mate_fen,
+                    selector_name=agent_name,
+                    legal_candidate_count=1,
+                    considered_candidate_count=1,
+                    proposer_score=1.0,
+                    planner_score=1.0,
+                    reply_peak_probability=0.0,
+                    pressure=0.0,
+                    uncertainty=0.0,
+                )
+            },
+        )
+
+    output_root = tmp_path / "arena_output"
+    spec = SelfplayArenaSpec(
+        name="arena_rebuild",
+        agent_specs={"white_arm": "white_spec.json", "black_arm": "black_spec.json"},
+        schedule_mode="explicit",
+        matchups=[
+            SelfplayArenaMatchupSpec(
+                white_agent="white_arm",
+                black_agent="black_arm",
+                games=1,
+                max_plies=2,
+                initial_fens=[start_fen],
+            )
+        ],
+        default_games=1,
+        default_max_plies=2,
+    )
+
+    run_selfplay_arena(
+        spec=spec,
+        repo_root=tmp_path,
+        output_root=output_root,
+        agent_builder=_agent_builder,
+        oracle_loader=lambda fen: oracle_examples[fen],
+    )
+    summary_path = output_root / "summary.json"
+    session_path = output_root / "sessions" / "01_white_arm_vs_black_arm.json"
+    progress_path = output_root / "progress.json"
+    summary_path.unlink()
+
+    rebuilt = rebuild_selfplay_arena_summary(
+        spec=spec,
+        output_root=output_root,
+    )
+
+    assert summary_path.exists()
+    assert rebuilt["aggregate"]["game_count"] == 1
+    assert rebuilt["standings"]["white_arm"]["wins"] == 1
     progress_payload = json.loads(progress_path.read_text(encoding="utf-8"))
     assert progress_payload["status"] == "completed"
     assert progress_payload["completed_games"] == 1
