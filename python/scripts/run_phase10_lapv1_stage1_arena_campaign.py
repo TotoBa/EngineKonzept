@@ -248,7 +248,7 @@ def run_phase10_lapv1_stage1_arena_campaign(
     _log("[phase10] running arena")
     arena_output_root = output_root / "arena"
     arena_summary = run_selfplay_arena(
-        resolved_arena_spec,
+        spec=resolved_arena_spec,
         output_root=arena_output_root,
         repo_root=REPO_ROOT,
     )
