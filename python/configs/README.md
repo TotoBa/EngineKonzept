@@ -304,7 +304,7 @@ It merges the previous `merged_unique`, the prior `400k` unique tier, and the im
   Runtime/arena spec for the preferred fast all-unique Stage-T1 checkpoint.
 
 - [phase10_lapv1_stage1_fast_arena_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage1_fast_arena_all_unique_v1.json)
-  Preferred Phase-10 all-unique long-run spec. It reuses the same merged all-unique raw corpus and reference-arm selection logic as the larger historical run, but rebuilds missing Phase-10 workflow artifacts including the new `lapv1_<split>.jsonl` layer, trains the smaller fast LAPv1 Stage-T1 checkpoint for `2` epochs, and then runs the 8-agent arena against the strongest six current internal references plus `vice_v2`.
+  Preferred Phase-10 all-unique long-run spec. It reuses the same merged all-unique raw corpus and reference-arm selection logic as the larger historical run, but rebuilds missing Phase-10 workflow artifacts including the new `lapv1_<split>.jsonl` layer, trains the smaller fast LAPv1 Stage-T1 checkpoint for `2` epochs, and then runs the `9`-agent arena against the strongest six current internal references plus `vice_v2`. The LAPv1 side now participates twice from the same trained checkpoint, once with `deliberation_max_inner_steps=0` and once with `1`. The reference-arm specs are resolved from the materialized `round_10/active_agent_specs` snapshot of the last completed `vice` evolution run, and the arena now uses the larger `150`-entry Thor opening suite so non-swapped games stay globally unique across unordered pairs.
 
 Use [run_phase10_lapv1_stage1_fast_arena_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase10_lapv1_stage1_fast_arena_longrun.sh) for the preferred current restart path.
 

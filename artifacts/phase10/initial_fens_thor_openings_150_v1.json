@@ -1,0 +1,3048 @@
+{
+  "entries": [
+    {
+      "fen": "rn1qkbnr/ppp2ppp/8/3p4/8/6PB/PPPPP3/RNBQ1RK1 b kq - 0 6",
+      "metadata": {
+        "eco": "A00",
+        "opening_name": "Amar Opening: Paris Gambit, Gent Gambit",
+        "ply_count": 11,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "a:3:A00",
+      "selection_score": 11.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A00"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rn1qkbnr/ppp2ppp/8/3p4/5p2/6PB/PPPPP2P/RNBQ1RK1 b kq - 1 5",
+      "metadata": {
+        "eco": "A00",
+        "opening_name": "Hungarian Opening: Paris Gambit",
+        "ply_count": 9,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "a:47:A00",
+      "selection_score": 9.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A00"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnb1k1nr/pp1pppbp/6p1/q1P5/8/4PN2/PPP2PPP/RNBQKB1R w KQkq - 1 5",
+      "metadata": {
+        "eco": "A04",
+        "opening_name": "Colle System: Rhamphorhynchus Variation",
+        "ply_count": 8,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "a:184:A04",
+      "selection_score": 8.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A04"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rn2kb1r/ppp1pppp/5n2/5bN1/3qp3/2N5/PPPPQPPP/R1B1KB1R w KQkq - 6 6",
+      "metadata": {
+        "eco": "A06",
+        "opening_name": "Zukertort Opening: Tennison Gambit, Brigg's Trap",
+        "ply_count": 10,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "a:239:A06",
+      "selection_score": 10.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A06"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbq1rk1/1p3pbp/p1pp1np1/4p3/2P1P3/2NP2P1/PP2NPBP/R1BQ1RK1 w - - 0 9",
+      "metadata": {
+        "eco": "A10",
+        "opening_name": "English Opening: King's English Variation, Botvinnik System, Prickly Pawn Pass System",
+        "ply_count": 16,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "a:280:A10",
+      "selection_score": 16.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A10"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqkb1r/ppp2ppp/4pn2/8/2p5/5NP1/PP1PPPBP/RNBQK2R w KQkq - 0 5",
+      "metadata": {
+        "eco": "A13",
+        "opening_name": "English Opening: Agincourt Defense, Catalan Defense Accepted",
+        "ply_count": 8,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "a:301:A13",
+      "selection_score": 8.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A13"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbq1rk1/pp2bppp/2p1pn2/3p4/2P5/1P3NP1/PB1PPPBP/RN1Q1RK1 b - - 1 7",
+      "metadata": {
+        "eco": "A14",
+        "opening_name": "R\u00e9ti Opening: Anglo-Slav Variation, Bogoljubow Variation, Stonewall Line",
+        "ply_count": 13,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "a:311:A14",
+      "selection_score": 13.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A14"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqkb1r/pp3ppp/4p3/2pn4/8/2N1PN2/PP1P1PPP/R1BQKB1R w KQkq - 0 6",
+      "metadata": {
+        "eco": "A17",
+        "opening_name": "English Opening: Anglo-Indian Defense",
+        "ply_count": 10,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "a:333:A17",
+      "selection_score": 10.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A17"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqk2r/pppp1pbp/2n3pn/4p3/2P5/2N3P1/PP1PPPBP/1RBQK1NR w Kkq - 4 6",
+      "metadata": {
+        "eco": "A25",
+        "opening_name": "English Opening: Closed, Taimanov Variation",
+        "ply_count": 10,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "a:366:A25",
+      "selection_score": 10.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A25"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqk2r/pppp1pp1/5n1p/4n3/2PN3B/2P5/P3PPPP/R2QKB1R w KQkq - 1 9",
+      "metadata": {
+        "eco": "A28",
+        "opening_name": "English Opening: King's English Variation, Four Knights Variation",
+        "ply_count": 16,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "a:378:A28",
+      "selection_score": 16.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A28"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqk2r/ppp2ppp/2np1n2/2b1p3/2P5/2NP1NP1/PP2PPBP/R1BQK2R b KQkq - 1 6",
+      "metadata": {
+        "eco": "A29",
+        "opening_name": "English Opening: King's English Variation, Four Knights Variation, Fianchetto Line, with .. d6",
+        "ply_count": 11,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "a:390:A29",
+      "selection_score": 11.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A29"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rn1qk2r/pb1pbppp/1p2pn2/2p5/2P5/2N2NP1/PP1PPPBP/R1BQ1RK1 w kq - 4 7",
+      "metadata": {
+        "eco": "A30",
+        "opening_name": "English Opening: Symmetrical Variation, Hedgehog Defense",
+        "ply_count": 12,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "a:399:A30",
+      "selection_score": 12.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A30"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqk1nr/pp1pppbp/2n3p1/2p5/2P1P3/2N3P1/PP1P1PBP/R1BQK1NR b KQkq - 2 5",
+      "metadata": {
+        "eco": "A36",
+        "opening_name": "English Opening: Symmetrical Variation, Botvinnik System",
+        "ply_count": 9,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "a:416:A36",
+      "selection_score": 9.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A36"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bq1rk1/pp1pppbp/2n2np1/2p5/2PP4/2N2NP1/PP2PPBP/R1BQ1RK1 b - - 0 7",
+      "metadata": {
+        "eco": "A39",
+        "opening_name": "English Opening: Symmetrical Variation, Mecking Variation",
+        "ply_count": 13,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "a:425:A39",
+      "selection_score": 13.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A39"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqkbnr/pppp1ppp/8/8/2n5/2N5/PP2PPPP/R1BQKBNR w KQkq - 0 5",
+      "metadata": {
+        "eco": "A40",
+        "opening_name": "Mikenas Defense: Pozarek Gambit",
+        "ply_count": 8,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "a:461:A40",
+      "selection_score": 8.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A40"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqkbnr/pppppppp/8/3PP3/8/8/PPP2PPP/RNBQKBNR w KQkq - 1 5",
+      "metadata": {
+        "eco": "A40",
+        "opening_name": "Zaire Defense",
+        "ply_count": 8,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "a:477:A40",
+      "selection_score": 8.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A40"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqkb1r/ppp1pppp/3p1n2/8/3PP3/2N5/PPP1BP1P/R1BQK1NR b KQkq - 3 5",
+      "metadata": {
+        "eco": "A45",
+        "opening_name": "Indian Defense: Gibbins-Weidenhagen Gambit, Stummer Gambit",
+        "ply_count": 9,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "a:524:A45",
+      "selection_score": 9.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A45"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqk2r/ppp1ppbp/3p1np1/8/3P4/3BPN2/PPP2PPP/RNBQK2R w KQkq - 0 5",
+      "metadata": {
+        "eco": "A48",
+        "opening_name": "Indian Defense: Colle System, King's Indian Variation",
+        "ply_count": 8,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "a:566:A48",
+      "selection_score": 8.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A48"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqkb1r/ppp2ppp/3p4/4P3/2P1P1n1/8/PP3PPP/RNBQKBNR w KQkq - 0 5",
+      "metadata": {
+        "eco": "A52",
+        "opening_name": "Indian Defense: Budapest Defense, Alekhine Variation, Tartakower Defense",
+        "ply_count": 8,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "a:591:A52",
+      "selection_score": 8.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A52"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqkb1r/3ppppp/p4n2/1PpP4/8/4P3/PP3PPP/RNBQKBNR b KQkq - 0 5",
+      "metadata": {
+        "eco": "A57",
+        "opening_name": "Benko Gambit Accepted: Modern Variation",
+        "ply_count": 9,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "a:616:A57",
+      "selection_score": 9.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A57"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rn1qkb1r/4pp1p/b2p1np1/2pP4/8/2N2NP1/PP2PP1P/R1BQKB1R b KQkq - 0 8",
+      "metadata": {
+        "eco": "A58",
+        "opening_name": "Benko Gambit: Fianchetto Variation",
+        "ply_count": 15,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "a:631:A58",
+      "selection_score": 15.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A58"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqkb1r/pp3p1p/3p1np1/2pP4/8/2N2NP1/PP2PP1P/R1BQKB1R b KQkq - 0 7",
+      "metadata": {
+        "eco": "A61",
+        "opening_name": "Benoni Defense: Fianchetto Variation",
+        "ply_count": 13,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "a:640:A61",
+      "selection_score": 13.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A61"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbq1rk1/pp3pbp/3p1np1/2pP4/4P3/2N1BP2/PP1Q2PP/R3KBNR b KQ - 0 9",
+      "metadata": {
+        "eco": "A65",
+        "opening_name": "Benoni Defense: King's Pawn Line",
+        "ply_count": 17,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "a:648:A65",
+      "selection_score": 17.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A65"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqk2r/pp3pbp/3p1np1/2pPP3/5P2/2N5/PP4PP/R1BQKBNR b KQkq - 0 8",
+      "metadata": {
+        "eco": "A66",
+        "opening_name": "Benoni Defense: Mikenas Variation",
+        "ply_count": 15,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "a:655:A66",
+      "selection_score": 15.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A66"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqk2r/pp3pbp/3p1np1/2pP2B1/4P3/2N2N2/PP3PPP/R2QKB1R b KQkq - 2 8",
+      "metadata": {
+        "eco": "A71",
+        "opening_name": "Benoni Defense: Classical Variation, Averbakh-Grivas Attack",
+        "ply_count": 15,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "a:663:A71",
+      "selection_score": 15.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A71"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqr1k1/pp3pbp/n2p1np1/2pP4/4P3/2N2P2/PP1NB1PP/R1BQ1RK1 b - - 0 11",
+      "metadata": {
+        "eco": "A79",
+        "opening_name": "Benoni Defense: Classical Variation, Czerniak Defense",
+        "ply_count": 21,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "a:671:A79",
+      "selection_score": 21.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A79"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqk2r/ppppp1bp/5np1/5p2/2PP4/5NP1/PP2PPBP/RNBQK2R b KQkq - 3 5",
+      "metadata": {
+        "eco": "A87",
+        "opening_name": "Dutch Defense: Leningrad Variation",
+        "ply_count": 9,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "a:717:A87",
+      "selection_score": 9.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A87"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqk2r/ppppb1pp/4pn2/5p2/2PP4/6P1/PP2PPBP/RNBQK1NR w KQkq - 2 5",
+      "metadata": {
+        "eco": "A91",
+        "opening_name": "Dutch Defense: Classical Variation",
+        "ply_count": 8,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "a:725:A91",
+      "selection_score": 8.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A91"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbq1rk1/pp2b1pp/2p1pn2/3p1p2/2PP4/2N2NP1/PP2PPBP/R1BQ1RK1 w - - 0 8",
+      "metadata": {
+        "eco": "A95",
+        "opening_name": "Dutch Defense: Stonewall Variation",
+        "ply_count": 14,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "a:733:A95",
+      "selection_score": 14.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A95"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnb1qrk1/ppp1b1pp/3ppn2/5p2/2PP4/1PN2NP1/P3PPBP/R1BQ1RK1 b - - 0 8",
+      "metadata": {
+        "eco": "A99",
+        "opening_name": "Dutch Defense: Classical Variation, Ilyin-Zhenevsky Variation, Modern Main Line",
+        "ply_count": 15,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "a:741:A99",
+      "selection_score": 15.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "A99"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqkb1r/ppp1pppp/2npP2n/8/3P4/5N1P/PPP2PP1/RNBQKB1R b KQkq - 0 6",
+      "metadata": {
+        "eco": "B00",
+        "opening_name": "Nimzowitsch Defense: El Columpio Defense, El Columpio Gambit",
+        "ply_count": 11,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "b:24:B00",
+      "selection_score": 11.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B00"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnb1kb1r/1pp1pppp/p2q1n2/8/3P4/2N2N2/PPP2PPP/R1BQKB1R w KQkq - 0 6",
+      "metadata": {
+        "eco": "B01",
+        "opening_name": "Scandinavian Defense: Bronstein Variation",
+        "ply_count": 10,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "b:93:B01",
+      "selection_score": 10.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B01"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqkb1r/ppp1pp1p/6p1/3n4/3P4/5N2/PPP2PPP/RNBQKB1R w KQkq - 0 5",
+      "metadata": {
+        "eco": "B01",
+        "opening_name": "Scandinavian Defense: Richter Variation",
+        "ply_count": 8,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "b:121:B01",
+      "selection_score": 8.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B01"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqkb1r/ppp1pp1p/1n1p4/4P1p1/2PP1P2/8/PP4PP/RNBQKBNR w KQkq - 0 6",
+      "metadata": {
+        "eco": "B03",
+        "opening_name": "Alekhine Defense: Four Pawns Attack, Cambridge Gambit",
+        "ply_count": 10,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "b:165:B03",
+      "selection_score": 10.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B03"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rn1qkb1r/ppp1pppp/3p4/3nP3/2PP2b1/5N2/PP3PPP/RNBQKB1R b KQkq - 0 5",
+      "metadata": {
+        "eco": "B05",
+        "opening_name": "Alekhine Defense: Modern Variation, Alekhine Variation",
+        "ply_count": 9,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "b:181:B05",
+      "selection_score": 9.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B05"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnb1k1nr/pp1pppbp/6p1/q1p5/4PP2/2N2N2/PPPP2PP/R1BQKB1R w KQkq - 2 5",
+      "metadata": {
+        "eco": "B06",
+        "opening_name": "Pterodactyl Defense: Austrian, Grand Prix Pterodactyl",
+        "ply_count": 8,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "b:213:B06",
+      "selection_score": 8.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B06"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnb1k1nr/pp1pppbp/6p1/q7/2BNP3/8/PPP2PPP/RNBQK2R w KQkq - 1 6",
+      "metadata": {
+        "eco": "B06",
+        "opening_name": "Pterodactyl Defense: Western, Siroccopteryx",
+        "ply_count": 10,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "b:230:B06",
+      "selection_score": 10.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B06"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbq1rk1/ppp1ppbp/3p1np1/8/3PPP2/2N2N2/PPP3PP/R1BQKB1R w KQ - 3 6",
+      "metadata": {
+        "eco": "B09",
+        "opening_name": "Pirc Defense: Austrian Attack",
+        "ply_count": 10,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "b:256:B09",
+      "selection_score": 10.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B09"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rn1qkbnr/pp3ppp/2p1p3/3pPb2/3P4/2P5/PP2BPPP/RNBQK1NR b KQkq - 1 5",
+      "metadata": {
+        "eco": "B12",
+        "opening_name": "Caro-Kann Defense: Advance, Short Variation",
+        "ply_count": 9,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "b:306:B12",
+      "selection_score": 9.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B12"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqk2r/pp2ppbp/5np1/3P4/3P4/2N5/PP3PPP/R1BQKBNR w KQkq - 1 7",
+      "metadata": {
+        "eco": "B14",
+        "opening_name": "Caro-Kann Defense: Panov Attack, Fianchetto Defense, Fianchetto Gambit",
+        "ply_count": 12,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "b:333:B14",
+      "selection_score": 12.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B14"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqkb1r/pp3ppp/1np1pn2/6N1/3P4/1B6/PPP1QPPP/R1B1K1NR b KQkq - 3 8",
+      "metadata": {
+        "eco": "B17",
+        "opening_name": "Caro-Kann Defense: Karpov Variation, Smyslov Variation, Main Line",
+        "ply_count": 15,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "b:355:B17",
+      "selection_score": 15.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B17"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1b1kbnr/pp3ppp/2n1q3/4p3/1pP5/P4N2/1B1P1PPP/RN1QKB1R w KQkq - 1 8",
+      "metadata": {
+        "eco": "B20",
+        "opening_name": "Sicilian Defense: Wing Gambit, Romanian Defense",
+        "ply_count": 14,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "b:391:B20",
+      "selection_score": 14.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B20"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1b1kb1r/ppqp1ppp/2n1p3/8/2B1P1n1/2N2N2/PP2QPPP/R1B2RK1 w kq - 6 9",
+      "metadata": {
+        "eco": "B21",
+        "opening_name": "Sicilian Defense: Smith-Morra Gambit Accepted, Siberian Variation, Siberian Trap",
+        "ply_count": 16,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "b:417:B21",
+      "selection_score": 16.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B21"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqk1nr/pp1p1pbp/4p1p1/2p5/3nP3/3PB1P1/PPP1NPBP/R2QK1NR b KQkq - 3 7",
+      "metadata": {
+        "eco": "B24",
+        "opening_name": "Sicilian Defense: Closed, Smyslov Variation",
+        "ply_count": 13,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "b:449:B24",
+      "selection_score": 13.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B24"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnb1k1nr/pp1pppbp/6p1/q1P5/4P3/5N2/PPP2PPP/RNBQKB1R w KQkq - 1 5",
+      "metadata": {
+        "eco": "B27",
+        "opening_name": "Pterodactyl Defense: Western, Rhamphorhynchus",
+        "ply_count": 8,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "b:463:B27",
+      "selection_score": 8.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B27"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1b1kbnr/pp1ppppp/1qn5/8/3NP3/8/PPP2PPP/RNBQKB1R w KQkq - 1 5",
+      "metadata": {
+        "eco": "B32",
+        "opening_name": "Sicilian Defense: Godiva Variation",
+        "ply_count": 8,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "b:520:B32",
+      "selection_score": 8.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B32"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqk2r/5pbp/p1np1p2/1p1Np3/4P3/N7/PPP2PPP/R2QKB1R w KQkq - 2 11",
+      "metadata": {
+        "eco": "B33",
+        "opening_name": "Sicilian Defense: Lasker-Pelikan Variation, Sveshnikov Variation, Novosibirsk Variation",
+        "ply_count": 20,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "b:537:B33",
+      "selection_score": 20.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B33"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqkb1r/pp1p1ppp/4pn2/8/3NP3/8/PPP2PPP/RNBQKB1R w KQkq - 1 5",
+      "metadata": {
+        "eco": "B40",
+        "opening_name": "Sicilian Defense: French Variation, Normal",
+        "ply_count": 8,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "b:554:B40",
+      "selection_score": 8.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B40"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqk1nr/1p1p1ppp/p3p3/2b5/3NP3/3B4/PPP2PPP/RNBQK2R w KQkq - 2 6",
+      "metadata": {
+        "eco": "B42",
+        "opening_name": "Sicilian Defense: Kan Variation, Polugaevsky Variation",
+        "ply_count": 10,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "b:575:B42",
+      "selection_score": 10.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B42"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqkbnr/1p1p1ppp/p1n1p3/8/3NP3/2N5/PPP2PPP/R1BQKB1R w KQkq - 0 6",
+      "metadata": {
+        "eco": "B46",
+        "opening_name": "Sicilian Defense: Taimanov Variation",
+        "ply_count": 10,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "b:589:B46",
+      "selection_score": 10.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B46"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqkb1r/pp2pppp/3p1n2/8/2BNP3/8/PPP2PPP/RNBQK2R b KQkq - 2 5",
+      "metadata": {
+        "eco": "B54",
+        "opening_name": "Sicilian Defense: Modern Variations, Ginsberg Gambit",
+        "ply_count": 9,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "b:615:B54",
+      "selection_score": 9.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B54"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqkb1r/pp2pppp/2np1n2/8/3NP3/2N5/PPP1BPPP/R1BQK2R b KQkq - 4 6",
+      "metadata": {
+        "eco": "B58",
+        "opening_name": "Sicilian Defense: Classical Variation",
+        "ply_count": 11,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "b:630:B58",
+      "selection_score": 11.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B58"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1b1kb1r/pp3ppp/1qnppn2/6B1/3NP3/2N5/PPPQ1PPP/R3KB1R w KQkq - 2 8",
+      "metadata": {
+        "eco": "B63",
+        "opening_name": "Sicilian Defense: Richter-Rauzer Variation, Ivanov Variation",
+        "ply_count": 14,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "b:644:B63",
+      "selection_score": 14.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B63"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqkb1r/pp1npp1p/3p1np1/8/3NPP2/2N5/PPP3PP/R1BQKB1R w KQkq - 1 7",
+      "metadata": {
+        "eco": "B71",
+        "opening_name": "Sicilian Defense: Dragon Variation, Levenfish Variation, Main Line",
+        "ply_count": 12,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "b:658:B71",
+      "selection_score": 12.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B71"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r2q1rk1/pp2ppbp/3p1np1/n4P2/2b1P3/1NNBB3/PPP3PP/R2Q1RK1 b - - 2 12",
+      "metadata": {
+        "eco": "B74",
+        "opening_name": "Sicilian Defense: Dragon Variation, Classical Variation, Spielmann Variation",
+        "ply_count": 23,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "b:672:B74",
+      "selection_score": 23.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B74"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "2rq1rk1/pp1bppbp/2np1np1/8/2BNP3/2N1BP2/PPPQ2PP/2KR3R w - - 7 11",
+      "metadata": {
+        "eco": "B78",
+        "opening_name": "Sicilian Defense: Dragon Variation, Yugoslav Attack, Old Line",
+        "ply_count": 20,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "b:687:B78",
+      "selection_score": 20.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B78"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqkb1r/1p1n1ppp/p2ppn2/8/3NP3/2N5/PPP1BPPP/R1BQ1RK1 w kq - 2 8",
+      "metadata": {
+        "eco": "B84",
+        "opening_name": "Sicilian Defense: Najdorf Variation, Scheveningen Variation",
+        "ply_count": 14,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "b:701:B84",
+      "selection_score": 14.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B84"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqkb1r/1p2pppp/p2p1n2/8/3NP3/2N5/PPP2PPP/R1BQKB1R w KQkq - 0 6",
+      "metadata": {
+        "eco": "B90",
+        "opening_name": "Sicilian Defense: Najdorf Variation",
+        "ply_count": 10,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "b:715:B90",
+      "selection_score": 10.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B90"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqkb1r/1p2pppp/p2p1n2/8/3NPP2/2N5/PPP3PP/R1BQKB1R b KQkq - 0 6",
+      "metadata": {
+        "eco": "B93",
+        "opening_name": "Sicilian Defense: Najdorf Variation, Amsterdam Variation",
+        "ply_count": 11,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "b:730:B93",
+      "selection_score": 11.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B93"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1b1k2r/1pqnbppp/p2ppn2/6B1/3NPP2/2N2Q2/PPP3PP/2KR1B1R w kq - 5 10",
+      "metadata": {
+        "eco": "B99",
+        "opening_name": "Sicilian Defense: Najdorf Variation, Main Line",
+        "ply_count": 18,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "b:744:B99",
+      "selection_score": 18.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "B99"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqkbnr/ppp2ppp/8/3p4/3PPp2/8/PPP1Q1PP/RNB1KBNR w KQkq - 0 5",
+      "metadata": {
+        "eco": "C00",
+        "opening_name": "French Defense: Hoffmann Gambit",
+        "ply_count": 8,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "c:15:C00",
+      "selection_score": 8.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C00"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqkbnr/pp3ppp/4p3/8/2Bp4/5N2/PPPN1PPP/R1BQK2R w KQkq - 2 7",
+      "metadata": {
+        "eco": "C07",
+        "opening_name": "French Defense: Tarrasch Variation, Eliskases Variation",
+        "ply_count": 12,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "c:86:C07",
+      "selection_score": 12.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C07"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqk2r/ppp2pp1/4pP1p/3p2B1/1b1P4/2N5/PPP2PPP/R2QKBNR b KQkq - 0 6",
+      "metadata": {
+        "eco": "C12",
+        "opening_name": "French Defense: McCutcheon Variation, Chigorin Variation",
+        "ply_count": 11,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "c:127:C12",
+      "selection_score": 11.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C12"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnb1k2r/pppnqppp/4p3/3pP3/3P4/2NB4/PPP2PPP/R2QK1NR b KQkq - 1 7",
+      "metadata": {
+        "eco": "C14",
+        "opening_name": "French Defense: Classical Variation, Tarrasch Variation",
+        "ply_count": 13,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "c:155:C14",
+      "selection_score": 13.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C14"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnb1k2r/ppq1nppp/4p3/2ppP3/3P2Q1/P1P5/2P2PPP/R1B1KBNR w KQkq - 3 8",
+      "metadata": {
+        "eco": "C19",
+        "opening_name": "French Defense: Winawer Variation, Poisoned Pawn Variation",
+        "ply_count": 14,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "c:188:C19",
+      "selection_score": 14.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C19"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqkbnr/pppp1p1p/2n5/6N1/4PppP/2N5/PPPP2P1/R1BQKB1R b KQkq - 1 6",
+      "metadata": {
+        "eco": "C25",
+        "opening_name": "Vienna Gambit, with Max Lange Defense: Hamppe-Allgaier Gambit",
+        "ply_count": 11,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "c:284:C25",
+      "selection_score": 11.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C25"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqkb1r/ppp3pp/8/3pPp2/4n3/2N2Q2/PPPP2PP/R1B1KBNR w KQkq f6 0 6",
+      "metadata": {
+        "eco": "C29",
+        "opening_name": "Vienna Game: Vienna Gambit, Bardeleben Variation",
+        "ply_count": 10,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "c:335:C29",
+      "selection_score": 10.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C29"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqkb1r/ppp2ppp/5n2/3B4/4Pp2/8/PPPP2PP/RNBQK1NR w KQkq - 1 5",
+      "metadata": {
+        "eco": "C33",
+        "opening_name": "King's Gambit Accepted: Bishop's Gambit, Bledow Countergambit",
+        "ply_count": 8,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "c:403:C33",
+      "selection_score": 8.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C33"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqkbnr/pppp1p1p/2n5/6p1/2B1Pp2/5N2/PPPP2PP/RNBQK2R w KQkq - 0 5",
+      "metadata": {
+        "eco": "C37",
+        "opening_name": "King's Gambit Accepted: Blachly Gambit",
+        "ply_count": 8,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "c:466:C37",
+      "selection_score": 8.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C37"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnb1kb1r/pppp1p1p/7n/4N3/2BPP1pq/5p2/PPP3PP/RNBQ1K1R w kq - 0 8",
+      "metadata": {
+        "eco": "C37",
+        "opening_name": "King's Gambit Accepted: Silberschmidt Gambit",
+        "ply_count": 14,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "c:497:C37",
+      "selection_score": 14.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C37"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqkbnr/pppp1p1p/2n5/4N3/4PppP/8/PPPP2P1/RNBQKB1R w KQkq - 2 6",
+      "metadata": {
+        "eco": "C39",
+        "opening_name": "King's Gambit Accepted: Kieseritzky Gambit, Neumann Defense",
+        "ply_count": 10,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "c:525:C39",
+      "selection_score": 10.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C39"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqkbnr/pp1n1ppp/2pp4/4p3/2BPP3/5N2/PPP2PPP/RNBQ1RK1 b kq - 1 5",
+      "metadata": {
+        "eco": "C41",
+        "opening_name": "Philidor Defense: Hanham Variation, Krause Variation",
+        "ply_count": 9,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "c:588:C41",
+      "selection_score": 9.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C41"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqk2r/ppp1bppp/2n5/3p4/2PPn3/3B1N2/PP3PPP/RNBQ1RK1 b kq - 0 8",
+      "metadata": {
+        "eco": "C42",
+        "opening_name": "Petrov's Defense: Classical Attack, Jaenisch Variation",
+        "ply_count": 15,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "c:630:C42",
+      "selection_score": 15.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C42"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r2qkbnr/pppb1ppp/2n5/3pp3/Q3P3/2P2N2/PP1P1PPP/RNB1KB1R w KQkq - 2 5",
+      "metadata": {
+        "eco": "C44",
+        "opening_name": "Ponziani Opening: Caro Gambit",
+        "ply_count": 8,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "c:682:C44",
+      "selection_score": 8.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C44"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1b1k1nr/pppp1ppp/2n2q2/1Nb5/4P3/4B3/PPP2PPP/RN1QKB1R b KQkq - 4 6",
+      "metadata": {
+        "eco": "C45",
+        "opening_name": "Scotch Game: Blumenfeld Attack",
+        "ply_count": 11,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "c:725:C45",
+      "selection_score": 11.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C45"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "1rb1kbnr/pp1p1ppp/3P1qn1/1N6/5P2/8/PPP3PP/R1BQKB1R w KQk - 3 12",
+      "metadata": {
+        "eco": "C47",
+        "opening_name": "Four Knights Game: Halloween Gambit, Plasma Variation",
+        "ply_count": 22,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "c:761:C47",
+      "selection_score": 22.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C47"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bq1rk1/ppp2ppp/2n2n2/1B1pp3/4P3/2PP1N2/P1P2PPP/R1BQ1RK1 w - - 0 8",
+      "metadata": {
+        "eco": "C49",
+        "opening_name": "Four Knights Game: Spanish Variation, Svenonius Variation",
+        "ply_count": 14,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "c:792:C49",
+      "selection_score": 14.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C49"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1b3nr/ppppkBpp/1b6/nP2N1qQ/4P3/8/P1PP1PPP/RNB1K2R b KQ - 2 8",
+      "metadata": {
+        "eco": "C51",
+        "opening_name": "Italian Game: Evans Gambit Declined, Vasquez Variation",
+        "ply_count": 15,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "c:831:C51",
+      "selection_score": 15.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C51"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqk1nr/ppp2ppp/1bnp4/4p3/2BPP3/2P2N2/P4PPP/RNBQ1RK1 w kq - 1 8",
+      "metadata": {
+        "eco": "C52",
+        "opening_name": "Italian Game: Evans Gambit, Lasker Defense",
+        "ply_count": 14,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "c:859:C52",
+      "selection_score": 14.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C52"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bq1rk1/bpp2ppp/p1np1n2/4p3/4P3/1BPP1N1P/PP3PP1/RNBQR1K1 b - - 0 9",
+      "metadata": {
+        "eco": "C54",
+        "opening_name": "Italian Game: Classical Variation, Giuoco Pianissimo, Main Line",
+        "ply_count": 17,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "c:888:C54",
+      "selection_score": 17.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C54"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r3kb1r/ppp2ppp/2n1b3/3q2B1/3pN3/5N2/PPP2PPP/R2QR1K1 b kq - 4 11",
+      "metadata": {
+        "eco": "C56",
+        "opening_name": "Italian Game: Scotch Gambit, Anderssen Attack, Main Line",
+        "ply_count": 21,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "c:918:C56",
+      "selection_score": 21.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C56"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqk2r/ppp2ppp/2n5/3np1N1/1bBP4/8/PPP2PPP/RNBQK2R w KQkq - 1 7",
+      "metadata": {
+        "eco": "C57",
+        "opening_name": "Italian Game: Two Knights Defense, Pincus Variation",
+        "ply_count": 12,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "c:948:C57",
+      "selection_score": 12.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C57"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1b1kbnr/ppp2ppp/2N5/1B1p2q1/4P3/8/PPPP1PPP/RNBQK2R b KQkq - 0 5",
+      "metadata": {
+        "eco": "C60",
+        "opening_name": "Ruy Lopez: Spanish Countergambit, Harding Gambit",
+        "ply_count": 9,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "c:988:C60",
+      "selection_score": 9.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C60"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r2qk2r/pppbbppp/2np1n2/1B2p3/3PP3/2N2N2/PPP2PPP/R1BQ1RK1 w kq - 3 7",
+      "metadata": {
+        "eco": "C66",
+        "opening_name": "Ruy Lopez: Berlin Defense, Hedgehog Variation",
+        "ply_count": 12,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "c:1030:C66",
+      "selection_score": 12.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C66"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqk1nr/1pp2ppp/p1pb4/4p3/4P3/5N2/PPPP1PPP/RNBQ1RK1 w kq - 2 6",
+      "metadata": {
+        "eco": "C69",
+        "opening_name": "Ruy Lopez: Exchange Variation, King's Bishop Variation",
+        "ply_count": 10,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "c:1059:C69",
+      "selection_score": 10.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C69"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqkb1r/1ppp1ppp/p1B2n2/4p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 0 5",
+      "metadata": {
+        "eco": "C77",
+        "opening_name": "Ruy Lopez: Morphy Defense, Bayreuth Variation",
+        "ply_count": 9,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "c:1088:C77",
+      "selection_score": 9.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C77"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqkb1r/2p2ppp/p1n5/1p1pp3/2PPn3/1B3N2/PP3PPP/RNBQ1RK1 b kq - 0 8",
+      "metadata": {
+        "eco": "C80",
+        "opening_name": "Ruy Lopez: Open, Harksen Gambit",
+        "ply_count": 15,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "c:1116:C80",
+      "selection_score": 15.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C80"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqk2r/1pppbppp/p1n2n2/4p3/B3P3/3P1N2/PPP2PPP/RNBQ1RK1 b kq - 0 6",
+      "metadata": {
+        "eco": "C84",
+        "opening_name": "Ruy Lopez: Closed, Martinez Variation",
+        "ply_count": 11,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "c:1144:C84",
+      "selection_score": 11.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C84"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bq1rk1/2p1bppp/p1np1n2/1p2p3/4P3/PBP2N2/1P1P1PPP/RNBQR1K1 b - - 0 9",
+      "metadata": {
+        "eco": "C90",
+        "opening_name": "Ruy Lopez: Closed, Suetin Variation",
+        "ply_count": 17,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "c:1172:C90",
+      "selection_score": 17.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C90"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1b2rk1/2q1bppp/p2p1n2/np2p3/3PP3/5N1P/PPBN1PP1/R1BQR1K1 b - - 0 13",
+      "metadata": {
+        "eco": "C99",
+        "opening_name": "Ruy Lopez: Closed, Chigorin Defense, Panov System",
+        "ply_count": 25,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "c:1200:C99",
+      "selection_score": 25.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "C99"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqkb1r/ppp1pppp/5n2/8/3P4/2N2p2/PPP3PP/R1BQKBNR w KQkq - 0 5",
+      "metadata": {
+        "eco": "D00",
+        "opening_name": "Blackmar-Diemer Gambit Accepted",
+        "ply_count": 8,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "d:4:D00",
+      "selection_score": 8.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D00"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqkb1r/p1p1pppp/1p3n2/8/3P4/2N2N2/PPP3PP/R1BQKB1R w KQkq - 0 6",
+      "metadata": {
+        "eco": "D00",
+        "opening_name": "Blackmar-Diemer Gambit Accepted: Ritter Defense",
+        "ply_count": 10,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "d:17:D00",
+      "selection_score": 10.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D00"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqkb1r/pp2pppp/2p2n2/8/3Pp3/2N2P2/PPP3PP/R1BQKBNR w KQkq - 0 5",
+      "metadata": {
+        "eco": "D00",
+        "opening_name": "Blackmar-Diemer Gambit Declined: O'Kelly Defense",
+        "ply_count": 8,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "d:30:D00",
+      "selection_score": 8.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D00"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqkb1r/pp3ppp/4pn2/2pp4/3P4/1P2PN2/P1PN1PPP/R1BQKB1R b KQkq - 0 5",
+      "metadata": {
+        "eco": "D05",
+        "opening_name": "Queen's Pawn Game: Zukertort Variation",
+        "ply_count": 9,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "d:106:D05",
+      "selection_score": 9.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D05"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r3k1nr/ppp1qppp/2n5/4P3/1bPp4/5N1P/PP1BPPP1/R2QKB1R w KQkq - 3 9",
+      "metadata": {
+        "eco": "D08",
+        "opening_name": "Queen's Gambit Declined: Albin Countergambit, Krenosz Variation",
+        "ply_count": 16,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "d:140:D08",
+      "selection_score": 16.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D08"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rn1qkb1r/pp2pppp/2p2n2/3p1b2/2PP4/4PN2/PP3PPP/RNBQKB1R w KQkq - 1 5",
+      "metadata": {
+        "eco": "D12",
+        "opening_name": "Slav Defense: Quiet Variation, Schallopp Defense",
+        "ply_count": 8,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "d:166:D12",
+      "selection_score": 8.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D12"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqkb1r/pp2pppp/2p2n2/8/P1pP4/2N2N2/1P2PPPP/R1BQKB1R b KQkq - 0 5",
+      "metadata": {
+        "eco": "D16",
+        "opening_name": "Slav Defense: Alapin Variation",
+        "ply_count": 9,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "d:180:D16",
+      "selection_score": 9.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D16"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r2qkb1r/pp2pppp/n1p2n2/5b2/P1pP4/2N1PN2/1P3PPP/R1BQKB1R w KQkq - 1 7",
+      "metadata": {
+        "eco": "D18",
+        "opening_name": "Slav Defense: Czech Variation, Lasker Variation",
+        "ply_count": 12,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "d:193:D18",
+      "selection_score": 12.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D18"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqkb1r/1pp1pppp/p4n2/8/2pPP3/2N2N2/PP3PPP/R1BQKB1R b KQkq - 0 5",
+      "metadata": {
+        "eco": "D24",
+        "opening_name": "Queen's Gambit Accepted: Bogoljubow Defense",
+        "ply_count": 9,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "d:226:D24",
+      "selection_score": 9.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D24"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqkb1r/1p3ppp/p3pn2/2p5/2BPP3/5N2/PP3PPP/RNBQ1RK1 b kq - 0 7",
+      "metadata": {
+        "eco": "D27",
+        "opening_name": "Queen's Gambit Accepted: Classical Defense, Russian Gambit",
+        "ply_count": 13,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "d:241:D27",
+      "selection_score": 13.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D27"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqk2r/ppp2ppp/4pn2/3p2B1/1bPP4/5N2/PP2PPPP/RN1QKB1R w KQkq - 2 5",
+      "metadata": {
+        "eco": "D30",
+        "opening_name": "Queen's Gambit Declined: Vienna Variation",
+        "ply_count": 8,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "d:257:D30",
+      "selection_score": 8.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D30"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqk1nr/p4ppp/4p3/1p6/2pP4/2P1PN2/5PPP/R1BQKB1R w KQkq - 0 9",
+      "metadata": {
+        "eco": "D31",
+        "opening_name": "Semi-Slav Defense: Noteboom Variation, Abrahams Variation",
+        "ply_count": 16,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "d:277:D31",
+      "selection_score": 16.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D31"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqkb1r/pp3ppp/2n2n2/2pp4/3P4/2N2NP1/PP2PP1P/R1BQKB1R w KQkq - 1 7",
+      "metadata": {
+        "eco": "D33",
+        "opening_name": "Tarrasch Defense: Prague Variation",
+        "ply_count": 12,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "d:291:D33",
+      "selection_score": 12.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D33"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqr1k1/pp2bpp1/2n2n1p/3p4/3N4/2N1B1P1/PP2PPBP/R2Q1RK1 w - - 2 12",
+      "metadata": {
+        "eco": "D34",
+        "opening_name": "Tarrasch Defense: Classical Variation, Main Line",
+        "ply_count": 22,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "d:304:D34",
+      "selection_score": 22.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D34"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1b2rk1/pp3ppp/2n1pn2/q1bp4/2P2B2/P1N1PN2/1PQ2PPP/2KR1B1R b - - 2 10",
+      "metadata": {
+        "eco": "D37",
+        "opening_name": "Queen's Gambit Declined: Harrwitz Attack",
+        "ply_count": 19,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "d:320:D37",
+      "selection_score": 19.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D37"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqk2r/ppp2ppp/4pn2/6B1/1bpP4/2N2N2/PP2PPPP/R2QKB1R w KQkq - 0 6",
+      "metadata": {
+        "eco": "D39",
+        "opening_name": "Queen's Gambit Declined: Ragozin Defense, Vienna Variation",
+        "ply_count": 10,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "d:334:D39",
+      "selection_score": 10.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D39"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqkb1r/pp3ppp/2p1pn2/3p4/2PP4/2N2N2/PP2PPPP/R1BQKB1R w KQkq - 0 5",
+      "metadata": {
+        "eco": "D43",
+        "opening_name": "Semi-Slav Defense",
+        "ply_count": 8,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "d:347:D43",
+      "selection_score": 8.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D43"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqkb1r/pp1n1ppp/2p1pn2/3p4/2PP4/2N1PN2/PPQ2PPP/R1B1KB1R b KQkq - 3 6",
+      "metadata": {
+        "eco": "D45",
+        "opening_name": "Semi-Slav Defense: Stoltz Variation",
+        "ply_count": 11,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "d:360:D45",
+      "selection_score": 11.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D45"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqkb1r/pp1n1ppp/2p1pn2/3p4/2PP4/2NBPN2/PP3PPP/R1BQK2R b KQkq - 3 6",
+      "metadata": {
+        "eco": "D46",
+        "opening_name": "Semi-Slav Defense: Main Line",
+        "ply_count": 11,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "d:373:D46",
+      "selection_score": 11.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D46"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqkb1r/3n1ppp/p3pn2/1N2P3/3p4/3B1N2/PP3PPP/R1BQK2R b KQkq - 0 11",
+      "metadata": {
+        "eco": "D49",
+        "opening_name": "Semi-Slav Defense: Meran Variation, Blumenfeld Variation",
+        "ply_count": 21,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "d:387:D49",
+      "selection_score": 21.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D49"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqk2r/pppn1ppp/4pn2/3p2B1/1bPP4/2N1P3/PP3PPP/R2QKBNR w KQkq - 1 6",
+      "metadata": {
+        "eco": "D51",
+        "opening_name": "Queen's Gambit Declined: Manhattan Variation",
+        "ply_count": 10,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "d:401:D51",
+      "selection_score": 10.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D51"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqk2r/ppp1bppp/4pn2/3p2B1/2PP4/2N5/PP2PPPP/R2QKBNR w KQkq - 4 5",
+      "metadata": {
+        "eco": "D53",
+        "opening_name": "Queen's Gambit Declined",
+        "ply_count": 8,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "d:414:D53",
+      "selection_score": 8.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D53"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnb2rk1/ppp2pp1/3q3p/3p4/3P4/1QP1PN2/P4PPP/R3KB1R w KQ - 2 12",
+      "metadata": {
+        "eco": "D57",
+        "opening_name": "Queen's Gambit Declined: Lasker Defense, Bernstein Variation",
+        "ply_count": 22,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "d:427:D57",
+      "selection_score": 22.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D57"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bq1rk1/1ppnbppp/p3pn2/3p2B1/2PP4/2N1PN2/PP3PPP/2RQKB1R w K - 0 8",
+      "metadata": {
+        "eco": "D63",
+        "opening_name": "Queen's Gambit Declined: Orthodox Defense, Henneberger Variation",
+        "ply_count": 14,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "d:440:D63",
+      "selection_score": 14.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D63"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1b2rk1/pp1nqppp/2p1p3/3n4/2BP4/2N1PN2/PP3PPP/2RQK2R w K - 0 11",
+      "metadata": {
+        "eco": "D67",
+        "opening_name": "Queen's Gambit Declined: Orthodox Defense, Bd3 Line",
+        "ply_count": 20,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "d:453:D67",
+      "selection_score": 20.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D67"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbq1rk1/ppp1ppbp/5np1/3p4/2PP4/5NP1/PP2PPBP/RNBQ1RK1 b - - 0 6",
+      "metadata": {
+        "eco": "D77",
+        "opening_name": "Neo-Gr\u00fcnfeld Defense: Classical Variation",
+        "ply_count": 11,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "d:469:D77",
+      "selection_score": 11.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D77"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqk2r/pp2ppbp/6p1/2p5/3PP3/2P2N2/P4PPP/R1BQKB1R w KQkq - 0 8",
+      "metadata": {
+        "eco": "D85",
+        "opening_name": "Gr\u00fcnfeld Defense: Exchange Variation, Modern Exchange Variation",
+        "ply_count": 14,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "d:490:D85",
+      "selection_score": 14.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D85"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r2q1rk1/pp2ppbp/4b1p1/n2P4/4P3/3BBP2/P3N1PP/R2Q1RK1 b - - 0 14",
+      "metadata": {
+        "eco": "D89",
+        "opening_name": "Gr\u00fcnfeld Defense: Exchange Variation, Sokolsky Variation",
+        "ply_count": 27,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "d:503:D89",
+      "selection_score": 27.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D89"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbq1rk1/ppp2pbp/4pnp1/3p4/2PP4/1QN1PN2/PP3PPP/R1B1KB1R w KQ - 0 7",
+      "metadata": {
+        "eco": "D95",
+        "opening_name": "Gr\u00fcnfeld Defense: Botvinnik Variation",
+        "ply_count": 12,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "d:517:D95",
+      "selection_score": 12.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D95"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rn1q1rk1/pp1nppbp/6p1/2p5/3PP1b1/1QN1BN2/PP3PPP/R3KB1R w KQ - 0 10",
+      "metadata": {
+        "eco": "D99",
+        "opening_name": "Gr\u00fcnfeld Defense: Russian Variation, Yugoslav Variation",
+        "ply_count": 18,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "d:530:D99",
+      "selection_score": 18.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "D99"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqkb1r/ppp2ppp/4pn2/8/2pP4/6P1/PP2PPBP/RNBQK1NR w KQkq - 0 5",
+      "metadata": {
+        "eco": "E02",
+        "opening_name": "Catalan Opening: Open Defense",
+        "ply_count": 8,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "e:8:E02",
+      "selection_score": 8.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E02"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r2q1rk1/pb2bppp/npp1pn2/3p4/2PPP3/5NP1/PPQN1PBP/R1B2RK1 w - - 1 10",
+      "metadata": {
+        "eco": "E06",
+        "opening_name": "Catalan Opening: Closed",
+        "ply_count": 18,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "e:18:E06",
+      "selection_score": 18.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E06"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bq1rk1/p2nbppp/1pp1pn2/3p4/P1PP4/5NP1/1PQ1PPBP/RNBR2K1 b - - 0 9",
+      "metadata": {
+        "eco": "E08",
+        "opening_name": "Catalan Opening: Closed, Zagoryansky Variation",
+        "ply_count": 17,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "e:27:E08",
+      "selection_score": 17.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E08"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqkb1r/p2p1pp1/5n1p/1ppP2B1/8/5N2/PP2PPPP/RN1QKB1R w KQkq - 0 7",
+      "metadata": {
+        "eco": "E10",
+        "opening_name": "Blumenfeld Countergambit: Spielmann Variation",
+        "ply_count": 12,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "e:37:E10",
+      "selection_score": 12.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E10"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bq1rk1/pp1nbppp/2p1pn2/3p4/2PP4/5NP1/PPQBPPBP/RN3RK1 w - - 0 9",
+      "metadata": {
+        "eco": "E11",
+        "opening_name": "Bogo-Indian Defense: Retreat Variation",
+        "ply_count": 16,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "e:53:E11",
+      "selection_score": 16.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E11"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rn1qkb1r/pbp2ppp/1p2p3/3n4/3P4/P1N2N2/1PQ1PPPP/R1B1KB1R b KQkq - 1 7",
+      "metadata": {
+        "eco": "E12",
+        "opening_name": "Queen's Indian Defense: Kasparov-Petrosian Variation, Kasparov Attack",
+        "ply_count": 13,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "e:65:E12",
+      "selection_score": 13.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E12"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rn1qk2r/pbpp1pp1/1p2pn1p/8/1bPP3B/2N2N2/PP2PPPP/R2QKB1R w KQkq - 2 7",
+      "metadata": {
+        "eco": "E13",
+        "opening_name": "Queen's Indian Defense: Kasparov Variation",
+        "ply_count": 12,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "e:76:E13",
+      "selection_score": 12.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E13"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rn1qkb1r/pb1p1ppp/1p3n2/2pp4/2P4N/6P1/PP2PPBP/RNBQK2R b KQkq - 1 7",
+      "metadata": {
+        "eco": "E15",
+        "opening_name": "Queen's Indian Defense: Fianchetto Variation, Rubinstein Variation",
+        "ply_count": 13,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "e:88:E15",
+      "selection_score": 13.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E15"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rn1q1rk1/pbppbppp/1p2pn2/8/2PP4/1P3NP1/P3PPBP/RNBQ1RK1 b - - 0 7",
+      "metadata": {
+        "eco": "E17",
+        "opening_name": "Queen's Indian Defense: Euwe Variation",
+        "ply_count": 13,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "e:98:E17",
+      "selection_score": 13.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E17"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqk2r/pp1p1ppp/4p3/2pP4/1bP1n3/2N2N2/PP2PPPP/R1BQKB1R w KQkq - 1 6",
+      "metadata": {
+        "eco": "E21",
+        "opening_name": "Nimzo-Indian Defense: Three Knights Variation, Euwe Variation",
+        "ply_count": 10,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "e:114:E21",
+      "selection_score": 10.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E21"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqk2r/pp3ppp/4p3/2Pn4/8/P1P2P2/4P1PP/R1BQKBNR b KQkq - 0 8",
+      "metadata": {
+        "eco": "E25",
+        "opening_name": "Nimzo-Indian Defense: S\u00e4misch Variation, Keres Variation",
+        "ply_count": 15,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "e:125:E25",
+      "selection_score": 15.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E25"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbq1rk1/p1pp1ppp/1p2pn2/8/2PP4/P1Q5/1P2PPPP/R1B1KBNR w KQ - 0 7",
+      "metadata": {
+        "eco": "E32",
+        "opening_name": "Nimzo-Indian Defense: Classical Variation, Keres Defense",
+        "ply_count": 12,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "e:137:E32",
+      "selection_score": 12.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E32"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqk2r/pp3ppp/4pn2/2pp4/2PP4/P1Q5/1P2PPPP/R1B1KBNR w KQkq - 0 7",
+      "metadata": {
+        "eco": "E36",
+        "opening_name": "Nimzo-Indian Defense: Classical Variation, Romanishin Gambit",
+        "ply_count": 12,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "e:147:E36",
+      "selection_score": 12.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E36"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bqk2r/pppp1ppp/2n1pn2/8/1bPP4/2N1P3/PP3PPP/R1BQKBNR w KQkq - 1 5",
+      "metadata": {
+        "eco": "E40",
+        "opening_name": "Nimzo-Indian Defense: Rubinstein System, Taimanov Variation",
+        "ply_count": 8,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "e:157:E40",
+      "selection_score": 8.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E40"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rn1q1rk1/pbpp1ppp/1p2pn2/8/1bPP4/2NBPN2/PP3PPP/R1BQ1RK1 b - - 5 7",
+      "metadata": {
+        "eco": "E43",
+        "opening_name": "Nimzo-Indian Defense: St. Petersburg Variation",
+        "ply_count": 13,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "e:167:E43",
+      "selection_score": 13.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E43"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqk2r/p1pp1ppp/1p2p3/8/1bPPn3/2N1P3/PP2NPPP/R1BQKB1R w KQkq - 2 6",
+      "metadata": {
+        "eco": "E44",
+        "opening_name": "Nimzo-Indian Defense: St. Petersburg Variation, American Variation",
+        "ply_count": 10,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "e:177:E44",
+      "selection_score": 10.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E44"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbq1rk1/pppp1ppp/4pn2/8/1bPP4/2N1PN2/PP3PPP/R1BQKB1R b KQ - 2 5",
+      "metadata": {
+        "eco": "E50",
+        "opening_name": "Nimzo-Indian Defense",
+        "ply_count": 9,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "e:187:E50",
+      "selection_score": 9.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E50"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbq1rk1/pp3ppp/4pn2/2p5/1bBP4/2N1PN2/PP3PPP/R1BQ1RK1 b - - 0 8",
+      "metadata": {
+        "eco": "E54",
+        "opening_name": "Nimzo-Indian Defense: Normal Variation, Gligoric System, Exchange Variation",
+        "ply_count": 15,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "e:196:E54",
+      "selection_score": 15.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E54"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnb2rk1/pp2ppbp/1qpp1np1/8/2PP4/2N2NP1/PP2PPBP/R1BQ1RK1 w - - 2 8",
+      "metadata": {
+        "eco": "E61",
+        "opening_name": "King's Indian Defense: Fianchetto Variation, Benjamin Defense",
+        "ply_count": 14,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "e:218:E61",
+      "selection_score": 14.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E61"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r2q1rk1/ppp1ppbp/2np1np1/8/2PP2b1/2N2NP1/PP2PPBP/R1BQ1RK1 w - - 5 8",
+      "metadata": {
+        "eco": "E62",
+        "opening_name": "King's Indian Defense: Fianchetto Variation, Simagin Variation",
+        "ply_count": 14,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "e:228:E62",
+      "selection_score": 14.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E62"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbq1rk1/pp2ppbp/3p1np1/2p5/2PP4/5NP1/PP2PPBP/RNBQ1RK1 w - - 0 7",
+      "metadata": {
+        "eco": "E64",
+        "opening_name": "King's Indian Defense: Fianchetto Variation, Yugoslav System",
+        "ply_count": 12,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "e:237:E64",
+      "selection_score": 12.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E64"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqk2r/ppp1ppbp/3p1np1/6B1/2PPP3/2N5/PP3PPP/R2QKBNR b KQkq - 1 5",
+      "metadata": {
+        "eco": "E70",
+        "opening_name": "King's Indian Defense: Accelerated Averbakh Variation",
+        "ply_count": 9,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "e:247:E70",
+      "selection_score": 9.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E70"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bq1rk1/pp2ppbp/n1pp1np1/6B1/2PPP3/2N5/PP1QBPPP/R3K1NR w KQ - 0 8",
+      "metadata": {
+        "eco": "E73",
+        "opening_name": "King's Indian Defense: Averbakh Variation, Modern Defense, Burgess Line",
+        "ply_count": 14,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "e:258:E73",
+      "selection_score": 14.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E73"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbq1rk1/pp2ppbp/3p1np1/2pP4/2P1PP2/2N2N2/PP4PP/R1BQKB1R b KQ - 0 7",
+      "metadata": {
+        "eco": "E76",
+        "opening_name": "King's Indian Defense: Four Pawns Attack, Dynamic Attack",
+        "ply_count": 13,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "e:268:E76",
+      "selection_score": 13.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E76"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbq1rk1/ppp1ppbp/3p1np1/6B1/2PPP3/2N2P2/PP4PP/R2QKBNR b KQ - 2 6",
+      "metadata": {
+        "eco": "E81",
+        "opening_name": "King's Indian Defense: Steiner Attack",
+        "ply_count": 11,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "e:277:E81",
+      "selection_score": 11.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E81"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "1rbq1rk1/ppp1ppbp/2np1np1/8/2PPP3/2N1BP2/PP2N1PP/R2QKB1R w KQ - 5 8",
+      "metadata": {
+        "eco": "E83",
+        "opening_name": "King's Indian Defense: S\u00e4misch Variation, Ruban Variation",
+        "ply_count": 14,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "e:287:E83",
+      "selection_score": 14.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E83"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "rnbqk2r/ppp1ppbp/3p1np1/8/2PPP3/2N2N2/PP3PPP/R1BQKB1R b KQkq - 1 5",
+      "metadata": {
+        "eco": "E90",
+        "opening_name": "King's Indian Defense: Normal Variation, Rare Defenses",
+        "ply_count": 9,
+        "side_to_move": "b"
+      },
+      "result": "*",
+      "sample_id": "e:297:E90",
+      "selection_score": 9.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E90"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bq1rk1/pppn1pbp/3p1np1/3Pp3/2P1P3/2N2N2/PP2BPPP/R1BQK2R w KQ - 1 8",
+      "metadata": {
+        "eco": "E93",
+        "opening_name": "King's Indian Defense: Petrosian Variation, Normal Defense",
+        "ply_count": 14,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "e:307:E93",
+      "selection_score": 14.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E93"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bq1rk1/ppp2pbp/2np1np1/4p3/2PPP3/2N2N2/PP2BPPP/R1BQ1RK1 w - - 2 8",
+      "metadata": {
+        "eco": "E97",
+        "opening_name": "King's Indian Defense: Orthodox Variation, Aronin-Taimanov Defense",
+        "ply_count": 14,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "e:316:E97",
+      "selection_score": 14.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E97"
+      ],
+      "tier": "thor_openings"
+    },
+    {
+      "fen": "r1bq1rk1/pppnn1bp/3p2p1/3Ppp2/2P1P3/2N2P2/PP2B1PP/R1BQNRK1 w - - 0 11",
+      "metadata": {
+        "eco": "E99",
+        "opening_name": "King's Indian Defense: Orthodox Variation, Classical System, Traditional Line",
+        "ply_count": 20,
+        "side_to_move": "w"
+      },
+      "result": "*",
+      "sample_id": "e:326:E99",
+      "selection_score": 20.0,
+      "source_path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+      "tags": [
+        "opening",
+        "thor_openings",
+        "E99"
+      ],
+      "tier": "thor_openings"
+    }
+  ],
+  "metadata": {
+    "entries_per_file": 30,
+    "file_summaries": [
+      {
+        "candidate_count": 226,
+        "path": "/home/torsten/EngineKonzept/../Thor_CE/openings/a.tsv",
+        "sample_ids": [
+          "a:3:A00",
+          "a:47:A00",
+          "a:184:A04",
+          "a:239:A06",
+          "a:280:A10",
+          "a:301:A13",
+          "a:311:A14",
+          "a:333:A17",
+          "a:366:A25",
+          "a:378:A28",
+          "a:390:A29",
+          "a:399:A30",
+          "a:416:A36",
+          "a:425:A39",
+          "a:461:A40",
+          "a:477:A40",
+          "a:524:A45",
+          "a:566:A48",
+          "a:591:A52",
+          "a:616:A57",
+          "a:631:A58",
+          "a:640:A61",
+          "a:648:A65",
+          "a:655:A66",
+          "a:663:A71",
+          "a:671:A79",
+          "a:717:A87",
+          "a:725:A91",
+          "a:733:A95",
+          "a:741:A99"
+        ],
+        "selected_count": 30
+      },
+      {
+        "candidate_count": 416,
+        "path": "/home/torsten/EngineKonzept/../Thor_CE/openings/b.tsv",
+        "sample_ids": [
+          "b:24:B00",
+          "b:93:B01",
+          "b:121:B01",
+          "b:165:B03",
+          "b:181:B05",
+          "b:213:B06",
+          "b:230:B06",
+          "b:256:B09",
+          "b:306:B12",
+          "b:333:B14",
+          "b:355:B17",
+          "b:391:B20",
+          "b:417:B21",
+          "b:449:B24",
+          "b:463:B27",
+          "b:520:B32",
+          "b:537:B33",
+          "b:554:B40",
+          "b:575:B42",
+          "b:589:B46",
+          "b:615:B54",
+          "b:630:B58",
+          "b:644:B63",
+          "b:658:B71",
+          "b:672:B74",
+          "b:687:B78",
+          "b:701:B84",
+          "b:715:B90",
+          "b:730:B93",
+          "b:744:B99"
+        ],
+        "selected_count": 30
+      },
+      {
+        "candidate_count": 813,
+        "path": "/home/torsten/EngineKonzept/../Thor_CE/openings/c.tsv",
+        "sample_ids": [
+          "c:15:C00",
+          "c:86:C07",
+          "c:127:C12",
+          "c:155:C14",
+          "c:188:C19",
+          "c:284:C25",
+          "c:335:C29",
+          "c:403:C33",
+          "c:466:C37",
+          "c:497:C37",
+          "c:525:C39",
+          "c:588:C41",
+          "c:630:C42",
+          "c:682:C44",
+          "c:725:C45",
+          "c:761:C47",
+          "c:792:C49",
+          "c:831:C51",
+          "c:859:C52",
+          "c:888:C54",
+          "c:918:C56",
+          "c:948:C57",
+          "c:988:C60",
+          "c:1030:C66",
+          "c:1059:C69",
+          "c:1088:C77",
+          "c:1116:C80",
+          "c:1144:C84",
+          "c:1172:C90",
+          "c:1200:C99"
+        ],
+        "selected_count": 30
+      },
+      {
+        "candidate_count": 382,
+        "path": "/home/torsten/EngineKonzept/../Thor_CE/openings/d.tsv",
+        "sample_ids": [
+          "d:4:D00",
+          "d:17:D00",
+          "d:30:D00",
+          "d:106:D05",
+          "d:140:D08",
+          "d:166:D12",
+          "d:180:D16",
+          "d:193:D18",
+          "d:226:D24",
+          "d:241:D27",
+          "d:257:D30",
+          "d:277:D31",
+          "d:291:D33",
+          "d:304:D34",
+          "d:320:D37",
+          "d:334:D39",
+          "d:347:D43",
+          "d:360:D45",
+          "d:373:D46",
+          "d:387:D49",
+          "d:401:D51",
+          "d:414:D53",
+          "d:427:D57",
+          "d:440:D63",
+          "d:453:D67",
+          "d:469:D77",
+          "d:490:D85",
+          "d:503:D89",
+          "d:517:D95",
+          "d:530:D99"
+        ],
+        "selected_count": 30
+      },
+      {
+        "candidate_count": 283,
+        "path": "/home/torsten/EngineKonzept/../Thor_CE/openings/e.tsv",
+        "sample_ids": [
+          "e:8:E02",
+          "e:18:E06",
+          "e:27:E08",
+          "e:37:E10",
+          "e:53:E11",
+          "e:65:E12",
+          "e:76:E13",
+          "e:88:E15",
+          "e:98:E17",
+          "e:114:E21",
+          "e:125:E25",
+          "e:137:E32",
+          "e:147:E36",
+          "e:157:E40",
+          "e:167:E43",
+          "e:177:E44",
+          "e:187:E50",
+          "e:196:E54",
+          "e:218:E61",
+          "e:228:E62",
+          "e:237:E64",
+          "e:247:E70",
+          "e:258:E73",
+          "e:268:E76",
+          "e:277:E81",
+          "e:287:E83",
+          "e:297:E90",
+          "e:307:E93",
+          "e:316:E97",
+          "e:326:E99"
+        ],
+        "selected_count": 30
+      }
+    ],
+    "min_ply_count": 8,
+    "source": "thor_openings_tsv"
+  },
+  "name": "phase10_thor_openings_150_v1",
+  "spec_version": 1
+}

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import json
 from pathlib import Path
 import subprocess
@@ -35,6 +35,29 @@ class Phase10ReferenceAgentSpec:
 
 
 @dataclass(frozen=True)
+class Phase10Lapv1AgentVariantSpec:
+    name: str
+    deliberation_max_inner_steps: int = 0
+    deliberation_q_threshold: float | None = None
+    tags: tuple[str, ...] = ()
+    metadata: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, object]) -> "Phase10Lapv1AgentVariantSpec":
+        return cls(
+            name=str(payload["name"]),
+            deliberation_max_inner_steps=int(payload.get("deliberation_max_inner_steps", 0)),
+            deliberation_q_threshold=(
+                float(payload["deliberation_q_threshold"])
+                if payload.get("deliberation_q_threshold") is not None
+                else None
+            ),
+            tags=tuple(str(value) for value in list(payload.get("tags") or [])),
+            metadata={str(key): value for key, value in dict(payload.get("metadata") or {}).items()},
+        )
+
+
+@dataclass(frozen=True)
 class Phase10Lapv1ArenaCampaignSpec:
     name: str
     output_root: str
@@ -58,10 +81,12 @@ class Phase10Lapv1ArenaCampaignSpec:
     workflow_log_every: int = 1000
     lapv1_config_path: str = ""
     lapv1_agent_spec_path: str = ""
+    lapv1_agent_variants: tuple[Phase10Lapv1AgentVariantSpec, ...] = ()
     lapv1_verify_output_path: str = ""
     reference_arena_summary_path: str = ""
     reference_verify_matrix_path: str | None = None
     reference_agents: tuple[Phase10ReferenceAgentSpec, ...] = ()
+    reference_active_agent_specs_dir: str | None = None
     reference_excluded_agents: tuple[str, ...] = ("symbolic_root_v1", "vice_v2")
     top_reference_agents_count: int = 6
     benchmark_agent_specs: dict[str, str] = field(default_factory=dict)
@@ -98,6 +123,10 @@ class Phase10Lapv1ArenaCampaignSpec:
             workflow_log_every=int(payload.get("workflow_log_every", 1000)),
             lapv1_config_path=str(payload["lapv1_config_path"]),
             lapv1_agent_spec_path=str(payload["lapv1_agent_spec_path"]),
+            lapv1_agent_variants=tuple(
+                Phase10Lapv1AgentVariantSpec.from_dict(dict(entry))
+                for entry in list(payload.get("lapv1_agent_variants") or [])
+            ),
             lapv1_verify_output_path=str(payload["lapv1_verify_output_path"]),
             reference_arena_summary_path=str(payload["reference_arena_summary_path"]),
             reference_verify_matrix_path=(
@@ -108,6 +137,11 @@ class Phase10Lapv1ArenaCampaignSpec:
             reference_agents=tuple(
                 Phase10ReferenceAgentSpec.from_dict(dict(entry))
                 for entry in list(payload.get("reference_agents") or [])
+            ),
+            reference_active_agent_specs_dir=(
+                str(payload["reference_active_agent_specs_dir"])
+                if payload.get("reference_active_agent_specs_dir") is not None
+                else None
             ),
             reference_excluded_agents=tuple(
                 str(value) for value in list(payload.get("reference_excluded_agents") or [])
@@ -180,6 +214,7 @@ def run_phase10_lapv1_stage1_arena_campaign(
         "benchmark_agents": spec.benchmark_agent_specs,
         "lapv1_config_path": str(lapv1_config_path),
         "lapv1_agent_spec_path": str(_resolve_repo_path(Path(spec.lapv1_agent_spec_path))),
+        "lapv1_agent_variants": [variant.name for variant in spec.lapv1_agent_variants],
     }
     if dry_run:
         return {"dry_run": True, **plan}
@@ -227,17 +262,17 @@ def run_phase10_lapv1_stage1_arena_campaign(
 
     _log("[phase10] writing resolved LAPv1 agent spec")
     tracked_lapv1_agent_path = _resolve_repo_path(Path(spec.lapv1_agent_spec_path))
-    resolved_lapv1_agent_path = output_root / "lapv1_agent_spec.resolved.json"
-    write_selfplay_agent_spec(
-        resolved_lapv1_agent_path,
-        _load_agent_spec(tracked_lapv1_agent_path),
+    resolved_lapv1_agent_paths = _materialize_resolved_lapv1_agent_specs(
+        spec=spec,
+        tracked_lapv1_agent_path=tracked_lapv1_agent_path,
+        output_root=output_root,
     )
 
-    _log("[phase10] materializing resolved 8-agent arena spec")
+    _log("[phase10] materializing resolved arena spec")
     resolved_arena_spec = _build_resolved_arena_spec(
         spec,
         selected_reference_agents,
-        lapv1_agent_path=resolved_lapv1_agent_path,
+        lapv1_agent_paths=resolved_lapv1_agent_paths,
     )
     resolved_arena_spec_path = output_root / "arena_spec.resolved.json"
     resolved_arena_spec_path.write_text(
@@ -263,7 +298,10 @@ def run_phase10_lapv1_stage1_arena_campaign(
         "workflow_summary_path": str(workflow_summary_path),
         "lapv1_summary_path": str(lapv1_summary_path),
         "lapv1_checkpoint": str(lapv1_checkpoint),
-        "lapv1_agent_spec_path": str(resolved_lapv1_agent_path),
+        "lapv1_agent_spec_paths": {
+            name: str(path)
+            for name, path in resolved_lapv1_agent_paths.items()
+        },
         "lapv1_verify_path": str(lapv1_verify_path),
         "lapv1_verify_metrics": lapv1_verify_metrics,
         "resolved_arena_spec_path": str(resolved_arena_spec_path),
@@ -389,21 +427,27 @@ def _build_resolved_arena_spec(
     spec: Phase10Lapv1ArenaCampaignSpec,
     selected_reference_agents: Sequence[str],
     *,
-    lapv1_agent_path: Path | None = None,
+    lapv1_agent_paths: Mapping[str, Path] | None = None,
 ) -> SelfplayArenaSpec:
     initial_fens = load_selfplay_initial_fen_suite(
         _resolve_repo_path(Path(spec.initial_fen_suite_path))
     ).fen_list()
+    reference_agent_paths = _resolve_reference_agent_paths(spec, selected_reference_agents)
+    lapv1_specs = (
+        {
+            name: str(path)
+            for name, path in lapv1_agent_paths.items()
+        }
+        if lapv1_agent_paths is not None
+        else {
+            "lapv1_stage1_all_unique_v1": str(
+                _resolve_repo_path(Path(spec.lapv1_agent_spec_path))
+            )
+        }
+    )
     agent_specs = {
-        "lapv1_stage1_all_unique_v1": str(
-            lapv1_agent_path
-            if lapv1_agent_path is not None
-            else _resolve_repo_path(Path(spec.lapv1_agent_spec_path))
-        ),
-        **{
-            name: str(_resolve_repo_path(Path(_reference_agent_paths(spec)[name])))
-            for name in selected_reference_agents
-        },
+        **lapv1_specs,
+        **reference_agent_paths,
         **{
             name: str(_resolve_repo_path(Path(path)))
             for name, path in spec.benchmark_agent_specs.items()
@@ -430,6 +474,7 @@ def _build_resolved_arena_spec(
         metadata={
             "campaign_name": spec.name,
             "purpose": "lapv1_stage1_bootstrap_vs_top6_plus_vice",
+            "lapv1_agent_names": list(lapv1_specs),
             "reference_arena_summary_path": spec.reference_arena_summary_path,
             "selected_reference_agents": list(selected_reference_agents),
         },
@@ -438,6 +483,76 @@ def _build_resolved_arena_spec(
 
 def _reference_agent_paths(spec: Phase10Lapv1ArenaCampaignSpec) -> dict[str, str]:
     return {entry.name: entry.spec_path for entry in spec.reference_agents}
+
+
+def _resolve_reference_agent_paths(
+    spec: Phase10Lapv1ArenaCampaignSpec,
+    selected_reference_agents: Sequence[str],
+) -> dict[str, str]:
+    configured_paths = _reference_agent_paths(spec)
+    active_specs_dir = (
+        _resolve_repo_path(Path(spec.reference_active_agent_specs_dir))
+        if spec.reference_active_agent_specs_dir is not None
+        else None
+    )
+    resolved: dict[str, str] = {}
+    missing: list[str] = []
+    for name in selected_reference_agents:
+        candidate_path: Path | None = None
+        if active_specs_dir is not None:
+            active_spec_path = active_specs_dir / f"{name}.json"
+            if active_spec_path.exists():
+                candidate_path = active_spec_path
+        if candidate_path is None and name in configured_paths:
+            candidate_path = _resolve_repo_path(Path(configured_paths[name]))
+        if candidate_path is None or not candidate_path.exists():
+            missing.append(name)
+            continue
+        resolved[name] = str(candidate_path)
+    if missing:
+        raise ValueError(
+            "missing resolved reference agent specs for: " + ", ".join(sorted(missing))
+        )
+    return resolved
+
+
+def _materialize_resolved_lapv1_agent_specs(
+    *,
+    spec: Phase10Lapv1ArenaCampaignSpec,
+    tracked_lapv1_agent_path: Path,
+    output_root: Path,
+) -> dict[str, Path]:
+    base_spec = _load_agent_spec(tracked_lapv1_agent_path)
+    if not spec.lapv1_agent_variants:
+        resolved_path = output_root / "lapv1_agent_spec.resolved.json"
+        write_selfplay_agent_spec(resolved_path, base_spec)
+        return {base_spec.name: resolved_path}
+
+    resolved_root = output_root / "lapv1_agent_specs"
+    resolved_root.mkdir(parents=True, exist_ok=True)
+    resolved: dict[str, Path] = {}
+    for variant in spec.lapv1_agent_variants:
+        variant_spec = replace(
+            base_spec,
+            name=variant.name,
+            deliberation_max_inner_steps=variant.deliberation_max_inner_steps,
+            deliberation_q_threshold=(
+                variant.deliberation_q_threshold
+                if variant.deliberation_q_threshold is not None
+                else base_spec.deliberation_q_threshold
+            ),
+            tags=list(dict.fromkeys([*base_spec.tags, *variant.tags])),
+            metadata={
+                **dict(base_spec.metadata),
+                **dict(variant.metadata),
+                "lapv1_variant": variant.name,
+                "deliberation_max_inner_steps": variant.deliberation_max_inner_steps,
+            },
+        )
+        resolved_path = resolved_root / f"{variant.name}.json"
+        write_selfplay_agent_spec(resolved_path, variant_spec)
+        resolved[variant.name] = resolved_path
+    return resolved
 
 
 def _load_agent_spec(path: Path) -> Any:

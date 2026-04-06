@@ -8,6 +8,7 @@ from train.datasets.schema import DatasetExample, PositionEncoding, TacticalAnno
 from train.eval.arena import (
     SelfplayArenaMatchupSpec,
     SelfplayArenaSpec,
+    _selected_initial_fens_for_arena,
     run_selfplay_arena,
 )
 from train.eval.planner_runtime import PlannerRootDecision
@@ -297,3 +298,39 @@ def test_opening_selection_seed_reuses_same_openings_across_swapped_colors(tmp_p
     second_initials = [game["initial_fen"] for game in second_session["games"]]
     assert first_initials == second_initials
     assert len(set(first_initials)) == 4
+
+
+def test_round_robin_unique_openings_are_global_per_unordered_pair() -> None:
+    openings = [f"opening_{index}" for index in range(6)]
+    spec = SelfplayArenaSpec(
+        name="unique_round_robin",
+        agent_specs={"a": "a.json", "b": "b.json", "c": "c.json"},
+        schedule_mode="round_robin",
+        default_games=2,
+        default_max_plies=12,
+        default_initial_fens=openings,
+        opening_selection_seed=19,
+        round_robin_swap_colors=True,
+    )
+    matchups = spec.expanded_matchups()
+    selected = _selected_initial_fens_for_arena(spec=spec, matchups=matchups)
+    selected_by_name = {
+        (matchup.white_agent, matchup.black_agent): openings_for_matchup
+        for matchup, openings_for_matchup in zip(matchups, selected, strict=True)
+    }
+
+    assert selected_by_name[("a", "b")] == selected_by_name[("b", "a")]
+    assert selected_by_name[("a", "c")] == selected_by_name[("c", "a")]
+    assert selected_by_name[("b", "c")] == selected_by_name[("c", "b")]
+
+    unique_unordered_openings = {
+        tuple(sorted((white, black))): tuple(openings_for_matchup)
+        for (white, black), openings_for_matchup in selected_by_name.items()
+    }
+    all_unique_games = [
+        opening
+        for openings_for_matchup in unique_unordered_openings.values()
+        for opening in openings_for_matchup
+    ]
+    assert len(all_unique_games) == 6
+    assert len(set(all_unique_games)) == 6

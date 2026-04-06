@@ -294,6 +294,10 @@ def run_selfplay_arena(
     progress_path = output_root / "progress.json"
 
     matchups = spec.expanded_matchups()
+    selected_initial_fens_by_matchup = _selected_initial_fens_for_arena(
+        spec=spec,
+        matchups=matchups,
+    )
     total_games = sum(matchup.games for matchup in matchups)
 
     matchup_results: list[ArenaMatchupResult] = []
@@ -334,10 +338,7 @@ def run_selfplay_arena(
                 game_index=game_index,
                 white_agent=matchup.white_agent,
                 black_agent=matchup.black_agent,
-                initial_fen=_selected_initial_fens_for_matchup(
-                    spec=spec,
-                    matchup=matchup,
-                )[game_index],
+                initial_fen=selected_initial_fens_by_matchup[matchup_index - 1][game_index],
                 max_plies=matchup.max_plies or spec.default_max_plies,
                 repo_root=str(repo_root),
                 agent_specs=dict(spec.agent_specs),
@@ -466,7 +467,7 @@ def run_selfplay_arena(
                     black_agent=agents[matchup.black_agent],
                     repo_root=repo_root,
                     games=matchup.games,
-                    initial_fens=_selected_initial_fens_for_matchup(spec=spec, matchup=matchup),
+                    initial_fens=selected_initial_fens_by_matchup[matchup_index - 1],
                     max_plies=matchup.max_plies or spec.default_max_plies,
                     oracle_loader=oracle_loader,
                     adjudicator=adjudicator,
@@ -792,10 +793,12 @@ def _selected_initial_fens_for_matchup(
     spec: SelfplayArenaSpec,
     matchup: SelfplayArenaMatchupSpec,
 ) -> list[str]:
-    available_fens = [
-        _normalize_initial_fen(fen)
-        for fen in (matchup.initial_fens or spec.default_initial_fens)
-    ]
+    available_fens = list(
+        dict.fromkeys(
+            _normalize_initial_fen(fen)
+            for fen in (matchup.initial_fens or spec.default_initial_fens)
+        )
+    )
     if not available_fens:
         raise ValueError("arena matchup requires at least one initial FEN")
     if spec.opening_selection_seed is None or len(available_fens) == 1:
@@ -811,6 +814,85 @@ def _selected_initial_fens_for_matchup(
         remaining = matchup.games - len(selected_fens)
         selected_fens.extend(cycle_fens[:remaining])
     return selected_fens
+
+
+def _selected_initial_fens_for_arena(
+    *,
+    spec: SelfplayArenaSpec,
+    matchups: list[SelfplayArenaMatchupSpec],
+) -> list[list[str]]:
+    if not _can_assign_unique_round_robin_openings(spec=spec, matchups=matchups):
+        return [
+            _selected_initial_fens_for_matchup(spec=spec, matchup=matchup)
+            for matchup in matchups
+        ]
+    return _selected_initial_fens_for_round_robin_arena(spec=spec, matchups=matchups)
+
+
+def _can_assign_unique_round_robin_openings(
+    *,
+    spec: SelfplayArenaSpec,
+    matchups: list[SelfplayArenaMatchupSpec],
+) -> bool:
+    if spec.schedule_mode != "round_robin":
+        return False
+    if not spec.round_robin_swap_colors or spec.opening_selection_seed is None:
+        return False
+    if not matchups:
+        return False
+    base_fens = list(
+        dict.fromkeys(_normalize_initial_fen(fen) for fen in spec.default_initial_fens)
+    )
+    if not base_fens:
+        return False
+    if any(matchup.max_plies != spec.default_max_plies for matchup in matchups):
+        return False
+    if any(matchup.initial_fens and list(matchup.initial_fens) != list(spec.default_initial_fens) for matchup in matchups):
+        return False
+
+    grouped: dict[tuple[str, str], list[SelfplayArenaMatchupSpec]] = {}
+    for matchup in matchups:
+        unordered_pair = tuple(sorted((matchup.white_agent, matchup.black_agent)))
+        grouped.setdefault(unordered_pair, []).append(matchup)
+    if any(len(group) != 2 for group in grouped.values()):
+        return False
+    if any(group[0].games != group[1].games for group in grouped.values()):
+        return False
+
+    games_per_unordered_pair = next(iter(grouped.values()))[0].games
+    if any(group[0].games != games_per_unordered_pair for group in grouped.values()):
+        return False
+    required_unique_openings = len(grouped) * games_per_unordered_pair
+    return len(base_fens) >= required_unique_openings
+
+
+def _selected_initial_fens_for_round_robin_arena(
+    *,
+    spec: SelfplayArenaSpec,
+    matchups: list[SelfplayArenaMatchupSpec],
+) -> list[list[str]]:
+    available_fens = list(
+        dict.fromkeys(_normalize_initial_fen(fen) for fen in spec.default_initial_fens)
+    )
+    rng = random.Random(spec.opening_selection_seed)
+    shuffled_fens = list(available_fens)
+    rng.shuffle(shuffled_fens)
+
+    unordered_pairs = sorted({
+        tuple(sorted((matchup.white_agent, matchup.black_agent)))
+        for matchup in matchups
+    })
+    games_per_unordered_pair = matchups[0].games
+    pair_openings: dict[tuple[str, str], list[str]] = {}
+    cursor = 0
+    for unordered_pair in unordered_pairs:
+        pair_openings[unordered_pair] = shuffled_fens[cursor: cursor + games_per_unordered_pair]
+        cursor += games_per_unordered_pair
+
+    return [
+        list(pair_openings[tuple(sorted((matchup.white_agent, matchup.black_agent)))])
+        for matchup in matchups
+    ]
 
 
 def _normalize_initial_fen(value: str) -> str:

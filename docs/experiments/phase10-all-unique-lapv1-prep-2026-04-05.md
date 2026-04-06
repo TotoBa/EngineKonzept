@@ -75,6 +75,14 @@ At prep time that resolves to:
 5. `planner_set_v6_expanded_v1`
 6. `planner_set_v6_rank_expanded_v1`
 
+The arena no longer relies on the tracked repo agent specs for those reference
+arms. It now prefers the materialized active specs from:
+
+- [/srv/schach/engine_training/phase9/evolution_round03_vice_v1/iterations/round_10/active_agent_specs](/srv/schach/engine_training/phase9/evolution_round03_vice_v1/iterations/round_10/active_agent_specs)
+
+so the resumed Phase-10 arena uses the exact checkpoint paths that actually
+survived the last completed evolution run.
+
 ## New long-run path
 
 The new long-run entry point is:
@@ -92,11 +100,21 @@ Its stages are:
 2. build a full LAPv1 planner-head workflow over that tier
 3. train LAPv1 Stage-T1 for `2` epochs
 4. evaluate the held-out LAPv1 verify slice
-5. run one 8-agent arena with:
-   - LAPv1
+5. run one 9-agent arena with:
+   - LAPv1 with `deliberation_max_inner_steps=0`
+   - LAPv1 with `deliberation_max_inner_steps=1`
    - the dynamic top-6 planner arms from the last `vice` run
    - `vice_v2`
 6. write arena summary plus matrix under one output root
+
+The fast arena restart also no longer reuses the small `14`-entry mixed opening
+suite. It now points at a larger Thor-derived opening pool:
+
+- [initial_fens_thor_openings_150_v1.json](/home/torsten/EngineKonzept/artifacts/phase10/initial_fens_thor_openings_150_v1.json)
+
+with `150` seeded openings. Round-robin opening selection is assigned globally
+per unordered pair, so every non-swapped game in the `9`-agent arena gets a
+unique starting position while the color-swapped rematch keeps the same opening.
 
 Status visibility is now explicit in every long stage:
 
@@ -136,6 +154,7 @@ changes three things deliberately:
 - dedicated precomputed `lapv1_*` training artifacts
 - smaller `lapv1_stage1_fast_all_unique_v1` model (`19.8M` params instead of `77.3M`)
 - `batch_size=12` for materially better CPU throughput
+- two runtime LAPv1 arena variants from the same trained checkpoint (`inner0` and `inner1`)
 
 Remaining scale TODOs observed during this prep/resume cycle:
 

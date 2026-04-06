@@ -276,7 +276,13 @@ the smaller fast follow-up:
 That fast variant cuts the Stage-T1 bootstrap model from roughly `77.3M`
 parameters (`~295 MB` FP32) to `19.8M` parameters (`~75.7 MB` FP32), raises the
 batch size to `12`, and keeps the first all-unique LAPv1 benchmark within a
-realistic CPU budget before the arena stage.
+realistic CPU budget before the arena stage. The paired arena config now also
+resolves its six legacy reference arms from the materialized `round_10`
+`active_agent_specs` snapshot of the last completed `vice` evolution run and
+uses two runtime LAPv1 variants from the same trained checkpoint (`inner0` and
+`inner1`). It also switches to a `150`-opening Thor suite with global per-pair
+opening assignment, so non-swapped arena games stay unique while color-swapped
+rematches keep the same opening.
 
 The same trainer now also supports a first stage-T2 extension with
 deliberation enabled under a bounded `max_inner_steps` curriculum,

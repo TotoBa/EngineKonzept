@@ -22,9 +22,40 @@
   "workflow_log_every": 1000,
   "lapv1_config_path": "python/configs/phase10_lapv1_stage1_fast_all_unique_v1.json",
   "lapv1_agent_spec_path": "python/configs/phase10_agent_lapv1_stage1_fast_all_unique_v1.json",
+  "lapv1_agent_variants": [
+    {
+      "name": "lapv1_stage1_all_unique_v1_inner0",
+      "deliberation_max_inner_steps": 0,
+      "tags": [
+        "lapv1",
+        "stage1",
+        "fast",
+        "all_unique",
+        "inner0"
+      ],
+      "metadata": {
+        "variant_role": "root_only"
+      }
+    },
+    {
+      "name": "lapv1_stage1_all_unique_v1_inner1",
+      "deliberation_max_inner_steps": 1,
+      "tags": [
+        "lapv1",
+        "stage1",
+        "fast",
+        "all_unique",
+        "inner1"
+      ],
+      "metadata": {
+        "variant_role": "one_deliberation_step"
+      }
+    }
+  ],
   "lapv1_verify_output_path": "/srv/schach/engine_training/phase10/lapv1_workflow_all_unique_v1/all_unique_verify_v1/lapv1_test.jsonl",
   "reference_arena_summary_path": "/srv/schach/engine_training/phase9/evolution_round03_vice_v1/final/arena/summary.json",
   "reference_verify_matrix_path": "/srv/schach/engine_training/phase9/evolution_round03_vice_v1/final/planner_verify_matrix.json",
+  "reference_active_agent_specs_dir": "/srv/schach/engine_training/phase9/evolution_round03_vice_v1/iterations/round_10/active_agent_specs",
   "reference_agents": [
     {
       "name": "planner_active_expanded_v2",
@@ -79,7 +110,7 @@
   "benchmark_agent_specs": {
     "vice_v2": "python/configs/phase9_agent_uci_vice_v2.json"
   },
-  "initial_fen_suite_path": "artifacts/phase9/initial_fens_active_replay_campaign_adjudicated_v2.json",
+  "initial_fen_suite_path": "artifacts/phase10/initial_fens_thor_openings_150_v1.json",
   "arena_default_games": 4,
   "arena_parallel_workers": 6,
   "arena_default_max_plies": 96,
