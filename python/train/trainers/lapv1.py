@@ -554,7 +554,11 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
                 f"{initial_checkpoint_path}: unsupported initial LAPv1 model name "
                 f"{initial_payload.get('model_name')!r}"
             )
-        model.load_state_dict(dict(initial_payload["model_state_dict"]))
+        _load_lapv1_model_state(
+            model,
+            dict(initial_payload["model_state_dict"]),
+            checkpoint_path=initial_checkpoint_path,
+        )
         aux_state_dict = initial_payload.get("aux_state_dict")
         if isinstance(aux_state_dict, dict):
             aux_probe.load_state_dict(dict(aux_state_dict))
@@ -756,6 +760,45 @@ def count_lapv1_model_parameters(config: LAPv1TrainConfig) -> int:
     return sum(parameter.numel() for parameter in model.parameters())
 
 
+def _load_lapv1_model_state(
+    model: LAPv1Model,
+    state_dict: Mapping[str, Any],
+    *,
+    checkpoint_path: Path,
+) -> None:
+    compatible_missing_prefixes = (
+        "deliberation_loop.cell.candidate_delta_network.",
+    )
+    incompatible_missing_keys = [
+        key
+        for key in model.state_dict().keys()
+        if key not in state_dict
+        and not key.startswith(compatible_missing_prefixes)
+    ]
+    if incompatible_missing_keys:
+        raise RuntimeError(
+            f"{checkpoint_path}: incompatible LAPv1 checkpoint is missing required keys: "
+            + ", ".join(sorted(incompatible_missing_keys))
+        )
+    load_result = model.load_state_dict(dict(state_dict), strict=False)
+    unexpected_keys = list(load_result.unexpected_keys)
+    if unexpected_keys:
+        raise RuntimeError(
+            f"{checkpoint_path}: incompatible LAPv1 checkpoint has unexpected keys: "
+            + ", ".join(sorted(unexpected_keys))
+        )
+    remaining_missing = [
+        key
+        for key in load_result.missing_keys
+        if not key.startswith(compatible_missing_prefixes)
+    ]
+    if remaining_missing:
+        raise RuntimeError(
+            f"{checkpoint_path}: incompatible LAPv1 checkpoint is missing unsupported keys: "
+            + ", ".join(sorted(remaining_missing))
+        )
+
+
 def evaluate_lapv1_checkpoint(
     checkpoint_path: Path | str,
     *,
@@ -797,7 +840,11 @@ def evaluate_lapv1_checkpoint(
             lapv1_config.deliberation.min_inner_steps,
             max_inner_steps,
         )
-    model.load_state_dict(dict(payload["model_state_dict"]))
+    _load_lapv1_model_state(
+        model,
+        dict(payload["model_state_dict"]),
+        checkpoint_path=checkpoint,
+    )
     aux_probe = _PieceRoleAuxProbe(
         intention_dim=lapv1_config.intention_encoder.intention_dim
     )

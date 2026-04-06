@@ -199,6 +199,80 @@ def test_train_lapv1_accepts_matching_initial_checkpoint(tmp_path: Path) -> None
     assert Path(run.export_paths["checkpoint"]).exists()
 
 
+def test_train_lapv1_accepts_older_checkpoint_missing_residual_delta_net(
+    tmp_path: Path,
+) -> None:
+    train_path = tmp_path / "lapv1_train.jsonl"
+    validation_path = tmp_path / "lapv1_validation.jsonl"
+    _write_examples(
+        train_path,
+        [_planner_example("train-1", teacher_index=0, teacher_cp=60.0, teacher_gap=40.0)],
+    )
+    _write_examples(
+        validation_path,
+        [_planner_example("validation-1", teacher_index=0, teacher_cp=50.0, teacher_gap=30.0)],
+    )
+
+    model_config = LAPv1Config.from_mapping(
+        {
+            "deliberation": {"max_inner_steps": 0, "min_inner_steps": 0},
+            "opponent_head": {
+                "architecture": "set_v2",
+                "hidden_dim": 64,
+                "hidden_layers": 1,
+                "action_embedding_dim": 16,
+                "dropout": 0.0,
+            },
+            "value_head": {"hidden_dim": 1024},
+            "policy_head": {
+                "hidden_dim": 512,
+                "action_embedding_dim": 32,
+                "feedforward_dim": 1024,
+            },
+            "state_embedder": {"feedforward_dim": 1024},
+            "intention_encoder": {"feedforward_dim": 1024},
+        }
+    )
+    checkpoint_path = tmp_path / "initial_checkpoint_legacy.pt"
+    model = LAPv1Model(model_config)
+    legacy_state_dict = dict(model.state_dict())
+    for key in list(legacy_state_dict):
+        if key.startswith("deliberation_loop.cell.candidate_delta_network."):
+            del legacy_state_dict[key]
+    torch.save(
+        {
+            "model_name": LAPV1_MODEL_NAME,
+            "model_state_dict": legacy_state_dict,
+        },
+        checkpoint_path,
+    )
+
+    config = LAPv1TrainConfig(
+        seed=31,
+        output_dir=str(tmp_path / "lapv1_out"),
+        stage="T1",
+        data=PlannerDataConfig(
+            train_path=str(train_path),
+            validation_path=str(validation_path),
+        ),
+        model=model_config,
+        optimization=LAPv1OptimizationConfig(
+            epochs=1,
+            batch_size=1,
+            learning_rate=1e-3,
+            weight_decay=0.0,
+        ),
+        evaluation=PlannerEvaluationConfig(top_k=3),
+        runtime=PlannerRuntimeConfig(torch_threads=1, dataloader_workers=0),
+        export=PlannerExportConfig(bundle_dir=str(tmp_path / "bundle")),
+        initial_checkpoint=str(checkpoint_path),
+    )
+
+    run = train_lapv1(config, repo_root=tmp_path)
+
+    assert Path(run.export_paths["checkpoint"]).exists()
+
+
 def test_lapv1_optimization_config_validates_max_grad_norm() -> None:
     config = LAPv1OptimizationConfig(max_grad_norm=0.5)
     assert config.max_grad_norm == 0.5

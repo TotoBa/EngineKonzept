@@ -79,7 +79,34 @@ def test_lapv1_runtime_single_legal_move_returns_step0_trace(tmp_path: Path) -> 
     assert runtime.last_deliberation_trace.steps == []
 
 
-def _write_untrained_lapv1_checkpoint(path: Path, *, max_inner_steps: int) -> Path:
+def test_lapv1_runtime_loads_legacy_checkpoint_missing_residual_delta_net(
+    tmp_path: Path,
+) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    checkpoint_path = _write_untrained_lapv1_checkpoint(
+        tmp_path / "lapv1_stage2_legacy.pt",
+        max_inner_steps=2,
+        strip_residual_delta_net=True,
+    )
+    spec = SelfplayAgentSpec(
+        name="lapv1_runtime_legacy",
+        agent_kind="lapv1",
+        lapv1_checkpoint=str(checkpoint_path),
+        state_context_version=1,
+        deliberation_max_inner_steps=1,
+    )
+
+    runtime = build_lapv1_runtime_from_spec(spec, repo_root=repo_root)
+
+    assert runtime.model.deliberation_loop.max_inner_steps == 1
+
+
+def _write_untrained_lapv1_checkpoint(
+    path: Path,
+    *,
+    max_inner_steps: int,
+    strip_residual_delta_net: bool = False,
+) -> Path:
     config = LAPv1TrainConfig(
         seed=17,
         output_dir=str(path.parent / "lapv1_runtime_out"),
@@ -140,11 +167,16 @@ def _write_untrained_lapv1_checkpoint(path: Path, *, max_inner_steps: int) -> Pa
         stage2=LAPv1Stage2Config(max_inner_steps_schedule=(max_inner_steps,)),
     )
     model = LAPv1Model(config.model)
+    state_dict = dict(model.state_dict())
+    if strip_residual_delta_net:
+        for key in list(state_dict):
+            if key.startswith("deliberation_loop.cell.candidate_delta_network."):
+                del state_dict[key]
     path.parent.mkdir(parents=True, exist_ok=True)
     torch.save(
         {
             "model_name": LAPV1_MODEL_NAME,
-            "model_state_dict": model.state_dict(),
+            "model_state_dict": state_dict,
             "training_config": config.to_dict(),
         },
         path,

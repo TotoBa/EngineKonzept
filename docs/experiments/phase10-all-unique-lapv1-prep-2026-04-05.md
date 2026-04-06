@@ -198,6 +198,16 @@ The important architectural differences are:
 - residual reranking over fixed Stage-T1 root logits inside one forward pass
 - root-vs-final diagnostics to measure whether inner steps help or hurt
 
+One concrete bootstrap issue also surfaced while preparing `v2`:
+
+- the old Stage-T1 checkpoint predates the new residual delta subnetwork inside
+  the deliberation cell
+- T2 warm-start therefore now allows that one missing key family explicitly and
+  keeps strict loading for everything else
+
+That compatibility path is shared between training and LAPv1 runtime loading so
+older Stage-T1 checkpoints do not silently fail after inner-loop upgrades.
+
 `auto4` should be read as:
 
 - hard runtime budget cap `4`

@@ -26,7 +26,7 @@ from train.eval.agent_spec import SelfplayAgentSpec, load_selfplay_agent_spec
 from train.eval.planner_runtime import PlannerRootDecision
 from train.models.lapv1 import LAPV1_MODEL_NAME, LAPv1Model
 from train.models.proposer import torch_is_available
-from train.trainers.lapv1 import LAPv1TrainConfig
+from train.trainers.lapv1 import LAPv1TrainConfig, _load_lapv1_model_state
 
 try:
     import torch
@@ -178,7 +178,11 @@ def load_lapv1_checkpoint(
         )
     training_config = LAPv1TrainConfig.from_dict(dict(payload["training_config"]))
     model = LAPv1Model(training_config.model)
-    model.load_state_dict(dict(payload["model_state_dict"]))
+    _load_lapv1_model_state(
+        model,
+        dict(payload["model_state_dict"]),
+        checkpoint_path=checkpoint_path,
+    )
     model.eval()
     return model, training_config
 
