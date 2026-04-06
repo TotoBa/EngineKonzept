@@ -208,6 +208,22 @@ One concrete bootstrap issue also surfaced while preparing `v2`:
 That compatibility path is shared between training and LAPv1 runtime loading so
 older Stage-T1 checkpoints do not silently fail after inner-loop upgrades.
 
+The first live `v2` launch also exposed two operational bootstrap bugs that are
+now fixed:
+
+- the dedicated `v2` launcher script needed an executable bit so background
+  starts do not fail immediately with `Permission denied`
+- the first warm-start attempt rejected the older Stage-T1 checkpoint because
+  the new residual deliberation delta subnetwork was missing from that state
+
+The current `v2` restart path therefore reuses:
+
+- the already materialized all-unique dataset artifacts
+- the already materialized `lapv1_*` workflow artifacts
+- the completed fast Stage-T1 checkpoint
+
+and begins directly in real T2 training with the `freeze_inner` phase.
+
 `auto4` should be read as:
 
 - hard runtime budget cap `4`
