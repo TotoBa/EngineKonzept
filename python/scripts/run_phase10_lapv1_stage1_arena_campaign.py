@@ -226,13 +226,19 @@ def run_phase10_lapv1_stage1_arena_campaign(
     )
 
     _log("[phase10] writing resolved LAPv1 agent spec")
-    lapv1_agent_path = _resolve_repo_path(Path(spec.lapv1_agent_spec_path))
-    lapv1_agent_path.parent.mkdir(parents=True, exist_ok=True)
-    # The tracked agent spec already points at the configured checkpoint path; re-write to ensure sync.
-    write_selfplay_agent_spec(lapv1_agent_path, _load_agent_spec(lapv1_agent_path))
+    tracked_lapv1_agent_path = _resolve_repo_path(Path(spec.lapv1_agent_spec_path))
+    resolved_lapv1_agent_path = output_root / "lapv1_agent_spec.resolved.json"
+    write_selfplay_agent_spec(
+        resolved_lapv1_agent_path,
+        _load_agent_spec(tracked_lapv1_agent_path),
+    )
 
     _log("[phase10] materializing resolved 8-agent arena spec")
-    resolved_arena_spec = _build_resolved_arena_spec(spec, selected_reference_agents)
+    resolved_arena_spec = _build_resolved_arena_spec(
+        spec,
+        selected_reference_agents,
+        lapv1_agent_path=resolved_lapv1_agent_path,
+    )
     resolved_arena_spec_path = output_root / "arena_spec.resolved.json"
     resolved_arena_spec_path.write_text(
         json.dumps(resolved_arena_spec.to_dict(), indent=2, sort_keys=True) + "\n",
@@ -257,6 +263,7 @@ def run_phase10_lapv1_stage1_arena_campaign(
         "workflow_summary_path": str(workflow_summary_path),
         "lapv1_summary_path": str(lapv1_summary_path),
         "lapv1_checkpoint": str(lapv1_checkpoint),
+        "lapv1_agent_spec_path": str(resolved_lapv1_agent_path),
         "lapv1_verify_path": str(lapv1_verify_path),
         "lapv1_verify_metrics": lapv1_verify_metrics,
         "resolved_arena_spec_path": str(resolved_arena_spec_path),
@@ -381,12 +388,18 @@ def _select_reference_agents(spec: Phase10Lapv1ArenaCampaignSpec) -> list[str]:
 def _build_resolved_arena_spec(
     spec: Phase10Lapv1ArenaCampaignSpec,
     selected_reference_agents: Sequence[str],
+    *,
+    lapv1_agent_path: Path | None = None,
 ) -> SelfplayArenaSpec:
     initial_fens = load_selfplay_initial_fen_suite(
         _resolve_repo_path(Path(spec.initial_fen_suite_path))
     ).fen_list()
     agent_specs = {
-        "lapv1_stage1_all_unique_v1": str(_resolve_repo_path(Path(spec.lapv1_agent_spec_path))),
+        "lapv1_stage1_all_unique_v1": str(
+            lapv1_agent_path
+            if lapv1_agent_path is not None
+            else _resolve_repo_path(Path(spec.lapv1_agent_spec_path))
+        ),
         **{
             name: str(_resolve_repo_path(Path(_reference_agent_paths(spec)[name])))
             for name in selected_reference_agents
