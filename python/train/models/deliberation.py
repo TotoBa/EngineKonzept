@@ -45,7 +45,7 @@ class DeliberationTrace:
 if torch is not None and nn is not None:
 
     class DeliberationCell(nn.Module):
-        """GRU-like recurrent update over root state, memory, and candidate scores."""
+        """GRU-like recurrent update over root state, memory, and residual score deltas."""
 
         def __init__(
             self,
@@ -66,18 +66,36 @@ if torch is not None and nn is not None:
             self.state_cell = nn.GRUCell(state_dim * 3, state_dim)
             self.memory_update = nn.Linear(state_dim + memory_dim, memory_dim)
             self.state_norm = nn.LayerNorm(state_dim)
+            self.candidate_delta_network = nn.Sequential(
+                nn.Linear(state_dim * 2 + 3, state_dim),
+                nn.GELU(),
+                nn.Linear(state_dim, 1),
+            )
 
         def forward(
             self,
             z_t: torch.Tensor,
             M_t: torch.Tensor,
-            C_t: torch.Tensor,
+            root_scores: torch.Tensor,
+            delta_scores: torch.Tensor,
             refined_reply_signals: torch.Tensor,
+            candidate_update_mask: torch.Tensor,
+            candidate_mask: torch.Tensor,
         ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-            """Update latent root, rolling memory slots, and candidate scores."""
+            """Update latent root, rolling memory slots, and residual candidate deltas."""
             memory_summary = M_t.mean(dim=1)
-            candidate_summary = C_t.mean(dim=1, keepdim=True)
-            reply_summary = refined_reply_signals.mean(dim=1, keepdim=True)
+            candidate_scores = (root_scores + delta_scores).masked_fill(
+                ~candidate_mask,
+                0.0,
+            )
+            valid_candidate_count = candidate_mask.sum(dim=1, keepdim=True).clamp(min=1).to(
+                z_t.dtype
+            )
+            update_count = candidate_update_mask.sum(dim=1, keepdim=True).clamp(min=1).to(
+                z_t.dtype
+            )
+            candidate_summary = candidate_scores.sum(dim=1, keepdim=True) / valid_candidate_count
+            reply_summary = refined_reply_signals.sum(dim=1, keepdim=True) / update_count
             state_input = torch.cat(
                 [
                     z_t,
@@ -97,8 +115,33 @@ if torch is not None and nn is not None:
                 self.memory_update(torch.cat([memory_summary, z_next], dim=1))
             ).unsqueeze(1)
             M_next = torch.cat([new_memory_slot, M_t[:, :-1, :]], dim=1)
-            C_next = C_t + refined_reply_signals * self.candidate_update_scale
-            return z_next, M_next, C_next
+            expanded_state = z_next.unsqueeze(1).expand(-1, root_scores.shape[1], -1)
+            expanded_memory = self.memory_projection(memory_summary).unsqueeze(1).expand_as(
+                expanded_state
+            )
+            candidate_inputs = torch.cat(
+                [
+                    expanded_state,
+                    expanded_memory,
+                    torch.stack(
+                        [
+                            candidate_scores,
+                            delta_scores.masked_fill(~candidate_mask, 0.0),
+                            refined_reply_signals,
+                        ],
+                        dim=2,
+                    ),
+                ],
+                dim=2,
+            )
+            delta_update = self.candidate_delta_network(candidate_inputs).squeeze(2)
+            delta_update = (
+                delta_update
+                * candidate_update_mask.to(delta_update.dtype)
+                * self.candidate_update_scale
+            )
+            delta_next = delta_scores + delta_update
+            return z_next, M_next, delta_next
 
 
     class CandidateSelector(nn.Module):
@@ -334,6 +377,8 @@ if torch is not None and nn is not None:
                     "step_active_masks": (),
                     "step_rollback_masks": (),
                     "step_rollback_flags": (),
+                    "root_candidate_scores": masked_scores,
+                    "final_candidate_deltas": torch.zeros_like(masked_scores),
                     "final_z": z_root,
                     "final_memory": torch.zeros(
                         (z_root.shape[0], self.memory_slots, self.memory_dim),
@@ -348,10 +393,11 @@ if torch is not None and nn is not None:
                 dtype=z_root.dtype,
                 device=z_root.device,
             )
-            C_t = initial_candidate_scores.masked_fill(
+            root_scores = initial_candidate_scores.masked_fill(
                 ~candidate_mask,
                 MASKED_CANDIDATE_SCORE_VALUE,
             )
+            delta_scores = torch.zeros_like(root_scores)
             trace_steps: list[DeliberationTraceStep] = []
             step_value_cp_tensors: list[torch.Tensor] = []
             step_sharpness_tensors: list[torch.Tensor] = []
@@ -363,10 +409,18 @@ if torch is not None and nn is not None:
             active_mask = legal_counts > 1
 
             for step_index in range(self.max_inner_steps):
-                finite_scores = torch.where(torch.isfinite(C_t), C_t, torch.zeros_like(C_t))
-                value_cp, uncertainty = self.value_projector(z_t, M_t, finite_scores)
+                current_scores = (root_scores + delta_scores).masked_fill(
+                    ~candidate_mask,
+                    MASKED_CANDIDATE_SCORE_VALUE,
+                )
+                masked_scores = torch.where(
+                    candidate_mask,
+                    current_scores,
+                    torch.zeros_like(current_scores),
+                )
+                value_cp, uncertainty = self.value_projector(z_t, M_t, masked_scores)
                 sharpness = self.sharpness_projector(z_t)
-                top1_indices = torch.argmax(C_t, dim=1)
+                top1_indices = torch.argmax(current_scores, dim=1)
                 top1_actions = candidate_action_indices.gather(1, top1_indices.unsqueeze(1)).squeeze(1)
                 top1_history.append(top1_actions.tolist())
 
@@ -388,7 +442,7 @@ if torch is not None and nn is not None:
 
                 selected_indices = self.selector(
                     z_t,
-                    finite_scores,
+                    current_scores,
                     uncertainty.unsqueeze(1),
                     candidate_mask,
                 )
@@ -408,18 +462,32 @@ if torch is not None and nn is not None:
                     selected_reply_signals,
                     torch.zeros_like(selected_reply_signals),
                 )
-                refined_reply_signals = torch.zeros_like(finite_scores)
+                refined_reply_signals = torch.zeros_like(current_scores)
                 refined_reply_signals.scatter_(1, selected_indices, selected_reply_signals)
+                candidate_update_mask = torch.zeros_like(candidate_mask)
+                candidate_update_mask.scatter_(
+                    1,
+                    selected_indices,
+                    step_active_mask.unsqueeze(1).expand(-1, selected_indices.shape[1]),
+                )
 
-                z_next, M_next, C_next = self.cell(z_t, M_t, finite_scores, refined_reply_signals)
-                C_next = C_next.masked_fill(
+                z_next, M_next, delta_next = self.cell(
+                    z_t,
+                    M_t,
+                    root_scores,
+                    delta_scores,
+                    refined_reply_signals,
+                    candidate_update_mask,
+                    candidate_mask,
+                )
+                C_next = (root_scores + delta_next).masked_fill(
                     ~candidate_mask,
                     MASKED_CANDIDATE_SCORE_VALUE,
                 )
                 next_value_cp, _next_uncertainty = self.value_projector(
                     z_next,
                     M_next,
-                    torch.where(torch.isfinite(C_next), C_next, torch.zeros_like(C_next)),
+                    torch.where(candidate_mask, C_next, torch.zeros_like(C_next)),
                 )
 
                 rollback_mask = step_active_mask & (
@@ -427,7 +495,7 @@ if torch is not None and nn is not None:
                 )
                 rollback_fired = bool(rollback_mask.any().item())
                 accept_mask = step_active_mask & ~rollback_mask
-                rollback_penalties = torch.zeros_like(finite_scores)
+                rollback_penalties = torch.zeros_like(root_scores)
                 rollback_penalties.scatter_(
                     1,
                     selected_indices,
@@ -436,22 +504,27 @@ if torch is not None and nn is not None:
                 rollback_penalties = rollback_penalties * rollback_mask.unsqueeze(1).to(
                     rollback_penalties.dtype
                 )
-                rollback_scores = (C_t - rollback_penalties).masked_fill(
+                rollback_delta_scores = delta_scores - rollback_penalties
+                z_t = torch.where(accept_mask.unsqueeze(1), z_next, z_t)
+                M_t = torch.where(accept_mask.view(-1, 1, 1), M_next, M_t)
+                delta_scores = torch.where(
+                    accept_mask.unsqueeze(1),
+                    delta_next,
+                    torch.where(
+                        rollback_mask.unsqueeze(1),
+                        rollback_delta_scores,
+                        delta_scores,
+                    ),
+                )
+                active_mask = step_active_mask
+                final_scores = (root_scores + delta_scores).masked_fill(
                     ~candidate_mask,
                     MASKED_CANDIDATE_SCORE_VALUE,
                 )
-                z_t = torch.where(accept_mask.unsqueeze(1), z_next, z_t)
-                M_t = torch.where(accept_mask.view(-1, 1, 1), M_next, M_t)
-                C_t = torch.where(
-                    accept_mask.unsqueeze(1),
-                    C_next,
-                    torch.where(rollback_mask.unsqueeze(1), rollback_scores, C_t),
-                )
-                active_mask = step_active_mask
 
                 pv_scratch = _build_pv_scratch(
                     candidate_action_indices=candidate_action_indices,
-                    candidate_scores=C_t,
+                    candidate_scores=final_scores,
                     candidate_mask=candidate_mask,
                     candidate_uci=candidate_uci,
                 )
@@ -475,18 +548,22 @@ if torch is not None and nn is not None:
                 )
                 step_value_cp_tensors.append(value_cp.clone())
                 step_sharpness_tensors.append(sharpness.clone())
-                step_candidate_score_tensors.append(C_t.clone())
+                step_candidate_score_tensors.append(final_scores.clone())
                 step_active_masks.append(step_active_mask.clone())
                 step_rollback_masks.append(rollback_mask.clone())
                 step_rollback_flags.append(rollback_fired)
 
-            final_top1_indices = torch.argmax(C_t, dim=1)
+            final_scores = (root_scores + delta_scores).masked_fill(
+                ~candidate_mask,
+                MASKED_CANDIDATE_SCORE_VALUE,
+            )
+            final_top1_indices = torch.argmax(final_scores, dim=1)
             final_top1_actions = candidate_action_indices.gather(
                 1,
                 final_top1_indices.unsqueeze(1),
             ).squeeze(1)
             return {
-                "final_candidate_scores": C_t,
+                "final_candidate_scores": final_scores,
                 "refined_top1_action_index": final_top1_actions,
                 "trace": DeliberationTrace(steps=trace_steps),
                 "step_count": len(trace_steps),
@@ -496,6 +573,8 @@ if torch is not None and nn is not None:
                 "step_active_masks": tuple(step_active_masks),
                 "step_rollback_masks": tuple(step_rollback_masks),
                 "step_rollback_flags": tuple(step_rollback_flags),
+                "root_candidate_scores": root_scores,
+                "final_candidate_deltas": delta_scores,
                 "final_z": z_t,
                 "final_memory": M_t,
             }

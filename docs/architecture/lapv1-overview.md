@@ -207,6 +207,15 @@ Stage-T2 now also supports explicit training phases. The intended path is:
 This avoids conflating "the root got better" with "the inner step learned to use
 its budget better".
 
+The current inner-loop update is also residual over the root policy scores:
+
+- `root_logits` remain the fixed reference inside one forward pass
+- deliberation learns `delta_logits`
+- final ranking is `root_logits + delta_logits`
+
+This preserves the useful Stage-T1 root prior and lets additional inner steps
+learn targeted corrections instead of repeatedly rewriting the full score vector.
+
 Hard boundaries:
 
 - no recursive tree expansion

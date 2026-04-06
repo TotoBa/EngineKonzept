@@ -296,7 +296,9 @@ if torch is not None and nn is not None:
                 deliberation_outputs["final_memory"],
             )
             return {
+                "initial_policy_logits": initial_policy_logits,
                 "final_policy_logits": deliberation_outputs["final_candidate_scores"],
+                "final_policy_deltas": deliberation_outputs["final_candidate_deltas"],
                 "final_value": {
                     "wdl_logits": wdl_logits,
                     "cp_score": cp_score,
@@ -311,6 +313,7 @@ if torch is not None and nn is not None:
                 "step_active_masks": deliberation_outputs["step_active_masks"],
                 "step_rollback_masks": deliberation_outputs["step_rollback_masks"],
                 "step_rollback_flags": deliberation_outputs["step_rollback_flags"],
+                "root_candidate_scores": deliberation_outputs["root_candidate_scores"],
                 "refined_top1_action_index": deliberation_outputs[
                     "refined_top1_action_index"
                 ],

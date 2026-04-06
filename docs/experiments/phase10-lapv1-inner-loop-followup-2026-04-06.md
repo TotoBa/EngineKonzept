@@ -69,6 +69,19 @@ This also fixes the schedule problem where a short T2 run could configure a
 `max_inner_steps=4` budget without ever actually training the final budgeted
 step.
 
+5. The inner loop should learn residual corrections, not overwrite the root.
+
+The stronger hypothesis is now:
+
+- Stage-T1 learns a decent root prior
+- Stage-T2 should not relearn the whole policy from scratch
+- instead it should learn bounded delta-updates over the root logits
+
+The implementation now keeps `root_candidate_scores` fixed inside a forward
+pass and trains the inner loop to emit `final_candidate_deltas`, with final
+ranking computed as `root + delta`. This makes it much easier to measure
+whether extra steps help or hurt relative to the starting root choice.
+
 ## Budget semantics
 
 The runtime budget contract is now treated explicitly as:

@@ -83,9 +83,12 @@ def test_lapv1_forward_pass_produces_expected_shapes() -> None:
     assert tuple(outputs["final_value"]["cp_score"].shape) == (2, 1)
     assert tuple(outputs["final_value"]["sigma_value"].shape) == (2, 1)
     assert tuple(outputs["refined_top1_action_index"].shape) == (2,)
+    assert tuple(outputs["initial_policy_logits"].shape) == (2, 5)
+    assert tuple(outputs["final_policy_deltas"].shape) == (2, 5)
     assert "step_candidate_score_tensors" in outputs
     assert "step_active_masks" in outputs
     assert "step_rollback_masks" in outputs
+    assert "root_candidate_scores" in outputs
 
 
 def test_lapv1_trace_length_respects_max_inner_steps() -> None:

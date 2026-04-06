@@ -209,6 +209,19 @@ def test_trace_length_matches_actual_step_count() -> None:
     )
 
 
+def test_deliberation_loop_updates_residual_deltas_over_root_scores() -> None:
+    loop = DeliberationLoop(max_inner_steps=1, min_inner_steps=1)
+    outputs = loop(*_sample_inputs())
+
+    reconstructed = outputs["root_candidate_scores"] + outputs["final_candidate_deltas"]
+    valid_mask = outputs["root_candidate_scores"] > -1.0e8
+
+    assert torch.allclose(
+        outputs["final_candidate_scores"][valid_mask],
+        reconstructed[valid_mask],
+    )
+
+
 def test_candidate_selector_returns_top_k_indices() -> None:
     selector = CandidateSelector(top_k=2)
     indices = selector(
