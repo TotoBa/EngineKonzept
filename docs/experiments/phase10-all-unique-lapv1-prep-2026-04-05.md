@@ -224,6 +224,13 @@ The current `v2` restart path therefore reuses:
 
 and begins directly in real T2 training with the `freeze_inner` phase.
 
+The same `v2` repair cycle also tightened observability for future long runs:
+
+- lazy `lapv1_*` dataset indexing now logs start/progress/done markers
+- validation passes emit batch progress, not only the final epoch summary
+- the Phase-10 campaign log now prints the actual configured LAPv1 stage name
+  when it enters or reuses training
+
 `auto4` should be read as:
 
 - hard runtime budget cap `4`

@@ -247,13 +247,13 @@ def run_phase10_lapv1_stage1_arena_campaign(
     else:
         _log("[phase10] reusing existing LAPv1 workflow artifacts")
 
-    _log("[phase10] training LAPv1 Stage1")
+    _log(f"[phase10] training LAPv1 {lapv1_config.stage}")
     lapv1_checkpoint = _resolve_repo_path(Path(lapv1_config.export.bundle_dir)) / lapv1_config.export.checkpoint_name
     lapv1_summary_path = _resolve_repo_path(Path(lapv1_config.output_dir)) / "summary.json"
     if not skip_existing or not lapv1_checkpoint.exists() or not lapv1_summary_path.exists():
         _run_lapv1_training(lapv1_config_path)
     else:
-        _log("[phase10] reusing existing LAPv1 Stage1 checkpoint")
+        _log(f"[phase10] reusing existing LAPv1 {lapv1_config.stage} checkpoint")
 
     _log("[phase10] evaluating LAPv1 verify holdout")
     lapv1_verify_metrics = evaluate_lapv1_checkpoint(

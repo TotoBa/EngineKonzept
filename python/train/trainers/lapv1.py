@@ -411,18 +411,39 @@ _PreparedLAPv1Example = LAPv1TrainingExample
 class _LazyPreparedLAPv1Dataset(Sequence[_PreparedLAPv1Example]):
     """Disk-backed planner-head dataset that prepares LAPv1 examples on demand."""
 
-    def __init__(self, paths: Sequence[Path]) -> None:
+    def __init__(
+        self,
+        paths: Sequence[Path],
+        *,
+        log_label: str | None = None,
+        log_every_examples: int = 0,
+    ) -> None:
         self._paths = tuple(paths)
         self._offsets_per_path: list[list[int]] = []
         self._line_numbers_per_path: list[list[int]] = []
         self._source_kinds: list[str] = []
         self._cumulative_sizes: list[int] = []
         self._handles: list[BinaryIO | None] = [None] * len(self._paths)
+        self._log_label = log_label
+        self._log_every_examples = max(int(log_every_examples), 0)
         running_total = 0
+        if self._log_label is not None:
+            print(
+                "[lapv1-train] "
+                f"dataset_index_start label={self._log_label} paths={len(self._paths)}",
+                flush=True,
+            )
         for path in self._paths:
             offsets: list[int] = []
             line_numbers: list[int] = []
             source_kind = "lapv1"
+            next_log_count = self._log_every_examples
+            if self._log_label is not None:
+                print(
+                    "[lapv1-train] "
+                    f"dataset_index_path_start label={self._log_label} path={path}",
+                    flush=True,
+                )
             with path.open("rb") as handle:
                 line_number = 0
                 while True:
@@ -436,11 +457,36 @@ class _LazyPreparedLAPv1Dataset(Sequence[_PreparedLAPv1Example]):
                             source_kind = _detect_lapv1_source_kind(raw_line, source=str(path))
                         offsets.append(offset)
                         line_numbers.append(line_number)
+                        if (
+                            self._log_label is not None
+                            and self._log_every_examples > 0
+                            and len(offsets) >= next_log_count
+                        ):
+                            print(
+                                "[lapv1-train] "
+                                f"dataset_index_progress label={self._log_label} "
+                                f"path={path} examples={len(offsets)} line={line_number}",
+                                flush=True,
+                            )
+                            next_log_count += self._log_every_examples
             self._offsets_per_path.append(offsets)
             self._line_numbers_per_path.append(line_numbers)
             self._source_kinds.append(source_kind)
             running_total += len(offsets)
             self._cumulative_sizes.append(running_total)
+            if self._log_label is not None:
+                print(
+                    "[lapv1-train] "
+                    f"dataset_index_path_done label={self._log_label} "
+                    f"path={path} source_kind={source_kind} examples={len(offsets)}",
+                    flush=True,
+                )
+        if self._log_label is not None:
+            print(
+                "[lapv1-train] "
+                f"dataset_index_done label={self._log_label} total_examples={running_total}",
+                flush=True,
+            )
 
     def __len__(self) -> int:
         if not self._cumulative_sizes:
@@ -523,10 +569,14 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
     _configure_torch_runtime(config.runtime.torch_threads)
 
     train_examples = _build_lazy_dataset(
-        [resolve_repo_path(repo_root, path) for path in config.data.resolved_train_paths()]
+        [resolve_repo_path(repo_root, path) for path in config.data.resolved_train_paths()],
+        log_label="train",
+        log_every_examples=100_000,
     )
     validation_examples = _build_lazy_dataset(
-        [resolve_repo_path(repo_root, path) for path in config.data.resolved_validation_paths()]
+        [resolve_repo_path(repo_root, path) for path in config.data.resolved_validation_paths()],
+        log_label="validation",
+        log_every_examples=25_000,
     )
     if len(train_examples) == 0:
         raise ValueError("training artifact is empty")
@@ -857,7 +907,11 @@ def evaluate_lapv1_checkpoint(
         if dataset_path is not None
         else Path(str(training_config["data"]["validation_path"]))
     )
-    examples = _build_lazy_dataset([effective_dataset_path])
+    examples = _build_lazy_dataset(
+        [effective_dataset_path],
+        log_label="evaluation",
+        log_every_examples=25_000,
+    )
     optimization = LAPv1OptimizationConfig(
         **dict(training_config["optimization"])
     )
@@ -881,8 +935,17 @@ def evaluate_lapv1_checkpoint(
         examples.close()
 
 
-def _build_lazy_dataset(paths: Sequence[Path]) -> _LazyPreparedLAPv1Dataset:
-    return _LazyPreparedLAPv1Dataset(paths)
+def _build_lazy_dataset(
+    paths: Sequence[Path],
+    *,
+    log_label: str | None = None,
+    log_every_examples: int = 0,
+) -> _LazyPreparedLAPv1Dataset:
+    return _LazyPreparedLAPv1Dataset(
+        paths,
+        log_label=log_label,
+        log_every_examples=log_every_examples,
+    )
 
 
 def _prepare_example(example: PlannerHeadExample) -> _PreparedLAPv1Example:
@@ -961,6 +1024,22 @@ def _run_epoch(
     if training:
         random.Random(seed).shuffle(order)
     total_batches = max((len(order) + batch_size - 1) // batch_size, 1)
+    progress_interval = _progress_log_interval(
+        total_batches=total_batches,
+        training=training,
+        configured_interval=optimization.log_interval_batches,
+    )
+
+    print(
+        "[lapv1-train] "
+        f"epoch={epoch}/{total_epochs} "
+        f"phase={'train' if training else 'validation'} "
+        f"stage={stage} "
+        f"batches={total_batches} "
+        f"examples={len(examples)} "
+        f"batch_size={batch_size}",
+        flush=True,
+    )
 
     context = torch.enable_grad() if training else torch.inference_mode()
     with context:
@@ -1184,15 +1263,13 @@ def _run_epoch(
             for step_count in batch_step_counts.tolist():
                 histogram_key = str(int(step_count))
                 step_histogram[histogram_key] = step_histogram.get(histogram_key, 0) + 1
-            if training and (
-                batch_index % optimization.log_interval_batches == 0
-                or batch_index == total_batches
-            ):
+            if batch_index % progress_interval == 0 or batch_index == total_batches:
                 elapsed = max(time.perf_counter() - start_time, 1e-9)
                 print(
                     "[lapv1-train] "
                     f"epoch={epoch}/{total_epochs} "
                     f"batch={batch_index}/{total_batches} "
+                    f"phase={'train' if training else 'validation'} "
                     f"stage={stage} "
                     f"examples={total_examples}/{len(examples)} "
                     f"loss={total_loss / total_examples:.4f} "
@@ -1244,6 +1321,17 @@ def _run_epoch(
         step_histogram=dict(sorted(step_histogram.items(), key=lambda item: int(item[0]))),
         examples_per_second=total_examples / duration,
     )
+
+
+def _progress_log_interval(
+    *,
+    total_batches: int,
+    training: bool,
+    configured_interval: int,
+) -> int:
+    if training:
+        return max(configured_interval, 1)
+    return max(1, min(64, total_batches // 8 if total_batches > 8 else 1))
 
 
 def _collate_examples(examples: Sequence[_PreparedLAPv1Example]) -> dict[str, torch.Tensor]:

@@ -413,6 +413,35 @@ def test_lapv1_lazy_dataset_indexes_multiple_jsonl_files(tmp_path: Path) -> None
         dataset.close()
 
 
+def test_lapv1_lazy_dataset_emits_index_progress_logs(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    path = tmp_path / "part1.jsonl"
+    _write_examples(
+        path,
+        [
+            _planner_example("train-1", teacher_index=0, teacher_cp=60.0, teacher_gap=40.0),
+            _planner_example("train-2", teacher_index=1, teacher_cp=10.0, teacher_gap=10.0),
+        ],
+    )
+
+    dataset = _build_lazy_dataset(
+        [path],
+        log_label="train",
+        log_every_examples=1,
+    )
+    try:
+        assert len(dataset) == 2
+    finally:
+        dataset.close()
+
+    captured = capsys.readouterr()
+    assert "dataset_index_start label=train" in captured.out
+    assert "dataset_index_progress label=train" in captured.out
+    assert "dataset_index_done label=train total_examples=2" in captured.out
+
+
 def test_train_lapv1_stage1_on_precomputed_lapv1_artifact(tmp_path: Path) -> None:
     train_path = tmp_path / "lapv1_train.jsonl"
     validation_path = tmp_path / "lapv1_validation.jsonl"
@@ -576,6 +605,8 @@ def test_train_lapv1_stage1_emits_batch_progress_logs(
     train_lapv1(config, repo_root=tmp_path)
 
     captured = capsys.readouterr()
+    assert "phase=train" in captured.out
+    assert "phase=validation" in captured.out
     assert "batch=1/2" in captured.out
     assert "batch=2/2" in captured.out
 

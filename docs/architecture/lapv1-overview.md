@@ -228,6 +228,14 @@ Stage-T2 diagnostics now explicitly compare root vs final behavior:
 That makes later UCI-side trace work much easier because the training summary now
 already exposes whether deeper budgets actually helped.
 
+For long CPU runs, LAPv1 also now emits explicit progress logs during the
+previously quiet parts of the pipeline:
+
+- lazy `lapv1_*` dataset indexing logs start/progress/done markers
+- validation passes emit their own batch progress lines
+- the Phase-10 campaign log reports the real configured LAPv1 stage (`T1` or
+  `T2`) instead of a hard-coded `Stage1` label
+
 Hard boundaries:
 
 - no recursive tree expansion
