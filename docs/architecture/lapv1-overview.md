@@ -199,6 +199,14 @@ decisions inside a batch. Earlier prototypes applied those gates at batch scope,
 which made large-batch T2 training distort the inner-loop statistics and the
 effective update path.
 
+Stage-T2 now also supports explicit training phases. The intended path is:
+
+- `freeze_inner`: keep the root encoder/heads fixed and train only the inner-loop path
+- `joint_finetune`: unfreeze the full wrapper for a short consolidation pass
+
+This avoids conflating "the root got better" with "the inner step learned to use
+its budget better".
+
 Hard boundaries:
 
 - no recursive tree expansion

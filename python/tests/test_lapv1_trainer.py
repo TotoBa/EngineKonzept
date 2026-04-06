@@ -296,9 +296,13 @@ def test_trace_policy_ce_loss_averages_over_step_logits() -> None:
         torch.tensor([[2.0, 1.0]], dtype=torch.float32),
         torch.tensor([[3.0, 0.5]], dtype=torch.float32),
     )
+    step_active_masks = (
+        torch.tensor([True], dtype=torch.bool),
+        torch.tensor([True], dtype=torch.bool),
+    )
     teacher_top1 = torch.tensor([0], dtype=torch.long)
 
-    loss = _trace_policy_ce_loss(step_logits, teacher_top1)
+    loss = _trace_policy_ce_loss(step_logits, teacher_top1, step_active_masks)
 
     expected = torch.stack(
         [

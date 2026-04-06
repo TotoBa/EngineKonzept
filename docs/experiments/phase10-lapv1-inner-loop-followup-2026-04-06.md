@@ -56,6 +56,19 @@ early. The follow-up path now treats:
 as per-example decisions. This is a structural fix, not just a hyperparameter
 change.
 
+4. Stage-T2 needs an explicit two-phase train path.
+
+The original T2 run fine-tuned the whole wrapper end-to-end from the first
+batch. That made it hard to tell whether extra inner steps improved the planner
+or whether the root trunk simply adapted again. The follow-up path now supports:
+
+- a freeze phase that trains only the inner-loop/opponent path
+- a short joint phase that reopens the full wrapper
+
+This also fixes the schedule problem where a short T2 run could configure a
+`max_inner_steps=4` budget without ever actually training the final budgeted
+step.
+
 ## Budget semantics
 
 The runtime budget contract is now treated explicitly as:

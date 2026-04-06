@@ -89,16 +89,58 @@ class LAPv1OptimizationConfig:
 
 
 @dataclass(frozen=True)
+class LAPv1Stage2PhaseConfig:
+    """One explicit Stage-T2 training phase with its own trainable groups."""
+
+    name: str
+    epochs: int
+    trainable_parameter_groups: tuple[str, ...] = ("all",)
+    max_inner_steps_schedule: tuple[int, ...] = (2, 4, 8)
+
+    def __post_init__(self) -> None:
+        if not self.name:
+            raise ValueError("stage2.phases[].name must be non-empty")
+        if self.epochs <= 0:
+            raise ValueError("stage2.phases[].epochs must be positive")
+        if not self.trainable_parameter_groups:
+            raise ValueError(
+                "stage2.phases[].trainable_parameter_groups must be non-empty"
+            )
+        allowed_groups = {"all", "root_backbone", "root_heads", "inner_loop", "aux_probe"}
+        invalid = sorted(set(self.trainable_parameter_groups) - allowed_groups)
+        if invalid:
+            raise ValueError(
+                "stage2.phases[].trainable_parameter_groups contains unsupported "
+                f"entries: {', '.join(invalid)}"
+            )
+        if "all" in self.trainable_parameter_groups and len(self.trainable_parameter_groups) > 1:
+            raise ValueError(
+                "stage2.phases[].trainable_parameter_groups may not mix 'all' with other groups"
+            )
+        if not self.max_inner_steps_schedule:
+            raise ValueError("stage2.phases[].max_inner_steps_schedule must be non-empty")
+        if any(step <= 0 for step in self.max_inner_steps_schedule):
+            raise ValueError(
+                "stage2.phases[].max_inner_steps_schedule entries must be positive"
+            )
+
+
+@dataclass(frozen=True)
 class LAPv1Stage2Config:
     """Trainer-only curriculum and auxiliary-loss settings for LAPv1 stage T2."""
 
     max_inner_steps_schedule: tuple[int, ...] = (2, 4, 8)
+    phases: tuple[LAPv1Stage2PhaseConfig, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.max_inner_steps_schedule:
             raise ValueError("stage2.max_inner_steps_schedule must be non-empty")
         if any(step <= 0 for step in self.max_inner_steps_schedule):
             raise ValueError("stage2.max_inner_steps_schedule entries must be positive")
+        if self.phases and self.max_inner_steps_schedule != (2, 4, 8):
+            raise ValueError(
+                "stage2.max_inner_steps_schedule may only be overridden when stage2.phases is empty"
+            )
 
 
 @dataclass(frozen=True)
@@ -134,10 +176,24 @@ class LAPv1TrainConfig:
                 raise ValueError("stage2 settings are required when stage='T2'")
             if self.model.deliberation.max_inner_steps <= 0:
                 raise ValueError("stage T2 requires model.deliberation.max_inner_steps > 0")
-            if max(self.stage2.max_inner_steps_schedule) > self.model.deliberation.max_inner_steps:
+            max_schedule_step = (
+                max(self.stage2.max_inner_steps_schedule)
+                if not self.stage2.phases
+                else max(
+                    max(phase.max_inner_steps_schedule)
+                    for phase in self.stage2.phases
+                )
+            )
+            if max_schedule_step > self.model.deliberation.max_inner_steps:
                 raise ValueError(
                     "stage2.max_inner_steps_schedule must not exceed model.deliberation.max_inner_steps"
                 )
+            if self.stage2.phases:
+                total_phase_epochs = sum(phase.epochs for phase in self.stage2.phases)
+                if total_phase_epochs != self.optimization.epochs:
+                    raise ValueError(
+                        "sum(stage2.phases[].epochs) must equal optimization.epochs"
+                    )
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -175,7 +231,36 @@ class LAPv1TrainConfig:
             stage2=(
                 None
                 if payload.get("stage2") is None
-                else LAPv1Stage2Config(**dict(payload["stage2"]))
+                else LAPv1Stage2Config(
+                    max_inner_steps_schedule=tuple(
+                        int(step)
+                        for step in list(
+                            dict(payload["stage2"]).get("max_inner_steps_schedule", (2, 4, 8))
+                        )
+                    ),
+                    phases=tuple(
+                        LAPv1Stage2PhaseConfig(
+                            name=str(entry["name"]),
+                            epochs=int(entry["epochs"]),
+                            trainable_parameter_groups=tuple(
+                                str(value)
+                                for value in list(
+                                    dict(entry).get(
+                                        "trainable_parameter_groups",
+                                        ("all",),
+                                    )
+                                )
+                            ),
+                            max_inner_steps_schedule=tuple(
+                                int(step)
+                                for step in list(
+                                    dict(entry).get("max_inner_steps_schedule", (2, 4, 8))
+                                )
+                            ),
+                        )
+                        for entry in list(dict(payload["stage2"]).get("phases") or [])
+                    ),
+                )
             ),
             data=PlannerDataConfig(
                 train_path=str(data_payload["train_path"]),
@@ -193,6 +278,18 @@ class LAPv1TrainConfig:
             runtime=PlannerRuntimeConfig(**dict(payload.get("runtime", {}))),
             export=PlannerExportConfig(**dict(export_payload)),
         )
+
+
+@dataclass(frozen=True)
+class _ResolvedStage2Phase:
+    name: str
+    epoch_start: int
+    epoch_end: int
+    trainable_parameter_groups: tuple[str, ...]
+    max_inner_steps_schedule: tuple[int, ...]
+
+    def contains_epoch(self, epoch: int) -> bool:
+        return self.epoch_start <= epoch <= self.epoch_end
 
 
 @dataclass(frozen=True)
@@ -436,12 +533,23 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
         aux_state_dict = initial_payload.get("aux_state_dict")
         if isinstance(aux_state_dict, dict):
             aux_probe.load_state_dict(dict(aux_state_dict))
-    optimizer = torch.optim.AdamW(
-        list(model.parameters()) + list(aux_probe.parameters()),
-        lr=config.optimization.learning_rate,
-        weight_decay=config.optimization.weight_decay,
-    )
     model_parameter_count = sum(parameter.numel() for parameter in model.parameters())
+    stage2_phases = _resolve_stage2_phases(config)
+    active_phase_name = "joint" if config.stage == "T1" else None
+    active_phase_groups: tuple[str, ...] = ("all",)
+    if config.stage == "T1":
+        trainable_parameters, trainable_parameter_count = _set_trainable_parameter_groups(
+            model=model,
+            aux_probe=aux_probe,
+            groups=("all",),
+        )
+        optimizer = torch.optim.AdamW(
+            trainable_parameters,
+            lr=config.optimization.learning_rate,
+            weight_decay=config.optimization.weight_decay,
+        )
+    else:
+        optimizer = None
 
     history: list[dict[str, Any]] = []
     best_epoch = 1
@@ -457,9 +565,39 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
 
     try:
         for epoch in range(1, config.optimization.epochs + 1):
-            current_max_inner_steps = _current_max_inner_steps(
-                config=config,
-                epoch=epoch,
+            if config.stage == "T2":
+                current_phase = _stage2_phase_for_epoch(stage2_phases, epoch=epoch)
+                if current_phase.name != active_phase_name:
+                    active_phase_name = current_phase.name
+                    active_phase_groups = current_phase.trainable_parameter_groups
+                    trainable_parameters, trainable_parameter_count = _set_trainable_parameter_groups(
+                        model=model,
+                        aux_probe=aux_probe,
+                        groups=current_phase.trainable_parameter_groups,
+                    )
+                    optimizer = torch.optim.AdamW(
+                        trainable_parameters,
+                        lr=config.optimization.learning_rate,
+                        weight_decay=config.optimization.weight_decay,
+                    )
+                    print(
+                        "[lapv1-train] "
+                        f"stage2_phase={current_phase.name} "
+                        f"epochs={current_phase.epoch_start}-{current_phase.epoch_end} "
+                        f"trainable_groups={','.join(current_phase.trainable_parameter_groups)} "
+                        f"trainable_parameters={trainable_parameter_count}",
+                        flush=True,
+                    )
+            else:
+                current_phase = None
+            assert optimizer is not None
+            current_max_inner_steps = (
+                0
+                if config.stage == "T1"
+                else _current_max_inner_steps(
+                    phase=current_phase,
+                    epoch=epoch,
+                )
             )
             model.deliberation_loop.max_inner_steps = current_max_inner_steps
             model.deliberation_loop.min_inner_steps = min(
@@ -498,6 +636,8 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
             )
             history_entry = {
                 "epoch": epoch,
+                "stage2_phase": active_phase_name,
+                "trainable_parameter_groups": list(active_phase_groups),
                 "max_inner_steps": current_max_inner_steps,
                 "train": train_metrics.to_dict(),
                 "validation": validation_metrics.to_dict(),
@@ -507,6 +647,7 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
                 "[lapv1-train] "
                 f"epoch={epoch}/{config.optimization.epochs} "
                 f"stage={config.stage} "
+                f"stage2_phase={active_phase_name} "
                 f"max_inner_steps={current_max_inner_steps} "
                 f"train_loss={train_metrics.total_loss:.4f} "
                 f"val_top1={validation_metrics.root_top1_accuracy:.4f} "
@@ -612,10 +753,18 @@ def evaluate_lapv1_checkpoint(
     lapv1_config = LAPv1Config.from_mapping(dict(training_config["model"]))
     model = LAPv1Model(lapv1_config)
     if stage == "T2" and stage2 is not None:
-        model.deliberation_loop.max_inner_steps = max(stage2.max_inner_steps_schedule)
+        max_inner_steps = (
+            max(stage2.max_inner_steps_schedule)
+            if not stage2.phases
+            else max(
+                max(phase.max_inner_steps_schedule)
+                for phase in stage2.phases
+            )
+        )
+        model.deliberation_loop.max_inner_steps = max_inner_steps
         model.deliberation_loop.min_inner_steps = min(
             lapv1_config.deliberation.min_inner_steps,
-            model.deliberation_loop.max_inner_steps,
+            max_inner_steps,
         )
     model.load_state_dict(dict(payload["model_state_dict"]))
     aux_probe = _PieceRoleAuxProbe(
@@ -1214,6 +1363,82 @@ def _deliberation_monotonicity_loss(
     return torch.stack(penalties).mean()
 
 
+def _resolve_stage2_phases(config: LAPv1TrainConfig) -> tuple[_ResolvedStage2Phase, ...]:
+    if config.stage == "T1" or config.stage2 is None:
+        return ()
+    if not config.stage2.phases:
+        return (
+            _ResolvedStage2Phase(
+                name="joint",
+                epoch_start=1,
+                epoch_end=config.optimization.epochs,
+                trainable_parameter_groups=("all",),
+                max_inner_steps_schedule=config.stage2.max_inner_steps_schedule,
+            ),
+        )
+    phases: list[_ResolvedStage2Phase] = []
+    next_epoch = 1
+    for phase in config.stage2.phases:
+        phases.append(
+            _ResolvedStage2Phase(
+                name=phase.name,
+                epoch_start=next_epoch,
+                epoch_end=next_epoch + phase.epochs - 1,
+                trainable_parameter_groups=phase.trainable_parameter_groups,
+                max_inner_steps_schedule=phase.max_inner_steps_schedule,
+            )
+        )
+        next_epoch += phase.epochs
+    return tuple(phases)
+
+
+def _stage2_phase_for_epoch(
+    phases: Sequence[_ResolvedStage2Phase],
+    *,
+    epoch: int,
+) -> _ResolvedStage2Phase:
+    for phase in phases:
+        if phase.contains_epoch(epoch):
+            return phase
+    raise ValueError(f"no LAPv1 stage2 phase configured for epoch {epoch}")
+
+
+def _set_trainable_parameter_groups(
+    *,
+    model: LAPv1Model,
+    aux_probe: _PieceRoleAuxProbe,
+    groups: Sequence[str],
+) -> tuple[list[torch.nn.Parameter], int]:
+    all_model_parameters = list(model.parameters())
+    all_aux_parameters = list(aux_probe.parameters())
+    for parameter in [*all_model_parameters, *all_aux_parameters]:
+        parameter.requires_grad = False
+
+    if "all" in groups:
+        selected_parameters = [*all_model_parameters, *all_aux_parameters]
+    else:
+        selected_by_id: dict[int, torch.nn.Parameter] = {}
+        module_groups: dict[str, Sequence[torch.nn.Module]] = {
+            "root_backbone": (model.intention_encoder, model.state_embedder),
+            "root_heads": (model.value_head, model.sharpness_head, model.policy_head),
+            "inner_loop": (model.deliberation_loop, model.opponent_head),
+        }
+        for group_name in groups:
+            if group_name == "aux_probe":
+                for parameter in all_aux_parameters:
+                    selected_by_id[id(parameter)] = parameter
+                continue
+            for module in module_groups[group_name]:
+                for parameter in module.parameters():
+                    selected_by_id[id(parameter)] = parameter
+        selected_parameters = list(selected_by_id.values())
+
+    for parameter in selected_parameters:
+        parameter.requires_grad = True
+    parameter_count = sum(parameter.numel() for parameter in selected_parameters)
+    return selected_parameters, parameter_count
+
+
 def _mean_reciprocal_rank(
     logits: torch.Tensor,
     teacher_top1_candidate_index: torch.Tensor,
@@ -1242,18 +1467,17 @@ def _is_better_validation(current: LAPv1Metrics, best: LAPv1Metrics) -> bool:
 
 def _current_max_inner_steps(
     *,
-    config: LAPv1TrainConfig,
+    phase: _ResolvedStage2Phase,
     epoch: int,
 ) -> int:
-    if config.stage == "T1":
-        return 0
-    assert config.stage2 is not None
-    schedule = config.stage2.max_inner_steps_schedule
-    schedule_index = min(
-        ((epoch - 1) * len(schedule)) // config.optimization.epochs,
-        len(schedule) - 1,
+    if phase.epoch_start == phase.epoch_end:
+        return phase.max_inner_steps_schedule[-1]
+    local_epoch_index = epoch - phase.epoch_start
+    local_epoch_count = phase.epoch_end - phase.epoch_start
+    schedule_position = round(
+        local_epoch_index * (len(phase.max_inner_steps_schedule) - 1) / local_epoch_count
     )
-    return schedule[schedule_index]
+    return phase.max_inner_steps_schedule[schedule_position]
 
 
 def _set_seed(seed: int) -> None:
