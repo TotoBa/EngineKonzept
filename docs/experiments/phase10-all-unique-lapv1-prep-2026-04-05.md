@@ -183,6 +183,21 @@ The key deltas over Stage-T1 are:
 - four LAPv1 runtime variants from the same trained checkpoint:
   `inner0`, `inner1`, `inner2`, `auto4`
 
+The current preferred successor to that original T2 prep is now the `v2`
+follow-up:
+
+- [phase10_lapv1_stage2_fast_all_unique_v2.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage2_fast_all_unique_v2.json)
+- [phase10_agent_lapv1_stage2_fast_all_unique_v2.json](/home/torsten/EngineKonzept/python/configs/phase10_agent_lapv1_stage2_fast_all_unique_v2.json)
+- [phase10_lapv1_stage2_fast_arena_all_unique_v2.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage2_fast_arena_all_unique_v2.json)
+- [run_phase10_lapv1_stage2_fast_arena_v2_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase10_lapv1_stage2_fast_arena_v2_longrun.sh)
+
+The important architectural differences are:
+
+- per-example halting and rollback
+- explicit `freeze_inner -> joint_finetune` T2 phases
+- residual reranking over fixed Stage-T1 root logits inside one forward pass
+- root-vs-final diagnostics to measure whether inner steps help or hurt
+
 `auto4` should be read as:
 
 - hard runtime budget cap `4`

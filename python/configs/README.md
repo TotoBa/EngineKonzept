@@ -311,6 +311,9 @@ Use [run_phase10_lapv1_stage1_fast_arena_longrun.sh](/home/torsten/EngineKonzept
 - [phase10_lapv1_stage2_fast_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage2_fast_all_unique_v1.json)
   First real deliberation-on follow-up for LAPv1. It warm-starts from the completed fast Stage-T1 checkpoint, keeps the same all-unique `lapv1_*` workflow artifacts, trains with `stage='T2'`, and uses a small inner-step curriculum `1 -> 2 -> 4`. The key new objective term is explicit intermediate step-policy supervision, so the first refined steps are trained directly instead of only being evaluated through the final logits. On the current `23 GiB` host this config is currently tuned to `batch_size=512` with progress logging every `48` batches, after the more aggressive `1024` test turned out to trade too much throughput for memory footprint.
 
+- [phase10_lapv1_stage2_fast_all_unique_v2.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage2_fast_all_unique_v2.json)
+  Preferred current Stage-T2 config. It keeps the fast all-unique Stage-T1 warm start and the same precomputed `lapv1_*` workflow artifacts, but now uses explicit Stage-T2 phases: `freeze_inner` for `2` epochs with only the inner-loop path trainable and a `1 -> 2` step schedule, followed by `joint_finetune` for `2` epochs with the whole wrapper reopened and a `2 -> 4` schedule. This is the first config aligned with per-example halting/rollback, residual reranking over root logits, and root-vs-final diagnostics.
+
 - [phase10_agent_lapv1_stage2_fast_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_agent_lapv1_stage2_fast_all_unique_v1.json)
   Runtime/arena spec for the Stage-T2 checkpoint. Here `deliberation_max_inner_steps` should be read as the hard runtime budget cap, not as an instruction to always consume the full budget.
 
@@ -319,6 +322,11 @@ Use [run_phase10_lapv1_stage1_fast_arena_longrun.sh](/home/torsten/EngineKonzept
   `inner0`, `inner1`, `inner2`, and `auto4`. `auto4` means budget cap `4` with learned early stopping inside that cap. The arena drops to `default_games=2` so the existing `150` Thor openings still cover all non-swapped games uniquely across the larger `11`-agent field.
 
 Use [run_phase10_lapv1_stage2_fast_arena_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase10_lapv1_stage2_fast_arena_longrun.sh) for the next meaningful LAPv1 comparison run.
+
+- [phase10_lapv1_stage2_fast_arena_all_unique_v2.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage2_fast_arena_all_unique_v2.json)
+  Preferred current Phase-10 comparison campaign. It keeps the same `4` LAPv1 runtime variants (`inner0`, `inner1`, `inner2`, `auto4`) against the strongest six internal reference arms plus `vice_v2`, but now trains the checkpoint with the explicit freeze/joint Stage-T2 phases and the new residual-deliberation path.
+
+Use [run_phase10_lapv1_stage2_fast_arena_v2_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase10_lapv1_stage2_fast_arena_v2_longrun.sh) for the next run on the improved inner-loop path.
 
 The next planned LAPv1 configs keep the same namespace and data-contract boundary:
 
