@@ -308,8 +308,20 @@ It merges the previous `merged_unique`, the prior `400k` unique tier, and the im
 
 Use [run_phase10_lapv1_stage1_fast_arena_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase10_lapv1_stage1_fast_arena_longrun.sh) for the preferred current restart path.
 
+- [phase10_lapv1_stage2_fast_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage2_fast_all_unique_v1.json)
+  First real deliberation-on follow-up for LAPv1. It warm-starts from the completed fast Stage-T1 checkpoint, keeps the same all-unique `lapv1_*` workflow artifacts, trains with `stage='T2'`, and uses a small inner-step curriculum `1 -> 2 -> 4`. The key new objective term is explicit intermediate step-policy supervision, so the first refined steps are trained directly instead of only being evaluated through the final logits.
+
+- [phase10_agent_lapv1_stage2_fast_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_agent_lapv1_stage2_fast_all_unique_v1.json)
+  Runtime/arena spec for the Stage-T2 checkpoint. Here `deliberation_max_inner_steps` should be read as the hard runtime budget cap, not as an instruction to always consume the full budget.
+
+- [phase10_lapv1_stage2_fast_arena_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage2_fast_arena_all_unique_v1.json)
+  Prepared trained-deliberation comparison run. It reuses the exact same six reference arms plus `vice_v2`, but the LAPv1 side now enters four times from one Stage-T2 checkpoint:
+  `inner0`, `inner1`, `inner2`, and `auto4`. `auto4` means budget cap `4` with learned early stopping inside that cap. The arena drops to `default_games=2` so the existing `150` Thor openings still cover all non-swapped games uniquely across the larger `11`-agent field.
+
+Use [run_phase10_lapv1_stage2_fast_arena_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase10_lapv1_stage2_fast_arena_longrun.sh) for the next meaningful LAPv1 comparison run.
+
 The next planned LAPv1 configs keep the same namespace and data-contract boundary:
 
-- Stage T2: deliberation-on curriculum over the same `10k + 122k` workflow slice
+- Stage T2: deliberation-on curriculum over the same `10k + 122k` or all-unique workflow slice
 - Stage T3: opponent-integrated LAPv1 follow-up
 - Stage T4: selfplay/retrain LAPv1 arena and replay configs

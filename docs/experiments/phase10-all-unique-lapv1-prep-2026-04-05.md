@@ -156,6 +156,37 @@ changes three things deliberately:
 - `batch_size=12` for materially better CPU throughput
 - two runtime LAPv1 arena variants from the same trained checkpoint (`inner0` and `inner1`)
 
+The completed Stage-T1 arena then clarified the next repair path:
+
+- `inner1` was weaker than `inner0`
+- but `inner1` was only a runtime override on a checkpoint trained with
+  `max_inner_steps=0`
+- the next meaningful comparison is therefore a real Stage-T2 checkpoint, not
+  another Stage-T1 override run
+
+That follow-up is now prepared through:
+
+- [phase10_lapv1_stage2_fast_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage2_fast_all_unique_v1.json)
+- [phase10_agent_lapv1_stage2_fast_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_agent_lapv1_stage2_fast_all_unique_v1.json)
+- [phase10_lapv1_stage2_fast_arena_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage2_fast_arena_all_unique_v1.json)
+- [run_phase10_lapv1_stage2_fast_arena_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase10_lapv1_stage2_fast_arena_longrun.sh)
+
+The key deltas over Stage-T1 are:
+
+- warm-start from the completed fast Stage-T1 checkpoint
+- real `stage='T2'` training with schedule `1 -> 2 -> 4`
+- explicit intermediate step-policy supervision for the inner loop
+- four LAPv1 runtime variants from the same trained checkpoint:
+  `inner0`, `inner1`, `inner2`, `auto4`
+
+`auto4` should be read as:
+
+- hard runtime budget cap `4`
+- but early stop is still learned through sharpness and top-1 stability
+
+Future UCI-facing status updates for the inner loop remain a documented follow-up
+task, not part of this prep note.
+
 Remaining scale TODOs observed during this prep/resume cycle:
 
 - planner-family trainers outside LAPv1 still load `planner_head` artifacts eagerly

@@ -22,7 +22,7 @@ from train.datasets.lapv1_training import (
 )
 from train.datasets.planner_head import PlannerHeadExample
 from train.datasets.schema import PositionEncoding
-from train.models.lapv1 import LAPv1Config
+from train.models.lapv1 import LAPV1_MODEL_NAME, LAPv1Config, LAPv1Model
 from train.models.intention_encoder import torch
 from train.trainers import evaluate_lapv1_checkpoint, train_lapv1
 from train.trainers.lapv1 import (
@@ -32,6 +32,7 @@ from train.trainers.lapv1 import (
     _collate_examples,
     _policy_margin_loss,
     _prepare_example,
+    _trace_policy_ce_loss,
 )
 
 
@@ -122,6 +123,82 @@ def test_train_and_evaluate_lapv1_stage1_on_tiny_cpu_dataset(tmp_path: Path) -> 
     assert metrics.total_loss >= 0.0
 
 
+def test_train_lapv1_accepts_matching_initial_checkpoint(tmp_path: Path) -> None:
+    train_path = tmp_path / "lapv1_train.jsonl"
+    validation_path = tmp_path / "lapv1_validation.jsonl"
+    _write_examples(
+        train_path,
+        [_planner_example("train-1", teacher_index=0, teacher_cp=60.0, teacher_gap=40.0)],
+    )
+    _write_examples(
+        validation_path,
+        [_planner_example("validation-1", teacher_index=0, teacher_cp=50.0, teacher_gap=30.0)],
+    )
+
+    model_config = LAPv1Config.from_mapping(
+        {
+            "deliberation": {"max_inner_steps": 0, "min_inner_steps": 0},
+            "opponent_head": {
+                "architecture": "set_v2",
+                "hidden_dim": 64,
+                "hidden_layers": 1,
+                "action_embedding_dim": 16,
+                "dropout": 0.0,
+            },
+            "value_head": {"hidden_dim": 1024},
+            "policy_head": {
+                "hidden_dim": 512,
+                "action_embedding_dim": 32,
+                "feedforward_dim": 1024,
+            },
+            "state_embedder": {"feedforward_dim": 1024},
+            "intention_encoder": {"feedforward_dim": 1024},
+        }
+    )
+    checkpoint_path = tmp_path / "initial_checkpoint.pt"
+    model = LAPv1Model(model_config)
+    aux_probe_state = {
+        "network.weight": torch.randn(
+            (7, model_config.intention_encoder.intention_dim),
+            dtype=torch.float32,
+        ),
+        "network.bias": torch.randn((7,), dtype=torch.float32),
+    }
+    torch.save(
+        {
+            "model_name": LAPV1_MODEL_NAME,
+            "model_state_dict": model.state_dict(),
+            "aux_state_dict": aux_probe_state,
+        },
+        checkpoint_path,
+    )
+
+    config = LAPv1TrainConfig(
+        seed=23,
+        output_dir=str(tmp_path / "lapv1_out"),
+        stage="T1",
+        data=PlannerDataConfig(
+            train_path=str(train_path),
+            validation_path=str(validation_path),
+        ),
+        model=model_config,
+        optimization=LAPv1OptimizationConfig(
+            epochs=1,
+            batch_size=1,
+            learning_rate=1e-3,
+            weight_decay=0.0,
+        ),
+        evaluation=PlannerEvaluationConfig(top_k=3),
+        runtime=PlannerRuntimeConfig(torch_threads=1, dataloader_workers=0),
+        export=PlannerExportConfig(bundle_dir=str(tmp_path / "bundle")),
+        initial_checkpoint=str(checkpoint_path),
+    )
+
+    run = train_lapv1(config, repo_root=tmp_path)
+
+    assert Path(run.export_paths["checkpoint"]).exists()
+
+
 def test_lapv1_optimization_config_validates_max_grad_norm() -> None:
     config = LAPv1OptimizationConfig(max_grad_norm=0.5)
     assert config.max_grad_norm == 0.5
@@ -208,6 +285,26 @@ def test_policy_margin_loss_caps_raw_gap_targets_locally() -> None:
         torch.tensor([2.0], dtype=torch.float32),
         torch.tensor([4.0], dtype=torch.float32),
         reduction="none",
+    ).mean()
+    assert torch.allclose(loss, expected)
+
+
+def test_trace_policy_ce_loss_averages_over_step_logits() -> None:
+    assert torch is not None
+
+    step_logits = (
+        torch.tensor([[2.0, 1.0]], dtype=torch.float32),
+        torch.tensor([[3.0, 0.5]], dtype=torch.float32),
+    )
+    teacher_top1 = torch.tensor([0], dtype=torch.long)
+
+    loss = _trace_policy_ce_loss(step_logits, teacher_top1)
+
+    expected = torch.stack(
+        [
+            torch.nn.functional.cross_entropy(step_logits[0], teacher_top1),
+            torch.nn.functional.cross_entropy(step_logits[1], teacher_top1),
+        ]
     ).mean()
     assert torch.allclose(loss, expected)
 

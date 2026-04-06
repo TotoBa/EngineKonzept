@@ -291,6 +291,42 @@ deliberation-monotonicity auxiliary loss, and rollback statistics in the
 epoch metrics. No real stage-T2 run config is prepared yet; the support is
 kept trainer-local until the first dedicated LAPv1 follow-up config exists.
 
+The first completed all-unique fast Stage-T1 arena run is documented in
+[phase10-lapv1-stage1-fast-arena-summary-2026-04-06.md](/home/torsten/EngineKonzept/docs/experiments/phase10-lapv1-stage1-fast-arena-summary-2026-04-06.md).
+Its key takeaway is narrow but important: `inner1` underperformed `inner0`, but
+that comparison used the same Stage-T1 checkpoint trained only with
+`max_inner_steps = 0`. The correct next comparison is therefore not another
+runtime-only override, but a real Stage-T2 checkpoint evaluated at multiple
+runtime inner-step caps.
+
+The follow-up path now reflects that diagnosis directly:
+
+- Stage-T2 warm-starts from the completed fast Stage-T1 checkpoint instead of
+  relearning the shared encoder/state stack from scratch
+- the trainer now carries an explicit per-step policy-supervision loss over the
+  intermediate candidate-score tensors emitted by the deliberation loop
+- runtime `deliberation_max_inner_steps` is treated as the hard inner-loop
+  budget cap, while `q_threshold` plus top-1 stability remain the learned
+  early-stop gates inside that budget
+
+That means the intended comparison is now:
+
+- `inner0`: same trained Stage-T2 checkpoint, budget cap `0`
+- `inner1`: same trained Stage-T2 checkpoint, budget cap `1`
+- `inner2`: same trained Stage-T2 checkpoint, budget cap `2`
+- `auto4`: same trained Stage-T2 checkpoint, budget cap `4`, but the loop may
+  stop earlier on its own
+
+Future UCI-side status reporting for the inner loop remains a deliberate
+follow-up, not part of the current repair. The runtime should later be able to
+surface at least:
+
+- current inner step
+- current top-1 move
+- sharpness / uncertainty
+- rollback fired or not
+- early-stop reason / budget exhaustion
+
 The first runtime-facing LAPv1 glue now also exists in
 [lapv1_runtime.py](/home/torsten/EngineKonzept/python/train/eval/lapv1_runtime.py)
 plus [phase10_agent_lapv1_stage1_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_agent_lapv1_stage1_v1.json).

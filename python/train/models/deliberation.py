@@ -331,6 +331,7 @@ if torch is not None and nn is not None:
                     "step_count": 0,
                     "step_value_cp_tensors": (),
                     "step_sharpness_tensors": (),
+                    "step_candidate_score_tensors": (),
                     "step_rollback_flags": (),
                     "final_z": z_root,
                     "final_memory": torch.zeros(
@@ -353,6 +354,7 @@ if torch is not None and nn is not None:
             trace_steps: list[DeliberationTraceStep] = []
             step_value_cp_tensors: list[torch.Tensor] = []
             step_sharpness_tensors: list[torch.Tensor] = []
+            step_candidate_score_tensors: list[torch.Tensor] = []
             step_rollback_flags: list[bool] = []
             top1_history: list[list[int]] = []
             snapshots: deque[tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]] = deque(
@@ -451,6 +453,7 @@ if torch is not None and nn is not None:
                 )
                 step_value_cp_tensors.append(value_cp.clone())
                 step_sharpness_tensors.append(sharpness.clone())
+                step_candidate_score_tensors.append(C_t.clone())
                 step_rollback_flags.append(rollback_fired)
 
             final_top1_indices = torch.argmax(C_t, dim=1)
@@ -465,6 +468,7 @@ if torch is not None and nn is not None:
                 "step_count": len(trace_steps),
                 "step_value_cp_tensors": tuple(step_value_cp_tensors),
                 "step_sharpness_tensors": tuple(step_sharpness_tensors),
+                "step_candidate_score_tensors": tuple(step_candidate_score_tensors),
                 "step_rollback_flags": tuple(step_rollback_flags),
                 "final_z": z_t,
                 "final_memory": M_t,

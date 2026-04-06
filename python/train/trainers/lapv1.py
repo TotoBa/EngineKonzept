@@ -56,6 +56,7 @@ class LAPv1OptimizationConfig:
     intention_aux_weight: float = 0.0
     sharpness_target_loss_weight: float = 0.0
     deliberation_monotonicity_weight: float = 0.0
+    deliberation_step_policy_weight: float = 0.0
 
     def __post_init__(self) -> None:
         if self.epochs <= 0:
@@ -81,6 +82,7 @@ class LAPv1OptimizationConfig:
             "intention_aux_weight",
             "sharpness_target_loss_weight",
             "deliberation_monotonicity_weight",
+            "deliberation_step_policy_weight",
         ):
             if getattr(self, name) < 0.0:
                 raise ValueError(f"optimization.{name} must be non-negative")
@@ -112,6 +114,7 @@ class LAPv1TrainConfig:
     evaluation: PlannerEvaluationConfig
     runtime: PlannerRuntimeConfig
     export: PlannerExportConfig
+    initial_checkpoint: str | None = None
     stage2: LAPv1Stage2Config | None = None
 
     def __post_init__(self) -> None:
@@ -164,6 +167,11 @@ class LAPv1TrainConfig:
             seed=int(payload.get("seed", 0)),
             output_dir=str(payload["output_dir"]),
             stage=str(payload["stage"]),
+            initial_checkpoint=(
+                None
+                if payload.get("initial_checkpoint") in (None, "")
+                else str(payload["initial_checkpoint"])
+            ),
             stage2=(
                 None
                 if payload.get("stage2") is None
@@ -204,6 +212,7 @@ class LAPv1Metrics:
     policy_rank_loss: float
     intention_aux_loss: float
     deliberation_monotonicity_loss: float
+    deliberation_step_policy_loss: float
     root_top1_accuracy: float
     root_top3_accuracy: float
     teacher_root_mean_reciprocal_rank: float
@@ -229,6 +238,10 @@ class LAPv1Metrics:
             "intention_aux_loss": round(self.intention_aux_loss, 6),
             "deliberation_monotonicity_loss": round(
                 self.deliberation_monotonicity_loss,
+                6,
+            ),
+            "deliberation_step_policy_loss": round(
+                self.deliberation_step_policy_loss,
                 6,
             ),
             "root_top1_accuracy": round(self.root_top1_accuracy, 6),
@@ -403,7 +416,7 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
         f"stage={config.stage} output_dir={output_dir} bundle_dir={bundle_dir} "
         f"epochs={config.optimization.epochs} batch_size={config.optimization.batch_size} "
         f"train_examples={len(train_examples)} validation_examples={len(validation_examples)} "
-        "data_access=lazy_jsonl",
+        f"initial_checkpoint={config.initial_checkpoint} data_access=lazy_jsonl",
         flush=True,
     )
 
@@ -411,6 +424,18 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
     aux_probe = _PieceRoleAuxProbe(
         intention_dim=config.model.intention_encoder.intention_dim
     )
+    if config.initial_checkpoint is not None:
+        initial_checkpoint_path = resolve_repo_path(repo_root, config.initial_checkpoint)
+        initial_payload = torch.load(initial_checkpoint_path, map_location="cpu")
+        if initial_payload.get("model_name") != LAPV1_MODEL_NAME:
+            raise ValueError(
+                f"{initial_checkpoint_path}: unsupported initial LAPv1 model name "
+                f"{initial_payload.get('model_name')!r}"
+            )
+        model.load_state_dict(dict(initial_payload["model_state_dict"]))
+        aux_state_dict = initial_payload.get("aux_state_dict")
+        if isinstance(aux_state_dict, dict):
+            aux_probe.load_state_dict(dict(aux_state_dict))
     optimizer = torch.optim.AdamW(
         list(model.parameters()) + list(aux_probe.parameters()),
         lr=config.optimization.learning_rate,
@@ -687,6 +712,7 @@ def _run_epoch(
     total_policy_rank = 0.0
     total_intention_aux = 0.0
     total_monotonicity = 0.0
+    total_step_policy = 0.0
     correct_top1 = 0
     correct_topk = 0
     reciprocal_rank_sum = 0.0
@@ -727,6 +753,7 @@ def _run_epoch(
             piece_role_logits = aux_probe(outputs["piece_intentions"])
             step_sharpness_tensors = tuple(outputs["step_sharpness_tensors"])
             step_value_cp_tensors = tuple(outputs["step_value_cp_tensors"])
+            step_candidate_score_tensors = tuple(outputs["step_candidate_score_tensors"])
             step_rollback_flags = tuple(outputs["step_rollback_flags"])
 
             value_wdl_loss = torch.nn.functional.cross_entropy(
@@ -784,6 +811,10 @@ def _run_epoch(
                     dtype=logits.dtype,
                     device=logits.device,
                 )
+            deliberation_step_policy_loss = _trace_policy_ce_loss(
+                step_candidate_score_tensors,
+                batch["teacher_top1_candidate_index"],
+            )
 
             loss = (
                 optimization.value_wdl_weight * value_wdl_loss
@@ -796,6 +827,7 @@ def _run_epoch(
                 + optimization.policy_rank_weight * policy_rank_loss
                 + optimization.intention_aux_weight * intention_aux_loss
                 + optimization.deliberation_monotonicity_weight * deliberation_monotonicity_loss
+                + optimization.deliberation_step_policy_weight * deliberation_step_policy_loss
             )
 
             if training:
@@ -824,6 +856,7 @@ def _run_epoch(
             total_policy_rank += float(policy_rank_loss.item()) * len(batch_examples)
             total_intention_aux += float(intention_aux_loss.item()) * len(batch_examples)
             total_monotonicity += float(deliberation_monotonicity_loss.item()) * len(batch_examples)
+            total_step_policy += float(deliberation_step_policy_loss.item()) * len(batch_examples)
             correct_top1 += int(
                 torch.sum(top1_indices == batch["teacher_top1_candidate_index"]).item()
             )
@@ -886,6 +919,7 @@ def _run_epoch(
         policy_rank_loss=total_policy_rank / total_examples,
         intention_aux_loss=total_intention_aux / total_examples,
         deliberation_monotonicity_loss=total_monotonicity / total_examples,
+        deliberation_step_policy_loss=total_step_policy / total_examples,
         root_top1_accuracy=correct_top1 / total_examples,
         root_top3_accuracy=correct_topk / total_examples,
         teacher_root_mean_reciprocal_rank=reciprocal_rank_sum / total_examples,
@@ -1075,6 +1109,26 @@ def _policy_rank_loss(
                     )
     if not losses:
         return torch.zeros((), dtype=logits.dtype, device=logits.device)
+    return torch.stack(losses).mean()
+
+
+def _trace_policy_ce_loss(
+    step_candidate_score_tensors: Sequence[torch.Tensor],
+    teacher_top1_candidate_index: torch.Tensor,
+) -> torch.Tensor:
+    if not step_candidate_score_tensors:
+        return torch.zeros(
+            (),
+            dtype=teacher_top1_candidate_index.dtype,
+            device=teacher_top1_candidate_index.device,
+        ).float()
+    losses = [
+        torch.nn.functional.cross_entropy(
+            step_logits,
+            teacher_top1_candidate_index,
+        )
+        for step_logits in step_candidate_score_tensors
+    ]
     return torch.stack(losses).mean()
 
 

@@ -1,4 +1,4 @@
-"""Run the Phase-10 all-unique LAPv1 Stage1 bootstrap followed by an 8-agent arena."""
+"""Run one Phase-10 LAPv1 bootstrap and reference arena campaign."""
 
 from __future__ import annotations
 
@@ -10,12 +10,19 @@ import subprocess
 import sys
 from typing import Any, Mapping, Sequence
 
-from train.eval.agent_spec import write_selfplay_agent_spec
-from train.eval.arena import SelfplayArenaSpec, run_selfplay_arena
-from train.eval.initial_fens import load_selfplay_initial_fen_suite
-from train.eval.matrix import build_selfplay_arena_matrix, write_selfplay_arena_matrix
-from train.eval.selfplay import SelfplayMaxPliesAdjudicationSpec
-from train.trainers import evaluate_lapv1_checkpoint, load_lapv1_train_config
+PYTHON_ROOT = Path(__file__).resolve().parents[1]
+if str(PYTHON_ROOT) not in sys.path:
+    sys.path.insert(0, str(PYTHON_ROOT))
+
+from train.eval.agent_spec import write_selfplay_agent_spec  # noqa: E402
+from train.eval.arena import SelfplayArenaSpec, run_selfplay_arena  # noqa: E402
+from train.eval.initial_fens import load_selfplay_initial_fen_suite  # noqa: E402
+from train.eval.matrix import (  # noqa: E402
+    build_selfplay_arena_matrix,
+    write_selfplay_arena_matrix,
+)
+from train.eval.selfplay import SelfplayMaxPliesAdjudicationSpec  # noqa: E402
+from train.trainers import evaluate_lapv1_checkpoint, load_lapv1_train_config  # noqa: E402
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -473,7 +480,7 @@ def _build_resolved_arena_spec(
         max_plies_adjudication=adjudication,
         metadata={
             "campaign_name": spec.name,
-            "purpose": "lapv1_stage1_bootstrap_vs_top6_plus_vice",
+            "purpose": "lapv1_compare_vs_top6_plus_vice",
             "lapv1_agent_names": list(lapv1_specs),
             "reference_arena_summary_path": spec.reference_arena_summary_path,
             "selected_reference_agents": list(selected_reference_agents),
