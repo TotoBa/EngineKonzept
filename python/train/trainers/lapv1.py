@@ -868,13 +868,10 @@ def evaluate_lapv1_checkpoint(
             f"{checkpoint}: unsupported LAPv1 model name {payload.get('model_name')!r}"
         )
 
-    training_config = dict(payload["training_config"])
-    stage = str(training_config["stage"])
-    stage2_payload = training_config.get("stage2")
-    stage2 = (
-        None if stage2_payload is None else LAPv1Stage2Config(**dict(stage2_payload))
-    )
-    lapv1_config = LAPv1Config.from_mapping(dict(training_config["model"]))
+    training_config = LAPv1TrainConfig.from_dict(dict(payload["training_config"]))
+    stage = training_config.stage
+    stage2 = training_config.stage2
+    lapv1_config = training_config.model
     model = LAPv1Model(lapv1_config)
     if stage == "T2" and stage2 is not None:
         max_inner_steps = (
@@ -905,26 +902,23 @@ def evaluate_lapv1_checkpoint(
     effective_dataset_path = (
         Path(dataset_path)
         if dataset_path is not None
-        else Path(str(training_config["data"]["validation_path"]))
+        else Path(training_config.data.validation_path)
     )
     examples = _build_lazy_dataset(
         [effective_dataset_path],
         log_label="evaluation",
         log_every_examples=25_000,
     )
-    optimization = LAPv1OptimizationConfig(
-        **dict(training_config["optimization"])
-    )
     try:
         return _run_epoch(
             model=model,
             aux_probe=aux_probe,
             examples=examples,
-            batch_size=int(training_config["optimization"]["batch_size"]),
+            batch_size=training_config.optimization.batch_size,
             optimizer=None,
             training=False,
-            seed=int(training_config["seed"]),
-            optimization=optimization,
+            seed=training_config.seed,
+            optimization=training_config.optimization,
             top_k=top_k,
             stage=stage,
             stage2=stage2,

@@ -27,6 +27,8 @@ from train.models.intention_encoder import torch
 from train.trainers import evaluate_lapv1_checkpoint, train_lapv1
 from train.trainers.lapv1 import (
     LAPv1OptimizationConfig,
+    LAPv1Stage2Config,
+    LAPv1Stage2PhaseConfig,
     LAPv1TrainConfig,
     _build_lazy_dataset,
     _collate_examples,
@@ -271,6 +273,86 @@ def test_train_lapv1_accepts_older_checkpoint_missing_residual_delta_net(
     run = train_lapv1(config, repo_root=tmp_path)
 
     assert Path(run.export_paths["checkpoint"]).exists()
+
+
+def test_evaluate_lapv1_checkpoint_accepts_stage2_phase_config_payload(
+    tmp_path: Path,
+) -> None:
+    validation_path = tmp_path / "lapv1_validation.jsonl"
+    _write_examples(
+        validation_path,
+        [_planner_example("validation-1", teacher_index=0, teacher_cp=50.0, teacher_gap=30.0)],
+    )
+
+    model_config = LAPv1Config.from_mapping(
+        {
+            "deliberation": {"max_inner_steps": 4, "min_inner_steps": 1},
+            "opponent_head": {
+                "architecture": "set_v2",
+                "hidden_dim": 64,
+                "hidden_layers": 1,
+                "action_embedding_dim": 16,
+                "dropout": 0.0,
+            },
+            "value_head": {"hidden_dim": 1024},
+            "policy_head": {
+                "hidden_dim": 512,
+                "action_embedding_dim": 32,
+                "feedforward_dim": 1024,
+            },
+            "state_embedder": {"feedforward_dim": 1024},
+            "intention_encoder": {"feedforward_dim": 1024},
+        }
+    )
+    checkpoint_path = tmp_path / "stage2_phased_checkpoint.pt"
+    model = LAPv1Model(model_config)
+    torch.save(
+        {
+            "model_name": LAPV1_MODEL_NAME,
+            "model_state_dict": model.state_dict(),
+            "training_config": LAPv1TrainConfig(
+                seed=41,
+                output_dir=str(tmp_path / "lapv1_out"),
+                stage="T2",
+                data=PlannerDataConfig(
+                    train_path="train.jsonl",
+                    validation_path=str(validation_path),
+                ),
+                model=model_config,
+                optimization=LAPv1OptimizationConfig(
+                    epochs=4,
+                    batch_size=1,
+                    learning_rate=1e-3,
+                    weight_decay=0.0,
+                ),
+                evaluation=PlannerEvaluationConfig(top_k=3),
+                runtime=PlannerRuntimeConfig(torch_threads=1, dataloader_workers=0),
+                export=PlannerExportConfig(bundle_dir=str(tmp_path / "bundle")),
+                stage2=LAPv1Stage2Config(
+                    phases=(
+                        LAPv1Stage2PhaseConfig(
+                            name="freeze_inner",
+                            epochs=2,
+                            trainable_parameter_groups=("inner_loop",),
+                            max_inner_steps_schedule=(1, 2),
+                        ),
+                        LAPv1Stage2PhaseConfig(
+                            name="joint_finetune",
+                            epochs=2,
+                            trainable_parameter_groups=("all",),
+                            max_inner_steps_schedule=(2, 4),
+                        ),
+                    ),
+                ),
+            ).to_dict(),
+        },
+        checkpoint_path,
+    )
+
+    metrics = evaluate_lapv1_checkpoint(checkpoint_path)
+
+    assert metrics.total_examples == 1
+    assert 0.0 <= metrics.root_top1_accuracy <= 1.0
 
 
 def test_lapv1_optimization_config_validates_max_grad_norm() -> None:

@@ -231,6 +231,17 @@ The same `v2` repair cycle also tightened observability for future long runs:
 - the Phase-10 campaign log now prints the actual configured LAPv1 stage name
   when it enters or reuses training
 
+One further resume bug appeared after the first full Stage-T2 training pass:
+
+- the saved `training_config.stage2.phases` payload is serialized as JSON dicts
+- `evaluate_lapv1_checkpoint(...)` originally reconstructed `stage2` too
+  shallowly and then failed during verify/resume when it expected typed phase
+  entries
+
+That path now reuses the full `LAPv1TrainConfig.from_dict(...)` parser, so the
+post-training verify step can resume correctly from an already materialized
+Stage-T2 checkpoint.
+
 `auto4` should be read as:
 
 - hard runtime budget cap `4`
