@@ -123,6 +123,8 @@ def test_train_lapv1_stage2_logs_monotonicity_and_rollback_stats(tmp_path: Path)
 def test_train_lapv1_stage2_supports_freeze_then_joint_phases(tmp_path: Path) -> None:
     train_path = tmp_path / "lapv1_stage2_train.jsonl"
     validation_path = tmp_path / "lapv1_stage2_validation.jsonl"
+    hard_train_path = tmp_path / "lapv1_stage2_hard_train.jsonl"
+    hard_validation_path = tmp_path / "lapv1_stage2_hard_validation.jsonl"
     _write_examples(
         train_path,
         [
@@ -139,6 +141,24 @@ def test_train_lapv1_stage2_supports_freeze_then_joint_phases(tmp_path: Path) ->
             _planner_example("validation-2", teacher_index=1, teacher_cp=0.0, teacher_gap=5.0),
         ],
     )
+    _write_examples(
+        hard_train_path,
+        [
+            _planner_example("hard-train-1", teacher_index=1, teacher_cp=5.0, teacher_gap=2.0),
+            _planner_example("hard-train-2", teacher_index=0, teacher_cp=-5.0, teacher_gap=3.0),
+        ],
+    )
+    _write_examples(
+        hard_validation_path,
+        [
+            _planner_example(
+                "hard-validation-1",
+                teacher_index=1,
+                teacher_cp=0.0,
+                teacher_gap=1.0,
+            ),
+        ],
+    )
 
     config = LAPv1TrainConfig(
         seed=29,
@@ -151,12 +171,16 @@ def test_train_lapv1_stage2_supports_freeze_then_joint_phases(tmp_path: Path) ->
                     epochs=1,
                     trainable_parameter_groups=("inner_loop",),
                     max_inner_steps_schedule=(1, 2),
+                    min_inner_steps_schedule=(1, 1),
+                    train_paths=(str(hard_train_path),),
+                    validation_paths=(str(hard_validation_path),),
                 ),
                 LAPv1Stage2PhaseConfig(
                     name="joint_finetune",
                     epochs=1,
                     trainable_parameter_groups=("all",),
                     max_inner_steps_schedule=(4,),
+                    min_inner_steps_schedule=(2,),
                 ),
             )
         ),
@@ -220,7 +244,15 @@ def test_train_lapv1_stage2_supports_freeze_then_joint_phases(tmp_path: Path) ->
     assert run.history[0]["trainable_parameter_groups"] == ["inner_loop"]
     assert run.history[1]["trainable_parameter_groups"] == ["all"]
     assert run.history[0]["max_inner_steps"] == 2
+    assert run.history[0]["min_inner_steps"] == 1
     assert run.history[1]["max_inner_steps"] == 4
+    assert run.history[1]["min_inner_steps"] == 2
+    assert run.history[0]["train_dataset_paths"] == [str(hard_train_path)]
+    assert run.history[0]["validation_dataset_paths"] == [str(hard_validation_path)]
+    assert run.history[1]["train_dataset_paths"] == [str(train_path)]
+    assert run.history[1]["validation_dataset_paths"] == [str(validation_path)]
+    assert "deliberation_improvement_loss" in run.history[0]["train"]
+    assert "root_incorrect_improvement_rate" in run.history[0]["validation"]
 
 
 def _write_examples(path: Path, examples: list[PlannerHeadExample]) -> None:

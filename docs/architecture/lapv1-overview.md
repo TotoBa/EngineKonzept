@@ -203,6 +203,8 @@ Stage-T2 now also supports explicit training phases. The intended path is:
 
 - `freeze_inner`: keep the root encoder/heads fixed and train only the inner-loop path
 - `joint_finetune`: unfreeze the full wrapper for a short consolidation pass
+- a phase may override its own train/validation artifacts
+- a phase may independently schedule `min_inner_steps` and `max_inner_steps`
 
 This avoids conflating "the root got better" with "the inner step learned to use
 its budget better".
@@ -222,11 +224,19 @@ Stage-T2 diagnostics now explicitly compare root vs final behavior:
 - final `top1` / final `MRR`
 - `top1_changed_rate`
 - teacher-rank improvement/degradation rates
+- root-incorrect improvement rate vs root-correct degradation rate
 - per-example rollback rate
 - mean executed inner steps and step histogram
 
 That makes later UCI-side trace work much easier because the training summary now
 already exposes whether deeper budgets actually helped.
+
+Stage-T2 now also uses an explicit improvement-over-root loss on positions where
+the detached root policy is still wrong. Final logits and intermediate step
+logits are penalized when they fail to beat the detached root cross-entropy by a
+small margin. The intended effect is to train the residual deliberation path to
+make real corrections instead of merely relearning the already-strong root
+distribution.
 
 For long CPU runs, LAPv1 also now emits explicit progress logs during the
 previously quiet parts of the pipeline:

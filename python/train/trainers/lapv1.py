@@ -57,6 +57,7 @@ class LAPv1OptimizationConfig:
     sharpness_target_loss_weight: float = 0.0
     deliberation_monotonicity_weight: float = 0.0
     deliberation_step_policy_weight: float = 0.0
+    deliberation_improvement_weight: float = 0.0
 
     def __post_init__(self) -> None:
         if self.epochs <= 0:
@@ -83,6 +84,7 @@ class LAPv1OptimizationConfig:
             "sharpness_target_loss_weight",
             "deliberation_monotonicity_weight",
             "deliberation_step_policy_weight",
+            "deliberation_improvement_weight",
         ):
             if getattr(self, name) < 0.0:
                 raise ValueError(f"optimization.{name} must be non-negative")
@@ -96,6 +98,9 @@ class LAPv1Stage2PhaseConfig:
     epochs: int
     trainable_parameter_groups: tuple[str, ...] = ("all",)
     max_inner_steps_schedule: tuple[int, ...] = (2, 4, 8)
+    min_inner_steps_schedule: tuple[int, ...] = ()
+    train_paths: tuple[str, ...] = ()
+    validation_paths: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.name:
@@ -123,6 +128,23 @@ class LAPv1Stage2PhaseConfig:
             raise ValueError(
                 "stage2.phases[].max_inner_steps_schedule entries must be positive"
             )
+        if self.min_inner_steps_schedule and any(
+            step < 0 for step in self.min_inner_steps_schedule
+        ):
+            raise ValueError(
+                "stage2.phases[].min_inner_steps_schedule entries must be non-negative"
+            )
+        if self.min_inner_steps_schedule and len(self.min_inner_steps_schedule) != len(
+            self.max_inner_steps_schedule
+        ):
+            raise ValueError(
+                "stage2.phases[].min_inner_steps_schedule must align with "
+                "stage2.phases[].max_inner_steps_schedule"
+            )
+        if any(not path for path in self.train_paths):
+            raise ValueError("stage2.phases[].train_paths entries must be non-empty")
+        if any(not path for path in self.validation_paths):
+            raise ValueError("stage2.phases[].validation_paths entries must be non-empty")
 
 
 @dataclass(frozen=True)
@@ -194,6 +216,19 @@ class LAPv1TrainConfig:
                     raise ValueError(
                         "sum(stage2.phases[].epochs) must equal optimization.epochs"
                     )
+                for phase in self.stage2.phases:
+                    if phase.min_inner_steps_schedule and any(
+                        min_step > max_step
+                        for min_step, max_step in zip(
+                            phase.min_inner_steps_schedule,
+                            phase.max_inner_steps_schedule,
+                            strict=True,
+                        )
+                    ):
+                        raise ValueError(
+                            "stage2.phases[].min_inner_steps_schedule must not exceed "
+                            "stage2.phases[].max_inner_steps_schedule"
+                        )
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -257,6 +292,22 @@ class LAPv1TrainConfig:
                                     dict(entry).get("max_inner_steps_schedule", (2, 4, 8))
                                 )
                             ),
+                            min_inner_steps_schedule=tuple(
+                                int(step)
+                                for step in list(
+                                    dict(entry).get("min_inner_steps_schedule", ())
+                                )
+                            ),
+                            train_paths=tuple(
+                                str(path)
+                                for path in list(dict(entry).get("train_paths") or [])
+                            ),
+                            validation_paths=tuple(
+                                str(path)
+                                for path in list(
+                                    dict(entry).get("validation_paths") or []
+                                )
+                            ),
                         )
                         for entry in list(dict(payload["stage2"]).get("phases") or [])
                     ),
@@ -287,6 +338,9 @@ class _ResolvedStage2Phase:
     epoch_end: int
     trainable_parameter_groups: tuple[str, ...]
     max_inner_steps_schedule: tuple[int, ...]
+    min_inner_steps_schedule: tuple[int, ...]
+    train_paths: tuple[str, ...]
+    validation_paths: tuple[str, ...]
 
     def contains_epoch(self, epoch: int) -> bool:
         return self.epoch_start <= epoch <= self.epoch_end
@@ -310,6 +364,7 @@ class LAPv1Metrics:
     intention_aux_loss: float
     deliberation_monotonicity_loss: float
     deliberation_step_policy_loss: float
+    deliberation_improvement_loss: float
     root_top1_accuracy: float
     root_top3_accuracy: float
     teacher_root_mean_reciprocal_rank: float
@@ -325,6 +380,8 @@ class LAPv1Metrics:
     top1_changed_rate: float
     teacher_rank_improved_rate: float
     teacher_rank_degraded_rate: float
+    root_incorrect_improvement_rate: float
+    root_correct_degraded_rate: float
     mean_teacher_rank_delta: float
     mean_inner_steps_executed: float
     step_histogram: dict[str, int]
@@ -352,6 +409,10 @@ class LAPv1Metrics:
                 self.deliberation_step_policy_loss,
                 6,
             ),
+            "deliberation_improvement_loss": round(
+                self.deliberation_improvement_loss,
+                6,
+            ),
             "root_top1_accuracy": round(self.root_top1_accuracy, 6),
             "root_top3_accuracy": round(self.root_top3_accuracy, 6),
             "teacher_root_mean_reciprocal_rank": round(
@@ -376,6 +437,14 @@ class LAPv1Metrics:
             "top1_changed_rate": round(self.top1_changed_rate, 6),
             "teacher_rank_improved_rate": round(self.teacher_rank_improved_rate, 6),
             "teacher_rank_degraded_rate": round(self.teacher_rank_degraded_rate, 6),
+            "root_incorrect_improvement_rate": round(
+                self.root_incorrect_improvement_rate,
+                6,
+            ),
+            "root_correct_degraded_rate": round(
+                self.root_correct_degraded_rate,
+                6,
+            ),
             "mean_teacher_rank_delta": round(self.mean_teacher_rank_delta, 6),
             "mean_inner_steps_executed": round(self.mean_inner_steps_executed, 6),
             "step_histogram": dict(self.step_histogram),
@@ -568,29 +637,26 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
     _set_seed(config.seed)
     _configure_torch_runtime(config.runtime.torch_threads)
 
-    train_examples = _build_lazy_dataset(
-        [resolve_repo_path(repo_root, path) for path in config.data.resolved_train_paths()],
-        log_label="train",
-        log_every_examples=100_000,
-    )
-    validation_examples = _build_lazy_dataset(
-        [resolve_repo_path(repo_root, path) for path in config.data.resolved_validation_paths()],
-        log_label="validation",
-        log_every_examples=25_000,
-    )
-    if len(train_examples) == 0:
-        raise ValueError("training artifact is empty")
-    if len(validation_examples) == 0:
-        raise ValueError("validation artifact is empty")
+    dataset_cache: dict[tuple[str, tuple[str, ...]], _LazyPreparedLAPv1Dataset] = {}
 
-    print(
-        "[lapv1-train] "
-        f"stage={config.stage} output_dir={output_dir} bundle_dir={bundle_dir} "
-        f"epochs={config.optimization.epochs} batch_size={config.optimization.batch_size} "
-        f"train_examples={len(train_examples)} validation_examples={len(validation_examples)} "
-        f"initial_checkpoint={config.initial_checkpoint} data_access=lazy_jsonl",
-        flush=True,
-    )
+    def get_dataset(
+        *,
+        label: str,
+        paths: Sequence[str],
+        log_every_examples: int,
+    ) -> _LazyPreparedLAPv1Dataset:
+        resolved_paths = tuple(
+            str(resolve_repo_path(repo_root, path))
+            for path in paths
+        )
+        cache_key = (label, resolved_paths)
+        if cache_key not in dataset_cache:
+            dataset_cache[cache_key] = _build_lazy_dataset(
+                [Path(path) for path in resolved_paths],
+                log_label=label,
+                log_every_examples=log_every_examples,
+            )
+        return dataset_cache[cache_key]
 
     model = LAPv1Model(config.model)
     aux_probe = _PieceRoleAuxProbe(
@@ -614,6 +680,25 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
             aux_probe.load_state_dict(dict(aux_state_dict))
     model_parameter_count = sum(parameter.numel() for parameter in model.parameters())
     stage2_phases = _resolve_stage2_phases(config)
+    initial_phase = None if config.stage == "T1" else _stage2_phase_for_epoch(stage2_phases, epoch=1)
+    train_examples, validation_examples, active_train_paths, active_validation_paths = _datasets_for_phase(
+        config=config,
+        repo_root=repo_root,
+        phase=initial_phase,
+        get_dataset=get_dataset,
+    )
+    if len(train_examples) == 0:
+        raise ValueError("training artifact is empty")
+    if len(validation_examples) == 0:
+        raise ValueError("validation artifact is empty")
+    print(
+        "[lapv1-train] "
+        f"stage={config.stage} output_dir={output_dir} bundle_dir={bundle_dir} "
+        f"epochs={config.optimization.epochs} batch_size={config.optimization.batch_size} "
+        f"train_examples={len(train_examples)} validation_examples={len(validation_examples)} "
+        f"initial_checkpoint={config.initial_checkpoint} data_access=lazy_jsonl",
+        flush=True,
+    )
     active_phase_name = "joint" if config.stage == "T1" else None
     active_phase_groups: tuple[str, ...] = ("all",)
     if config.stage == "T1":
@@ -667,6 +752,17 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
                         f"trainable_parameters={trainable_parameter_count}",
                         flush=True,
                     )
+                (
+                    train_examples,
+                    validation_examples,
+                    active_train_paths,
+                    active_validation_paths,
+                ) = _datasets_for_phase(
+                    config=config,
+                    repo_root=repo_root,
+                    phase=current_phase,
+                    get_dataset=get_dataset,
+                )
             else:
                 current_phase = None
             assert optimizer is not None
@@ -678,11 +774,18 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
                     epoch=epoch,
                 )
             )
-            model.deliberation_loop.max_inner_steps = current_max_inner_steps
-            model.deliberation_loop.min_inner_steps = min(
-                config.model.deliberation.min_inner_steps,
-                current_max_inner_steps,
+            current_min_inner_steps = (
+                0
+                if config.stage == "T1"
+                else _current_min_inner_steps(
+                    phase=current_phase,
+                    epoch=epoch,
+                    base_min_inner_steps=config.model.deliberation.min_inner_steps,
+                    current_max_inner_steps=current_max_inner_steps,
+                )
             )
+            model.deliberation_loop.max_inner_steps = current_max_inner_steps
+            model.deliberation_loop.min_inner_steps = current_min_inner_steps
             train_metrics = _run_epoch(
                 model=model,
                 aux_probe=aux_probe,
@@ -717,6 +820,9 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
                 "epoch": epoch,
                 "stage2_phase": active_phase_name,
                 "trainable_parameter_groups": list(active_phase_groups),
+                "train_dataset_paths": list(active_train_paths),
+                "validation_dataset_paths": list(active_validation_paths),
+                "min_inner_steps": current_min_inner_steps,
                 "max_inner_steps": current_max_inner_steps,
                 "train": train_metrics.to_dict(),
                 "validation": validation_metrics.to_dict(),
@@ -727,6 +833,9 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
                 f"epoch={epoch}/{config.optimization.epochs} "
                 f"stage={config.stage} "
                 f"stage2_phase={active_phase_name} "
+                f"train_paths={len(active_train_paths)} "
+                f"validation_paths={len(active_validation_paths)} "
+                f"min_inner_steps={current_min_inner_steps} "
                 f"max_inner_steps={current_max_inner_steps} "
                 f"train_loss={train_metrics.total_loss:.4f} "
                 f"val_top1={validation_metrics.root_top1_accuracy:.4f} "
@@ -735,6 +844,8 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
                 f"root_mrr={validation_metrics.initial_teacher_root_mean_reciprocal_rank:.4f} "
                 f"top1_changed={validation_metrics.top1_changed_rate:.4f} "
                 f"rank_gain={validation_metrics.mean_teacher_rank_delta:.4f} "
+                f"root_incorrect_gain={validation_metrics.root_incorrect_improvement_rate:.4f} "
+                f"root_correct_degrade={validation_metrics.root_correct_degraded_rate:.4f} "
                 f"mean_steps={validation_metrics.mean_inner_steps_executed:.4f} "
                 f"rollbacks={validation_metrics.rollbacks} "
                 f"rollback_hit_rate={validation_metrics.rollback_hit_rate:.4f} "
@@ -757,8 +868,8 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
                     for name, tensor in aux_probe.state_dict().items()
                 }
     finally:
-        train_examples.close()
-        validation_examples.close()
+        for dataset in dataset_cache.values():
+            dataset.close()
 
     assert best_validation is not None
     model.load_state_dict(best_model_state)
@@ -997,6 +1108,7 @@ def _run_epoch(
     total_intention_aux = 0.0
     total_monotonicity = 0.0
     total_step_policy = 0.0
+    total_improvement = 0.0
     correct_top1 = 0
     correct_topk = 0
     initial_correct_top1 = 0
@@ -1011,6 +1123,10 @@ def _run_epoch(
     top1_changed_count = 0
     teacher_rank_improved_count = 0
     teacher_rank_degraded_count = 0
+    root_incorrect_examples = 0
+    root_incorrect_improvement_count = 0
+    root_correct_examples = 0
+    root_correct_degraded_count = 0
     teacher_rank_delta_sum = 0.0
     step_histogram: dict[str, int] = {}
 
@@ -1129,6 +1245,21 @@ def _run_epoch(
                 batch["teacher_top1_candidate_index"],
                 step_active_masks,
             )
+            if stage == "T2" and stage2 is not None:
+                deliberation_improvement_loss = _improvement_over_root_loss(
+                    initial_logits=initial_logits,
+                    final_logits=logits,
+                    teacher_top1_candidate_index=batch["teacher_top1_candidate_index"],
+                    candidate_mask=batch["candidate_mask"],
+                    step_candidate_score_tensors=step_candidate_score_tensors,
+                    step_active_masks=step_active_masks,
+                )
+            else:
+                deliberation_improvement_loss = torch.zeros(
+                    (),
+                    dtype=logits.dtype,
+                    device=logits.device,
+                )
 
             loss = (
                 optimization.value_wdl_weight * value_wdl_loss
@@ -1142,6 +1273,7 @@ def _run_epoch(
                 + optimization.intention_aux_weight * intention_aux_loss
                 + optimization.deliberation_monotonicity_weight * deliberation_monotonicity_loss
                 + optimization.deliberation_step_policy_weight * deliberation_step_policy_loss
+                + optimization.deliberation_improvement_weight * deliberation_improvement_loss
             )
 
             if training:
@@ -1185,6 +1317,7 @@ def _run_epoch(
             total_intention_aux += float(intention_aux_loss.item()) * len(batch_examples)
             total_monotonicity += float(deliberation_monotonicity_loss.item()) * len(batch_examples)
             total_step_policy += float(deliberation_step_policy_loss.item()) * len(batch_examples)
+            total_improvement += float(deliberation_improvement_loss.item()) * len(batch_examples)
             correct_top1 += int(
                 torch.sum(top1_indices == batch["teacher_top1_candidate_index"]).item()
             )
@@ -1219,6 +1352,16 @@ def _run_epoch(
             )
             teacher_rank_degraded_count += int(
                 torch.sum(teacher_ranks > initial_teacher_ranks).item()
+            )
+            root_incorrect_mask = initial_top1_indices != batch["teacher_top1_candidate_index"]
+            root_correct_mask = ~root_incorrect_mask
+            root_incorrect_examples += int(torch.sum(root_incorrect_mask).item())
+            root_incorrect_improvement_count += int(
+                torch.sum((teacher_ranks < initial_teacher_ranks) & root_incorrect_mask).item()
+            )
+            root_correct_examples += int(torch.sum(root_correct_mask).item())
+            root_correct_degraded_count += int(
+                torch.sum((teacher_ranks > initial_teacher_ranks) & root_correct_mask).item()
             )
             teacher_rank_delta_sum += float(
                 torch.sum((initial_teacher_ranks - teacher_ranks).float()).item()
@@ -1289,6 +1432,7 @@ def _run_epoch(
         intention_aux_loss=total_intention_aux / total_examples,
         deliberation_monotonicity_loss=total_monotonicity / total_examples,
         deliberation_step_policy_loss=total_step_policy / total_examples,
+        deliberation_improvement_loss=total_improvement / total_examples,
         root_top1_accuracy=correct_top1 / total_examples,
         root_top3_accuracy=correct_topk / total_examples,
         teacher_root_mean_reciprocal_rank=reciprocal_rank_sum / total_examples,
@@ -1310,6 +1454,16 @@ def _run_epoch(
         top1_changed_rate=top1_changed_count / total_examples,
         teacher_rank_improved_rate=teacher_rank_improved_count / total_examples,
         teacher_rank_degraded_rate=teacher_rank_degraded_count / total_examples,
+        root_incorrect_improvement_rate=(
+            0.0
+            if root_incorrect_examples == 0
+            else root_incorrect_improvement_count / root_incorrect_examples
+        ),
+        root_correct_degraded_rate=(
+            0.0
+            if root_correct_examples == 0
+            else root_correct_degraded_count / root_correct_examples
+        ),
         mean_teacher_rank_delta=teacher_rank_delta_sum / total_examples,
         mean_inner_steps_executed=total_trace_steps / total_examples,
         step_histogram=dict(sorted(step_histogram.items(), key=lambda item: int(item[0]))),
@@ -1539,6 +1693,62 @@ def _trace_policy_ce_loss(
     return torch.stack(losses).mean()
 
 
+def _improvement_over_root_loss(
+    *,
+    initial_logits: torch.Tensor,
+    final_logits: torch.Tensor,
+    teacher_top1_candidate_index: torch.Tensor,
+    candidate_mask: torch.Tensor,
+    step_candidate_score_tensors: Sequence[torch.Tensor],
+    step_active_masks: Sequence[torch.Tensor],
+    target_ce_margin: float = 0.05,
+) -> torch.Tensor:
+    if target_ce_margin < 0.0:
+        raise ValueError("target_ce_margin must be non-negative")
+    candidate_counts = candidate_mask.sum(dim=1)
+    root_incorrect_mask = (
+        torch.argmax(initial_logits, dim=1) != teacher_top1_candidate_index
+    ) & (candidate_counts > 1)
+    if not bool(root_incorrect_mask.any().item()):
+        return torch.zeros((), dtype=final_logits.dtype, device=final_logits.device)
+
+    initial_ce = torch.nn.functional.cross_entropy(
+        initial_logits,
+        teacher_top1_candidate_index,
+        reduction="none",
+    ).detach()
+    required_final_ce = torch.clamp(initial_ce - target_ce_margin, min=0.0)
+
+    losses: list[torch.Tensor] = []
+    final_ce = torch.nn.functional.cross_entropy(
+        final_logits,
+        teacher_top1_candidate_index,
+        reduction="none",
+    )
+    losses.append(
+        torch.nn.functional.relu(final_ce - required_final_ce)[root_incorrect_mask].mean()
+    )
+    for step_logits, step_active_mask in zip(
+        step_candidate_score_tensors,
+        step_active_masks,
+        strict=True,
+    ):
+        active_incorrect_mask = root_incorrect_mask & step_active_mask
+        if not bool(active_incorrect_mask.any().item()):
+            continue
+        step_ce = torch.nn.functional.cross_entropy(
+            step_logits,
+            teacher_top1_candidate_index,
+            reduction="none",
+        )
+        losses.append(
+            torch.nn.functional.relu(step_ce - required_final_ce)[
+                active_incorrect_mask
+            ].mean()
+        )
+    return torch.stack(losses).mean()
+
+
 def _trace_sharpness_target_loss(
     step_sharpness_tensors: Sequence[torch.Tensor],
     sharpness_target: torch.Tensor,
@@ -1608,6 +1818,9 @@ def _resolve_stage2_phases(config: LAPv1TrainConfig) -> tuple[_ResolvedStage2Pha
                 epoch_end=config.optimization.epochs,
                 trainable_parameter_groups=("all",),
                 max_inner_steps_schedule=config.stage2.max_inner_steps_schedule,
+                min_inner_steps_schedule=(),
+                train_paths=(),
+                validation_paths=(),
             ),
         )
     phases: list[_ResolvedStage2Phase] = []
@@ -1620,6 +1833,9 @@ def _resolve_stage2_phases(config: LAPv1TrainConfig) -> tuple[_ResolvedStage2Pha
                 epoch_end=next_epoch + phase.epochs - 1,
                 trainable_parameter_groups=phase.trainable_parameter_groups,
                 max_inner_steps_schedule=phase.max_inner_steps_schedule,
+                min_inner_steps_schedule=phase.min_inner_steps_schedule,
+                train_paths=phase.train_paths,
+                validation_paths=phase.validation_paths,
             )
         )
         next_epoch += phase.epochs
@@ -1706,14 +1922,84 @@ def _current_max_inner_steps(
     phase: _ResolvedStage2Phase,
     epoch: int,
 ) -> int:
-    if phase.epoch_start == phase.epoch_end:
-        return phase.max_inner_steps_schedule[-1]
+    return _scheduled_phase_value(
+        schedule=phase.max_inner_steps_schedule,
+        phase=phase,
+        epoch=epoch,
+    )
+
+
+def _current_min_inner_steps(
+    *,
+    phase: _ResolvedStage2Phase,
+    epoch: int,
+    base_min_inner_steps: int,
+    current_max_inner_steps: int,
+) -> int:
+    if not phase.min_inner_steps_schedule:
+        return min(base_min_inner_steps, current_max_inner_steps)
+    return min(
+        _scheduled_phase_value(
+            schedule=phase.min_inner_steps_schedule,
+            phase=phase,
+            epoch=epoch,
+        ),
+        current_max_inner_steps,
+    )
+
+
+def _scheduled_phase_value(
+    *,
+    schedule: Sequence[int],
+    phase: _ResolvedStage2Phase,
+    epoch: int,
+) -> int:
+    if phase.epoch_start == phase.epoch_end or len(schedule) == 1:
+        return schedule[-1]
     local_epoch_index = epoch - phase.epoch_start
     local_epoch_count = phase.epoch_end - phase.epoch_start
-    schedule_position = round(
-        local_epoch_index * (len(phase.max_inner_steps_schedule) - 1) / local_epoch_count
+    schedule_position = round(local_epoch_index * (len(schedule) - 1) / local_epoch_count)
+    return schedule[schedule_position]
+
+
+def _datasets_for_phase(
+    *,
+    config: LAPv1TrainConfig,
+    repo_root: Path,
+    phase: _ResolvedStage2Phase | None,
+    get_dataset: Any,
+) -> tuple[
+    _LazyPreparedLAPv1Dataset,
+    _LazyPreparedLAPv1Dataset,
+    tuple[str, ...],
+    tuple[str, ...],
+]:
+    del repo_root
+    train_paths = (
+        phase.train_paths
+        if phase is not None and phase.train_paths
+        else tuple(config.data.resolved_train_paths())
     )
-    return phase.max_inner_steps_schedule[schedule_position]
+    validation_paths = (
+        phase.validation_paths
+        if phase is not None and phase.validation_paths
+        else tuple(config.data.resolved_validation_paths())
+    )
+    label_suffix = "base" if phase is None else phase.name
+    return (
+        get_dataset(
+            label=f"train:{label_suffix}",
+            paths=train_paths,
+            log_every_examples=100_000,
+        ),
+        get_dataset(
+            label=f"validation:{label_suffix}",
+            paths=validation_paths,
+            log_every_examples=25_000,
+        ),
+        train_paths,
+        validation_paths,
+    )
 
 
 def _set_seed(seed: int) -> None:

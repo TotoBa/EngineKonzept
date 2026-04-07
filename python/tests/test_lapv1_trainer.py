@@ -32,6 +32,7 @@ from train.trainers.lapv1 import (
     LAPv1TrainConfig,
     _build_lazy_dataset,
     _collate_examples,
+    _improvement_over_root_loss,
     _policy_margin_loss,
     _prepare_example,
     _trace_policy_ce_loss,
@@ -443,6 +444,32 @@ def test_policy_margin_loss_caps_raw_gap_targets_locally() -> None:
         reduction="none",
     ).mean()
     assert torch.allclose(loss, expected)
+
+
+def test_improvement_over_root_loss_only_penalizes_root_incorrect_rows() -> None:
+    assert torch is not None
+
+    initial_logits = torch.tensor(
+        [
+            [0.0, 1.0],
+            [1.0, 0.0],
+        ],
+        dtype=torch.float32,
+    )
+    final_logits = initial_logits.clone()
+    teacher_top1 = torch.tensor([0, 0], dtype=torch.long)
+    candidate_mask = torch.tensor([[True, True], [True, True]], dtype=torch.bool)
+
+    loss = _improvement_over_root_loss(
+        initial_logits=initial_logits,
+        final_logits=final_logits,
+        teacher_top1_candidate_index=teacher_top1,
+        candidate_mask=candidate_mask,
+        step_candidate_score_tensors=(),
+        step_active_masks=(),
+    )
+
+    assert torch.allclose(loss, torch.tensor(0.05, dtype=torch.float32), atol=1e-5)
 
 
 def test_trace_policy_ce_loss_averages_over_step_logits() -> None:
