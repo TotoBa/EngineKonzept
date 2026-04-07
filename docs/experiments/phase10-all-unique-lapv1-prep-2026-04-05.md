@@ -228,6 +228,27 @@ The same `v2` repair cycle also tightened observability for future long runs:
 
 - lazy `lapv1_*` dataset indexing now logs start/progress/done markers
 - validation passes emit batch progress, not only the final epoch summary
+- campaign logs report the real Stage-T2 phase names and their effective
+  min/max inner-step budgets
+
+The prepared successor after the completed `v2` run is now the `v3`
+hard-curriculum path:
+
+- [phase10_lapv1_stage2_fast_all_unique_v3.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage2_fast_all_unique_v3.json)
+- [phase10_agent_lapv1_stage2_fast_all_unique_v3.json](/home/torsten/EngineKonzept/python/configs/phase10_agent_lapv1_stage2_fast_all_unique_v3.json)
+- [phase10_lapv1_stage2_fast_arena_all_unique_v3.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage2_fast_arena_all_unique_v3.json)
+- [run_phase10_lapv1_stage2_fast_arena_v3_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase10_lapv1_stage2_fast_arena_v3_longrun.sh)
+
+The structural changes relative to `v2` are:
+
+- a dedicated hard-position subset builder over the precomputed `lapv1_*` JSONL
+  artifacts
+- early T2 epochs that run only on that hard subset
+- explicit `min_inner_steps` schedules, not only `max_inner_steps`
+- the first explicit improvement-over-root loss for rows where the Stage-T1
+  root policy is still wrong
+- a narrowed arena family: `inner0`, `inner1`, `auto4` plus the four strongest
+  current non-LAPv1 references and `vice_v2`
 - the Phase-10 campaign log now prints the actual configured LAPv1 stage name
   when it enters or reuses training
 

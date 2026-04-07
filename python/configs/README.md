@@ -328,6 +328,17 @@ Use [run_phase10_lapv1_stage2_fast_arena_longrun.sh](/home/torsten/EngineKonzept
 
 Use [run_phase10_lapv1_stage2_fast_arena_v2_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase10_lapv1_stage2_fast_arena_v2_longrun.sh) for the next run on the improved inner-loop path.
 
+- [phase10_lapv1_stage2_fast_all_unique_v3.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage2_fast_all_unique_v3.json)
+  Preferred next Stage-T2 config. It keeps the same fast all-unique Stage-T1 warm start, but turns Stage-T2 into a true hard-position curriculum: `freeze_inner_hard` trains only the inner loop for `2` epochs on a dedicated hard subset, schedules `max_inner_steps` as `2 -> 4`, and simultaneously raises `min_inner_steps` from `1 -> 2` so real multi-step exposure is guaranteed. `joint_finetune_full` then returns to the full all-unique `lapv1_*` corpus for `2` epochs with a forced `2 -> 4` minimum/maximum depth envelope. This config is also the first one that turns on the explicit improvement-over-root loss.
+
+- [phase10_agent_lapv1_stage2_fast_all_unique_v3.json](/home/torsten/EngineKonzept/python/configs/phase10_agent_lapv1_stage2_fast_all_unique_v3.json)
+  Runtime/arena spec for the next hard-curriculum Stage-T2 checkpoint.
+
+- [phase10_lapv1_stage2_fast_arena_all_unique_v3.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage2_fast_arena_all_unique_v3.json)
+  Narrowed next comparison campaign. It keeps only `inner0`, `inner1`, and `auto4` on the LAPv1 side, adds `vice_v2`, and narrows the internal references down to the top four non-LAPv1 arms from the completed `v2` arena.
+
+Use [run_phase10_lapv1_stage2_fast_arena_v3_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase10_lapv1_stage2_fast_arena_v3_longrun.sh) for the next hard-curriculum LAPv1 run. The launcher first materializes the dedicated hard train/validation subsets and then starts the normal Phase-10 campaign.
+
 The next planned LAPv1 configs keep the same namespace and data-contract boundary:
 
 - Stage T2: deliberation-on curriculum over the same `10k + 122k` or all-unique workflow slice
