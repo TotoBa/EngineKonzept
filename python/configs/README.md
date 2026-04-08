@@ -339,6 +339,17 @@ Use [run_phase10_lapv1_stage2_fast_arena_v2_longrun.sh](/home/torsten/EngineKonz
 
 Use [run_phase10_lapv1_stage2_fast_arena_v3_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase10_lapv1_stage2_fast_arena_v3_longrun.sh) for the next hard-curriculum LAPv1 run. The launcher first materializes the dedicated hard train/validation subsets and then starts the normal Phase-10 campaign.
 
+- [phase10_lapv1_stage2_fast_all_unique_v4.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage2_fast_all_unique_v4.json)
+  Preferred next Stage-T2 config after the completed `v3` run. It keeps the fast all-unique Stage-T1 warm start and the hard subset, but fixes the two main `v3` pathologies directly: checkpoint selection now uses one fixed common full-validation holdout across all T2 phases, and the later joint epochs no longer drop the hard subset entirely. Instead they mix `full + hard` at `0.75 / 0.25`, first reopening only `inner_delta_network + inner_loop_core + root_heads`, and only in the final epoch reopening `root_backbone` at a much smaller LR scale. Stage-T2 phases now support weighted train-path mixtures, per-phase epoch example budgets, and per-group LR scales.
+
+- [phase10_agent_lapv1_stage2_fast_all_unique_v4.json](/home/torsten/EngineKonzept/python/configs/phase10_agent_lapv1_stage2_fast_all_unique_v4.json)
+  Runtime/arena spec for the `v4` Stage-T2 checkpoint.
+
+- [phase10_lapv1_stage2_fast_arena_all_unique_v4.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage2_fast_arena_all_unique_v4.json)
+  Focused `v4` comparison campaign. It keeps only `inner0` and `auto4` on the LAPv1 side, uses the top four non-LAPv1 reference arms from the completed `v3` arena, and keeps `vice_v2` as the external benchmark.
+
+Use [run_phase10_lapv1_stage2_fast_arena_v4_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase10_lapv1_stage2_fast_arena_v4_longrun.sh) for the prepared next LAPv1 run.
+
 The next planned LAPv1 configs keep the same namespace and data-contract boundary:
 
 - Stage T2: deliberation-on curriculum over the same `10k + 122k` or all-unique workflow slice

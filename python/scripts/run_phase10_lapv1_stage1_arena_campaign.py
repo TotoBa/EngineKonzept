@@ -480,7 +480,7 @@ def _build_resolved_arena_spec(
         max_plies_adjudication=adjudication,
         metadata={
             "campaign_name": spec.name,
-            "purpose": "lapv1_compare_vs_top6_plus_vice",
+            "purpose": "lapv1_compare_vs_selected_refs_plus_benchmarks",
             "lapv1_agent_names": list(lapv1_specs),
             "reference_arena_summary_path": spec.reference_arena_summary_path,
             "selected_reference_agents": list(selected_reference_agents),

@@ -255,6 +255,172 @@ def test_train_lapv1_stage2_supports_freeze_then_joint_phases(tmp_path: Path) ->
     assert "root_incorrect_improvement_rate" in run.history[0]["validation"]
 
 
+def test_train_lapv1_stage2_supports_common_selection_and_mixed_joint_paths(
+    tmp_path: Path,
+) -> None:
+    train_path = tmp_path / "lapv1_stage2_train.jsonl"
+    validation_path = tmp_path / "lapv1_stage2_validation.jsonl"
+    hard_train_path = tmp_path / "lapv1_stage2_hard_train.jsonl"
+    hard_validation_path = tmp_path / "lapv1_stage2_hard_validation.jsonl"
+    common_selection_path = tmp_path / "lapv1_stage2_selection_validation.jsonl"
+    _write_examples(
+        train_path,
+        [
+            _planner_example("train-1", teacher_index=0, teacher_cp=60.0, teacher_gap=40.0),
+            _planner_example("train-2", teacher_index=1, teacher_cp=10.0, teacher_gap=10.0),
+            _planner_example("train-3", teacher_index=0, teacher_cp=-40.0, teacher_gap=25.0),
+            _planner_example("train-4", teacher_index=1, teacher_cp=35.0, teacher_gap=15.0),
+        ],
+    )
+    _write_examples(
+        validation_path,
+        [
+            _planner_example("validation-1", teacher_index=0, teacher_cp=50.0, teacher_gap=30.0),
+            _planner_example("validation-2", teacher_index=1, teacher_cp=0.0, teacher_gap=5.0),
+        ],
+    )
+    _write_examples(
+        hard_train_path,
+        [
+            _planner_example("hard-train-1", teacher_index=1, teacher_cp=5.0, teacher_gap=2.0),
+            _planner_example("hard-train-2", teacher_index=0, teacher_cp=-5.0, teacher_gap=3.0),
+        ],
+    )
+    _write_examples(
+        hard_validation_path,
+        [
+            _planner_example(
+                "hard-validation-1",
+                teacher_index=1,
+                teacher_cp=0.0,
+                teacher_gap=1.0,
+            ),
+            _planner_example(
+                "hard-validation-2",
+                teacher_index=0,
+                teacher_cp=4.0,
+                teacher_gap=1.0,
+            ),
+        ],
+    )
+    _write_examples(
+        common_selection_path,
+        [
+            _planner_example("selection-1", teacher_index=0, teacher_cp=15.0, teacher_gap=7.0),
+            _planner_example("selection-2", teacher_index=1, teacher_cp=-10.0, teacher_gap=6.0),
+        ],
+    )
+
+    config = LAPv1TrainConfig(
+        seed=43,
+        output_dir=str(tmp_path / "lapv1_stage2_out"),
+        stage="T2",
+        stage2=LAPv1Stage2Config(
+            phases=(
+                LAPv1Stage2PhaseConfig(
+                    name="freeze_inner_hard",
+                    epochs=1,
+                    trainable_parameter_groups=("inner_delta_network", "inner_loop_core"),
+                    max_inner_steps_schedule=(2,),
+                    min_inner_steps_schedule=(1,),
+                    train_paths=(str(hard_train_path),),
+                    validation_paths=(str(hard_validation_path),),
+                    learning_rate_scale_by_group={
+                        "inner_delta_network": 1.0,
+                        "inner_loop_core": 0.8,
+                    },
+                ),
+                LAPv1Stage2PhaseConfig(
+                    name="joint_mix",
+                    epochs=1,
+                    trainable_parameter_groups=(
+                        "inner_delta_network",
+                        "inner_loop_core",
+                        "root_heads",
+                    ),
+                    max_inner_steps_schedule=(4,),
+                    min_inner_steps_schedule=(2,),
+                    train_paths=(str(train_path), str(hard_train_path)),
+                    train_path_weights=(0.75, 0.25),
+                    train_epoch_examples=6,
+                    validation_paths=(str(validation_path),),
+                    learning_rate_scale_by_group={
+                        "inner_delta_network": 1.0,
+                        "inner_loop_core": 0.8,
+                        "root_heads": 0.5,
+                    },
+                ),
+            ),
+            selection_validation_paths=(str(common_selection_path),),
+            selection_min_inner_steps=2,
+            selection_max_inner_steps=4,
+        ),
+        data=PlannerDataConfig(
+            train_path=str(train_path),
+            validation_path=str(validation_path),
+        ),
+        model=LAPv1Config.from_mapping(
+            {
+                "deliberation": {
+                    "max_inner_steps": 4,
+                    "min_inner_steps": 1,
+                    "memory_slots": 4,
+                    "rollback_buffer_size": 4,
+                },
+                "opponent_head": {
+                    "architecture": "set_v2",
+                    "hidden_dim": 64,
+                    "hidden_layers": 1,
+                    "action_embedding_dim": 16,
+                    "dropout": 0.0,
+                },
+                "value_head": {"hidden_dim": 1024},
+                "policy_head": {
+                    "hidden_dim": 512,
+                    "action_embedding_dim": 32,
+                    "feedforward_dim": 1024,
+                },
+                "state_embedder": {"feedforward_dim": 1024},
+                "intention_encoder": {"feedforward_dim": 1024},
+            }
+        ),
+        optimization=LAPv1OptimizationConfig(
+            epochs=2,
+            batch_size=2,
+            learning_rate=1e-3,
+            weight_decay=0.0,
+            max_grad_norm=1.0,
+            value_wdl_weight=1.0,
+            value_cp_weight=0.25,
+            sharpness_weight=0.1,
+            sharpness_target_loss_weight=0.1,
+            policy_ce_weight=1.0,
+            policy_kl_weight=0.25,
+            policy_margin_weight=0.1,
+            policy_rank_weight=0.1,
+            intention_aux_weight=0.05,
+            deliberation_monotonicity_weight=0.05,
+            deliberation_step_policy_weight=0.1,
+            deliberation_improvement_weight=0.1,
+        ),
+        evaluation=PlannerEvaluationConfig(top_k=3),
+        runtime=PlannerRuntimeConfig(torch_threads=1, dataloader_workers=0),
+        export=PlannerExportConfig(bundle_dir=str(tmp_path / "bundle")),
+    )
+
+    run = train_lapv1(config, repo_root=tmp_path)
+
+    assert run.best_validation_source == "selection_validation"
+    assert run.best_validation_paths == [str(common_selection_path)]
+    assert run.history[0]["selection_validation_paths"] == [str(common_selection_path)]
+    assert run.history[0]["selection_min_inner_steps"] == 2
+    assert run.history[0]["selection_max_inner_steps"] == 4
+    assert run.history[1]["train_path_weights"] == [0.75, 0.25]
+    assert run.history[1]["train_epoch_examples"] == 6
+    assert run.history[1]["train"]["total_examples"] == 6
+    assert run.history[1]["learning_rate_scale_by_group"]["root_heads"] == 0.5
+
+
 def _write_examples(path: Path, examples: list[PlannerHeadExample]) -> None:
     path.write_text(
         "".join(json.dumps(example.to_dict()) + "\n" for example in examples),

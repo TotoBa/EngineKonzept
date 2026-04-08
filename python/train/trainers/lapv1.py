@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from bisect import bisect_right
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 import json
 import random
 from pathlib import Path
@@ -100,7 +100,10 @@ class LAPv1Stage2PhaseConfig:
     max_inner_steps_schedule: tuple[int, ...] = (2, 4, 8)
     min_inner_steps_schedule: tuple[int, ...] = ()
     train_paths: tuple[str, ...] = ()
+    train_path_weights: tuple[float, ...] = ()
+    train_epoch_examples: int | None = None
     validation_paths: tuple[str, ...] = ()
+    learning_rate_scale_by_group: dict[str, float] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not self.name:
@@ -111,7 +114,15 @@ class LAPv1Stage2PhaseConfig:
             raise ValueError(
                 "stage2.phases[].trainable_parameter_groups must be non-empty"
             )
-        allowed_groups = {"all", "root_backbone", "root_heads", "inner_loop", "aux_probe"}
+        allowed_groups = {
+            "all",
+            "root_backbone",
+            "root_heads",
+            "inner_loop",
+            "inner_loop_core",
+            "inner_delta_network",
+            "aux_probe",
+        }
         invalid = sorted(set(self.trainable_parameter_groups) - allowed_groups)
         if invalid:
             raise ValueError(
@@ -143,8 +154,35 @@ class LAPv1Stage2PhaseConfig:
             )
         if any(not path for path in self.train_paths):
             raise ValueError("stage2.phases[].train_paths entries must be non-empty")
+        if self.train_path_weights:
+            if not self.train_paths:
+                raise ValueError(
+                    "stage2.phases[].train_path_weights requires explicit train_paths"
+                )
+            if len(self.train_path_weights) != len(self.train_paths):
+                raise ValueError(
+                    "stage2.phases[].train_path_weights must align with train_paths"
+                )
+            if any(weight <= 0.0 for weight in self.train_path_weights):
+                raise ValueError(
+                    "stage2.phases[].train_path_weights entries must be positive"
+                )
+        if self.train_epoch_examples is not None and self.train_epoch_examples <= 0:
+            raise ValueError("stage2.phases[].train_epoch_examples must be positive")
         if any(not path for path in self.validation_paths):
             raise ValueError("stage2.phases[].validation_paths entries must be non-empty")
+        invalid_lr_groups = sorted(
+            set(self.learning_rate_scale_by_group) - set(self.trainable_parameter_groups)
+        )
+        if invalid_lr_groups:
+            raise ValueError(
+                "stage2.phases[].learning_rate_scale_by_group may only reference active "
+                f"trainable groups: {', '.join(invalid_lr_groups)}"
+            )
+        if any(scale <= 0.0 for scale in self.learning_rate_scale_by_group.values()):
+            raise ValueError(
+                "stage2.phases[].learning_rate_scale_by_group values must be positive"
+            )
 
 
 @dataclass(frozen=True)
@@ -153,6 +191,9 @@ class LAPv1Stage2Config:
 
     max_inner_steps_schedule: tuple[int, ...] = (2, 4, 8)
     phases: tuple[LAPv1Stage2PhaseConfig, ...] = ()
+    selection_validation_paths: tuple[str, ...] = ()
+    selection_min_inner_steps: int | None = None
+    selection_max_inner_steps: int | None = None
 
     def __post_init__(self) -> None:
         if not self.max_inner_steps_schedule:
@@ -162,6 +203,21 @@ class LAPv1Stage2Config:
         if self.phases and self.max_inner_steps_schedule != (2, 4, 8):
             raise ValueError(
                 "stage2.max_inner_steps_schedule may only be overridden when stage2.phases is empty"
+            )
+        if any(not path for path in self.selection_validation_paths):
+            raise ValueError("stage2.selection_validation_paths entries must be non-empty")
+        if self.selection_min_inner_steps is not None and self.selection_min_inner_steps < 0:
+            raise ValueError("stage2.selection_min_inner_steps must be non-negative")
+        if self.selection_max_inner_steps is not None and self.selection_max_inner_steps <= 0:
+            raise ValueError("stage2.selection_max_inner_steps must be positive")
+        if (
+            self.selection_min_inner_steps is not None
+            and self.selection_max_inner_steps is not None
+            and self.selection_min_inner_steps > self.selection_max_inner_steps
+        ):
+            raise ValueError(
+                "stage2.selection_min_inner_steps must not exceed "
+                "stage2.selection_max_inner_steps"
             )
 
 
@@ -229,6 +285,15 @@ class LAPv1TrainConfig:
                             "stage2.phases[].min_inner_steps_schedule must not exceed "
                             "stage2.phases[].max_inner_steps_schedule"
                         )
+            if (
+                self.stage2.selection_max_inner_steps is not None
+                and self.stage2.selection_max_inner_steps
+                > self.model.deliberation.max_inner_steps
+            ):
+                raise ValueError(
+                    "stage2.selection_max_inner_steps must not exceed "
+                    "model.deliberation.max_inner_steps"
+                )
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -302,14 +367,47 @@ class LAPv1TrainConfig:
                                 str(path)
                                 for path in list(dict(entry).get("train_paths") or [])
                             ),
+                            train_path_weights=tuple(
+                                float(weight)
+                                for weight in list(
+                                    dict(entry).get("train_path_weights") or []
+                                )
+                            ),
+                            train_epoch_examples=(
+                                int(dict(entry)["train_epoch_examples"])
+                                if dict(entry).get("train_epoch_examples") is not None
+                                else None
+                            ),
                             validation_paths=tuple(
                                 str(path)
                                 for path in list(
                                     dict(entry).get("validation_paths") or []
                                 )
                             ),
+                            learning_rate_scale_by_group={
+                                str(key): float(value)
+                                for key, value in dict(
+                                    dict(entry).get("learning_rate_scale_by_group") or {}
+                                ).items()
+                            },
                         )
                         for entry in list(dict(payload["stage2"]).get("phases") or [])
+                    ),
+                    selection_validation_paths=tuple(
+                        str(path)
+                        for path in list(
+                            dict(payload["stage2"]).get("selection_validation_paths") or []
+                        )
+                    ),
+                    selection_min_inner_steps=(
+                        int(dict(payload["stage2"])["selection_min_inner_steps"])
+                        if dict(payload["stage2"]).get("selection_min_inner_steps") is not None
+                        else None
+                    ),
+                    selection_max_inner_steps=(
+                        int(dict(payload["stage2"])["selection_max_inner_steps"])
+                        if dict(payload["stage2"]).get("selection_max_inner_steps") is not None
+                        else None
                     ),
                 )
             ),
@@ -340,7 +438,10 @@ class _ResolvedStage2Phase:
     max_inner_steps_schedule: tuple[int, ...]
     min_inner_steps_schedule: tuple[int, ...]
     train_paths: tuple[str, ...]
+    train_path_weights: tuple[float, ...]
+    train_epoch_examples: int | None
     validation_paths: tuple[str, ...]
+    learning_rate_scale_by_group: dict[str, float]
 
     def contains_epoch(self, epoch: int) -> bool:
         return self.epoch_start <= epoch <= self.epoch_end
@@ -459,6 +560,8 @@ class LAPv1TrainingRun:
     history: list[dict[str, Any]]
     best_epoch: int
     best_validation: dict[str, float | int]
+    best_validation_source: str
+    best_validation_paths: list[str]
     export_paths: dict[str, str]
     summary_path: str
     model_parameter_count: int
@@ -468,6 +571,8 @@ class LAPv1TrainingRun:
             "history": self.history,
             "best_epoch": self.best_epoch,
             "best_validation": self.best_validation,
+            "best_validation_source": self.best_validation_source,
+            "best_validation_paths": self.best_validation_paths,
             "export_paths": self.export_paths,
             "summary_path": self.summary_path,
             "model_parameter_count": self.model_parameter_count,
@@ -475,6 +580,16 @@ class LAPv1TrainingRun:
 
 
 _PreparedLAPv1Example = LAPv1TrainingExample
+
+
+@dataclass(frozen=True)
+class _ResolvedPhaseDatasets:
+    train_examples: Sequence[_PreparedLAPv1Example]
+    validation_examples: Sequence[_PreparedLAPv1Example]
+    train_paths: tuple[str, ...]
+    validation_paths: tuple[str, ...]
+    train_path_weights: tuple[float, ...]
+    train_epoch_examples: int | None
 
 
 class _LazyPreparedLAPv1Dataset(Sequence[_PreparedLAPv1Example]):
@@ -611,6 +726,39 @@ class _LazyPreparedLAPv1Dataset(Sequence[_PreparedLAPv1Example]):
         self.close()
 
 
+class _ResampledPreparedLAPv1Dataset(Sequence[_PreparedLAPv1Example]):
+    """Epoch-local weighted mixture over multiple lazy LAPv1 datasets."""
+
+    def __init__(
+        self,
+        datasets: Sequence[Sequence[_PreparedLAPv1Example]],
+        mapping: Sequence[tuple[int, int]],
+    ) -> None:
+        if not datasets:
+            raise ValueError("resampled dataset requires at least one source dataset")
+        self._datasets = tuple(datasets)
+        self._mapping = tuple(mapping)
+
+    def __len__(self) -> int:
+        return len(self._mapping)
+
+    def __getitem__(
+        self,
+        index: int | slice,
+    ) -> _PreparedLAPv1Example | list[_PreparedLAPv1Example]:
+        if isinstance(index, slice):
+            return [
+                self[position]
+                for position in range(*index.indices(len(self)))
+            ]
+        if index < 0:
+            index += len(self)
+        if not 0 <= index < len(self):
+            raise IndexError("resampled dataset index out of range")
+        dataset_index, local_index = self._mapping[index]
+        return self._datasets[dataset_index][local_index]
+
+
 if torch is not None:
 
     class _PieceRoleAuxProbe(torch.nn.Module):
@@ -681,16 +829,35 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
     model_parameter_count = sum(parameter.numel() for parameter in model.parameters())
     stage2_phases = _resolve_stage2_phases(config)
     initial_phase = None if config.stage == "T1" else _stage2_phase_for_epoch(stage2_phases, epoch=1)
-    train_examples, validation_examples, active_train_paths, active_validation_paths = _datasets_for_phase(
+    initial_datasets = _datasets_for_phase(
         config=config,
         repo_root=repo_root,
         phase=initial_phase,
         get_dataset=get_dataset,
+        epoch=1,
+        seed=config.seed + 1,
     )
+    train_examples = initial_datasets.train_examples
+    validation_examples = initial_datasets.validation_examples
+    active_train_paths = initial_datasets.train_paths
+    active_validation_paths = initial_datasets.validation_paths
     if len(train_examples) == 0:
         raise ValueError("training artifact is empty")
     if len(validation_examples) == 0:
         raise ValueError("validation artifact is empty")
+    selection_validation_examples: Sequence[_PreparedLAPv1Example] | None = None
+    selection_validation_paths: tuple[str, ...] = ()
+    selection_min_inner_steps: int | None = None
+    selection_max_inner_steps: int | None = None
+    if config.stage == "T2" and config.stage2 is not None and config.stage2.selection_validation_paths:
+        selection_validation_paths = tuple(config.stage2.selection_validation_paths)
+        selection_validation_examples = get_dataset(
+            label="selection:common",
+            paths=selection_validation_paths,
+            log_every_examples=25_000,
+        )
+        selection_min_inner_steps = config.stage2.selection_min_inner_steps
+        selection_max_inner_steps = config.stage2.selection_max_inner_steps
     print(
         "[lapv1-train] "
         f"stage={config.stage} output_dir={output_dir} bundle_dir={bundle_dir} "
@@ -701,15 +868,14 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
     )
     active_phase_name = "joint" if config.stage == "T1" else None
     active_phase_groups: tuple[str, ...] = ("all",)
+    active_phase_lr_scales: dict[str, float] = {}
     if config.stage == "T1":
-        trainable_parameters, trainable_parameter_count = _set_trainable_parameter_groups(
+        optimizer, trainable_parameter_count = _build_optimizer(
             model=model,
             aux_probe=aux_probe,
             groups=("all",),
-        )
-        optimizer = torch.optim.AdamW(
-            trainable_parameters,
-            lr=config.optimization.learning_rate,
+            learning_rate_scale_by_group={},
+            learning_rate=config.optimization.learning_rate,
             weight_decay=config.optimization.weight_decay,
         )
     else:
@@ -718,6 +884,8 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
     history: list[dict[str, Any]] = []
     best_epoch = 1
     best_validation: LAPv1Metrics | None = None
+    best_validation_source = "validation"
+    best_validation_paths = list(active_validation_paths)
     best_model_state = {
         name: tensor.detach().clone()
         for name, tensor in model.state_dict().items()
@@ -734,37 +902,44 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
                 if current_phase.name != active_phase_name:
                     active_phase_name = current_phase.name
                     active_phase_groups = current_phase.trainable_parameter_groups
-                    trainable_parameters, trainable_parameter_count = _set_trainable_parameter_groups(
+                    active_phase_lr_scales = dict(current_phase.learning_rate_scale_by_group)
+                    optimizer, trainable_parameter_count = _build_optimizer(
                         model=model,
                         aux_probe=aux_probe,
                         groups=current_phase.trainable_parameter_groups,
-                    )
-                    optimizer = torch.optim.AdamW(
-                        trainable_parameters,
-                        lr=config.optimization.learning_rate,
+                        learning_rate_scale_by_group=active_phase_lr_scales,
+                        learning_rate=config.optimization.learning_rate,
                         weight_decay=config.optimization.weight_decay,
+                    )
+                    lr_groups = _format_lr_group_scales(
+                        groups=current_phase.trainable_parameter_groups,
+                        learning_rate_scale_by_group=active_phase_lr_scales,
+                        base_learning_rate=config.optimization.learning_rate,
                     )
                     print(
                         "[lapv1-train] "
                         f"stage2_phase={current_phase.name} "
                         f"epochs={current_phase.epoch_start}-{current_phase.epoch_end} "
                         f"trainable_groups={','.join(current_phase.trainable_parameter_groups)} "
-                        f"trainable_parameters={trainable_parameter_count}",
+                        f"trainable_parameters={trainable_parameter_count} "
+                        f"optimizer_lrs={lr_groups}",
                         flush=True,
                     )
-                (
-                    train_examples,
-                    validation_examples,
-                    active_train_paths,
-                    active_validation_paths,
-                ) = _datasets_for_phase(
+                phase_datasets = _datasets_for_phase(
                     config=config,
                     repo_root=repo_root,
                     phase=current_phase,
                     get_dataset=get_dataset,
+                    epoch=epoch,
+                    seed=config.seed + epoch,
                 )
+                train_examples = phase_datasets.train_examples
+                validation_examples = phase_datasets.validation_examples
+                active_train_paths = phase_datasets.train_paths
+                active_validation_paths = phase_datasets.validation_paths
             else:
                 current_phase = None
+                phase_datasets = initial_datasets
             assert optimizer is not None
             current_max_inner_steps = (
                 0
@@ -816,18 +991,103 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
                 epoch=epoch,
                 total_epochs=config.optimization.epochs,
             )
+            selection_validation_metrics: LAPv1Metrics | None = None
+            selection_collapse_alarm: dict[str, float | bool] | None = None
+            resolved_selection_max_inner_steps = current_max_inner_steps
+            resolved_selection_min_inner_steps = current_min_inner_steps
+            if selection_validation_examples is not None:
+                previous_max_inner_steps = model.deliberation_loop.max_inner_steps
+                previous_min_inner_steps = model.deliberation_loop.min_inner_steps
+                resolved_selection_max_inner_steps = (
+                    selection_max_inner_steps
+                    if selection_max_inner_steps is not None
+                    else current_max_inner_steps
+                )
+                resolved_selection_min_inner_steps = (
+                    selection_min_inner_steps
+                    if selection_min_inner_steps is not None
+                    else current_min_inner_steps
+                )
+                model.deliberation_loop.max_inner_steps = resolved_selection_max_inner_steps
+                model.deliberation_loop.min_inner_steps = resolved_selection_min_inner_steps
+                selection_validation_metrics = _run_epoch(
+                    model=model,
+                    aux_probe=aux_probe,
+                    examples=selection_validation_examples,
+                    batch_size=config.optimization.batch_size,
+                    optimizer=None,
+                    training=False,
+                    seed=config.seed,
+                    optimization=config.optimization,
+                    top_k=config.evaluation.top_k,
+                    stage=config.stage,
+                    stage2=config.stage2,
+                    epoch=epoch,
+                    total_epochs=config.optimization.epochs,
+                )
+                model.deliberation_loop.max_inner_steps = previous_max_inner_steps
+                model.deliberation_loop.min_inner_steps = previous_min_inner_steps
+                selection_collapse_alarm = _collapse_alarm(selection_validation_metrics)
+                if selection_collapse_alarm is not None:
+                    print(
+                        "[lapv1-train][warn] "
+                        f"collapse_detected epoch={epoch}/{config.optimization.epochs} "
+                        f"scope=selection_validation "
+                        f"delta_top1={selection_collapse_alarm['delta_top1']:.6f} "
+                        f"delta_mrr={selection_collapse_alarm['delta_mrr']:.6f} "
+                        f"top1_changed={selection_collapse_alarm['top1_changed_rate']:.6f} "
+                        f"mean_steps={selection_collapse_alarm['mean_inner_steps_executed']:.6f}",
+                        flush=True,
+                    )
+            phase_collapse_alarm = _collapse_alarm(validation_metrics)
+            if phase_collapse_alarm is not None:
+                print(
+                    "[lapv1-train][warn] "
+                    f"collapse_detected epoch={epoch}/{config.optimization.epochs} "
+                    f"scope=phase_validation "
+                    f"delta_top1={phase_collapse_alarm['delta_top1']:.6f} "
+                    f"delta_mrr={phase_collapse_alarm['delta_mrr']:.6f} "
+                    f"top1_changed={phase_collapse_alarm['top1_changed_rate']:.6f} "
+                    f"mean_steps={phase_collapse_alarm['mean_inner_steps_executed']:.6f}",
+                    flush=True,
+                )
             history_entry = {
                 "epoch": epoch,
                 "stage2_phase": active_phase_name,
                 "trainable_parameter_groups": list(active_phase_groups),
+                "learning_rate_scale_by_group": dict(active_phase_lr_scales),
                 "train_dataset_paths": list(active_train_paths),
+                "train_path_weights": list(phase_datasets.train_path_weights),
+                "train_epoch_examples": phase_datasets.train_epoch_examples,
                 "validation_dataset_paths": list(active_validation_paths),
                 "min_inner_steps": current_min_inner_steps,
                 "max_inner_steps": current_max_inner_steps,
                 "train": train_metrics.to_dict(),
                 "validation": validation_metrics.to_dict(),
+                "phase_collapse_alarm": phase_collapse_alarm,
             }
+            if selection_validation_metrics is not None:
+                history_entry["selection_validation_paths"] = list(selection_validation_paths)
+                history_entry["selection_validation"] = selection_validation_metrics.to_dict()
+                history_entry["selection_min_inner_steps"] = resolved_selection_min_inner_steps
+                history_entry["selection_max_inner_steps"] = resolved_selection_max_inner_steps
+                history_entry["selection_collapse_alarm"] = selection_collapse_alarm
             history.append(history_entry)
+            selection_reference = (
+                selection_validation_metrics
+                if selection_validation_metrics is not None
+                else validation_metrics
+            )
+            selection_source = (
+                "selection_validation"
+                if selection_validation_metrics is not None
+                else "validation"
+            )
+            selection_paths_for_epoch = (
+                list(selection_validation_paths)
+                if selection_validation_metrics is not None
+                else list(active_validation_paths)
+            )
             print(
                 "[lapv1-train] "
                 f"epoch={epoch}/{config.optimization.epochs} "
@@ -849,16 +1109,21 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
                 f"mean_steps={validation_metrics.mean_inner_steps_executed:.4f} "
                 f"rollbacks={validation_metrics.rollbacks} "
                 f"rollback_hit_rate={validation_metrics.rollback_hit_rate:.4f} "
-                f"rollback_example_rate={validation_metrics.rollback_example_rate:.4f}",
+                f"rollback_example_rate={validation_metrics.rollback_example_rate:.4f} "
+                f"selection_source={selection_source} "
+                f"selection_top1={selection_reference.root_top1_accuracy:.4f} "
+                f"selection_mrr={selection_reference.teacher_root_mean_reciprocal_rank:.4f}",
                 flush=True,
             )
 
             if best_validation is None or _is_better_validation(
-                validation_metrics,
+                selection_reference,
                 best_validation,
             ):
                 best_epoch = epoch
-                best_validation = validation_metrics
+                best_validation = selection_reference
+                best_validation_source = selection_source
+                best_validation_paths = selection_paths_for_epoch
                 best_model_state = {
                     name: tensor.detach().clone()
                     for name, tensor in model.state_dict().items()
@@ -890,6 +1155,8 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
         history=history,
         best_epoch=best_epoch,
         best_validation=best_validation.to_dict(),
+        best_validation_source=best_validation_source,
+        best_validation_paths=best_validation_paths,
         export_paths={"checkpoint": str(checkpoint_path)},
         summary_path=str(output_dir / "summary.json"),
         model_parameter_count=model_parameter_count,
@@ -1820,7 +2087,10 @@ def _resolve_stage2_phases(config: LAPv1TrainConfig) -> tuple[_ResolvedStage2Pha
                 max_inner_steps_schedule=config.stage2.max_inner_steps_schedule,
                 min_inner_steps_schedule=(),
                 train_paths=(),
+                train_path_weights=(),
+                train_epoch_examples=None,
                 validation_paths=(),
+                learning_rate_scale_by_group={},
             ),
         )
     phases: list[_ResolvedStage2Phase] = []
@@ -1835,7 +2105,10 @@ def _resolve_stage2_phases(config: LAPv1TrainConfig) -> tuple[_ResolvedStage2Pha
                 max_inner_steps_schedule=phase.max_inner_steps_schedule,
                 min_inner_steps_schedule=phase.min_inner_steps_schedule,
                 train_paths=phase.train_paths,
+                train_path_weights=phase.train_path_weights,
+                train_epoch_examples=phase.train_epoch_examples,
                 validation_paths=phase.validation_paths,
+                learning_rate_scale_by_group=dict(phase.learning_rate_scale_by_group),
             )
         )
         next_epoch += phase.epochs
@@ -1853,40 +2126,201 @@ def _stage2_phase_for_epoch(
     raise ValueError(f"no LAPv1 stage2 phase configured for epoch {epoch}")
 
 
-def _set_trainable_parameter_groups(
+def _named_parameter_groups(
+    *,
+    model: LAPv1Model,
+    aux_probe: _PieceRoleAuxProbe,
+) -> dict[str, list[torch.nn.Parameter]]:
+    inner_delta_parameters = list(
+        model.deliberation_loop.cell.candidate_delta_network.parameters()
+    )
+    inner_delta_parameter_ids = {id(parameter) for parameter in inner_delta_parameters}
+    inner_loop_core_parameters = [
+        parameter
+        for name, parameter in model.deliberation_loop.named_parameters()
+        if not name.startswith("cell.candidate_delta_network.")
+    ]
+    inner_loop_core_parameters.extend(model.opponent_head.parameters())
+    return {
+        "root_backbone": [
+            *model.intention_encoder.parameters(),
+            *model.state_embedder.parameters(),
+        ],
+        "root_heads": [
+            *model.value_head.parameters(),
+            *model.sharpness_head.parameters(),
+            *model.policy_head.parameters(),
+        ],
+        "inner_loop": [
+            *model.deliberation_loop.parameters(),
+            *model.opponent_head.parameters(),
+        ],
+        "inner_loop_core": [
+            parameter
+            for parameter in inner_loop_core_parameters
+            if id(parameter) not in inner_delta_parameter_ids
+        ],
+        "inner_delta_network": inner_delta_parameters,
+        "aux_probe": list(aux_probe.parameters()),
+    }
+
+
+def _build_optimizer(
     *,
     model: LAPv1Model,
     aux_probe: _PieceRoleAuxProbe,
     groups: Sequence[str],
-) -> tuple[list[torch.nn.Parameter], int]:
+    learning_rate_scale_by_group: Mapping[str, float],
+    learning_rate: float,
+    weight_decay: float,
+) -> tuple[torch.optim.Optimizer, int]:
     all_model_parameters = list(model.parameters())
     all_aux_parameters = list(aux_probe.parameters())
     for parameter in [*all_model_parameters, *all_aux_parameters]:
         parameter.requires_grad = False
 
     if "all" in groups:
-        selected_parameters = [*all_model_parameters, *all_aux_parameters]
-    else:
-        selected_by_id: dict[int, torch.nn.Parameter] = {}
-        module_groups: dict[str, Sequence[torch.nn.Module]] = {
-            "root_backbone": (model.intention_encoder, model.state_embedder),
-            "root_heads": (model.value_head, model.sharpness_head, model.policy_head),
-            "inner_loop": (model.deliberation_loop, model.opponent_head),
-        }
-        for group_name in groups:
-            if group_name == "aux_probe":
-                for parameter in all_aux_parameters:
-                    selected_by_id[id(parameter)] = parameter
+        selected_parameters: list[torch.nn.Parameter] = []
+        selected_ids: set[int] = set()
+        for parameter in [*all_model_parameters, *all_aux_parameters]:
+            if id(parameter) in selected_ids:
                 continue
-            for module in module_groups[group_name]:
-                for parameter in module.parameters():
-                    selected_by_id[id(parameter)] = parameter
-        selected_parameters = list(selected_by_id.values())
+            selected_ids.add(id(parameter))
+            selected_parameters.append(parameter)
+        for parameter in selected_parameters:
+            parameter.requires_grad = True
+        parameter_count = sum(parameter.numel() for parameter in selected_parameters)
+        optimizer = torch.optim.AdamW(
+            [
+                {
+                    "params": selected_parameters,
+                    "lr": learning_rate * float(learning_rate_scale_by_group.get("all", 1.0)),
+                    "weight_decay": weight_decay,
+                    "name": "all",
+                }
+            ]
+        )
+        return optimizer, parameter_count
 
-    for parameter in selected_parameters:
-        parameter.requires_grad = True
-    parameter_count = sum(parameter.numel() for parameter in selected_parameters)
-    return selected_parameters, parameter_count
+    named_groups = _named_parameter_groups(model=model, aux_probe=aux_probe)
+    selected_by_id: dict[int, torch.nn.Parameter] = {}
+    optimizer_groups: list[dict[str, Any]] = []
+    for group_name in groups:
+        group_parameters: list[torch.nn.Parameter] = []
+        group_seen_ids: set[int] = set()
+        for parameter in named_groups[group_name]:
+            parameter_id = id(parameter)
+            if parameter_id in selected_by_id or parameter_id in group_seen_ids:
+                continue
+            group_seen_ids.add(parameter_id)
+            group_parameters.append(parameter)
+        if not group_parameters:
+            continue
+        for parameter in group_parameters:
+            parameter.requires_grad = True
+            selected_by_id[id(parameter)] = parameter
+        optimizer_groups.append(
+            {
+                "params": group_parameters,
+                "lr": learning_rate * float(learning_rate_scale_by_group.get(group_name, 1.0)),
+                "weight_decay": weight_decay,
+                "name": group_name,
+            }
+        )
+    if not optimizer_groups:
+        raise ValueError("no trainable parameters selected for LAPv1 optimizer")
+    parameter_count = sum(parameter.numel() for parameter in selected_by_id.values())
+    optimizer = torch.optim.AdamW(optimizer_groups)
+    return optimizer, parameter_count
+
+
+def _format_lr_group_scales(
+    *,
+    groups: Sequence[str],
+    learning_rate_scale_by_group: Mapping[str, float],
+    base_learning_rate: float,
+) -> str:
+    if "all" in groups:
+        return (
+            "all="
+            f"{base_learning_rate * float(learning_rate_scale_by_group.get('all', 1.0)):.6g}"
+        )
+    return ",".join(
+        f"{group}="
+        f"{base_learning_rate * float(learning_rate_scale_by_group.get(group, 1.0)):.6g}"
+        for group in groups
+    )
+
+
+def _collapse_alarm(metrics: LAPv1Metrics) -> dict[str, float | bool] | None:
+    delta_top1 = metrics.root_top1_accuracy - metrics.initial_root_top1_accuracy
+    delta_mrr = (
+        metrics.teacher_root_mean_reciprocal_rank
+        - metrics.initial_teacher_root_mean_reciprocal_rank
+    )
+    collapsed = (
+        abs(delta_top1) <= 0.002
+        and abs(delta_mrr) <= 0.002
+        and metrics.top1_changed_rate <= 0.01
+        and metrics.mean_inner_steps_executed <= 1.25
+    )
+    if not collapsed:
+        return None
+    return {
+        "collapsed": True,
+        "delta_top1": round(delta_top1, 6),
+        "delta_mrr": round(delta_mrr, 6),
+        "top1_changed_rate": round(metrics.top1_changed_rate, 6),
+        "mean_inner_steps_executed": round(metrics.mean_inner_steps_executed, 6),
+    }
+
+
+def _build_resampled_dataset(
+    *,
+    datasets: Sequence[_LazyPreparedLAPv1Dataset],
+    weights: Sequence[float],
+    total_examples: int,
+    seed: int,
+) -> _ResampledPreparedLAPv1Dataset:
+    if not datasets:
+        raise ValueError("resampled dataset requires at least one source dataset")
+    if len(datasets) != len(weights):
+        raise ValueError("resampled dataset weights must align with datasets")
+    if total_examples <= 0:
+        raise ValueError("resampled dataset total_examples must be positive")
+    if any(weight <= 0.0 for weight in weights):
+        raise ValueError("resampled dataset weights must be positive")
+
+    total_weight = float(sum(weights))
+    raw_counts = [(total_examples * weight) / total_weight for weight in weights]
+    counts = [int(raw_count) for raw_count in raw_counts]
+    remaining = total_examples - sum(counts)
+    remainders = sorted(
+        range(len(weights)),
+        key=lambda index: (raw_counts[index] - counts[index], -index),
+        reverse=True,
+    )
+    for index in remainders[:remaining]:
+        counts[index] += 1
+
+    mapping: list[tuple[int, int]] = []
+    for dataset_index, (dataset, count) in enumerate(zip(datasets, counts, strict=True)):
+        dataset_length = len(dataset)
+        if dataset_length == 0:
+            raise ValueError("resampled dataset source is empty")
+        local_rng = random.Random(seed + 1009 * (dataset_index + 1))
+        remaining_count = count
+        while remaining_count > 0:
+            local_indices = list(range(dataset_length))
+            local_rng.shuffle(local_indices)
+            take = min(remaining_count, dataset_length)
+            mapping.extend(
+                (dataset_index, local_indices[position])
+                for position in range(take)
+            )
+            remaining_count -= take
+    random.Random(seed).shuffle(mapping)
+    return _ResampledPreparedLAPv1Dataset(datasets, mapping)
 
 
 def _teacher_ranks(
@@ -1968,12 +2402,9 @@ def _datasets_for_phase(
     repo_root: Path,
     phase: _ResolvedStage2Phase | None,
     get_dataset: Any,
-) -> tuple[
-    _LazyPreparedLAPv1Dataset,
-    _LazyPreparedLAPv1Dataset,
-    tuple[str, ...],
-    tuple[str, ...],
-]:
+    epoch: int,
+    seed: int,
+) -> _ResolvedPhaseDatasets:
     del repo_root
     train_paths = (
         phase.train_paths
@@ -1986,19 +2417,49 @@ def _datasets_for_phase(
         else tuple(config.data.resolved_validation_paths())
     )
     label_suffix = "base" if phase is None else phase.name
-    return (
-        get_dataset(
+    train_path_weights = (
+        phase.train_path_weights
+        if phase is not None and phase.train_path_weights
+        else ()
+    )
+    train_epoch_examples = phase.train_epoch_examples if phase is not None else None
+    if train_path_weights:
+        train_sources = [
+            get_dataset(
+                label=f"train:{label_suffix}:{path_index}",
+                paths=(path,),
+                log_every_examples=100_000,
+            )
+            for path_index, path in enumerate(train_paths)
+        ]
+        train_examples: Sequence[_PreparedLAPv1Example] = _build_resampled_dataset(
+            datasets=train_sources,
+            weights=train_path_weights,
+            total_examples=(
+                train_epoch_examples
+                if train_epoch_examples is not None
+                else max(len(dataset) for dataset in train_sources)
+            ),
+            seed=seed + epoch,
+        )
+    else:
+        train_examples = get_dataset(
             label=f"train:{label_suffix}",
             paths=train_paths,
             log_every_examples=100_000,
-        ),
-        get_dataset(
-            label=f"validation:{label_suffix}",
-            paths=validation_paths,
-            log_every_examples=25_000,
-        ),
-        train_paths,
-        validation_paths,
+        )
+    validation_examples = get_dataset(
+        label=f"validation:{label_suffix}",
+        paths=validation_paths,
+        log_every_examples=25_000,
+    )
+    return _ResolvedPhaseDatasets(
+        train_examples=train_examples,
+        validation_examples=validation_examples,
+        train_paths=train_paths,
+        validation_paths=validation_paths,
+        train_path_weights=train_path_weights,
+        train_epoch_examples=train_epoch_examples,
     )
 
 

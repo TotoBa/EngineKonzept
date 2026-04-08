@@ -204,6 +204,10 @@ Stage-T2 now also supports explicit training phases. The intended path is:
 - `freeze_inner`: keep the root encoder/heads fixed and train only the inner-loop path
 - `joint_finetune`: unfreeze the full wrapper for a short consolidation pass
 - a phase may override its own train/validation artifacts
+- a phase may mix multiple train artifacts with explicit weights and a fixed
+  epoch example budget
+- a phase may assign different learning-rate scales to different trainable
+  parameter groups
 - a phase may independently schedule `min_inner_steps` and `max_inner_steps`
 
 This avoids conflating "the root got better" with "the inner step learned to use
@@ -230,6 +234,11 @@ Stage-T2 diagnostics now explicitly compare root vs final behavior:
 
 That makes later UCI-side trace work much easier because the training summary now
 already exposes whether deeper budgets actually helped.
+
+Stage-T2 checkpoint selection is now also allowed to use a separate common
+holdout that is fixed across phases. That is important once some phases validate
+on hard subsets and others validate on the full corpus; otherwise `best_epoch`
+quietly compares incomparable validation slices.
 
 Stage-T2 now also uses an explicit improvement-over-root loss on positions where
 the detached root policy is still wrong. Final logits and intermediate step
@@ -378,6 +387,11 @@ surface at least:
 - sharpness / uncertainty
 - rollback fired or not
 - early-stop reason / budget exhaustion
+
+Stage-T2 training now also emits explicit collapse warnings when a validation
+pass falls back toward `root ~= final` despite a nonzero inner-step budget. That
+warning is meant to catch the exact failure mode that showed up after the early
+hard-curriculum gains were washed out by later full-data finetuning.
 
 The first runtime-facing LAPv1 glue now also exists in
 [lapv1_runtime.py](/home/torsten/EngineKonzept/python/train/eval/lapv1_runtime.py)
