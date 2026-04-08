@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 from typing import Sequence
+import warnings
 
 from train.datasets.artifacts import (
     PIECE_TOKEN_CAPACITY,
@@ -16,6 +17,10 @@ from train.datasets.artifacts import (
     split_position_features,
 )
 from train.datasets.contracts import build_state_context_v1, state_context_v1_feature_spec
+from train.datasets.move_delta import halfka_delta, is_king_move, move_type_hash
+from train.datasets.nnue_features import halfka_active_indices
+from train.datasets.opponent_head import move_uci_for_action
+from train.datasets.phase_features import phase_index
 from train.datasets.planner_head import PlannerHeadExample
 from train.datasets.schema import DatasetExample, PositionEncoding, TacticalAnnotations
 
@@ -27,6 +32,7 @@ except ModuleNotFoundError:  # pragma: no cover - exercised when chess is absent
 
 LAPV1_TRAINING_ARTIFACT_PREFIX = "lapv1_"
 _STATE_CONTEXT_GLOBAL_DIM = len(state_context_v1_feature_spec()["global_feature_order"])
+_MISSING_FIELD_WARNINGS: set[str] = set()
 
 
 @dataclass(frozen=True)
@@ -35,11 +41,23 @@ class LAPv1TrainingExample:
 
     sample_id: str
     split: str
+    phase_index: int
+    king_sq_white: int
+    king_sq_black: int
     piece_tokens: list[list[int]]
     square_tokens: list[list[float]]
     state_context_global: list[float]
     reachability_edges: list[list[int]]
+    nnue_feat_white: list[int]
+    nnue_feat_black: list[int]
     candidate_action_indices: list[int]
+    candidate_move_types: list[int]
+    candidate_delta_white_leave: list[list[int]]
+    candidate_delta_white_enter: list[list[int]]
+    candidate_delta_black_leave: list[list[int]]
+    candidate_delta_black_enter: list[list[int]]
+    candidate_is_white_king_move: list[bool]
+    candidate_is_black_king_move: list[bool]
     candidate_features: list[list[float]]
     candidate_mask: list[bool]
     teacher_top1_candidate_index: int
@@ -55,11 +73,23 @@ class LAPv1TrainingExample:
         return {
             "sample_id": self.sample_id,
             "split": self.split,
+            "phase_index": self.phase_index,
+            "king_sq_white": self.king_sq_white,
+            "king_sq_black": self.king_sq_black,
             "piece_tokens": self.piece_tokens,
             "square_tokens": self.square_tokens,
             "state_context_global": self.state_context_global,
             "reachability_edges": self.reachability_edges,
+            "nnue_feat_white": self.nnue_feat_white,
+            "nnue_feat_black": self.nnue_feat_black,
             "candidate_action_indices": self.candidate_action_indices,
+            "candidate_move_types": self.candidate_move_types,
+            "candidate_delta_white_leave": self.candidate_delta_white_leave,
+            "candidate_delta_white_enter": self.candidate_delta_white_enter,
+            "candidate_delta_black_leave": self.candidate_delta_black_leave,
+            "candidate_delta_black_enter": self.candidate_delta_black_enter,
+            "candidate_is_white_king_move": self.candidate_is_white_king_move,
+            "candidate_is_black_king_move": self.candidate_is_black_king_move,
             "candidate_features": self.candidate_features,
             "candidate_mask": self.candidate_mask,
             "teacher_top1_candidate_index": self.teacher_top1_candidate_index,
@@ -77,6 +107,9 @@ class LAPv1TrainingExample:
         return cls(
             sample_id=str(payload["sample_id"]),
             split=str(payload["split"]),
+            phase_index=_optional_int_field(payload, "phase_index", default=0),
+            king_sq_white=_optional_int_field(payload, "king_sq_white", default=-1),
+            king_sq_black=_optional_int_field(payload, "king_sq_black", default=-1),
             piece_tokens=[
                 [int(value) for value in row]
                 for row in list(payload["piece_tokens"])
@@ -90,7 +123,71 @@ class LAPv1TrainingExample:
                 [int(value) for value in row]
                 for row in list(payload["reachability_edges"])
             ],
+            nnue_feat_white=[
+                int(value)
+                for value in _optional_list_field(payload, "nnue_feat_white", default=[])
+            ],
+            nnue_feat_black=[
+                int(value)
+                for value in _optional_list_field(payload, "nnue_feat_black", default=[])
+            ],
             candidate_action_indices=[int(value) for value in list(payload["candidate_action_indices"])],
+            candidate_move_types=[
+                int(value)
+                for value in _optional_list_field(
+                    payload,
+                    "candidate_move_types",
+                    default=[0] * len(list(payload["candidate_action_indices"])),
+                )
+            ],
+            candidate_delta_white_leave=[
+                [int(value) for value in row]
+                for row in _optional_list_field(
+                    payload,
+                    "candidate_delta_white_leave",
+                    default=[[] for _ in list(payload["candidate_action_indices"])],
+                )
+            ],
+            candidate_delta_white_enter=[
+                [int(value) for value in row]
+                for row in _optional_list_field(
+                    payload,
+                    "candidate_delta_white_enter",
+                    default=[[] for _ in list(payload["candidate_action_indices"])],
+                )
+            ],
+            candidate_delta_black_leave=[
+                [int(value) for value in row]
+                for row in _optional_list_field(
+                    payload,
+                    "candidate_delta_black_leave",
+                    default=[[] for _ in list(payload["candidate_action_indices"])],
+                )
+            ],
+            candidate_delta_black_enter=[
+                [int(value) for value in row]
+                for row in _optional_list_field(
+                    payload,
+                    "candidate_delta_black_enter",
+                    default=[[] for _ in list(payload["candidate_action_indices"])],
+                )
+            ],
+            candidate_is_white_king_move=[
+                bool(value)
+                for value in _optional_list_field(
+                    payload,
+                    "candidate_is_white_king_move",
+                    default=[False] * len(list(payload["candidate_action_indices"])),
+                )
+            ],
+            candidate_is_black_king_move=[
+                bool(value)
+                for value in _optional_list_field(
+                    payload,
+                    "candidate_is_black_king_move",
+                    default=[False] * len(list(payload["candidate_action_indices"])),
+                )
+            ],
             candidate_features=[
                 [float(value) for value in row]
                 for row in list(payload["candidate_features"])
@@ -157,10 +254,12 @@ def lapv1_training_example_from_planner_head(
     example: PlannerHeadExample,
 ) -> LAPv1TrainingExample:
     """Precompute all symbolic LAPv1-side inputs for one planner-head row."""
+    dataset_example = _dataset_example_for_fen(example.fen)
+    board = chess.Board(example.fen)
     feature_sections = split_position_features(example.feature_vector)
     piece_tokens = _decode_piece_tokens(feature_sections["piece"])
     square_tokens = _decode_square_tokens(feature_sections["square"])
-    state_context = build_state_context_v1(_dataset_example_for_fen(example.fen))
+    state_context = build_state_context_v1(dataset_example)
     global_features = state_context.feature_values[-_STATE_CONTEXT_GLOBAL_DIM :]
     reachability_edges = [
         [src, dst, piece_type]
@@ -171,14 +270,44 @@ def lapv1_training_example_from_planner_head(
             strict=True,
         )
     ]
+    candidate_move_types: list[int] = []
+    candidate_delta_white_leave: list[list[int]] = []
+    candidate_delta_white_enter: list[list[int]] = []
+    candidate_delta_black_leave: list[list[int]] = []
+    candidate_delta_black_enter: list[list[int]] = []
+    candidate_is_white_king_move: list[bool] = []
+    candidate_is_black_king_move: list[bool] = []
+    for action_index in example.candidate_action_indices:
+        move = chess.Move.from_uci(move_uci_for_action(dataset_example, int(action_index)))
+        white_leave, white_enter = halfka_delta(board, move, "w")
+        black_leave, black_enter = halfka_delta(board, move, "b")
+        candidate_move_types.append(move_type_hash(board, move))
+        candidate_delta_white_leave.append(white_leave)
+        candidate_delta_white_enter.append(white_enter)
+        candidate_delta_black_leave.append(black_leave)
+        candidate_delta_black_enter.append(black_enter)
+        candidate_is_white_king_move.append(is_king_move(board, move, "w"))
+        candidate_is_black_king_move.append(is_king_move(board, move, "b"))
     return LAPv1TrainingExample(
         sample_id=example.sample_id,
         split=example.split,
+        phase_index=phase_index(board),
+        king_sq_white=int(board.king(chess.WHITE) if board.king(chess.WHITE) is not None else -1),
+        king_sq_black=int(board.king(chess.BLACK) if board.king(chess.BLACK) is not None else -1),
         piece_tokens=piece_tokens,
         square_tokens=square_tokens,
         state_context_global=global_features,
         reachability_edges=reachability_edges,
+        nnue_feat_white=halfka_active_indices(board, "w"),
+        nnue_feat_black=halfka_active_indices(board, "b"),
         candidate_action_indices=list(example.candidate_action_indices),
+        candidate_move_types=candidate_move_types,
+        candidate_delta_white_leave=candidate_delta_white_leave,
+        candidate_delta_white_enter=candidate_delta_white_enter,
+        candidate_delta_black_leave=candidate_delta_black_leave,
+        candidate_delta_black_enter=candidate_delta_black_enter,
+        candidate_is_white_king_move=candidate_is_white_king_move,
+        candidate_is_black_king_move=candidate_is_black_king_move,
         candidate_features=[list(row) for row in example.candidate_features],
         candidate_mask=[True] * len(example.candidate_action_indices),
         teacher_top1_candidate_index=example.teacher_top1_candidate_index,
@@ -236,6 +365,36 @@ def _dataset_example_for_fen(fen: str) -> DatasetExample:
         ),
         result=None,
         metadata={},
+    )
+
+
+def _optional_int_field(payload: dict[str, object], field_name: str, *, default: int) -> int:
+    if field_name not in payload:
+        _warn_missing_field_once(field_name)
+        return default
+    return int(payload[field_name])
+
+
+def _optional_list_field(
+    payload: dict[str, object],
+    field_name: str,
+    *,
+    default: list[object],
+) -> list[object]:
+    if field_name not in payload:
+        _warn_missing_field_once(field_name)
+        return list(default)
+    return list(payload[field_name])
+
+
+def _warn_missing_field_once(field_name: str) -> None:
+    if field_name in _MISSING_FIELD_WARNINGS:
+        return
+    _MISSING_FIELD_WARNINGS.add(field_name)
+    warnings.warn(
+        f"LAPv1 training artifact is missing '{field_name}'; using compatibility default.",
+        RuntimeWarning,
+        stacklevel=2,
     )
 
 
