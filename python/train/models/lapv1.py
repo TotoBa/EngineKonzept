@@ -22,6 +22,8 @@ from train.datasets.artifacts import (
 from train.models.deliberation import DeliberationLoop
 from train.models.intention_encoder import PieceIntentionEncoder
 from train.models.opponent import OpponentHeadModel
+from train.models.phase_moe import PhaseMoE
+from train.models.phase_router import PhaseRouter
 from train.models.policy_head_large import LargePolicyHead
 from train.models.state_embedder import RelationalStateEmbedder
 from train.models.value_head import SharpnessHead, ValueHead
@@ -35,6 +37,32 @@ except ModuleNotFoundError:  # pragma: no cover - exercised when torch is absent
 
 
 LAPV1_MODEL_NAME = "lapv1_wrapper"
+LAPV2_MODEL_VERSION = 1
+
+
+@dataclass(frozen=True)
+class LAPv2Config:
+    """Feature-flagged LAPv2 upgrades layered onto the LAPv1 wrapper."""
+
+    enabled: bool = False
+    phase_moe: bool = False
+    dual_accumulator: bool = False
+    nnue_value: bool = False
+    nnue_value_phase_moe: bool = False
+    nnue_policy: bool = False
+    sharpness_phase_moe: bool = False
+    shared_opponent_readout: bool = False
+    distill_opponent: bool = False
+    accumulator_cache: bool = False
+    N_accumulator: int = 64
+
+    def __post_init__(self) -> None:
+        if self.N_accumulator <= 0:
+            raise ValueError("lapv2.N_accumulator must be positive")
+
+    @property
+    def phase_moe_enabled(self) -> bool:
+        return self.enabled and self.phase_moe
 
 
 @dataclass(frozen=True)
@@ -50,10 +78,15 @@ class LAPv1Config:
         default_factory=lambda: OpponentModelConfig(architecture="set_v2")
     )
     deliberation: DeliberationConfig = field(default_factory=DeliberationConfig)
+    lapv2: LAPv2Config = field(default_factory=LAPv2Config)
 
     @classmethod
     def from_mapping(cls, payload: Mapping[str, Any]) -> "LAPv1Config":
         """Parse one nested LAPv1 wrapper config from a JSON-like mapping."""
+        opponent_payload = {
+            "architecture": "set_v2",
+            **dict(payload.get("opponent_head", {})),
+        }
         return cls(
             intention_encoder=IntentionEncoderConfig(
                 **dict(payload.get("intention_encoder", {}))
@@ -62,8 +95,9 @@ class LAPv1Config:
             value_head=ValueHeadConfig(**dict(payload.get("value_head", {}))),
             sharpness_head=SharpnessHeadConfig(**dict(payload.get("sharpness_head", {}))),
             policy_head=LargePolicyHeadConfig(**dict(payload.get("policy_head", {}))),
-            opponent_head=OpponentModelConfig(**dict(payload.get("opponent_head", {}))),
+            opponent_head=OpponentModelConfig(**opponent_payload),
             deliberation=DeliberationConfig(**dict(payload.get("deliberation", {}))),
+            lapv2=LAPv2Config(**dict(payload.get("lapv2", {}))),
         )
 
 
@@ -179,7 +213,7 @@ if torch is not None and nn is not None:
         def __init__(self, config: LAPv1Config) -> None:
             super().__init__()
             self.config = config
-            self.intention_encoder = PieceIntentionEncoder(
+            intention_encoder = PieceIntentionEncoder(
                 hidden_dim=config.intention_encoder.hidden_dim,
                 intention_dim=config.intention_encoder.intention_dim,
                 num_layers=config.intention_encoder.num_layers,
@@ -188,7 +222,7 @@ if torch is not None and nn is not None:
                 dropout=config.intention_encoder.dropout,
                 max_edge_count=config.intention_encoder.max_edge_count,
             )
-            self.state_embedder = RelationalStateEmbedder(
+            state_embedder = RelationalStateEmbedder(
                 intention_dim=config.state_embedder.intention_dim,
                 square_input_dim=config.state_embedder.square_input_dim,
                 global_dim=config.state_embedder.global_dim,
@@ -200,6 +234,14 @@ if torch is not None and nn is not None:
                 dropout=config.state_embedder.dropout,
                 max_edge_count=config.state_embedder.max_edge_count,
             )
+            if config.lapv2.phase_moe_enabled:
+                self.phase_router: PhaseRouter | None = PhaseRouter()
+                self.intention_encoder = PhaseMoE.from_single(intention_encoder)
+                self.state_embedder = PhaseMoE.from_single(state_embedder)
+            else:
+                self.phase_router = None
+                self.intention_encoder = intention_encoder
+                self.state_embedder = state_embedder
             self.value_head = ValueHead(
                 state_dim=config.value_head.state_dim,
                 memory_dim=config.value_head.memory_dim,
@@ -260,21 +302,41 @@ if torch is not None and nn is not None:
             candidate_action_indices: torch.Tensor,
             candidate_mask: torch.Tensor,
             *,
+            phase_index: torch.Tensor | None = None,
             candidate_uci: list[list[str]] | None = None,
             single_legal_move: bool = False,
         ) -> dict[str, Any]:
             """Run the full LAPv1 wrapper forward pass without trainer glue."""
-            piece_intentions = self.intention_encoder(
-                piece_tokens,
-                state_context_v1_global,
-                reachability_edges,
-            )
-            z_root, _sigma_root = self.state_embedder(
-                piece_intentions,
-                square_tokens,
-                state_context_v1_global,
-                reachability_edges,
-            )
+            if self.config.lapv2.phase_moe_enabled:
+                if phase_index is None:
+                    raise ValueError("phase_index is required when lapv2.phase_moe is enabled")
+                assert self.phase_router is not None
+                phase_idx = self.phase_router({"phase_index": phase_index})
+                piece_intentions = self.intention_encoder(
+                    piece_tokens,
+                    state_context_v1_global,
+                    reachability_edges,
+                    phase_idx=phase_idx,
+                )
+                z_root, _sigma_root = self.state_embedder(
+                    piece_intentions,
+                    square_tokens,
+                    state_context_v1_global,
+                    reachability_edges,
+                    phase_idx=phase_idx,
+                )
+            else:
+                piece_intentions = self.intention_encoder(
+                    piece_tokens,
+                    state_context_v1_global,
+                    reachability_edges,
+                )
+                z_root, _sigma_root = self.state_embedder(
+                    piece_intentions,
+                    square_tokens,
+                    state_context_v1_global,
+                    reachability_edges,
+                )
             initial_policy_logits = self.policy_head(
                 z_root,
                 candidate_context_v2,

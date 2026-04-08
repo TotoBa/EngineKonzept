@@ -24,7 +24,12 @@ from train.datasets.lapv1_training import (
 from train.datasets.planner_head import PlannerHeadExample
 from train.models.intention_encoder import torch
 from train.models.dual_accumulator import pack_sparse_feature_lists
-from train.models.lapv1 import LAPV1_MODEL_NAME, LAPv1Config, LAPv1Model
+from train.models.lapv1 import (
+    LAPV1_MODEL_NAME,
+    LAPV2_MODEL_VERSION,
+    LAPv1Config,
+    LAPv1Model,
+)
 from train.models.policy_head_large import MASKED_CANDIDATE_LOGIT_VALUE
 from train.models.proposer import torch_is_available
 
@@ -1145,6 +1150,7 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
     torch.save(
         {
             "model_name": LAPV1_MODEL_NAME,
+            "lapv2_version": LAPV2_MODEL_VERSION if config.model.lapv2.enabled else 0,
             "model_state_dict": model.state_dict(),
             "aux_state_dict": aux_probe.state_dict(),
             "training_config": config.to_dict(),
@@ -1195,13 +1201,14 @@ def _load_lapv1_model_state(
     *,
     checkpoint_path: Path,
 ) -> None:
+    effective_state_dict = _expand_legacy_phase_moe_state_dict(model, state_dict)
     compatible_missing_prefixes = (
         "deliberation_loop.cell.candidate_delta_network.",
     )
     incompatible_missing_keys = [
         key
         for key in model.state_dict().keys()
-        if key not in state_dict
+        if key not in effective_state_dict
         and not key.startswith(compatible_missing_prefixes)
     ]
     if incompatible_missing_keys:
@@ -1209,7 +1216,7 @@ def _load_lapv1_model_state(
             f"{checkpoint_path}: incompatible LAPv1 checkpoint is missing required keys: "
             + ", ".join(sorted(incompatible_missing_keys))
         )
-    load_result = model.load_state_dict(dict(state_dict), strict=False)
+    load_result = model.load_state_dict(dict(effective_state_dict), strict=False)
     unexpected_keys = list(load_result.unexpected_keys)
     if unexpected_keys:
         raise RuntimeError(
@@ -1226,6 +1233,49 @@ def _load_lapv1_model_state(
             f"{checkpoint_path}: incompatible LAPv1 checkpoint is missing unsupported keys: "
             + ", ".join(sorted(remaining_missing))
         )
+
+
+def _expand_legacy_phase_moe_state_dict(
+    model: LAPv1Model,
+    state_dict: Mapping[str, Any],
+) -> dict[str, Any]:
+    expanded = dict(state_dict)
+    if not model.config.lapv2.phase_moe_enabled:
+        return expanded
+    expanded = _replicate_phase_moe_module_keys(
+        expanded,
+        module_prefix="intention_encoder",
+        num_phases=4,
+    )
+    expanded = _replicate_phase_moe_module_keys(
+        expanded,
+        module_prefix="state_embedder",
+        num_phases=4,
+    )
+    return expanded
+
+
+def _replicate_phase_moe_module_keys(
+    state_dict: Mapping[str, Any],
+    *,
+    module_prefix: str,
+    num_phases: int,
+) -> dict[str, Any]:
+    expert_prefix = f"{module_prefix}.experts."
+    legacy_prefix = f"{module_prefix}."
+    if any(key.startswith(expert_prefix) for key in state_dict):
+        return dict(state_dict)
+    legacy_keys = [key for key in state_dict if key.startswith(legacy_prefix)]
+    if not legacy_keys:
+        return dict(state_dict)
+    expanded = dict(state_dict)
+    for key in legacy_keys:
+        suffix = key[len(legacy_prefix) :]
+        value = state_dict[key]
+        for phase in range(num_phases):
+            expanded[f"{expert_prefix}{phase}.{suffix}"] = value
+        del expanded[key]
+    return expanded
 
 
 def evaluate_lapv1_checkpoint(
@@ -1432,6 +1482,7 @@ def _run_epoch(
                 batch["candidate_features"],
                 batch["candidate_action_indices"],
                 batch["candidate_mask"],
+                phase_index=batch["phase_index"],
             )
             initial_logits = outputs["initial_policy_logits"]
             logits = outputs["final_policy_logits"]
@@ -1839,6 +1890,10 @@ def _collate_examples(examples: Sequence[_PreparedLAPv1Example]) -> dict[str, to
         "piece_tokens": piece_tokens,
         "square_tokens": square_tokens,
         "state_context_global": state_context_global,
+        "phase_index": torch.tensor(
+            [example.phase_index for example in examples],
+            dtype=torch.long,
+        ),
         "reachability_edges": reachability_edges,
         "nnue_feat_white_indices": nnue_feat_white_indices,
         "nnue_feat_white_offsets": nnue_feat_white_offsets,

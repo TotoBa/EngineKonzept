@@ -47,3 +47,20 @@
   to emit `EmbeddingBag`-ready sparse NNUE inputs.
 - Added FT/incremental consistency coverage in
   [test_dual_accumulator.py](/home/torsten/EngineKonzept/python/tests/test_dual_accumulator.py).
+
+## Schritt 5
+
+- Added feature-flagged `lapv2` settings to the LAPv1 wrapper config in
+  [lapv1.py](/home/torsten/EngineKonzept/python/train/models/lapv1.py),
+  including `enabled` plus `phase_moe`.
+- Wrapped `intention_encoder` and `state_embedder` with
+  [PhaseMoE](/home/torsten/EngineKonzept/python/train/models/phase_moe.py)
+  when the new `lapv2.phase_moe` flag is active, and routed batches via
+  [PhaseRouter](/home/torsten/EngineKonzept/python/train/models/phase_router.py).
+- Extended the trainer and runtime paths to propagate `phase_index`
+  through the batch/model interface.
+- Added legacy checkpoint warm-start expansion so old single-expert LAPv1
+  checkpoints can load into the new phase-expert wrapper without changing
+  outputs.
+- Added regression coverage for flag-off bit identity, legacy warm-start
+  equivalence, and one no-NaN training step with `phase_moe` enabled.

@@ -71,6 +71,7 @@ def _sample_inputs(
         "candidate_context_v2": candidate_context,
         "candidate_action_indices": candidate_action_indices,
         "candidate_mask": candidate_mask,
+        "phase_index": torch.tensor([0, 1], dtype=torch.long)[:batch_size],
     }
 
 
@@ -120,6 +121,35 @@ def test_lapv1_output_is_differentiable() -> None:
     assert model.policy_head.scorer[0].weight.grad is not None
     assert model.value_head.wdl_head.weight.grad is not None
     assert model.opponent_head.context_projection[0].weight.grad is not None
+
+
+def test_phase_moe_off_is_bit_identical_to_v1() -> None:
+    baseline = LAPv1Model(LAPv1Config())
+    flagged = LAPv1Model(
+        LAPv1Config.from_mapping(
+            {
+                "lapv2": {
+                    "enabled": False,
+                    "phase_moe": False,
+                }
+            }
+        )
+    )
+    flagged.load_state_dict(baseline.state_dict())
+    inputs = _sample_inputs()
+
+    baseline_outputs = baseline(**inputs)
+    flagged_outputs = flagged(**inputs)
+
+    assert torch.equal(
+        baseline_outputs["initial_policy_logits"],
+        flagged_outputs["initial_policy_logits"],
+    )
+    assert torch.equal(
+        baseline_outputs["final_policy_logits"],
+        flagged_outputs["final_policy_logits"],
+    )
+    assert torch.equal(baseline_outputs["z_root"], flagged_outputs["z_root"])
 
 
 def test_lapv1_total_parameter_budget_is_within_target_band() -> None:

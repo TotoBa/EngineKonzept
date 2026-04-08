@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
+import chess
+
 from train.datasets import (
     build_symbolic_proposer_example,
     dataset_example_from_oracle_payload,
@@ -21,6 +23,7 @@ from train.datasets.artifacts import (
 )
 from train.datasets.contracts import build_state_context_v1
 from train.datasets.oracle import label_records_with_oracle
+from train.datasets.phase_features import phase_index as detect_phase_index
 from train.datasets.schema import DatasetExample, RawPositionRecord
 from train.eval.agent_spec import SelfplayAgentSpec, load_selfplay_agent_spec
 from train.eval.planner_runtime import PlannerRootDecision
@@ -117,6 +120,10 @@ class LoadedLAPv1Runtime:
                 for action_index in root_symbolic.candidate_action_indices
             ]
         ]
+        phase_tensor = torch.tensor(
+            [detect_phase_index(chess.Board(example.fen))],
+            dtype=torch.long,
+        )
 
         with torch.inference_mode():
             outputs = self.model(
@@ -127,6 +134,7 @@ class LoadedLAPv1Runtime:
                 candidate_features,
                 candidate_action_indices,
                 candidate_mask,
+                phase_index=phase_tensor,
                 candidate_uci=candidate_uci,
                 single_legal_move=len(root_symbolic.candidate_action_indices) == 1,
             )
