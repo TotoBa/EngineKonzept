@@ -41,6 +41,7 @@ class LAPv1TrainingExample:
 
     sample_id: str
     split: str
+    side_to_move: int
     phase_index: int
     king_sq_white: int
     king_sq_black: int
@@ -73,6 +74,7 @@ class LAPv1TrainingExample:
         return {
             "sample_id": self.sample_id,
             "split": self.split,
+            "side_to_move": self.side_to_move,
             "phase_index": self.phase_index,
             "king_sq_white": self.king_sq_white,
             "king_sq_black": self.king_sq_black,
@@ -107,6 +109,7 @@ class LAPv1TrainingExample:
         return cls(
             sample_id=str(payload["sample_id"]),
             split=str(payload["split"]),
+            side_to_move=_optional_int_field(payload, "side_to_move", default=0),
             phase_index=_optional_int_field(payload, "phase_index", default=0),
             king_sq_white=_optional_int_field(payload, "king_sq_white", default=-1),
             king_sq_black=_optional_int_field(payload, "king_sq_black", default=-1),
@@ -291,6 +294,7 @@ def lapv1_training_example_from_planner_head(
     return LAPv1TrainingExample(
         sample_id=example.sample_id,
         split=example.split,
+        side_to_move=0 if board.turn == chess.WHITE else 1,
         phase_index=phase_index(board),
         king_sq_white=int(board.king(chess.WHITE) if board.king(chess.WHITE) is not None else -1),
         king_sq_black=int(board.king(chess.BLACK) if board.king(chess.BLACK) is not None else -1),

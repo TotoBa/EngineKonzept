@@ -19,7 +19,10 @@ from train.datasets.artifacts import (
     SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE,
     TRANSITION_CONTEXT_FEATURE_SIZE,
 )
+from train.datasets.nnue_features import TOTAL_FEATURES
 from train.models.deliberation import DeliberationLoop
+from train.models.dual_accumulator import DualAccumulatorBuilder
+from train.models.feature_transformer import FeatureTransformer
 from train.models.intention_encoder import PieceIntentionEncoder
 from train.models.opponent import OpponentHeadModel
 from train.models.phase_moe import PhaseMoE
@@ -27,6 +30,7 @@ from train.models.phase_router import PhaseRouter
 from train.models.policy_head_large import LargePolicyHead
 from train.models.state_embedder import RelationalStateEmbedder
 from train.models.value_head import SharpnessHead, ValueHead
+from train.models.value_head_nnue import NNUEValueHead
 
 try:
     import torch
@@ -63,6 +67,10 @@ class LAPv2Config:
     @property
     def phase_moe_enabled(self) -> bool:
         return self.enabled and self.phase_moe
+
+    @property
+    def nnue_value_enabled(self) -> bool:
+        return self.enabled and self.nnue_value
 
 
 @dataclass(frozen=True)
@@ -250,6 +258,21 @@ if torch is not None and nn is not None:
                 cp_score_cap=config.value_head.cp_score_cap,
                 dropout=config.value_head.dropout,
             )
+            if config.lapv2.nnue_value_enabled:
+                self.ft: FeatureTransformer | None = FeatureTransformer(
+                    num_features=TOTAL_FEATURES,
+                    accumulator_dim=config.lapv2.N_accumulator,
+                )
+                self.dual_acc_builder: DualAccumulatorBuilder | None = DualAccumulatorBuilder()
+                self.value_head_nnue: NNUEValueHead | None = NNUEValueHead(
+                    accumulator_dim=config.lapv2.N_accumulator,
+                    hidden_dim=32,
+                    cp_score_cap=config.value_head.cp_score_cap,
+                )
+            else:
+                self.ft = None
+                self.dual_acc_builder = None
+                self.value_head_nnue = None
             self.sharpness_head = SharpnessHead(
                 state_dim=config.sharpness_head.state_dim,
                 hidden_dim=config.sharpness_head.hidden_dim,
@@ -303,6 +326,11 @@ if torch is not None and nn is not None:
             candidate_mask: torch.Tensor,
             *,
             phase_index: torch.Tensor | None = None,
+            side_to_move: torch.Tensor | None = None,
+            nnue_feat_white_indices: torch.Tensor | None = None,
+            nnue_feat_white_offsets: torch.Tensor | None = None,
+            nnue_feat_black_indices: torch.Tensor | None = None,
+            nnue_feat_black_offsets: torch.Tensor | None = None,
             candidate_uci: list[list[str]] | None = None,
             single_legal_move: bool = False,
         ) -> dict[str, Any]:
@@ -353,10 +381,38 @@ if torch is not None and nn is not None:
                 candidate_features=candidate_context_v2,
                 global_features=state_context_v1_global,
             )
-            wdl_logits, cp_score, sigma_value = self.value_head(
-                deliberation_outputs["final_z"],
-                deliberation_outputs["final_memory"],
-            )
+            if self.config.lapv2.nnue_value_enabled:
+                if self.ft is None or self.dual_acc_builder is None or self.value_head_nnue is None:
+                    raise RuntimeError("lapv2.nnue_value is enabled but NNUE modules are missing")
+                if side_to_move is None:
+                    raise ValueError("side_to_move is required when lapv2.nnue_value is enabled")
+                if (
+                    nnue_feat_white_indices is None
+                    or nnue_feat_white_offsets is None
+                    or nnue_feat_black_indices is None
+                    or nnue_feat_black_offsets is None
+                ):
+                    raise ValueError(
+                        "nnue sparse feature inputs are required when lapv2.nnue_value is enabled"
+                    )
+                a_white, a_black = self.dual_acc_builder(
+                    self.ft,
+                    {
+                        "nnue_feat_white_indices": nnue_feat_white_indices,
+                        "nnue_feat_white_offsets": nnue_feat_white_offsets,
+                        "nnue_feat_black_indices": nnue_feat_black_indices,
+                        "nnue_feat_black_offsets": nnue_feat_black_offsets,
+                    },
+                )
+                stm_white_mask = (side_to_move == 0).unsqueeze(1)
+                a_stm = torch.where(stm_white_mask, a_white, a_black)
+                a_other = torch.where(stm_white_mask, a_black, a_white)
+                wdl_logits, cp_score, sigma_value = self.value_head_nnue(a_stm, a_other)
+            else:
+                wdl_logits, cp_score, sigma_value = self.value_head(
+                    deliberation_outputs["final_z"],
+                    deliberation_outputs["final_memory"],
+                )
             return {
                 "initial_policy_logits": initial_policy_logits,
                 "final_policy_logits": deliberation_outputs["final_candidate_scores"],

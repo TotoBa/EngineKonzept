@@ -41,6 +41,11 @@ if TYPE_CHECKING:
         SharpnessHead,
         ValueHead,
     )
+    from train.models.value_head_nnue import (
+        NNUE_VALUE_HEAD_MODEL_NAME,
+        ClippedReLU,
+        NNUEValueHead,
+    )
 
 
 _EXPORTS: dict[str, tuple[str, str]] = {
@@ -83,6 +88,12 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "VALUE_HEAD_MODEL_NAME": ("train.models.value_head", "VALUE_HEAD_MODEL_NAME"),
     "SharpnessHead": ("train.models.value_head", "SharpnessHead"),
     "ValueHead": ("train.models.value_head", "ValueHead"),
+    "NNUE_VALUE_HEAD_MODEL_NAME": (
+        "train.models.value_head_nnue",
+        "NNUE_VALUE_HEAD_MODEL_NAME",
+    ),
+    "ClippedReLU": ("train.models.value_head_nnue", "ClippedReLU"),
+    "NNUEValueHead": ("train.models.value_head_nnue", "NNUEValueHead"),
 }
 
 
@@ -130,10 +141,13 @@ __all__ = [
     "OpponentHeadModel",
     "RelationalStateEmbedder",
     "STATE_EMBEDDER_MODEL_NAME",
+    "NNUE_VALUE_HEAD_MODEL_NAME",
     "SHARPNESS_HEAD_MODEL_NAME",
     "SharpnessHead",
     "VALUE_HEAD_MODEL_NAME",
     "ValueHead",
+    "ClippedReLU",
+    "NNUEValueHead",
     "module_purpose",
     "torch_is_available",
 ]

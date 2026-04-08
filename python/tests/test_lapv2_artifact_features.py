@@ -137,6 +137,7 @@ def test_old_artifact_still_loads(tmp_path: Path) -> None:
     )
     legacy_payload = source.to_dict()
     for field_name in (
+        "side_to_move",
         "phase_index",
         "king_sq_white",
         "king_sq_black",
@@ -158,6 +159,7 @@ def test_old_artifact_still_loads(tmp_path: Path) -> None:
     with pytest.warns(RuntimeWarning):
         loaded = load_lapv1_training_examples(artifact_path)
 
+    assert loaded[0].side_to_move == 0
     assert loaded[0].phase_index == 0
     assert loaded[0].king_sq_white == -1
     assert loaded[0].candidate_move_types == [0] * len(source.candidate_action_indices)
@@ -176,6 +178,7 @@ def test_lapv1_training_example_contains_phase_and_delta_fields() -> None:
     )
 
     assert example.phase_index == 3
+    assert example.side_to_move == 0
     assert example.king_sq_white == chess.E1
     assert example.king_sq_black == chess.E8
     assert len(example.nnue_feat_white) > 0

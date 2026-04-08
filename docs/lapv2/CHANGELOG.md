@@ -64,3 +64,21 @@
   outputs.
 - Added regression coverage for flag-off bit identity, legacy warm-start
   equivalence, and one no-NaN training step with `phase_moe` enabled.
+
+## Schritt 6
+
+- Added the single-phase shared FT-backed NNUE value head in
+  [value_head_nnue.py](/home/torsten/EngineKonzept/python/train/models/value_head_nnue.py).
+- Extended the LAPv1 artifact schema in
+  [lapv1_training.py](/home/torsten/EngineKonzept/python/train/datasets/lapv1_training.py)
+  with `side_to_move` so NNUE value evaluation can order `a_stm` and
+  `a_other` correctly.
+- Integrated `FeatureTransformer` + `DualAccumulatorBuilder` into the
+  top-level wrapper in
+  [lapv1.py](/home/torsten/EngineKonzept/python/train/models/lapv1.py)
+  behind the new `lapv2.nnue_value` flag while keeping the legacy dense
+  value head active for flag-off and inner-loop compatibility.
+- Extended trainer/runtime batch plumbing so the NNUE value path receives
+  sparse HalfKA inputs plus `side_to_move`.
+- Added standalone NNUE value-head tests, legacy flag-off checks, and a
+  no-NaN Stage-T1 smoke step with `lapv2.nnue_value` enabled.

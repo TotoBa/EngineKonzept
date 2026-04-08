@@ -904,6 +904,86 @@ def test_phase_moe_on_runs_training_step(tmp_path: Path) -> None:
     assert Path(run.export_paths["checkpoint"]).exists()
 
 
+def test_nnue_value_on_runs_training_step(tmp_path: Path) -> None:
+    train_path = tmp_path / "lapv1_train.jsonl"
+    validation_path = tmp_path / "lapv1_validation.jsonl"
+    _write_examples(
+        train_path,
+        [
+            _planner_example("train-1", teacher_index=0, teacher_cp=60.0, teacher_gap=40.0),
+            _planner_example("train-2", teacher_index=1, teacher_cp=10.0, teacher_gap=10.0),
+        ],
+    )
+    _write_examples(
+        validation_path,
+        [
+            _planner_example("validation-1", teacher_index=0, teacher_cp=50.0, teacher_gap=30.0),
+            _planner_example("validation-2", teacher_index=1, teacher_cp=0.0, teacher_gap=5.0),
+        ],
+    )
+
+    config = LAPv1TrainConfig(
+        seed=41,
+        output_dir=str(tmp_path / "lapv1_out"),
+        stage="T1",
+        data=PlannerDataConfig(
+            train_path=str(train_path),
+            validation_path=str(validation_path),
+        ),
+        model=LAPv1Config.from_mapping(
+            {
+                "deliberation": {"max_inner_steps": 0, "min_inner_steps": 0},
+                "opponent_head": {
+                    "architecture": "set_v2",
+                    "hidden_dim": 64,
+                    "hidden_layers": 1,
+                    "action_embedding_dim": 16,
+                    "dropout": 0.0,
+                },
+                "value_head": {"hidden_dim": 1024},
+                "policy_head": {
+                    "hidden_dim": 512,
+                    "action_embedding_dim": 32,
+                    "feedforward_dim": 1024,
+                },
+                "state_embedder": {"feedforward_dim": 1024},
+                "intention_encoder": {"feedforward_dim": 1024},
+                "lapv2": {
+                    "enabled": True,
+                    "nnue_value": True,
+                    "N_accumulator": 8,
+                },
+            }
+        ),
+        optimization=LAPv1OptimizationConfig(
+            epochs=1,
+            batch_size=2,
+            learning_rate=1e-3,
+            weight_decay=0.0,
+            max_grad_norm=1.0,
+            value_wdl_weight=1.0,
+            value_cp_weight=0.25,
+            sharpness_weight=0.1,
+            policy_ce_weight=1.0,
+            policy_kl_weight=0.25,
+            policy_margin_weight=0.1,
+            policy_rank_weight=0.1,
+            intention_aux_weight=0.05,
+        ),
+        evaluation=PlannerEvaluationConfig(top_k=3),
+        runtime=PlannerRuntimeConfig(torch_threads=1, dataloader_workers=0),
+        export=PlannerExportConfig(bundle_dir=str(tmp_path / "bundle")),
+    )
+
+    run = train_lapv1(config, repo_root=tmp_path)
+
+    checkpoint_path = Path(run.export_paths["checkpoint"])
+    payload = torch.load(checkpoint_path, map_location="cpu")
+
+    assert checkpoint_path.exists()
+    assert payload["lapv2_version"] == 1
+
+
 def _write_examples(path: Path, examples: list[PlannerHeadExample]) -> None:
     path.write_text(
         "".join(json.dumps(example.to_dict()) + "\n" for example in examples),

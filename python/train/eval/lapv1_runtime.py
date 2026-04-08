@@ -22,11 +22,13 @@ from train.datasets.artifacts import (
     split_position_features,
 )
 from train.datasets.contracts import build_state_context_v1
+from train.datasets.nnue_features import halfka_active_indices
 from train.datasets.oracle import label_records_with_oracle
 from train.datasets.phase_features import phase_index as detect_phase_index
 from train.datasets.schema import DatasetExample, RawPositionRecord
 from train.eval.agent_spec import SelfplayAgentSpec, load_selfplay_agent_spec
 from train.eval.planner_runtime import PlannerRootDecision
+from train.models.dual_accumulator import pack_sparse_feature_lists
 from train.models.lapv1 import LAPV1_MODEL_NAME, LAPv1Model
 from train.models.proposer import torch_is_available
 from train.trainers.lapv1 import LAPv1TrainConfig, _load_lapv1_model_state
@@ -120,9 +122,17 @@ class LoadedLAPv1Runtime:
                 for action_index in root_symbolic.candidate_action_indices
             ]
         ]
+        board = chess.Board(example.fen)
         phase_tensor = torch.tensor(
-            [detect_phase_index(chess.Board(example.fen))],
+            [detect_phase_index(board)],
             dtype=torch.long,
+        )
+        side_to_move = torch.tensor([0 if board.turn == chess.WHITE else 1], dtype=torch.long)
+        nnue_feat_white_indices, nnue_feat_white_offsets = pack_sparse_feature_lists(
+            [halfka_active_indices(board, "w")]
+        )
+        nnue_feat_black_indices, nnue_feat_black_offsets = pack_sparse_feature_lists(
+            [halfka_active_indices(board, "b")]
         )
 
         with torch.inference_mode():
@@ -135,6 +145,11 @@ class LoadedLAPv1Runtime:
                 candidate_action_indices,
                 candidate_mask,
                 phase_index=phase_tensor,
+                side_to_move=side_to_move,
+                nnue_feat_white_indices=nnue_feat_white_indices,
+                nnue_feat_white_offsets=nnue_feat_white_offsets,
+                nnue_feat_black_indices=nnue_feat_black_indices,
+                nnue_feat_black_offsets=nnue_feat_black_offsets,
                 candidate_uci=candidate_uci,
                 single_legal_move=len(root_symbolic.candidate_action_indices) == 1,
             )

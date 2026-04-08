@@ -1202,9 +1202,15 @@ def _load_lapv1_model_state(
     checkpoint_path: Path,
 ) -> None:
     effective_state_dict = _expand_legacy_phase_moe_state_dict(model, state_dict)
-    compatible_missing_prefixes = (
-        "deliberation_loop.cell.candidate_delta_network.",
-    )
+    compatible_missing_prefixes = ["deliberation_loop.cell.candidate_delta_network."]
+    if model.config.lapv2.nnue_value_enabled:
+        compatible_missing_prefixes.extend(["ft.", "value_head_nnue."])
+        print(
+            "[lapv1-train][warn] "
+            f"{checkpoint_path}: initializing LAPv2 NNUE value weights from scratch",
+            flush=True,
+        )
+    compatible_missing_prefixes = tuple(compatible_missing_prefixes)
     incompatible_missing_keys = [
         key
         for key in model.state_dict().keys()
@@ -1483,6 +1489,11 @@ def _run_epoch(
                 batch["candidate_action_indices"],
                 batch["candidate_mask"],
                 phase_index=batch["phase_index"],
+                side_to_move=batch["side_to_move"],
+                nnue_feat_white_indices=batch["nnue_feat_white_indices"],
+                nnue_feat_white_offsets=batch["nnue_feat_white_offsets"],
+                nnue_feat_black_indices=batch["nnue_feat_black_indices"],
+                nnue_feat_black_offsets=batch["nnue_feat_black_offsets"],
             )
             initial_logits = outputs["initial_policy_logits"]
             logits = outputs["final_policy_logits"]
@@ -1890,6 +1901,10 @@ def _collate_examples(examples: Sequence[_PreparedLAPv1Example]) -> dict[str, to
         "piece_tokens": piece_tokens,
         "square_tokens": square_tokens,
         "state_context_global": state_context_global,
+        "side_to_move": torch.tensor(
+            [example.side_to_move for example in examples],
+            dtype=torch.long,
+        ),
         "phase_index": torch.tensor(
             [example.phase_index for example in examples],
             dtype=torch.long,
@@ -2211,9 +2226,11 @@ def _named_parameter_groups(
         "root_backbone": [
             *model.intention_encoder.parameters(),
             *model.state_embedder.parameters(),
+            *(list(model.ft.parameters()) if model.ft is not None else []),
         ],
         "root_heads": [
             *model.value_head.parameters(),
+            *(list(model.value_head_nnue.parameters()) if model.value_head_nnue is not None else []),
             *model.sharpness_head.parameters(),
             *model.policy_head.parameters(),
         ],

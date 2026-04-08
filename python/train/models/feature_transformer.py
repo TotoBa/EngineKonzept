@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 try:
     import torch
     from torch import nn
@@ -32,6 +34,11 @@ if torch is not None and nn is not None:
             self.num_features = int(num_features)
             self.accumulator_dim = int(accumulator_dim)
             self.ft = nn.EmbeddingBag(num_features, accumulator_dim, mode="sum")
+            self.reset_parameters()
+
+        def reset_parameters(self) -> None:
+            std = 1.0 / math.sqrt(float(self.accumulator_dim))
+            nn.init.normal_(self.ft.weight, mean=0.0, std=std)
 
         def build(
             self,

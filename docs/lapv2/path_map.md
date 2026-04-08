@@ -32,6 +32,7 @@ LAPv2 documents.
 | Phase MoE Wrapper | [python/train/models/phase_moe.py](/home/torsten/EngineKonzept/python/train/models/phase_moe.py) | `PhaseMoE` | Generic hard-routed expert wrapper for later phase-dependent modules. |
 | Feature Transformer | [python/train/models/feature_transformer.py](/home/torsten/EngineKonzept/python/train/models/feature_transformer.py) | `FeatureTransformer` | EmbeddingBag-based HalfKA accumulator backbone for future NNUE heads. |
 | Dual Accumulator | [python/train/models/dual_accumulator.py](/home/torsten/EngineKonzept/python/train/models/dual_accumulator.py) | `DualAccumulatorBuilder`, `IncrementalAccumulator` | White/black accumulator construction and sparse incremental updates. |
+| NNUE Value Head | [python/train/models/value_head_nnue.py](/home/torsten/EngineKonzept/python/train/models/value_head_nnue.py) | `NNUEValueHead`, `ClippedReLU` | Single-phase FT-based LAPv2 value readout before phase-dependent value experts. |
 
 Notes:
 

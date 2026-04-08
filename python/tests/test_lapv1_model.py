@@ -8,6 +8,7 @@ import pytest
 from train.config import load_planner_train_config
 from train.datasets.contracts import candidate_context_feature_dim
 from train.models.intention_encoder import STATE_CONTEXT_V1_GLOBAL_FEATURE_DIM, torch
+from train.models.dual_accumulator import pack_sparse_feature_lists
 from train.models.lapv1 import LAPv1Config, LAPv1Model
 
 
@@ -63,6 +64,12 @@ def _sample_inputs(
         [[True, True, True, True, False], [True, True, True, False, False]],
         dtype=torch.bool,
     )
+    nnue_feat_white_indices, nnue_feat_white_offsets = pack_sparse_feature_lists(
+        [[1, 11, 21], [2, 12, 22]]
+    )
+    nnue_feat_black_indices, nnue_feat_black_offsets = pack_sparse_feature_lists(
+        [[31, 41, 51], [32, 42, 52]]
+    )
     return {
         "piece_tokens": piece_tokens,
         "square_tokens": square_tokens,
@@ -71,6 +78,11 @@ def _sample_inputs(
         "candidate_context_v2": candidate_context,
         "candidate_action_indices": candidate_action_indices,
         "candidate_mask": candidate_mask,
+        "side_to_move": torch.tensor([0, 1], dtype=torch.long)[:batch_size],
+        "nnue_feat_white_indices": nnue_feat_white_indices,
+        "nnue_feat_white_offsets": nnue_feat_white_offsets,
+        "nnue_feat_black_indices": nnue_feat_black_indices,
+        "nnue_feat_black_offsets": nnue_feat_black_offsets,
         "phase_index": torch.tensor([0, 1], dtype=torch.long)[:batch_size],
     }
 
@@ -150,6 +162,50 @@ def test_phase_moe_off_is_bit_identical_to_v1() -> None:
         flagged_outputs["final_policy_logits"],
     )
     assert torch.equal(baseline_outputs["z_root"], flagged_outputs["z_root"])
+
+
+def test_flag_off_uses_legacy_value_head() -> None:
+    baseline = LAPv1Model(LAPv1Config())
+    flagged = LAPv1Model(
+        LAPv1Config.from_mapping(
+            {
+                "lapv2": {
+                    "enabled": True,
+                    "nnue_value": False,
+                }
+            }
+        )
+    )
+    flagged.load_state_dict(baseline.state_dict())
+    inputs = _sample_inputs()
+    outputs_baseline = baseline(**inputs)
+    outputs_flagged = flagged(**inputs)
+
+    assert torch.equal(
+        outputs_baseline["final_value"]["wdl_logits"],
+        outputs_flagged["final_value"]["wdl_logits"],
+    )
+    assert torch.equal(
+        outputs_baseline["final_value"]["cp_score"],
+        outputs_flagged["final_value"]["cp_score"],
+    )
+
+
+def test_ft_attribute_exists_for_future_policy() -> None:
+    model = LAPv1Model(
+        LAPv1Config.from_mapping(
+            {
+                "lapv2": {
+                    "enabled": True,
+                    "nnue_value": True,
+                    "N_accumulator": 8,
+                }
+            }
+        )
+    )
+
+    assert model.ft is not None
+    assert model.value_head_nnue is not None
 
 
 def test_lapv1_total_parameter_budget_is_within_target_band() -> None:
