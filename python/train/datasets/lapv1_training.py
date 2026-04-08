@@ -59,6 +59,8 @@ class LAPv1TrainingExample:
     candidate_delta_black_enter: list[list[int]]
     candidate_is_white_king_move: list[bool]
     candidate_is_black_king_move: list[bool]
+    candidate_nnue_feat_white_after_move: list[list[int]]
+    candidate_nnue_feat_black_after_move: list[list[int]]
     candidate_features: list[list[float]]
     candidate_mask: list[bool]
     teacher_top1_candidate_index: int
@@ -92,6 +94,8 @@ class LAPv1TrainingExample:
             "candidate_delta_black_enter": self.candidate_delta_black_enter,
             "candidate_is_white_king_move": self.candidate_is_white_king_move,
             "candidate_is_black_king_move": self.candidate_is_black_king_move,
+            "candidate_nnue_feat_white_after_move": self.candidate_nnue_feat_white_after_move,
+            "candidate_nnue_feat_black_after_move": self.candidate_nnue_feat_black_after_move,
             "candidate_features": self.candidate_features,
             "candidate_mask": self.candidate_mask,
             "teacher_top1_candidate_index": self.teacher_top1_candidate_index,
@@ -191,6 +195,22 @@ class LAPv1TrainingExample:
                     default=[False] * len(list(payload["candidate_action_indices"])),
                 )
             ],
+            candidate_nnue_feat_white_after_move=[
+                [int(value) for value in row]
+                for row in _optional_list_field(
+                    payload,
+                    "candidate_nnue_feat_white_after_move",
+                    default=[[] for _ in list(payload["candidate_action_indices"])],
+                )
+            ],
+            candidate_nnue_feat_black_after_move=[
+                [int(value) for value in row]
+                for row in _optional_list_field(
+                    payload,
+                    "candidate_nnue_feat_black_after_move",
+                    default=[[] for _ in list(payload["candidate_action_indices"])],
+                )
+            ],
             candidate_features=[
                 [float(value) for value in row]
                 for row in list(payload["candidate_features"])
@@ -280,17 +300,29 @@ def lapv1_training_example_from_planner_head(
     candidate_delta_black_enter: list[list[int]] = []
     candidate_is_white_king_move: list[bool] = []
     candidate_is_black_king_move: list[bool] = []
+    candidate_nnue_feat_white_after_move: list[list[int]] = []
+    candidate_nnue_feat_black_after_move: list[list[int]] = []
     for action_index in example.candidate_action_indices:
         move = chess.Move.from_uci(move_uci_for_action(dataset_example, int(action_index)))
         white_leave, white_enter = halfka_delta(board, move, "w")
         black_leave, black_enter = halfka_delta(board, move, "b")
+        white_king_move = is_king_move(board, move, "w")
+        black_king_move = is_king_move(board, move, "b")
         candidate_move_types.append(move_type_hash(board, move))
         candidate_delta_white_leave.append(white_leave)
         candidate_delta_white_enter.append(white_enter)
         candidate_delta_black_leave.append(black_leave)
         candidate_delta_black_enter.append(black_enter)
-        candidate_is_white_king_move.append(is_king_move(board, move, "w"))
-        candidate_is_black_king_move.append(is_king_move(board, move, "b"))
+        candidate_is_white_king_move.append(white_king_move)
+        candidate_is_black_king_move.append(black_king_move)
+        if white_king_move or black_king_move:
+            after_board = board.copy(stack=False)
+            after_board.push(move)
+            candidate_nnue_feat_white_after_move.append(halfka_active_indices(after_board, "w"))
+            candidate_nnue_feat_black_after_move.append(halfka_active_indices(after_board, "b"))
+        else:
+            candidate_nnue_feat_white_after_move.append([])
+            candidate_nnue_feat_black_after_move.append([])
     return LAPv1TrainingExample(
         sample_id=example.sample_id,
         split=example.split,
@@ -312,6 +344,8 @@ def lapv1_training_example_from_planner_head(
         candidate_delta_black_enter=candidate_delta_black_enter,
         candidate_is_white_king_move=candidate_is_white_king_move,
         candidate_is_black_king_move=candidate_is_black_king_move,
+        candidate_nnue_feat_white_after_move=candidate_nnue_feat_white_after_move,
+        candidate_nnue_feat_black_after_move=candidate_nnue_feat_black_after_move,
         candidate_features=[list(row) for row in example.candidate_features],
         candidate_mask=[True] * len(example.candidate_action_indices),
         teacher_top1_candidate_index=example.teacher_top1_candidate_index,

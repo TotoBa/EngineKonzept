@@ -901,6 +901,7 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
         for name, tensor in aux_probe.state_dict().items()
     }
     optimizer_step_counter = [0]
+    loss_balance_state: dict[str, float] = {}
 
     try:
         for epoch in range(1, config.optimization.epochs + 1):
@@ -983,6 +984,7 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
                 epoch=epoch,
                 total_epochs=config.optimization.epochs,
                 optimizer_step_counter=optimizer_step_counter,
+                loss_balance_state=loss_balance_state,
             )
             validation_metrics = _run_epoch(
                 model=model,
@@ -999,6 +1001,7 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
                 epoch=epoch,
                 total_epochs=config.optimization.epochs,
                 optimizer_step_counter=optimizer_step_counter,
+                loss_balance_state=loss_balance_state,
             )
             selection_validation_metrics: LAPv1Metrics | None = None
             selection_collapse_alarm: dict[str, float | bool] | None = None
@@ -1034,6 +1037,7 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
                     epoch=epoch,
                     total_epochs=config.optimization.epochs,
                     optimizer_step_counter=optimizer_step_counter,
+                    loss_balance_state=loss_balance_state,
                 )
                 model.deliberation_loop.max_inner_steps = previous_max_inner_steps
                 model.deliberation_loop.min_inner_steps = previous_min_inner_steps
@@ -1207,11 +1211,17 @@ def _load_lapv1_model_state(
 ) -> None:
     effective_state_dict = _expand_legacy_phase_moe_state_dict(model, state_dict)
     compatible_missing_prefixes = ["deliberation_loop.cell.candidate_delta_network."]
+    lapv2_fresh_init_prefixes: list[str] = []
     if model.config.lapv2.nnue_value_enabled:
-        compatible_missing_prefixes.extend(["ft.", "value_head_nnue."])
+        lapv2_fresh_init_prefixes.extend(["ft.", "value_head_nnue."])
+    if model.config.lapv2.nnue_policy_enabled:
+        lapv2_fresh_init_prefixes.append("policy_head_nnue.")
+    if lapv2_fresh_init_prefixes:
+        compatible_missing_prefixes.extend(lapv2_fresh_init_prefixes)
         print(
             "[lapv1-train][warn] "
-            f"{checkpoint_path}: initializing LAPv2 NNUE value weights from scratch",
+            f"{checkpoint_path}: initializing LAPv2 weights from scratch for "
+            + ", ".join(sorted(lapv2_fresh_init_prefixes)),
             flush=True,
         )
     compatible_missing_prefixes = tuple(compatible_missing_prefixes)
@@ -1272,6 +1282,12 @@ def _expand_legacy_phase_moe_state_dict(
             module_prefix="value_head_nnue",
             num_phases=4,
         )
+        if model.config.lapv2.nnue_policy_enabled:
+            expanded = _replicate_phase_moe_module_keys(
+                expanded,
+                module_prefix="policy_head_nnue",
+                num_phases=4,
+            )
     return expanded
 
 
@@ -1315,6 +1331,8 @@ def _apply_lapv2_phase_gate_mean_pull(model: LAPv1Model) -> None:
         _mean_pull_phase_module_parameters(model.ft)
     if model.value_head_nnue is not None:
         _mean_pull_phase_module_parameters(model.value_head_nnue)
+    if model.policy_head_nnue is not None:
+        _mean_pull_phase_module_parameters(model.policy_head_nnue)
 
 
 def _mean_pull_phase_module_parameters(module: torch.nn.Module) -> None:
@@ -1407,6 +1425,7 @@ def evaluate_lapv1_checkpoint(
             epoch=1,
             total_epochs=1,
             optimizer_step_counter=None,
+            loss_balance_state={},
         )
     finally:
         examples.close()
@@ -1459,6 +1478,7 @@ def _run_epoch(
     epoch: int,
     total_epochs: int,
     optimizer_step_counter: list[int] | None,
+    loss_balance_state: dict[str, float] | None = None,
 ) -> LAPv1Metrics:
     if training:
         model.train()
@@ -1543,6 +1563,20 @@ def _run_epoch(
                 nnue_feat_white_offsets=batch["nnue_feat_white_offsets"],
                 nnue_feat_black_indices=batch["nnue_feat_black_indices"],
                 nnue_feat_black_offsets=batch["nnue_feat_black_offsets"],
+                candidate_move_types=batch["candidate_move_types"],
+                candidate_delta_white_leave_indices=batch["candidate_delta_white_leave_indices"],
+                candidate_delta_white_leave_offsets=batch["candidate_delta_white_leave_offsets"],
+                candidate_delta_white_enter_indices=batch["candidate_delta_white_enter_indices"],
+                candidate_delta_white_enter_offsets=batch["candidate_delta_white_enter_offsets"],
+                candidate_delta_black_leave_indices=batch["candidate_delta_black_leave_indices"],
+                candidate_delta_black_leave_offsets=batch["candidate_delta_black_leave_offsets"],
+                candidate_delta_black_enter_indices=batch["candidate_delta_black_enter_indices"],
+                candidate_delta_black_enter_offsets=batch["candidate_delta_black_enter_offsets"],
+                candidate_nnue_feat_white_after_move_indices=batch["candidate_nnue_feat_white_after_move_indices"],
+                candidate_nnue_feat_white_after_move_offsets=batch["candidate_nnue_feat_white_after_move_offsets"],
+                candidate_nnue_feat_black_after_move_indices=batch["candidate_nnue_feat_black_after_move_indices"],
+                candidate_nnue_feat_black_after_move_offsets=batch["candidate_nnue_feat_black_after_move_offsets"],
+                candidate_has_king_move=batch["candidate_has_king_move"],
             )
             initial_logits = outputs["initial_policy_logits"]
             logits = outputs["final_policy_logits"]
@@ -1640,19 +1674,45 @@ def _run_epoch(
                     device=logits.device,
                 )
 
-            loss = (
+            value_shared_loss = (
                 optimization.value_wdl_weight * value_wdl_loss
                 + optimization.value_cp_weight * value_cp_loss
-                + optimization.sharpness_weight * sharpness_loss
-                + optimization.sharpness_target_loss_weight * sharpness_target_loss
-                + optimization.policy_ce_weight * policy_ce_loss
+            )
+            policy_shared_loss = (
+                optimization.policy_ce_weight * policy_ce_loss
                 + optimization.policy_kl_weight * policy_kl_loss
                 + optimization.policy_margin_weight * policy_margin_loss
                 + optimization.policy_rank_weight * policy_rank_loss
+            )
+            if model.config.lapv2.nnue_policy_enabled and loss_balance_state is not None:
+                value_shared_loss = _normalize_lapv2_shared_loss(
+                    raw_loss=value_shared_loss,
+                    state=loss_balance_state,
+                    key="value_shared",
+                    mode=model.config.lapv2.loss_balance.value_loss_norm,
+                    training=training,
+                )
+                policy_shared_loss = _normalize_lapv2_shared_loss(
+                    raw_loss=policy_shared_loss,
+                    state=loss_balance_state,
+                    key="policy_shared",
+                    mode=model.config.lapv2.loss_balance.policy_loss_norm,
+                    training=training,
+                )
+            adapter_decoupling_loss = (
+                _lapv2_adapter_decoupling_loss(model)
+                * model.config.lapv2.loss_balance.adapter_decoupling
+            )
+            loss = (
+                value_shared_loss
+                + optimization.sharpness_weight * sharpness_loss
+                + optimization.sharpness_target_loss_weight * sharpness_target_loss
+                + policy_shared_loss
                 + optimization.intention_aux_weight * intention_aux_loss
                 + optimization.deliberation_monotonicity_weight * deliberation_monotonicity_loss
                 + optimization.deliberation_step_policy_weight * deliberation_step_policy_loss
                 + optimization.deliberation_improvement_weight * deliberation_improvement_loss
+                + adapter_decoupling_loss
             )
 
             if training:
@@ -1868,6 +1928,24 @@ def _progress_log_interval(
     return max(1, min(64, total_batches // 8 if total_batches > 8 else 1))
 
 
+def _pack_candidate_sparse_rows(
+    examples: Sequence[_PreparedLAPv1Example],
+    *,
+    max_candidate_count: int,
+    attribute_name: str,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    rows: list[Sequence[int]] = []
+    for example in examples:
+        candidate_rows = getattr(example, attribute_name)
+        candidate_count = len(example.candidate_action_indices)
+        for candidate_index in range(max_candidate_count):
+            if candidate_index < candidate_count:
+                rows.append(candidate_rows[candidate_index])
+            else:
+                rows.append(())
+    return pack_sparse_feature_lists(rows)
+
+
 def _collate_examples(examples: Sequence[_PreparedLAPv1Example]) -> dict[str, torch.Tensor]:
     max_candidate_count = max(len(example.candidate_action_indices) for example in examples)
     max_edge_count = max(len(example.reachability_edges) for example in examples)
@@ -1890,6 +1968,10 @@ def _collate_examples(examples: Sequence[_PreparedLAPv1Example]) -> dict[str, to
         dtype=torch.long,
     )
     candidate_action_indices = torch.zeros(
+        (len(examples), max_candidate_count),
+        dtype=torch.long,
+    )
+    candidate_move_types = torch.zeros(
         (len(examples), max_candidate_count),
         dtype=torch.long,
     )
@@ -1920,6 +2002,52 @@ def _collate_examples(examples: Sequence[_PreparedLAPv1Example]) -> dict[str, to
     nnue_feat_black_indices, nnue_feat_black_offsets = pack_sparse_feature_lists(
         [example.nnue_feat_black for example in examples]
     )
+    candidate_delta_white_leave_indices, candidate_delta_white_leave_offsets = (
+        _pack_candidate_sparse_rows(
+            examples,
+            max_candidate_count=max_candidate_count,
+            attribute_name="candidate_delta_white_leave",
+        )
+    )
+    candidate_delta_white_enter_indices, candidate_delta_white_enter_offsets = (
+        _pack_candidate_sparse_rows(
+            examples,
+            max_candidate_count=max_candidate_count,
+            attribute_name="candidate_delta_white_enter",
+        )
+    )
+    candidate_delta_black_leave_indices, candidate_delta_black_leave_offsets = (
+        _pack_candidate_sparse_rows(
+            examples,
+            max_candidate_count=max_candidate_count,
+            attribute_name="candidate_delta_black_leave",
+        )
+    )
+    candidate_delta_black_enter_indices, candidate_delta_black_enter_offsets = (
+        _pack_candidate_sparse_rows(
+            examples,
+            max_candidate_count=max_candidate_count,
+            attribute_name="candidate_delta_black_enter",
+        )
+    )
+    candidate_nnue_feat_white_after_move_indices, candidate_nnue_feat_white_after_move_offsets = (
+        _pack_candidate_sparse_rows(
+            examples,
+            max_candidate_count=max_candidate_count,
+            attribute_name="candidate_nnue_feat_white_after_move",
+        )
+    )
+    candidate_nnue_feat_black_after_move_indices, candidate_nnue_feat_black_after_move_offsets = (
+        _pack_candidate_sparse_rows(
+            examples,
+            max_candidate_count=max_candidate_count,
+            attribute_name="candidate_nnue_feat_black_after_move",
+        )
+    )
+    candidate_has_king_move = torch.zeros(
+        (len(examples), max_candidate_count),
+        dtype=torch.bool,
+    )
 
     for batch_index, example in enumerate(examples):
         edge_count = len(example.reachability_edges)
@@ -1933,11 +2061,26 @@ def _collate_examples(examples: Sequence[_PreparedLAPv1Example]) -> dict[str, to
             example.candidate_action_indices,
             dtype=torch.long,
         )
+        candidate_move_types[batch_index, :candidate_count] = torch.tensor(
+            example.candidate_move_types,
+            dtype=torch.long,
+        )
         candidate_features[batch_index, :candidate_count, :] = torch.tensor(
             example.candidate_features,
             dtype=torch.float32,
         )
         candidate_mask[batch_index, :candidate_count] = True
+        candidate_has_king_move[batch_index, :candidate_count] = torch.tensor(
+            [
+                white_flag or black_flag
+                for white_flag, black_flag in zip(
+                    example.candidate_is_white_king_move,
+                    example.candidate_is_black_king_move,
+                    strict=True,
+                )
+            ],
+            dtype=torch.bool,
+        )
         teacher_policy[batch_index, :candidate_count] = torch.tensor(
             example.teacher_policy,
             dtype=torch.float32,
@@ -1971,6 +2114,28 @@ def _collate_examples(examples: Sequence[_PreparedLAPv1Example]) -> dict[str, to
         "nnue_feat_black_indices": nnue_feat_black_indices,
         "nnue_feat_black_offsets": nnue_feat_black_offsets,
         "candidate_action_indices": candidate_action_indices,
+        "candidate_move_types": candidate_move_types,
+        "candidate_delta_white_leave_indices": candidate_delta_white_leave_indices,
+        "candidate_delta_white_leave_offsets": candidate_delta_white_leave_offsets,
+        "candidate_delta_white_enter_indices": candidate_delta_white_enter_indices,
+        "candidate_delta_white_enter_offsets": candidate_delta_white_enter_offsets,
+        "candidate_delta_black_leave_indices": candidate_delta_black_leave_indices,
+        "candidate_delta_black_leave_offsets": candidate_delta_black_leave_offsets,
+        "candidate_delta_black_enter_indices": candidate_delta_black_enter_indices,
+        "candidate_delta_black_enter_offsets": candidate_delta_black_enter_offsets,
+        "candidate_nnue_feat_white_after_move_indices": (
+            candidate_nnue_feat_white_after_move_indices
+        ),
+        "candidate_nnue_feat_white_after_move_offsets": (
+            candidate_nnue_feat_white_after_move_offsets
+        ),
+        "candidate_nnue_feat_black_after_move_indices": (
+            candidate_nnue_feat_black_after_move_indices
+        ),
+        "candidate_nnue_feat_black_after_move_offsets": (
+            candidate_nnue_feat_black_after_move_offsets
+        ),
+        "candidate_has_king_move": candidate_has_king_move,
         "candidate_features": candidate_features,
         "candidate_mask": candidate_mask,
         "teacher_top1_candidate_index": torch.tensor(
@@ -2035,6 +2200,66 @@ def _policy_margin_loss(
         reduction="none",
     )
     return raw_loss[margin_mask].mean()
+
+
+def _normalize_lapv2_shared_loss(
+    *,
+    raw_loss: torch.Tensor,
+    state: dict[str, float],
+    key: str,
+    mode: str,
+    training: bool,
+    momentum: float = 0.99,
+) -> torch.Tensor:
+    if mode == "none":
+        return raw_loss
+    detached_value = max(float(raw_loss.detach().item()), 1e-6)
+    running_mean = state.get(key, detached_value)
+    if training:
+        running_mean = (momentum * running_mean) + ((1.0 - momentum) * detached_value)
+        state[key] = max(running_mean, 1e-6)
+    denominator = max(state.get(key, running_mean), 1e-6)
+    return raw_loss / denominator
+
+
+def _lapv2_adapter_decoupling_loss(model: LAPv1Model) -> torch.Tensor:
+    reference_parameter = next(model.parameters())
+    if (
+        not model.config.lapv2.nnue_policy_enabled
+        or model.policy_head_nnue is None
+        or model.value_head_nnue is None
+    ):
+        return reference_parameter.new_zeros(())
+    value_adapters = _lapv2_policy_value_adapters(model.value_head_nnue)
+    policy_adapters = _lapv2_policy_value_adapters(model.policy_head_nnue)
+    penalties: list[torch.Tensor] = []
+    for value_adapter, policy_adapter in zip(value_adapters, policy_adapters, strict=True):
+        penalties.append(
+            torch.nn.functional.cosine_similarity(
+                value_adapter.reshape(1, -1),
+                policy_adapter.reshape(1, -1),
+                dim=1,
+            ).pow(2).mean()
+        )
+    if not penalties:
+        return value_adapters[0].new_zeros(())
+    return torch.stack(penalties).mean()
+
+
+def _lapv2_policy_value_adapters(module: torch.nn.Module) -> tuple[torch.Tensor, ...]:
+    experts = getattr(module, "experts", None)
+    if experts is None:
+        adapter = getattr(module, "adapter", None)
+        if adapter is None or not hasattr(adapter, "weight"):
+            raise ValueError("expected NNUE head with an adapter linear layer")
+        return (adapter.weight,)
+    collected: list[torch.Tensor] = []
+    for expert in experts:
+        adapter = getattr(expert, "adapter", None)
+        if adapter is None or not hasattr(adapter, "weight"):
+            raise ValueError("expected phase-routed NNUE head with adapter weights")
+        collected.append(adapter.weight)
+    return tuple(collected)
 
 
 def _policy_rank_loss(
@@ -2288,7 +2513,11 @@ def _named_parameter_groups(
             *model.value_head.parameters(),
             *(list(model.value_head_nnue.parameters()) if model.value_head_nnue is not None else []),
             *model.sharpness_head.parameters(),
-            *model.policy_head.parameters(),
+            *(
+                list(model.policy_head_nnue.parameters())
+                if model.policy_head_nnue is not None
+                else list(model.policy_head.parameters())
+            ),
         ],
         "inner_loop": [
             *model.deliberation_loop.parameters(),

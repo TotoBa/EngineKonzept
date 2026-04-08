@@ -35,6 +35,7 @@ from train.trainers.lapv1 import (
     _build_lazy_dataset,
     _collate_examples,
     _improvement_over_root_loss,
+    _normalize_lapv2_shared_loss,
     _policy_margin_loss,
     _prepare_example,
     _trace_policy_ce_loss,
@@ -42,7 +43,6 @@ from train.trainers.lapv1 import (
 
 
 pytest.importorskip("torch")
-pytest.importorskip("chess")
 
 
 def test_train_and_evaluate_lapv1_stage1_on_tiny_cpu_dataset(tmp_path: Path) -> None:
@@ -202,6 +202,95 @@ def test_train_lapv1_accepts_matching_initial_checkpoint(tmp_path: Path) -> None
     run = train_lapv1(config, repo_root=tmp_path)
 
     assert Path(run.export_paths["checkpoint"]).exists()
+
+
+def test_nnue_policy_on_runs_training_step(tmp_path: Path) -> None:
+    train_path = tmp_path / "lapv1_train.jsonl"
+    validation_path = tmp_path / "lapv1_validation.jsonl"
+    _write_examples(
+        train_path,
+        [
+            _planner_example("train-1", teacher_index=0, teacher_cp=60.0, teacher_gap=40.0),
+            _planner_example("train-2", teacher_index=1, teacher_cp=10.0, teacher_gap=10.0),
+        ],
+    )
+    _write_examples(
+        validation_path,
+        [_planner_example("validation-1", teacher_index=0, teacher_cp=50.0, teacher_gap=30.0)],
+    )
+
+    config = LAPv1TrainConfig(
+        seed=11,
+        output_dir=str(tmp_path / "lapv1_out"),
+        stage="T1",
+        data=PlannerDataConfig(
+            train_path=str(train_path),
+            validation_path=str(validation_path),
+        ),
+        model=LAPv1Config.from_mapping(
+            {
+                "deliberation": {"max_inner_steps": 0, "min_inner_steps": 0},
+                "lapv2": {
+                    "enabled": True,
+                    "nnue_value": True,
+                    "nnue_policy": True,
+                    "N_accumulator": 8,
+                    "loss_balance": {
+                        "value_loss_norm": "ema",
+                        "policy_loss_norm": "ema",
+                    },
+                },
+                "opponent_head": {
+                    "architecture": "set_v2",
+                    "hidden_dim": 64,
+                    "hidden_layers": 1,
+                    "action_embedding_dim": 16,
+                    "dropout": 0.0,
+                },
+                "value_head": {"hidden_dim": 256},
+                "policy_head": {
+                    "hidden_dim": 256,
+                    "action_embedding_dim": 32,
+                    "feedforward_dim": 512,
+                },
+                "state_embedder": {"feedforward_dim": 512},
+                "intention_encoder": {"feedforward_dim": 512},
+            }
+        ),
+        optimization=LAPv1OptimizationConfig(
+            epochs=1,
+            batch_size=1,
+            learning_rate=1e-3,
+            weight_decay=0.0,
+            max_grad_norm=1.0,
+            log_interval_batches=1,
+        ),
+        evaluation=PlannerEvaluationConfig(top_k=3),
+        runtime=PlannerRuntimeConfig(torch_threads=1, dataloader_workers=0),
+        export=PlannerExportConfig(bundle_dir=str(tmp_path / "bundle")),
+    )
+
+    run = train_lapv1(config, repo_root=tmp_path)
+
+    assert Path(run.export_paths["checkpoint"]).exists()
+
+
+def test_loss_balance_keeps_ema_in_range() -> None:
+    state: dict[str, float] = {}
+    losses = [
+        _normalize_lapv2_shared_loss(
+            raw_loss=torch.tensor(value, dtype=torch.float32),
+            state=state,
+            key="policy_shared",
+            mode="ema",
+            training=True,
+        )
+        for value in (10.0, 5.0, 2.5, 1.25)
+    ]
+
+    assert "policy_shared" in state
+    assert 1e-6 <= state["policy_shared"] <= 10.0
+    assert all(torch.isfinite(loss) for loss in losses)
 
 
 def test_train_lapv1_accepts_older_checkpoint_missing_residual_delta_net(

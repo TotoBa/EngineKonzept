@@ -22,6 +22,7 @@ from train.datasets.artifacts import (
     split_position_features,
 )
 from train.datasets.contracts import build_state_context_v1
+from train.datasets.move_delta import halfka_delta, is_king_move, move_type_hash
 from train.datasets.nnue_features import halfka_active_indices
 from train.datasets.oracle import label_records_with_oracle
 from train.datasets.phase_features import phase_index as detect_phase_index
@@ -116,13 +117,39 @@ class LoadedLAPv1Runtime:
             (1, len(root_symbolic.candidate_action_indices)),
             dtype=torch.bool,
         )
-        candidate_uci = [
-            [
-                move_uci_for_action(example, int(action_index))
-                for action_index in root_symbolic.candidate_action_indices
-            ]
+        candidate_move_uci = [
+            move_uci_for_action(example, int(action_index))
+            for action_index in root_symbolic.candidate_action_indices
         ]
+        candidate_uci = [candidate_move_uci]
         board = chess.Board(example.fen)
+        candidate_move_types = torch.tensor(
+            [[move_type_hash(board, chess.Move.from_uci(move_uci)) for move_uci in candidate_move_uci]],
+            dtype=torch.long,
+        )
+        candidate_delta_white_leave: list[list[int]] = []
+        candidate_delta_white_enter: list[list[int]] = []
+        candidate_delta_black_leave: list[list[int]] = []
+        candidate_delta_black_enter: list[list[int]] = []
+        candidate_nnue_feat_white_after_move: list[list[int]] = []
+        candidate_nnue_feat_black_after_move: list[list[int]] = []
+        candidate_has_king_move_values: list[bool] = []
+        for move_uci in candidate_move_uci:
+            move = chess.Move.from_uci(move_uci)
+            candidate_delta_white_leave.append(halfka_delta(board, move, "w")[0])
+            candidate_delta_white_enter.append(halfka_delta(board, move, "w")[1])
+            candidate_delta_black_leave.append(halfka_delta(board, move, "b")[0])
+            candidate_delta_black_enter.append(halfka_delta(board, move, "b")[1])
+            has_king_move = is_king_move(board, move, "w") or is_king_move(board, move, "b")
+            candidate_has_king_move_values.append(has_king_move)
+            if has_king_move:
+                after_board = board.copy(stack=False)
+                after_board.push(move)
+                candidate_nnue_feat_white_after_move.append(halfka_active_indices(after_board, "w"))
+                candidate_nnue_feat_black_after_move.append(halfka_active_indices(after_board, "b"))
+            else:
+                candidate_nnue_feat_white_after_move.append([])
+                candidate_nnue_feat_black_after_move.append([])
         phase_tensor = torch.tensor(
             [detect_phase_index(board)],
             dtype=torch.long,
@@ -133,6 +160,28 @@ class LoadedLAPv1Runtime:
         )
         nnue_feat_black_indices, nnue_feat_black_offsets = pack_sparse_feature_lists(
             [halfka_active_indices(board, "b")]
+        )
+        candidate_delta_white_leave_indices, candidate_delta_white_leave_offsets = (
+            pack_sparse_feature_lists(candidate_delta_white_leave)
+        )
+        candidate_delta_white_enter_indices, candidate_delta_white_enter_offsets = (
+            pack_sparse_feature_lists(candidate_delta_white_enter)
+        )
+        candidate_delta_black_leave_indices, candidate_delta_black_leave_offsets = (
+            pack_sparse_feature_lists(candidate_delta_black_leave)
+        )
+        candidate_delta_black_enter_indices, candidate_delta_black_enter_offsets = (
+            pack_sparse_feature_lists(candidate_delta_black_enter)
+        )
+        candidate_nnue_feat_white_after_move_indices, candidate_nnue_feat_white_after_move_offsets = (
+            pack_sparse_feature_lists(candidate_nnue_feat_white_after_move)
+        )
+        candidate_nnue_feat_black_after_move_indices, candidate_nnue_feat_black_after_move_offsets = (
+            pack_sparse_feature_lists(candidate_nnue_feat_black_after_move)
+        )
+        candidate_has_king_move = torch.tensor(
+            [candidate_has_king_move_values],
+            dtype=torch.bool,
         )
 
         with torch.inference_mode():
@@ -150,15 +199,24 @@ class LoadedLAPv1Runtime:
                 nnue_feat_white_offsets=nnue_feat_white_offsets,
                 nnue_feat_black_indices=nnue_feat_black_indices,
                 nnue_feat_black_offsets=nnue_feat_black_offsets,
+                candidate_move_types=candidate_move_types,
+                candidate_delta_white_leave_indices=candidate_delta_white_leave_indices,
+                candidate_delta_white_leave_offsets=candidate_delta_white_leave_offsets,
+                candidate_delta_white_enter_indices=candidate_delta_white_enter_indices,
+                candidate_delta_white_enter_offsets=candidate_delta_white_enter_offsets,
+                candidate_delta_black_leave_indices=candidate_delta_black_leave_indices,
+                candidate_delta_black_leave_offsets=candidate_delta_black_leave_offsets,
+                candidate_delta_black_enter_indices=candidate_delta_black_enter_indices,
+                candidate_delta_black_enter_offsets=candidate_delta_black_enter_offsets,
+                candidate_nnue_feat_white_after_move_indices=candidate_nnue_feat_white_after_move_indices,
+                candidate_nnue_feat_white_after_move_offsets=candidate_nnue_feat_white_after_move_offsets,
+                candidate_nnue_feat_black_after_move_indices=candidate_nnue_feat_black_after_move_indices,
+                candidate_nnue_feat_black_after_move_offsets=candidate_nnue_feat_black_after_move_offsets,
+                candidate_has_king_move=candidate_has_king_move,
                 candidate_uci=candidate_uci,
                 single_legal_move=len(root_symbolic.candidate_action_indices) == 1,
             )
-            initial_policy_logits = self.model.policy_head(
-                outputs["z_root"],
-                candidate_features,
-                candidate_action_indices,
-                candidate_mask,
-            )
+            initial_policy_logits = outputs["initial_policy_logits"]
 
         final_policy_logits = outputs["final_policy_logits"][0]
         selected_candidate_index = int(torch.argmax(final_policy_logits).item())

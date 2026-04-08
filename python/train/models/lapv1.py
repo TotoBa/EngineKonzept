@@ -21,13 +21,14 @@ from train.datasets.artifacts import (
 )
 from train.datasets.nnue_features import TOTAL_FEATURES
 from train.models.deliberation import DeliberationLoop
-from train.models.dual_accumulator import DualAccumulatorBuilder
+from train.models.dual_accumulator import DualAccumulatorBuilder, build_sparse_rows
 from train.models.feature_transformer import FeatureTransformer
 from train.models.intention_encoder import PieceIntentionEncoder
 from train.models.opponent import OpponentHeadModel
 from train.models.phase_moe import PhaseMoE
 from train.models.phase_router import PhaseRouter
 from train.models.policy_head_large import LargePolicyHead
+from train.models.policy_head_nnue import NNUEPolicyHead
 from train.models.state_embedder import RelationalStateEmbedder
 from train.models.value_head import SharpnessHead, ValueHead
 from train.models.value_head_nnue import NNUEValueHead
@@ -42,6 +43,24 @@ except ModuleNotFoundError:  # pragma: no cover - exercised when torch is absent
 
 LAPV1_MODEL_NAME = "lapv1_wrapper"
 LAPV2_MODEL_VERSION = 1
+
+
+@dataclass(frozen=True)
+class LAPv2LossBalanceConfig:
+    """Shared-FT loss balancing controls for LAPv2 NNUE heads."""
+
+    value_loss_norm: str = "none"
+    policy_loss_norm: str = "none"
+    adapter_decoupling: float = 0.0
+
+    def __post_init__(self) -> None:
+        allowed_norms = {"none", "ema"}
+        if self.value_loss_norm not in allowed_norms:
+            raise ValueError("lapv2.loss_balance.value_loss_norm must be 'none' or 'ema'")
+        if self.policy_loss_norm not in allowed_norms:
+            raise ValueError("lapv2.loss_balance.policy_loss_norm must be 'none' or 'ema'")
+        if self.adapter_decoupling < 0.0:
+            raise ValueError("lapv2.loss_balance.adapter_decoupling must be non-negative")
 
 
 @dataclass(frozen=True)
@@ -60,12 +79,35 @@ class LAPv2Config:
     distill_opponent: bool = False
     accumulator_cache: bool = False
     N_accumulator: int = 64
+    loss_balance: LAPv2LossBalanceConfig = field(default_factory=LAPv2LossBalanceConfig)
+
+    @classmethod
+    def from_mapping(cls, payload: Mapping[str, Any]) -> "LAPv2Config":
+        return cls(
+            enabled=bool(payload.get("enabled", False)),
+            phase_moe=bool(payload.get("phase_moe", False)),
+            dual_accumulator=bool(payload.get("dual_accumulator", False)),
+            nnue_value=bool(payload.get("nnue_value", False)),
+            nnue_value_phase_moe=bool(payload.get("nnue_value_phase_moe", False)),
+            nnue_phase_gate_steps=int(payload.get("nnue_phase_gate_steps", 0)),
+            nnue_policy=bool(payload.get("nnue_policy", False)),
+            sharpness_phase_moe=bool(payload.get("sharpness_phase_moe", False)),
+            shared_opponent_readout=bool(payload.get("shared_opponent_readout", False)),
+            distill_opponent=bool(payload.get("distill_opponent", False)),
+            accumulator_cache=bool(payload.get("accumulator_cache", False)),
+            N_accumulator=int(payload.get("N_accumulator", 64)),
+            loss_balance=LAPv2LossBalanceConfig(
+                **dict(payload.get("loss_balance", {}))
+            ),
+        )
 
     def __post_init__(self) -> None:
         if self.N_accumulator <= 0:
             raise ValueError("lapv2.N_accumulator must be positive")
         if self.nnue_phase_gate_steps < 0:
             raise ValueError("lapv2.nnue_phase_gate_steps must be non-negative")
+        if self.nnue_policy_enabled and not self.nnue_value_enabled:
+            raise ValueError("lapv2.nnue_policy requires lapv2.nnue_value")
 
     @property
     def phase_moe_enabled(self) -> bool:
@@ -78,6 +120,10 @@ class LAPv2Config:
     @property
     def nnue_value_phase_moe_enabled(self) -> bool:
         return self.nnue_value_enabled and self.nnue_value_phase_moe
+
+    @property
+    def nnue_policy_enabled(self) -> bool:
+        return self.enabled and self.nnue_policy
 
 
 @dataclass(frozen=True)
@@ -112,7 +158,7 @@ class LAPv1Config:
             policy_head=LargePolicyHeadConfig(**dict(payload.get("policy_head", {}))),
             opponent_head=OpponentModelConfig(**opponent_payload),
             deliberation=DeliberationConfig(**dict(payload.get("deliberation", {}))),
-            lapv2=LAPv2Config(**dict(payload.get("lapv2", {}))),
+            lapv2=LAPv2Config.from_mapping(dict(payload.get("lapv2", {}))),
         )
 
 
@@ -301,6 +347,18 @@ if torch is not None and nn is not None:
                 feedforward_dim=config.policy_head.feedforward_dim,
                 dropout=config.policy_head.dropout,
             )
+            if config.lapv2.nnue_policy_enabled:
+                policy_head_nnue: NNUEPolicyHead | PhaseMoE = NNUEPolicyHead(
+                    accumulator_dim=config.lapv2.N_accumulator,
+                    move_type_vocab=128,
+                    move_type_dim=16,
+                    hidden_dim=32,
+                )
+                if config.lapv2.nnue_value_phase_moe_enabled:
+                    policy_head_nnue = PhaseMoE.from_single(policy_head_nnue)
+                self.policy_head_nnue: NNUEPolicyHead | PhaseMoE | None = policy_head_nnue
+            else:
+                self.policy_head_nnue = None
             self.opponent_head = OpponentHeadModel(
                 architecture=config.opponent_head.architecture,
                 hidden_dim=config.opponent_head.hidden_dim,
@@ -329,6 +387,129 @@ if torch is not None and nn is not None:
                 ),
             )
 
+        def _root_dual_accumulators(
+            self,
+            *,
+            phase_idx: torch.Tensor | None,
+            nnue_feat_white_indices: torch.Tensor,
+            nnue_feat_white_offsets: torch.Tensor,
+            nnue_feat_black_indices: torch.Tensor,
+            nnue_feat_black_offsets: torch.Tensor,
+        ) -> tuple[torch.Tensor, torch.Tensor]:
+            if self.ft is None or self.dual_acc_builder is None:
+                raise RuntimeError("LAPv2 FT path is not initialized")
+            return self.dual_acc_builder(
+                self.ft,
+                {
+                    "nnue_feat_white_indices": nnue_feat_white_indices,
+                    "nnue_feat_white_offsets": nnue_feat_white_offsets,
+                    "nnue_feat_black_indices": nnue_feat_black_indices,
+                    "nnue_feat_black_offsets": nnue_feat_black_offsets,
+                },
+                phase_idx=phase_idx,
+            )
+
+        def _nnue_policy_logits(
+            self,
+            *,
+            a_white: torch.Tensor,
+            a_black: torch.Tensor,
+            phase_idx: torch.Tensor | None,
+            side_to_move: torch.Tensor,
+            candidate_mask: torch.Tensor,
+            candidate_move_types: torch.Tensor,
+            candidate_delta_white_leave_indices: torch.Tensor,
+            candidate_delta_white_leave_offsets: torch.Tensor,
+            candidate_delta_white_enter_indices: torch.Tensor,
+            candidate_delta_white_enter_offsets: torch.Tensor,
+            candidate_delta_black_leave_indices: torch.Tensor,
+            candidate_delta_black_leave_offsets: torch.Tensor,
+            candidate_delta_black_enter_indices: torch.Tensor,
+            candidate_delta_black_enter_offsets: torch.Tensor,
+            candidate_nnue_feat_white_after_move_indices: torch.Tensor,
+            candidate_nnue_feat_white_after_move_offsets: torch.Tensor,
+            candidate_nnue_feat_black_after_move_indices: torch.Tensor,
+            candidate_nnue_feat_black_after_move_offsets: torch.Tensor,
+            candidate_has_king_move: torch.Tensor,
+        ) -> torch.Tensor:
+            if self.ft is None or self.policy_head_nnue is None:
+                raise RuntimeError("lapv2.nnue_policy is enabled but policy modules are missing")
+            batch_size, candidate_count = candidate_move_types.shape
+            candidate_phase_idx = (
+                None
+                if phase_idx is None
+                else phase_idx.repeat_interleave(candidate_count)
+            )
+            leave_white = build_sparse_rows(
+                self.ft,
+                candidate_delta_white_leave_indices,
+                candidate_delta_white_leave_offsets,
+                phase_idx=candidate_phase_idx,
+            )
+            enter_white = build_sparse_rows(
+                self.ft,
+                candidate_delta_white_enter_indices,
+                candidate_delta_white_enter_offsets,
+                phase_idx=candidate_phase_idx,
+            )
+            leave_black = build_sparse_rows(
+                self.ft,
+                candidate_delta_black_leave_indices,
+                candidate_delta_black_leave_offsets,
+                phase_idx=candidate_phase_idx,
+            )
+            enter_black = build_sparse_rows(
+                self.ft,
+                candidate_delta_black_enter_indices,
+                candidate_delta_black_enter_offsets,
+                phase_idx=candidate_phase_idx,
+            )
+            flat_white_root = a_white.repeat_interleave(candidate_count, dim=0)
+            flat_black_root = a_black.repeat_interleave(candidate_count, dim=0)
+            succ_white = flat_white_root - leave_white + enter_white
+            succ_black = flat_black_root - leave_black + enter_black
+            flat_candidate_has_king_move = candidate_has_king_move.reshape(-1)
+            if bool(flat_candidate_has_king_move.any().item()):
+                rebuilt_white = build_sparse_rows(
+                    self.ft,
+                    candidate_nnue_feat_white_after_move_indices,
+                    candidate_nnue_feat_white_after_move_offsets,
+                    phase_idx=candidate_phase_idx,
+                )
+                rebuilt_black = build_sparse_rows(
+                    self.ft,
+                    candidate_nnue_feat_black_after_move_indices,
+                    candidate_nnue_feat_black_after_move_offsets,
+                    phase_idx=candidate_phase_idx,
+                )
+                king_mask = flat_candidate_has_king_move.unsqueeze(1)
+                succ_white = torch.where(king_mask, rebuilt_white, succ_white)
+                succ_black = torch.where(king_mask, rebuilt_black, succ_black)
+            succ_white = succ_white.reshape(batch_size, candidate_count, -1)
+            succ_black = succ_black.reshape(batch_size, candidate_count, -1)
+            stm_white_mask = (side_to_move == 0).unsqueeze(1)
+            a_root_stm = torch.where(stm_white_mask, a_white, a_black)
+            a_succ_other = torch.where(
+                stm_white_mask.unsqueeze(2),
+                succ_black,
+                succ_white,
+            )
+            if self.config.lapv2.nnue_value_phase_moe_enabled:
+                assert phase_idx is not None
+                logits = self.policy_head_nnue(
+                    a_root_stm,
+                    a_succ_other,
+                    candidate_move_types,
+                    phase_idx=phase_idx,
+                )
+            else:
+                logits = self.policy_head_nnue(
+                    a_root_stm,
+                    a_succ_other,
+                    candidate_move_types,
+                )
+            return logits.masked_fill(~candidate_mask, float("-1e9"))
+
         def forward(
             self,
             piece_tokens: torch.Tensor,
@@ -345,6 +526,20 @@ if torch is not None and nn is not None:
             nnue_feat_white_offsets: torch.Tensor | None = None,
             nnue_feat_black_indices: torch.Tensor | None = None,
             nnue_feat_black_offsets: torch.Tensor | None = None,
+            candidate_move_types: torch.Tensor | None = None,
+            candidate_delta_white_leave_indices: torch.Tensor | None = None,
+            candidate_delta_white_leave_offsets: torch.Tensor | None = None,
+            candidate_delta_white_enter_indices: torch.Tensor | None = None,
+            candidate_delta_white_enter_offsets: torch.Tensor | None = None,
+            candidate_delta_black_leave_indices: torch.Tensor | None = None,
+            candidate_delta_black_leave_offsets: torch.Tensor | None = None,
+            candidate_delta_black_enter_indices: torch.Tensor | None = None,
+            candidate_delta_black_enter_offsets: torch.Tensor | None = None,
+            candidate_nnue_feat_white_after_move_indices: torch.Tensor | None = None,
+            candidate_nnue_feat_white_after_move_offsets: torch.Tensor | None = None,
+            candidate_nnue_feat_black_after_move_indices: torch.Tensor | None = None,
+            candidate_nnue_feat_black_after_move_offsets: torch.Tensor | None = None,
+            candidate_has_king_move: torch.Tensor | None = None,
             candidate_uci: list[list[str]] | None = None,
             single_legal_move: bool = False,
         ) -> dict[str, Any]:
@@ -383,22 +578,8 @@ if torch is not None and nn is not None:
                     state_context_v1_global,
                     reachability_edges,
                 )
-            initial_policy_logits = self.policy_head(
-                z_root,
-                candidate_context_v2,
-                candidate_action_indices,
-                candidate_mask,
-            )
-            deliberation_outputs = self.deliberation_loop(
-                z_root,
-                candidate_action_indices,
-                initial_policy_logits,
-                candidate_mask,
-                single_legal_move=single_legal_move,
-                candidate_uci=candidate_uci,
-                candidate_features=candidate_context_v2,
-                global_features=state_context_v1_global,
-            )
+            a_white: torch.Tensor | None = None
+            a_black: torch.Tensor | None = None
             if self.config.lapv2.nnue_value_enabled:
                 if self.ft is None or self.dual_acc_builder is None or self.value_head_nnue is None:
                     raise RuntimeError("lapv2.nnue_value is enabled but NNUE modules are missing")
@@ -413,16 +594,87 @@ if torch is not None and nn is not None:
                     raise ValueError(
                         "nnue sparse feature inputs are required when lapv2.nnue_value is enabled"
                     )
-                a_white, a_black = self.dual_acc_builder(
-                    self.ft,
-                    {
-                        "nnue_feat_white_indices": nnue_feat_white_indices,
-                        "nnue_feat_white_offsets": nnue_feat_white_offsets,
-                        "nnue_feat_black_indices": nnue_feat_black_indices,
-                        "nnue_feat_black_offsets": nnue_feat_black_offsets,
-                    },
+                a_white, a_black = self._root_dual_accumulators(
                     phase_idx=phase_idx,
+                    nnue_feat_white_indices=nnue_feat_white_indices,
+                    nnue_feat_white_offsets=nnue_feat_white_offsets,
+                    nnue_feat_black_indices=nnue_feat_black_indices,
+                    nnue_feat_black_offsets=nnue_feat_black_offsets,
                 )
+            if self.config.lapv2.nnue_policy_enabled:
+                if side_to_move is None:
+                    raise ValueError("side_to_move is required when lapv2.nnue_policy is enabled")
+                required_policy_inputs = (
+                    candidate_move_types,
+                    candidate_delta_white_leave_indices,
+                    candidate_delta_white_leave_offsets,
+                    candidate_delta_white_enter_indices,
+                    candidate_delta_white_enter_offsets,
+                    candidate_delta_black_leave_indices,
+                    candidate_delta_black_leave_offsets,
+                    candidate_delta_black_enter_indices,
+                    candidate_delta_black_enter_offsets,
+                    candidate_nnue_feat_white_after_move_indices,
+                    candidate_nnue_feat_white_after_move_offsets,
+                    candidate_nnue_feat_black_after_move_indices,
+                    candidate_nnue_feat_black_after_move_offsets,
+                    candidate_has_king_move,
+                    a_white,
+                    a_black,
+                )
+                if any(value is None for value in required_policy_inputs):
+                    raise ValueError(
+                        "candidate move-type and sparse successor inputs are required when "
+                        "lapv2.nnue_policy is enabled"
+                    )
+                initial_policy_logits = self._nnue_policy_logits(
+                    a_white=a_white,
+                    a_black=a_black,
+                    phase_idx=phase_idx,
+                    side_to_move=side_to_move,
+                    candidate_mask=candidate_mask,
+                    candidate_move_types=candidate_move_types,
+                    candidate_delta_white_leave_indices=candidate_delta_white_leave_indices,
+                    candidate_delta_white_leave_offsets=candidate_delta_white_leave_offsets,
+                    candidate_delta_white_enter_indices=candidate_delta_white_enter_indices,
+                    candidate_delta_white_enter_offsets=candidate_delta_white_enter_offsets,
+                    candidate_delta_black_leave_indices=candidate_delta_black_leave_indices,
+                    candidate_delta_black_leave_offsets=candidate_delta_black_leave_offsets,
+                    candidate_delta_black_enter_indices=candidate_delta_black_enter_indices,
+                    candidate_delta_black_enter_offsets=candidate_delta_black_enter_offsets,
+                    candidate_nnue_feat_white_after_move_indices=(
+                        candidate_nnue_feat_white_after_move_indices
+                    ),
+                    candidate_nnue_feat_white_after_move_offsets=(
+                        candidate_nnue_feat_white_after_move_offsets
+                    ),
+                    candidate_nnue_feat_black_after_move_indices=(
+                        candidate_nnue_feat_black_after_move_indices
+                    ),
+                    candidate_nnue_feat_black_after_move_offsets=(
+                        candidate_nnue_feat_black_after_move_offsets
+                    ),
+                    candidate_has_king_move=candidate_has_king_move,
+                )
+            else:
+                initial_policy_logits = self.policy_head(
+                    z_root,
+                    candidate_context_v2,
+                    candidate_action_indices,
+                    candidate_mask,
+                )
+            deliberation_outputs = self.deliberation_loop(
+                z_root,
+                candidate_action_indices,
+                initial_policy_logits,
+                candidate_mask,
+                single_legal_move=single_legal_move,
+                candidate_uci=candidate_uci,
+                candidate_features=candidate_context_v2,
+                global_features=state_context_v1_global,
+            )
+            if self.config.lapv2.nnue_value_enabled:
+                assert a_white is not None and a_black is not None and side_to_move is not None
                 stm_white_mask = (side_to_move == 0).unsqueeze(1)
                 a_stm = torch.where(stm_white_mask, a_white, a_black)
                 a_other = torch.where(stm_white_mask, a_black, a_white)

@@ -45,30 +45,18 @@ class DualAccumulatorBuilder:
     ) -> tuple["torch.Tensor", "torch.Tensor"]:
         if torch is None:  # pragma: no cover
             raise RuntimeError("torch is required to build dual accumulators.")
-        if isinstance(ft, PhaseMoE):
-            if phase_idx is None:
-                raise ValueError("phase_idx is required when FT is phase-routed")
-            a_white = _build_phase_routed_accumulator(
-                ft,
-                indices=batch["nnue_feat_white_indices"],
-                offsets=batch["nnue_feat_white_offsets"],
-                phase_idx=phase_idx,
-            )
-            a_black = _build_phase_routed_accumulator(
-                ft,
-                indices=batch["nnue_feat_black_indices"],
-                offsets=batch["nnue_feat_black_offsets"],
-                phase_idx=phase_idx,
-            )
-        else:
-            a_white = ft.build(
-                batch["nnue_feat_white_indices"],
-                batch["nnue_feat_white_offsets"],
-            )
-            a_black = ft.build(
-                batch["nnue_feat_black_indices"],
-                batch["nnue_feat_black_offsets"],
-            )
+        a_white = build_sparse_rows(
+            ft,
+            batch["nnue_feat_white_indices"],
+            batch["nnue_feat_white_offsets"],
+            phase_idx=phase_idx,
+        )
+        a_black = build_sparse_rows(
+            ft,
+            batch["nnue_feat_black_indices"],
+            batch["nnue_feat_black_offsets"],
+            phase_idx=phase_idx,
+        )
         return a_white, a_black
 
 
@@ -178,6 +166,25 @@ def _apply_sparse_delta(
         enter_rows = ft.gather_rows(torch.tensor(list(enter_indices), dtype=torch.long))
         updated = updated + enter_rows.sum(dim=0, keepdim=True)
     return updated
+
+
+def build_sparse_rows(
+    ft: FeatureTransformer | PhaseMoE,
+    indices: "torch.Tensor",
+    offsets: "torch.Tensor",
+    *,
+    phase_idx: "torch.Tensor | None" = None,
+) -> "torch.Tensor":
+    if isinstance(ft, PhaseMoE):
+        if phase_idx is None:
+            raise ValueError("phase_idx is required when FT is phase-routed")
+        return _build_phase_routed_accumulator(
+            ft,
+            indices=indices,
+            offsets=offsets,
+            phase_idx=phase_idx,
+        )
+    return ft.build(indices, offsets)
 
 
 def _build_phase_routed_accumulator(

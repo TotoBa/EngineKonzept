@@ -4,11 +4,14 @@ import json
 from pathlib import Path
 
 import pytest
+import chess
 
 from train.config import load_planner_train_config
 from train.datasets.contracts import candidate_context_feature_dim
+from train.datasets.move_delta import halfka_delta, is_king_move, move_type_hash
+from train.datasets.nnue_features import halfka_active_indices
 from train.models.intention_encoder import STATE_CONTEXT_V1_GLOBAL_FEATURE_DIM, torch
-from train.models.dual_accumulator import pack_sparse_feature_lists
+from train.models.dual_accumulator import build_sparse_rows, pack_sparse_feature_lists
 from train.models.lapv1 import LAPv1Config, LAPv1Model
 
 
@@ -83,6 +86,54 @@ def _sample_inputs(
             for index in range(batch_size)
         ]
     )
+    candidate_delta_white_leave_indices, candidate_delta_white_leave_offsets = (
+        pack_sparse_feature_lists(
+            [
+                [1 + row_index]
+                for row_index in range(batch_size * candidate_count)
+            ]
+        )
+    )
+    candidate_delta_white_enter_indices, candidate_delta_white_enter_offsets = (
+        pack_sparse_feature_lists(
+            [
+                [101 + row_index]
+                for row_index in range(batch_size * candidate_count)
+            ]
+        )
+    )
+    candidate_delta_black_leave_indices, candidate_delta_black_leave_offsets = (
+        pack_sparse_feature_lists(
+            [
+                [201 + row_index]
+                for row_index in range(batch_size * candidate_count)
+            ]
+        )
+    )
+    candidate_delta_black_enter_indices, candidate_delta_black_enter_offsets = (
+        pack_sparse_feature_lists(
+            [
+                [301 + row_index]
+                for row_index in range(batch_size * candidate_count)
+            ]
+        )
+    )
+    candidate_nnue_feat_white_after_move_indices, candidate_nnue_feat_white_after_move_offsets = (
+        pack_sparse_feature_lists(
+            [
+                [401 + row_index, 501 + row_index]
+                for row_index in range(batch_size * candidate_count)
+            ]
+        )
+    )
+    candidate_nnue_feat_black_after_move_indices, candidate_nnue_feat_black_after_move_offsets = (
+        pack_sparse_feature_lists(
+            [
+                [601 + row_index, 701 + row_index]
+                for row_index in range(batch_size * candidate_count)
+            ]
+        )
+    )
     return {
         "piece_tokens": piece_tokens,
         "square_tokens": square_tokens,
@@ -96,6 +147,26 @@ def _sample_inputs(
         "nnue_feat_white_offsets": nnue_feat_white_offsets,
         "nnue_feat_black_indices": nnue_feat_black_indices,
         "nnue_feat_black_offsets": nnue_feat_black_offsets,
+        "candidate_move_types": (
+            torch.arange(batch_size * candidate_count, dtype=torch.long).reshape(
+                batch_size,
+                candidate_count,
+            )
+            % 128
+        ),
+        "candidate_delta_white_leave_indices": candidate_delta_white_leave_indices,
+        "candidate_delta_white_leave_offsets": candidate_delta_white_leave_offsets,
+        "candidate_delta_white_enter_indices": candidate_delta_white_enter_indices,
+        "candidate_delta_white_enter_offsets": candidate_delta_white_enter_offsets,
+        "candidate_delta_black_leave_indices": candidate_delta_black_leave_indices,
+        "candidate_delta_black_leave_offsets": candidate_delta_black_leave_offsets,
+        "candidate_delta_black_enter_indices": candidate_delta_black_enter_indices,
+        "candidate_delta_black_enter_offsets": candidate_delta_black_enter_offsets,
+        "candidate_nnue_feat_white_after_move_indices": candidate_nnue_feat_white_after_move_indices,
+        "candidate_nnue_feat_white_after_move_offsets": candidate_nnue_feat_white_after_move_offsets,
+        "candidate_nnue_feat_black_after_move_indices": candidate_nnue_feat_black_after_move_indices,
+        "candidate_nnue_feat_black_after_move_offsets": candidate_nnue_feat_black_after_move_offsets,
+        "candidate_has_king_move": torch.zeros((batch_size, candidate_count), dtype=torch.bool),
         "phase_index": (torch.arange(batch_size, dtype=torch.long) % 4),
     }
 
@@ -219,6 +290,172 @@ def test_ft_attribute_exists_for_future_policy() -> None:
 
     assert model.ft is not None
     assert model.value_head_nnue is not None
+
+
+def test_flag_off_uses_legacy_policy() -> None:
+    baseline = LAPv1Model(LAPv1Config())
+    flagged = LAPv1Model(
+        LAPv1Config.from_mapping(
+            {
+                "lapv2": {
+                    "enabled": True,
+                    "nnue_value": True,
+                    "nnue_policy": False,
+                }
+            }
+        )
+    )
+    flagged.load_state_dict(baseline.state_dict(), strict=False)
+    inputs = _sample_inputs()
+    outputs_baseline = baseline(**inputs)
+    outputs_flagged = flagged(**inputs)
+
+    assert torch.equal(
+        outputs_baseline["initial_policy_logits"],
+        outputs_flagged["initial_policy_logits"],
+    )
+
+
+def test_value_and_policy_share_ft_object() -> None:
+    model = LAPv1Model(
+        LAPv1Config.from_mapping(
+            {
+                "lapv2": {
+                    "enabled": True,
+                    "nnue_value": True,
+                    "nnue_policy": True,
+                    "N_accumulator": 8,
+                }
+            }
+        )
+    )
+
+    assert model.ft is not None
+    assert model.value_head_nnue is not None
+    assert model.policy_head_nnue is not None
+
+
+def test_value_and_policy_gradients_both_flow_to_ft() -> None:
+    model = LAPv1Model(
+        LAPv1Config.from_mapping(
+            {
+                "lapv2": {
+                    "enabled": True,
+                    "nnue_value": True,
+                    "nnue_policy": True,
+                    "N_accumulator": 8,
+                },
+                "deliberation": {"max_inner_steps": 0, "min_inner_steps": 0},
+            }
+        )
+    )
+    inputs = _sample_inputs()
+    ft_module = model.ft
+    assert ft_module is not None
+    ft_weight = ft_module.ft.weight
+
+    outputs = model(**inputs)
+    model.zero_grad(set_to_none=True)
+    outputs["initial_policy_logits"].sum().backward(retain_graph=True)
+    policy_grad = ft_weight.grad.detach().clone()
+    model.zero_grad(set_to_none=True)
+    outputs["final_value"]["cp_score"].sum().backward()
+    value_grad = ft_weight.grad.detach().clone()
+
+    assert float(policy_grad.abs().sum().item()) > 0.0
+    assert float(value_grad.abs().sum().item()) > 0.0
+
+
+def test_policy_nnue_score_invariant_under_kings_move() -> None:
+    model = LAPv1Model(
+        LAPv1Config.from_mapping(
+            {
+                "lapv2": {
+                    "enabled": True,
+                    "nnue_value": True,
+                    "nnue_policy": True,
+                    "N_accumulator": 8,
+                },
+                "deliberation": {"max_inner_steps": 0, "min_inner_steps": 0},
+            }
+        )
+    )
+    board = chess.Board("4k2r/8/8/8/8/8/8/R3K2R w K - 0 1")
+    move = chess.Move.from_uci("e1g1")
+    phase_idx = torch.tensor([0], dtype=torch.long)
+    side_to_move = torch.tensor([0], dtype=torch.long)
+    nnue_feat_white_indices, nnue_feat_white_offsets = pack_sparse_feature_lists(
+        [halfka_active_indices(board, "w")]
+    )
+    nnue_feat_black_indices, nnue_feat_black_offsets = pack_sparse_feature_lists(
+        [halfka_active_indices(board, "b")]
+    )
+    a_white, a_black = model._root_dual_accumulators(
+        phase_idx=phase_idx,
+        nnue_feat_white_indices=nnue_feat_white_indices,
+        nnue_feat_white_offsets=nnue_feat_white_offsets,
+        nnue_feat_black_indices=nnue_feat_black_indices,
+        nnue_feat_black_offsets=nnue_feat_black_offsets,
+    )
+    after_board = board.copy(stack=False)
+    after_board.push(move)
+    candidate_nnue_feat_white_after_move_indices, candidate_nnue_feat_white_after_move_offsets = (
+        pack_sparse_feature_lists([halfka_active_indices(after_board, "w")])
+    )
+    candidate_nnue_feat_black_after_move_indices, candidate_nnue_feat_black_after_move_offsets = (
+        pack_sparse_feature_lists([halfka_active_indices(after_board, "b")])
+    )
+    candidate_delta_white_leave_indices, candidate_delta_white_leave_offsets = (
+        pack_sparse_feature_lists([halfka_delta(board, move, "w")[0]])
+    )
+    candidate_delta_white_enter_indices, candidate_delta_white_enter_offsets = (
+        pack_sparse_feature_lists([halfka_delta(board, move, "w")[1]])
+    )
+    candidate_delta_black_leave_indices, candidate_delta_black_leave_offsets = (
+        pack_sparse_feature_lists([halfka_delta(board, move, "b")[0]])
+    )
+    candidate_delta_black_enter_indices, candidate_delta_black_enter_offsets = (
+        pack_sparse_feature_lists([halfka_delta(board, move, "b")[1]])
+    )
+    logits = model._nnue_policy_logits(
+        a_white=a_white,
+        a_black=a_black,
+        phase_idx=phase_idx,
+        side_to_move=side_to_move,
+        candidate_mask=torch.tensor([[True]], dtype=torch.bool),
+        candidate_move_types=torch.tensor([[move_type_hash(board, move)]], dtype=torch.long),
+        candidate_delta_white_leave_indices=candidate_delta_white_leave_indices,
+        candidate_delta_white_leave_offsets=candidate_delta_white_leave_offsets,
+        candidate_delta_white_enter_indices=candidate_delta_white_enter_indices,
+        candidate_delta_white_enter_offsets=candidate_delta_white_enter_offsets,
+        candidate_delta_black_leave_indices=candidate_delta_black_leave_indices,
+        candidate_delta_black_leave_offsets=candidate_delta_black_leave_offsets,
+        candidate_delta_black_enter_indices=candidate_delta_black_enter_indices,
+        candidate_delta_black_enter_offsets=candidate_delta_black_enter_offsets,
+        candidate_nnue_feat_white_after_move_indices=candidate_nnue_feat_white_after_move_indices,
+        candidate_nnue_feat_white_after_move_offsets=candidate_nnue_feat_white_after_move_offsets,
+        candidate_nnue_feat_black_after_move_indices=candidate_nnue_feat_black_after_move_indices,
+        candidate_nnue_feat_black_after_move_offsets=candidate_nnue_feat_black_after_move_offsets,
+        candidate_has_king_move=torch.tensor(
+            [[is_king_move(board, move, "w") or is_king_move(board, move, "b")]],
+            dtype=torch.bool,
+        ),
+    )
+    assert model.ft is not None
+    after_black = build_sparse_rows(
+        model.ft,
+        candidate_nnue_feat_black_after_move_indices,
+        candidate_nnue_feat_black_after_move_offsets,
+        phase_idx=phase_idx,
+    )
+    assert model.policy_head_nnue is not None
+    manual_logits = model.policy_head_nnue(
+        a_white,
+        after_black.unsqueeze(1),
+        torch.tensor([[move_type_hash(board, move)]], dtype=torch.long),
+    )
+
+    assert torch.allclose(logits, manual_logits, atol=1e-6)
 
 
 def test_phase_nnue_value_runs_all_phases() -> None:

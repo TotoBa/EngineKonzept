@@ -33,6 +33,10 @@ if TYPE_CHECKING:
         LARGE_POLICY_HEAD_MODEL_NAME,
         LargePolicyHead,
     )
+    from train.models.policy_head_nnue import (
+        NNUE_POLICY_HEAD_MODEL_NAME,
+        NNUEPolicyHead,
+    )
     from train.models.proposer import LegalityPolicyProposer, MODEL_NAME, torch_is_available
     from train.models.state_embedder import RelationalStateEmbedder, STATE_EMBEDDER_MODEL_NAME
     from train.models.value_head import (
@@ -73,6 +77,11 @@ _EXPORTS: dict[str, tuple[str, str]] = {
         "LARGE_POLICY_HEAD_MODEL_NAME",
     ),
     "LargePolicyHead": ("train.models.policy_head_large", "LargePolicyHead"),
+    "NNUE_POLICY_HEAD_MODEL_NAME": (
+        "train.models.policy_head_nnue",
+        "NNUE_POLICY_HEAD_MODEL_NAME",
+    ),
+    "NNUEPolicyHead": ("train.models.policy_head_nnue", "NNUEPolicyHead"),
     "MODEL_NAME": ("train.models.proposer", "MODEL_NAME"),
     "LegalityPolicyProposer": ("train.models.proposer", "LegalityPolicyProposer"),
     "torch_is_available": ("train.models.proposer", "torch_is_available"),
@@ -132,6 +141,8 @@ __all__ = [
     "LatentTransition",
     "LARGE_POLICY_HEAD_MODEL_NAME",
     "LargePolicyHead",
+    "NNUE_POLICY_HEAD_MODEL_NAME",
+    "NNUEPolicyHead",
     "LatentDynamicsModel",
     "MODEL_NAME",
     "OPPONENT_MODEL_NAME",

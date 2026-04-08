@@ -175,6 +175,12 @@ The large candidate-scoring policy path now also has a model-only reference in
 [policy_head_large.py](/home/torsten/EngineKonzept/python/train/models/policy_head_large.py),
 again still isolated from the planner.
 
+LAPv2 now also adds an optional shared-FT policy path in
+[policy_head_nnue.py](/home/torsten/EngineKonzept/python/train/models/policy_head_nnue.py).
+When `lapv2.nnue_policy` is enabled, root candidate logits come from
+NNUE-style successor scoring on the same sparse FT used by the NNUE
+value head instead of the dense `LargePolicyHead`.
+
 ### Bounded Recurrent Deliberation Loop
 
 The deliberation loop is the central runtime mechanism.

@@ -150,6 +150,8 @@ def test_old_artifact_still_loads(tmp_path: Path) -> None:
         "candidate_delta_black_enter",
         "candidate_is_white_king_move",
         "candidate_is_black_king_move",
+        "candidate_nnue_feat_white_after_move",
+        "candidate_nnue_feat_black_after_move",
     ):
         legacy_payload.pop(field_name)
 
@@ -185,6 +187,8 @@ def test_lapv1_training_example_contains_phase_and_delta_fields() -> None:
     assert len(example.candidate_move_types) == len(example.candidate_action_indices)
     assert len(example.candidate_delta_white_leave) == len(example.candidate_action_indices)
     assert len(example.candidate_is_black_king_move) == len(example.candidate_action_indices)
+    assert len(example.candidate_nnue_feat_white_after_move) == len(example.candidate_action_indices)
+    assert len(example.candidate_nnue_feat_black_after_move) == len(example.candidate_action_indices)
 
 
 def _planner_example(

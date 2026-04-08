@@ -101,3 +101,23 @@
 - Added regression coverage for single->phase warm starts, gate mean-pull,
   all-phase forwards, and one no-NaN training step with the phase-routed
   NNUE value path enabled.
+
+## Schritt 8
+
+- Added the shared-FT NNUE policy head in
+  [policy_head_nnue.py](/home/torsten/EngineKonzept/python/train/models/policy_head_nnue.py).
+- Extended the LAPv1 artifact contract in
+  [lapv1_training.py](/home/torsten/EngineKonzept/python/train/datasets/lapv1_training.py)
+  with optional successor rebuild features for king-move candidates.
+- Extended the trainer batch path in
+  [lapv1.py](/home/torsten/EngineKonzept/python/train/trainers/lapv1.py)
+  to materialize candidate move-type ids, sparse move deltas, king-move
+  successor rebuilds, and shared-FT loss balancing between value and policy.
+- Integrated `lapv2.nnue_policy` into the top-level wrapper and runtime
+  paths in
+  [lapv1.py](/home/torsten/EngineKonzept/python/train/models/lapv1.py)
+  and
+  [lapv1_runtime.py](/home/torsten/EngineKonzept/python/train/eval/lapv1_runtime.py),
+  reusing the same FT as the NNUE value head.
+- Added module, model, artifact, trainer, runtime, and FT-gradient
+  regression coverage for the new policy path.
