@@ -30,6 +30,7 @@ from train.trainers.lapv1 import (
     LAPv1Stage2Config,
     LAPv1Stage2PhaseConfig,
     LAPv1TrainConfig,
+    _apply_lapv2_phase_gate_mean_pull,
     _load_lapv1_model_state,
     _build_lazy_dataset,
     _collate_examples,
@@ -982,6 +983,237 @@ def test_nnue_value_on_runs_training_step(tmp_path: Path) -> None:
 
     assert checkpoint_path.exists()
     assert payload["lapv2_version"] == 1
+
+
+def test_phase_nnue_value_warm_start_matches_single(tmp_path: Path) -> None:
+    single_config = LAPv1Config.from_mapping(
+        {
+            "deliberation": {"max_inner_steps": 0, "min_inner_steps": 0},
+            "opponent_head": {
+                "architecture": "set_v2",
+                "hidden_dim": 64,
+                "hidden_layers": 1,
+                "action_embedding_dim": 16,
+                "dropout": 0.0,
+            },
+            "value_head": {"hidden_dim": 1024},
+            "policy_head": {
+                "hidden_dim": 512,
+                "action_embedding_dim": 32,
+                "feedforward_dim": 1024,
+            },
+            "state_embedder": {"feedforward_dim": 1024},
+            "intention_encoder": {"feedforward_dim": 1024},
+            "lapv2": {
+                "enabled": True,
+                "nnue_value": True,
+                "N_accumulator": 8,
+            },
+        }
+    )
+    phase_config = LAPv1Config.from_mapping(
+        {
+            "deliberation": {"max_inner_steps": 0, "min_inner_steps": 0},
+            "opponent_head": {
+                "architecture": "set_v2",
+                "hidden_dim": 64,
+                "hidden_layers": 1,
+                "action_embedding_dim": 16,
+                "dropout": 0.0,
+            },
+            "value_head": {"hidden_dim": 1024},
+            "policy_head": {
+                "hidden_dim": 512,
+                "action_embedding_dim": 32,
+                "feedforward_dim": 1024,
+            },
+            "state_embedder": {"feedforward_dim": 1024},
+            "intention_encoder": {"feedforward_dim": 1024},
+            "lapv2": {
+                "enabled": True,
+                "nnue_value": True,
+                "nnue_value_phase_moe": True,
+                "N_accumulator": 8,
+            },
+        }
+    )
+    single_model = LAPv1Model(single_config)
+    phase_model = LAPv1Model(phase_config)
+    checkpoint_path = tmp_path / "lapv2_step6_single.pt"
+    torch.save(
+        {
+            "model_name": LAPV1_MODEL_NAME,
+            "lapv2_version": 1,
+            "model_state_dict": single_model.state_dict(),
+        },
+        checkpoint_path,
+    )
+    _load_lapv1_model_state(
+        phase_model,
+        single_model.state_dict(),
+        checkpoint_path=checkpoint_path,
+    )
+
+    batch = _collate_examples(
+        [
+            lapv1_training_example_from_planner_head(
+                _planner_example("phase-0", teacher_index=0, teacher_cp=30.0, teacher_gap=20.0)
+            ),
+            lapv1_training_example_from_planner_head(
+                _planner_example("phase-1", teacher_index=1, teacher_cp=15.0, teacher_gap=10.0)
+            ),
+        ]
+    )
+
+    with torch.inference_mode():
+        single_outputs = single_model(
+            batch["piece_tokens"],
+            batch["square_tokens"],
+            batch["state_context_global"],
+            batch["reachability_edges"],
+            batch["candidate_features"],
+            batch["candidate_action_indices"],
+            batch["candidate_mask"],
+            phase_index=batch["phase_index"],
+            side_to_move=batch["side_to_move"],
+            nnue_feat_white_indices=batch["nnue_feat_white_indices"],
+            nnue_feat_white_offsets=batch["nnue_feat_white_offsets"],
+            nnue_feat_black_indices=batch["nnue_feat_black_indices"],
+            nnue_feat_black_offsets=batch["nnue_feat_black_offsets"],
+        )
+        phase_outputs = phase_model(
+            batch["piece_tokens"],
+            batch["square_tokens"],
+            batch["state_context_global"],
+            batch["reachability_edges"],
+            batch["candidate_features"],
+            batch["candidate_action_indices"],
+            batch["candidate_mask"],
+            phase_index=batch["phase_index"],
+            side_to_move=batch["side_to_move"],
+            nnue_feat_white_indices=batch["nnue_feat_white_indices"],
+            nnue_feat_white_offsets=batch["nnue_feat_white_offsets"],
+            nnue_feat_black_indices=batch["nnue_feat_black_indices"],
+            nnue_feat_black_offsets=batch["nnue_feat_black_offsets"],
+        )
+
+    assert torch.allclose(
+        single_outputs["final_value"]["wdl_logits"],
+        phase_outputs["final_value"]["wdl_logits"],
+        atol=1e-6,
+    )
+    assert torch.allclose(
+        single_outputs["final_value"]["cp_score"],
+        phase_outputs["final_value"]["cp_score"],
+        atol=1e-6,
+    )
+
+
+def test_gate_mean_pull_converges_experts() -> None:
+    model = LAPv1Model(
+        LAPv1Config.from_mapping(
+            {
+                "lapv2": {
+                    "enabled": True,
+                    "nnue_value": True,
+                    "nnue_value_phase_moe": True,
+                    "nnue_phase_gate_steps": 3,
+                    "N_accumulator": 8,
+                }
+            }
+        )
+    )
+    assert model.ft is not None
+    experts = model.ft.experts
+    with torch.no_grad():
+        experts[0].ft.weight.fill_(0.0)
+        experts[1].ft.weight.fill_(1.0)
+        experts[2].ft.weight.fill_(2.0)
+        experts[3].ft.weight.fill_(3.0)
+
+    _apply_lapv2_phase_gate_mean_pull(model)
+
+    assert torch.allclose(experts[0].ft.weight, experts[1].ft.weight)
+    assert torch.allclose(experts[1].ft.weight, experts[2].ft.weight)
+    assert torch.allclose(experts[2].ft.weight, experts[3].ft.weight)
+
+
+def test_phase_nnue_value_on_runs_training_step(tmp_path: Path) -> None:
+    train_path = tmp_path / "lapv1_train.jsonl"
+    validation_path = tmp_path / "lapv1_validation.jsonl"
+    _write_examples(
+        train_path,
+        [
+            _planner_example("train-1", teacher_index=0, teacher_cp=60.0, teacher_gap=40.0),
+            _planner_example("train-2", teacher_index=1, teacher_cp=10.0, teacher_gap=10.0),
+        ],
+    )
+    _write_examples(
+        validation_path,
+        [
+            _planner_example("validation-1", teacher_index=0, teacher_cp=50.0, teacher_gap=30.0),
+            _planner_example("validation-2", teacher_index=1, teacher_cp=0.0, teacher_gap=5.0),
+        ],
+    )
+
+    config = LAPv1TrainConfig(
+        seed=43,
+        output_dir=str(tmp_path / "lapv1_out"),
+        stage="T1",
+        data=PlannerDataConfig(
+            train_path=str(train_path),
+            validation_path=str(validation_path),
+        ),
+        model=LAPv1Config.from_mapping(
+            {
+                "deliberation": {"max_inner_steps": 0, "min_inner_steps": 0},
+                "opponent_head": {
+                    "architecture": "set_v2",
+                    "hidden_dim": 64,
+                    "hidden_layers": 1,
+                    "action_embedding_dim": 16,
+                    "dropout": 0.0,
+                },
+                "value_head": {"hidden_dim": 1024},
+                "policy_head": {
+                    "hidden_dim": 512,
+                    "action_embedding_dim": 32,
+                    "feedforward_dim": 1024,
+                },
+                "state_embedder": {"feedforward_dim": 1024},
+                "intention_encoder": {"feedforward_dim": 1024},
+                "lapv2": {
+                    "enabled": True,
+                    "nnue_value": True,
+                    "nnue_value_phase_moe": True,
+                    "nnue_phase_gate_steps": 3,
+                    "N_accumulator": 8,
+                },
+            }
+        ),
+        optimization=LAPv1OptimizationConfig(
+            epochs=1,
+            batch_size=2,
+            learning_rate=1e-3,
+            weight_decay=0.0,
+            max_grad_norm=1.0,
+            value_wdl_weight=1.0,
+            value_cp_weight=0.25,
+            sharpness_weight=0.1,
+            policy_ce_weight=1.0,
+            policy_kl_weight=0.25,
+            policy_margin_weight=0.1,
+            policy_rank_weight=0.1,
+            intention_aux_weight=0.05,
+        ),
+        evaluation=PlannerEvaluationConfig(top_k=3),
+        runtime=PlannerRuntimeConfig(torch_threads=1, dataloader_workers=0),
+        export=PlannerExportConfig(bundle_dir=str(tmp_path / "bundle")),
+    )
+
+    run = train_lapv1(config, repo_root=tmp_path)
+
+    assert Path(run.export_paths["checkpoint"]).exists()
 
 
 def _write_examples(path: Path, examples: list[PlannerHeadExample]) -> None:

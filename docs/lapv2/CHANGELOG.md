@@ -82,3 +82,22 @@
   sparse HalfKA inputs plus `side_to_move`.
 - Added standalone NNUE value-head tests, legacy flag-off checks, and a
   no-NaN Stage-T1 smoke step with `lapv2.nnue_value` enabled.
+
+## Schritt 7
+
+- Upgraded the shared FT and NNUE value head in
+  [lapv1.py](/home/torsten/EngineKonzept/python/train/models/lapv1.py)
+  to optional phase-routed variants via `lapv2.nnue_value_phase_moe`.
+- Taught the dual-accumulator builder in
+  [dual_accumulator.py](/home/torsten/EngineKonzept/python/train/models/dual_accumulator.py)
+  how to repack sparse `EmbeddingBag` rows per phase, instead of relying
+  on the generic MoE slicer for flat index buffers.
+- Added the phase-gate mean-pull hook in
+  [lapv1.py](/home/torsten/EngineKonzept/python/train/trainers/lapv1.py),
+  keyed by `lapv2.nnue_phase_gate_steps`, so early training can keep FT
+  and NNUE-value experts synchronized.
+- Extended legacy warm-start handling so single-phase step-6 checkpoints
+  can expand into the new phase-expert FT and NNUE value modules.
+- Added regression coverage for single->phase warm starts, gate mean-pull,
+  all-phase forwards, and one no-NaN training step with the phase-routed
+  NNUE value path enabled.

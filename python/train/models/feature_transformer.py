@@ -64,6 +64,13 @@ if torch is not None and nn is not None:
                 )
             return self.ft(indices.to(torch.long), offsets.to(torch.long))
 
+        def forward(
+            self,
+            indices: torch.Tensor,
+            offsets: torch.Tensor,
+        ) -> torch.Tensor:
+            return self.build(indices, offsets)
+
         def gather_rows(self, indices: torch.Tensor) -> torch.Tensor:
             """Return raw FT rows for incremental updates."""
             if indices.ndim != 1:

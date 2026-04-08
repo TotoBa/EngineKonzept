@@ -900,6 +900,7 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
         name: tensor.detach().clone()
         for name, tensor in aux_probe.state_dict().items()
     }
+    optimizer_step_counter = [0]
 
     try:
         for epoch in range(1, config.optimization.epochs + 1):
@@ -981,6 +982,7 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
                 stage2=config.stage2,
                 epoch=epoch,
                 total_epochs=config.optimization.epochs,
+                optimizer_step_counter=optimizer_step_counter,
             )
             validation_metrics = _run_epoch(
                 model=model,
@@ -996,6 +998,7 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
                 stage2=config.stage2,
                 epoch=epoch,
                 total_epochs=config.optimization.epochs,
+                optimizer_step_counter=optimizer_step_counter,
             )
             selection_validation_metrics: LAPv1Metrics | None = None
             selection_collapse_alarm: dict[str, float | bool] | None = None
@@ -1030,6 +1033,7 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
                     stage2=config.stage2,
                     epoch=epoch,
                     total_epochs=config.optimization.epochs,
+                    optimizer_step_counter=optimizer_step_counter,
                 )
                 model.deliberation_loop.max_inner_steps = previous_max_inner_steps
                 model.deliberation_loop.min_inner_steps = previous_min_inner_steps
@@ -1246,18 +1250,28 @@ def _expand_legacy_phase_moe_state_dict(
     state_dict: Mapping[str, Any],
 ) -> dict[str, Any]:
     expanded = dict(state_dict)
-    if not model.config.lapv2.phase_moe_enabled:
-        return expanded
-    expanded = _replicate_phase_moe_module_keys(
-        expanded,
-        module_prefix="intention_encoder",
-        num_phases=4,
-    )
-    expanded = _replicate_phase_moe_module_keys(
-        expanded,
-        module_prefix="state_embedder",
-        num_phases=4,
-    )
+    if model.config.lapv2.phase_moe_enabled:
+        expanded = _replicate_phase_moe_module_keys(
+            expanded,
+            module_prefix="intention_encoder",
+            num_phases=4,
+        )
+        expanded = _replicate_phase_moe_module_keys(
+            expanded,
+            module_prefix="state_embedder",
+            num_phases=4,
+        )
+    if model.config.lapv2.nnue_value_phase_moe_enabled:
+        expanded = _replicate_phase_moe_module_keys(
+            expanded,
+            module_prefix="ft",
+            num_phases=4,
+        )
+        expanded = _replicate_phase_moe_module_keys(
+            expanded,
+            module_prefix="value_head_nnue",
+            num_phases=4,
+        )
     return expanded
 
 
@@ -1282,6 +1296,39 @@ def _replicate_phase_moe_module_keys(
             expanded[f"{expert_prefix}{phase}.{suffix}"] = value
         del expanded[key]
     return expanded
+
+
+def _lapv2_phase_gate_active(
+    model: LAPv1Model,
+    *,
+    optimizer_step: int,
+) -> bool:
+    return (
+        model.config.lapv2.nnue_value_phase_moe_enabled
+        and model.config.lapv2.nnue_phase_gate_steps > 0
+        and optimizer_step < model.config.lapv2.nnue_phase_gate_steps
+    )
+
+
+def _apply_lapv2_phase_gate_mean_pull(model: LAPv1Model) -> None:
+    if model.ft is not None:
+        _mean_pull_phase_module_parameters(model.ft)
+    if model.value_head_nnue is not None:
+        _mean_pull_phase_module_parameters(model.value_head_nnue)
+
+
+def _mean_pull_phase_module_parameters(module: torch.nn.Module) -> None:
+    experts = getattr(module, "experts", None)
+    if experts is None:
+        return
+    expert_modules = list(experts)
+    if not expert_modules:
+        return
+    expert_parameter_lists = [list(expert.parameters()) for expert in expert_modules]
+    for parameters in zip(*expert_parameter_lists, strict=True):
+        mean_value = torch.stack([parameter.detach() for parameter in parameters], dim=0).mean(dim=0)
+        for parameter in parameters:
+            parameter.data.copy_(mean_value)
 
 
 def evaluate_lapv1_checkpoint(
@@ -1359,6 +1406,7 @@ def evaluate_lapv1_checkpoint(
             stage2=stage2,
             epoch=1,
             total_epochs=1,
+            optimizer_step_counter=None,
         )
     finally:
         examples.close()
@@ -1410,6 +1458,7 @@ def _run_epoch(
     stage2: LAPv1Stage2Config | None,
     epoch: int,
     total_epochs: int,
+    optimizer_step_counter: list[int] | None,
 ) -> LAPv1Metrics:
     if training:
         model.train()
@@ -1616,6 +1665,13 @@ def _run_epoch(
                         max_norm=optimization.max_grad_norm,
                     )
                 optimizer.step()
+                if optimizer_step_counter is not None:
+                    if _lapv2_phase_gate_active(
+                        model,
+                        optimizer_step=optimizer_step_counter[0],
+                    ):
+                        _apply_lapv2_phase_gate_mean_pull(model)
+                    optimizer_step_counter[0] += 1
 
             probabilities = torch.softmax(logits, dim=1)
             top1_indices = torch.argmax(logits, dim=1)

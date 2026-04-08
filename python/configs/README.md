@@ -262,7 +262,9 @@ The intended use is one arena Python process controlling several concurrent game
 
 The LAPv1 wrapper config now also accepts an optional nested `lapv2`
 block. For the current Rev-3 execution state `lapv2.enabled`,
-`lapv2.phase_moe`, and `lapv2.nnue_value` are live; leaving the block
+`lapv2.phase_moe`, `lapv2.nnue_value`, and `lapv2.nnue_value_phase_moe`
+are live; `lapv2.nnue_phase_gate_steps` controls the early expert
+mean-pull gate for the phase-routed NNUE value path. Leaving the block
 out keeps the wrapper on the exact LAPv1 path.
 
 - [phase10_lapv1_stage1_10k_122k_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage1_10k_122k_v1.json)

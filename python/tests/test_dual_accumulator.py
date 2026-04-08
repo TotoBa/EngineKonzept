@@ -19,6 +19,7 @@ from train.models.dual_accumulator import (
     pack_sparse_feature_lists,
 )
 from train.models.feature_transformer import FeatureTransformer
+from train.models.phase_moe import PhaseMoE
 from train.trainers.lapv1 import _collate_examples
 
 
@@ -66,6 +67,25 @@ def test_dual_accumulator_independent_white_black() -> None:
     assert tuple(a_white.shape) == (2, 4)
     assert tuple(a_black.shape) == (2, 4)
     assert not torch.allclose(a_white, a_black)
+
+
+def test_phase_routed_dual_accumulator_matches_single_expert() -> None:
+    ft = FeatureTransformer(num_features=TOTAL_FEATURES, accumulator_dim=4)
+    phase_ft = PhaseMoE.from_single(ft)
+    builder = DualAccumulatorBuilder()
+    batch = {
+        "nnue_feat_white_indices": torch.tensor([1, 2, 3, 4], dtype=torch.long),
+        "nnue_feat_white_offsets": torch.tensor([0, 2], dtype=torch.long),
+        "nnue_feat_black_indices": torch.tensor([9, 10, 11, 12], dtype=torch.long),
+        "nnue_feat_black_offsets": torch.tensor([0, 2], dtype=torch.long),
+    }
+    phase_idx = torch.tensor([0, 3], dtype=torch.long)
+
+    single_white, single_black = builder(ft, batch)
+    phase_white, phase_black = builder(phase_ft, batch, phase_idx=phase_idx)
+
+    assert torch.allclose(single_white, phase_white, atol=1e-6)
+    assert torch.allclose(single_black, phase_black, atol=1e-6)
 
 
 def test_incremental_apply_move_matches_full_rebuild() -> None:

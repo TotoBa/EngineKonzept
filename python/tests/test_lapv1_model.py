@@ -64,11 +64,24 @@ def _sample_inputs(
         [[True, True, True, True, False], [True, True, True, False, False]],
         dtype=torch.bool,
     )
+    if batch_size != 2:
+        candidate_action_indices = torch.arange(
+            1,
+            batch_size * candidate_count + 1,
+            dtype=torch.long,
+        ).reshape(batch_size, candidate_count)
+        candidate_mask = torch.ones((batch_size, candidate_count), dtype=torch.bool)
     nnue_feat_white_indices, nnue_feat_white_offsets = pack_sparse_feature_lists(
-        [[1, 11, 21], [2, 12, 22]]
+        [
+            [1 + index, 11 + index, 21 + index]
+            for index in range(batch_size)
+        ]
     )
     nnue_feat_black_indices, nnue_feat_black_offsets = pack_sparse_feature_lists(
-        [[31, 41, 51], [32, 42, 52]]
+        [
+            [31 + index, 41 + index, 51 + index]
+            for index in range(batch_size)
+        ]
     )
     return {
         "piece_tokens": piece_tokens,
@@ -78,12 +91,12 @@ def _sample_inputs(
         "candidate_context_v2": candidate_context,
         "candidate_action_indices": candidate_action_indices,
         "candidate_mask": candidate_mask,
-        "side_to_move": torch.tensor([0, 1], dtype=torch.long)[:batch_size],
+        "side_to_move": (torch.arange(batch_size, dtype=torch.long) % 2),
         "nnue_feat_white_indices": nnue_feat_white_indices,
         "nnue_feat_white_offsets": nnue_feat_white_offsets,
         "nnue_feat_black_indices": nnue_feat_black_indices,
         "nnue_feat_black_offsets": nnue_feat_black_offsets,
-        "phase_index": torch.tensor([0, 1], dtype=torch.long)[:batch_size],
+        "phase_index": (torch.arange(batch_size, dtype=torch.long) % 4),
     }
 
 
@@ -206,6 +219,26 @@ def test_ft_attribute_exists_for_future_policy() -> None:
 
     assert model.ft is not None
     assert model.value_head_nnue is not None
+
+
+def test_phase_nnue_value_runs_all_phases() -> None:
+    model = LAPv1Model(
+        LAPv1Config.from_mapping(
+            {
+                "lapv2": {
+                    "enabled": True,
+                    "nnue_value": True,
+                    "nnue_value_phase_moe": True,
+                    "N_accumulator": 8,
+                }
+            }
+        )
+    )
+
+    outputs = model(**_sample_inputs(batch_size=4))
+
+    assert tuple(outputs["final_value"]["wdl_logits"].shape) == (4, 3)
+    assert torch.isfinite(outputs["final_value"]["cp_score"]).all()
 
 
 def test_lapv1_total_parameter_budget_is_within_target_band() -> None:

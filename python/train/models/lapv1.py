@@ -53,6 +53,7 @@ class LAPv2Config:
     dual_accumulator: bool = False
     nnue_value: bool = False
     nnue_value_phase_moe: bool = False
+    nnue_phase_gate_steps: int = 0
     nnue_policy: bool = False
     sharpness_phase_moe: bool = False
     shared_opponent_readout: bool = False
@@ -63,6 +64,8 @@ class LAPv2Config:
     def __post_init__(self) -> None:
         if self.N_accumulator <= 0:
             raise ValueError("lapv2.N_accumulator must be positive")
+        if self.nnue_phase_gate_steps < 0:
+            raise ValueError("lapv2.nnue_phase_gate_steps must be non-negative")
 
     @property
     def phase_moe_enabled(self) -> bool:
@@ -71,6 +74,10 @@ class LAPv2Config:
     @property
     def nnue_value_enabled(self) -> bool:
         return self.enabled and self.nnue_value
+
+    @property
+    def nnue_value_phase_moe_enabled(self) -> bool:
+        return self.nnue_value_enabled and self.nnue_value_phase_moe
 
 
 @dataclass(frozen=True)
@@ -259,16 +266,23 @@ if torch is not None and nn is not None:
                 dropout=config.value_head.dropout,
             )
             if config.lapv2.nnue_value_enabled:
-                self.ft: FeatureTransformer | None = FeatureTransformer(
+                ft: FeatureTransformer | PhaseMoE = FeatureTransformer(
                     num_features=TOTAL_FEATURES,
                     accumulator_dim=config.lapv2.N_accumulator,
                 )
-                self.dual_acc_builder: DualAccumulatorBuilder | None = DualAccumulatorBuilder()
-                self.value_head_nnue: NNUEValueHead | None = NNUEValueHead(
+                value_head_nnue: NNUEValueHead | PhaseMoE = NNUEValueHead(
                     accumulator_dim=config.lapv2.N_accumulator,
                     hidden_dim=32,
                     cp_score_cap=config.value_head.cp_score_cap,
                 )
+                if config.lapv2.nnue_value_phase_moe_enabled:
+                    if self.phase_router is None:
+                        self.phase_router = PhaseRouter()
+                    ft = PhaseMoE.from_single(ft)
+                    value_head_nnue = PhaseMoE.from_single(value_head_nnue)
+                self.ft: FeatureTransformer | PhaseMoE | None = ft
+                self.dual_acc_builder: DualAccumulatorBuilder | None = DualAccumulatorBuilder()
+                self.value_head_nnue: NNUEValueHead | PhaseMoE | None = value_head_nnue
             else:
                 self.ft = None
                 self.dual_acc_builder = None
@@ -335,11 +349,15 @@ if torch is not None and nn is not None:
             single_legal_move: bool = False,
         ) -> dict[str, Any]:
             """Run the full LAPv1 wrapper forward pass without trainer glue."""
-            if self.config.lapv2.phase_moe_enabled:
+            phase_idx: torch.Tensor | None = None
+            if self.config.lapv2.phase_moe_enabled or self.config.lapv2.nnue_value_phase_moe_enabled:
                 if phase_index is None:
-                    raise ValueError("phase_index is required when lapv2.phase_moe is enabled")
+                    raise ValueError(
+                        "phase_index is required when LAPv2 phase-routed modules are enabled"
+                    )
                 assert self.phase_router is not None
                 phase_idx = self.phase_router({"phase_index": phase_index})
+            if self.config.lapv2.phase_moe_enabled:
                 piece_intentions = self.intention_encoder(
                     piece_tokens,
                     state_context_v1_global,
@@ -403,11 +421,20 @@ if torch is not None and nn is not None:
                         "nnue_feat_black_indices": nnue_feat_black_indices,
                         "nnue_feat_black_offsets": nnue_feat_black_offsets,
                     },
+                    phase_idx=phase_idx,
                 )
                 stm_white_mask = (side_to_move == 0).unsqueeze(1)
                 a_stm = torch.where(stm_white_mask, a_white, a_black)
                 a_other = torch.where(stm_white_mask, a_black, a_white)
-                wdl_logits, cp_score, sigma_value = self.value_head_nnue(a_stm, a_other)
+                if self.config.lapv2.nnue_value_phase_moe_enabled:
+                    assert phase_idx is not None
+                    wdl_logits, cp_score, sigma_value = self.value_head_nnue(
+                        a_stm,
+                        a_other,
+                        phase_idx=phase_idx,
+                    )
+                else:
+                    wdl_logits, cp_score, sigma_value = self.value_head_nnue(a_stm, a_other)
             else:
                 wdl_logits, cp_score, sigma_value = self.value_head(
                     deliberation_outputs["final_z"],

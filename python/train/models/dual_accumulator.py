@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Mapping, Sequence
 
 from train.models.feature_transformer import FeatureTransformer
+from train.models.phase_moe import PhaseMoE
 
 try:
     import torch
@@ -37,19 +38,37 @@ class DualAccumulatorBuilder:
 
     def __call__(
         self,
-        ft: FeatureTransformer,
+        ft: FeatureTransformer | PhaseMoE,
         batch: Mapping[str, "torch.Tensor"],
+        *,
+        phase_idx: "torch.Tensor | None" = None,
     ) -> tuple["torch.Tensor", "torch.Tensor"]:
         if torch is None:  # pragma: no cover
             raise RuntimeError("torch is required to build dual accumulators.")
-        a_white = ft.build(
-            batch["nnue_feat_white_indices"],
-            batch["nnue_feat_white_offsets"],
-        )
-        a_black = ft.build(
-            batch["nnue_feat_black_indices"],
-            batch["nnue_feat_black_offsets"],
-        )
+        if isinstance(ft, PhaseMoE):
+            if phase_idx is None:
+                raise ValueError("phase_idx is required when FT is phase-routed")
+            a_white = _build_phase_routed_accumulator(
+                ft,
+                indices=batch["nnue_feat_white_indices"],
+                offsets=batch["nnue_feat_white_offsets"],
+                phase_idx=phase_idx,
+            )
+            a_black = _build_phase_routed_accumulator(
+                ft,
+                indices=batch["nnue_feat_black_indices"],
+                offsets=batch["nnue_feat_black_offsets"],
+                phase_idx=phase_idx,
+            )
+        else:
+            a_white = ft.build(
+                batch["nnue_feat_white_indices"],
+                batch["nnue_feat_white_offsets"],
+            )
+            a_black = ft.build(
+                batch["nnue_feat_black_indices"],
+                batch["nnue_feat_black_offsets"],
+            )
         return a_white, a_black
 
 
@@ -159,3 +178,58 @@ def _apply_sparse_delta(
         enter_rows = ft.gather_rows(torch.tensor(list(enter_indices), dtype=torch.long))
         updated = updated + enter_rows.sum(dim=0, keepdim=True)
     return updated
+
+
+def _build_phase_routed_accumulator(
+    ft: PhaseMoE,
+    *,
+    indices: "torch.Tensor",
+    offsets: "torch.Tensor",
+    phase_idx: "torch.Tensor",
+) -> "torch.Tensor":
+    accumulator_dim = ft.experts[0].accumulator_dim
+    merged = torch.zeros(
+        (int(phase_idx.shape[0]), accumulator_dim),
+        dtype=ft.experts[0].ft.weight.dtype,
+        device=ft.experts[0].ft.weight.device,
+    )
+    for phase, expert in enumerate(ft.experts):
+        mask = phase_idx == phase
+        if not bool(mask.any().item()):
+            continue
+        phase_indices, phase_offsets = _slice_sparse_rows(indices, offsets, mask)
+        merged[mask] = expert.build(phase_indices, phase_offsets)
+    return merged
+
+
+def _slice_sparse_rows(
+    indices: "torch.Tensor",
+    offsets: "torch.Tensor",
+    mask: "torch.Tensor",
+) -> tuple["torch.Tensor", "torch.Tensor"]:
+    selected_rows = mask.nonzero(as_tuple=False).flatten().tolist()
+    if not selected_rows:
+        return (
+            torch.zeros((0,), dtype=torch.long, device=indices.device),
+            torch.zeros((0,), dtype=torch.long, device=offsets.device),
+        )
+    rebuilt_indices: list[int] = []
+    rebuilt_offsets: list[int] = []
+    total_values = int(indices.shape[0])
+    cursor = 0
+    offset_values = offsets.tolist()
+    for row_index in selected_rows:
+        start = int(offset_values[row_index])
+        end = (
+            int(offset_values[row_index + 1])
+            if row_index + 1 < len(offset_values)
+            else total_values
+        )
+        rebuilt_offsets.append(cursor)
+        row_values = indices[start:end].tolist()
+        rebuilt_indices.extend(int(value) for value in row_values)
+        cursor += len(row_values)
+    return (
+        torch.tensor(rebuilt_indices, dtype=torch.long, device=indices.device),
+        torch.tensor(rebuilt_offsets, dtype=torch.long, device=offsets.device),
+    )
