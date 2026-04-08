@@ -35,3 +35,15 @@
   [phase_moe.py](/home/torsten/EngineKonzept/python/train/models/phase_moe.py).
 - Added isolated routing and gradient tests in
   [test_phase_moe.py](/home/torsten/EngineKonzept/python/tests/test_phase_moe.py).
+
+## Schritt 4
+
+- Added the shared sparse FT backbone in
+  [feature_transformer.py](/home/torsten/EngineKonzept/python/train/models/feature_transformer.py).
+- Added batch and incremental dual-accumulator helpers in
+  [dual_accumulator.py](/home/torsten/EngineKonzept/python/train/models/dual_accumulator.py).
+- Extended the LAPv1 collator in
+  [lapv1.py](/home/torsten/EngineKonzept/python/train/trainers/lapv1.py)
+  to emit `EmbeddingBag`-ready sparse NNUE inputs.
+- Added FT/incremental consistency coverage in
+  [test_dual_accumulator.py](/home/torsten/EngineKonzept/python/tests/test_dual_accumulator.py).

@@ -30,6 +30,8 @@ LAPv2 documents.
 | Move Delta Builder | [python/train/datasets/move_delta.py](/home/torsten/EngineKonzept/python/train/datasets/move_delta.py) | `halfka_delta`, `is_king_move`, `move_type_hash` | Candidate-local sparse feature delta annotations for LAPv2 artifacts. |
 | Phase Router | [python/train/models/phase_router.py](/home/torsten/EngineKonzept/python/train/models/phase_router.py) | `PhaseRouter` | Hard pass-through router from precomputed `phase_index` tensors. |
 | Phase MoE Wrapper | [python/train/models/phase_moe.py](/home/torsten/EngineKonzept/python/train/models/phase_moe.py) | `PhaseMoE` | Generic hard-routed expert wrapper for later phase-dependent modules. |
+| Feature Transformer | [python/train/models/feature_transformer.py](/home/torsten/EngineKonzept/python/train/models/feature_transformer.py) | `FeatureTransformer` | EmbeddingBag-based HalfKA accumulator backbone for future NNUE heads. |
+| Dual Accumulator | [python/train/models/dual_accumulator.py](/home/torsten/EngineKonzept/python/train/models/dual_accumulator.py) | `DualAccumulatorBuilder`, `IncrementalAccumulator` | White/black accumulator construction and sparse incremental updates. |
 
 Notes:
 

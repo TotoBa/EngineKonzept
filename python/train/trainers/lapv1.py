@@ -23,6 +23,7 @@ from train.datasets.lapv1_training import (
 )
 from train.datasets.planner_head import PlannerHeadExample
 from train.models.intention_encoder import torch
+from train.models.dual_accumulator import pack_sparse_feature_lists
 from train.models.lapv1 import LAPV1_MODEL_NAME, LAPv1Config, LAPv1Model
 from train.models.policy_head_large import MASKED_CANDIDATE_LOGIT_VALUE
 from train.models.proposer import torch_is_available
@@ -1795,6 +1796,12 @@ def _collate_examples(examples: Sequence[_PreparedLAPv1Example]) -> dict[str, to
         -1,
         dtype=torch.long,
     )
+    nnue_feat_white_indices, nnue_feat_white_offsets = pack_sparse_feature_lists(
+        [example.nnue_feat_white for example in examples]
+    )
+    nnue_feat_black_indices, nnue_feat_black_offsets = pack_sparse_feature_lists(
+        [example.nnue_feat_black for example in examples]
+    )
 
     for batch_index, example in enumerate(examples):
         edge_count = len(example.reachability_edges)
@@ -1833,6 +1840,10 @@ def _collate_examples(examples: Sequence[_PreparedLAPv1Example]) -> dict[str, to
         "square_tokens": square_tokens,
         "state_context_global": state_context_global,
         "reachability_edges": reachability_edges,
+        "nnue_feat_white_indices": nnue_feat_white_indices,
+        "nnue_feat_white_offsets": nnue_feat_white_offsets,
+        "nnue_feat_black_indices": nnue_feat_black_indices,
+        "nnue_feat_black_offsets": nnue_feat_black_offsets,
         "candidate_action_indices": candidate_action_indices,
         "candidate_features": candidate_features,
         "candidate_mask": candidate_mask,
