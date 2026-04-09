@@ -38,6 +38,7 @@ from train.trainers.lapv1 import (
     _collate_examples,
     _improvement_over_root_loss,
     _normalize_lapv2_shared_loss,
+    _phase_load_balance_weights,
     _opponent_distill_loss,
     _policy_margin_loss,
     _prepare_example,
@@ -1785,6 +1786,18 @@ def test_gate_mean_pull_converges_experts() -> None:
     assert torch.allclose(experts[0].ft.weight, experts[1].ft.weight)
     assert torch.allclose(experts[1].ft.weight, experts[2].ft.weight)
     assert torch.allclose(experts[2].ft.weight, experts[3].ft.weight)
+
+
+def test_load_balancing_weights_in_range() -> None:
+    weights = _phase_load_balance_weights(
+        torch.tensor([0, 0, 0, 1, 2, 3], dtype=torch.long),
+        enabled=True,
+    )
+
+    assert tuple(weights.shape) == (6,)
+    assert torch.all(weights >= 0.5)
+    assert pytest.approx(float(weights.mean().item()), rel=1e-6) == 1.0
+    assert float(weights[0].item()) < float(weights[-1].item())
 
 
 def test_phase_nnue_value_on_runs_training_step(tmp_path: Path) -> None:

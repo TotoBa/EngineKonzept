@@ -290,6 +290,13 @@ small margin. The intended effect is to train the residual deliberation path to
 make real corrections instead of merely relearning the already-strong root
 distribution.
 
+The Stage-T2 trainer can now also apply an explicit phase load balancer.
+When `stage2.phase_load_balance` is enabled, the trainer computes empirical
+phase weights from the current batch and reweights the per-example root
+value/policy/sharpness losses before the later shared-loss normalization.
+That keeps the rarer phase buckets visible once the LAPv2 runs start mixing
+hard subsets and broader full-corpus epochs.
+
 For long CPU runs, LAPv1 also now emits explicit progress logs during the
 previously quiet parts of the pipeline:
 

@@ -197,6 +197,7 @@ class LAPv1Stage2Config:
 
     max_inner_steps_schedule: tuple[int, ...] = (2, 4, 8)
     phases: tuple[LAPv1Stage2PhaseConfig, ...] = ()
+    phase_load_balance: bool = False
     selection_validation_paths: tuple[str, ...] = ()
     selection_min_inner_steps: int | None = None
     selection_max_inner_steps: int | None = None
@@ -343,6 +344,9 @@ class LAPv1TrainConfig:
                         for step in list(
                             dict(payload["stage2"]).get("max_inner_steps_schedule", (2, 4, 8))
                         )
+                    ),
+                    phase_load_balance=bool(
+                        dict(payload["stage2"]).get("phase_load_balance", False)
                     ),
                     phases=tuple(
                         LAPv1Stage2PhaseConfig(
@@ -1732,37 +1736,55 @@ def _run_epoch(
             step_teacher_uncertainty_tensors = tuple(
                 outputs["step_teacher_uncertainty_tensors"]
             )
+            phase_weights = _phase_load_balance_weights(
+                batch["phase_index"],
+                enabled=(
+                    stage == "T2"
+                    and stage2 is not None
+                    and stage2.phase_load_balance
+                    and model.config.lapv2.enabled
+                ),
+            )
 
-            value_wdl_loss = torch.nn.functional.cross_entropy(
+            value_wdl_per_example = torch.nn.functional.cross_entropy(
                 wdl_logits,
                 batch["teacher_wdl_target"],
+                reduction="none",
             )
-            value_cp_loss = torch.nn.functional.mse_loss(
+            value_wdl_loss = _phase_weighted_mean(value_wdl_per_example, phase_weights)
+            value_cp_per_example = torch.nn.functional.mse_loss(
                 cp_score / _CP_TARGET_SCALE,
                 batch["teacher_root_value_cp"] / _CP_TARGET_SCALE,
+                reduction="none",
             )
-            sharpness_loss = torch.nn.functional.binary_cross_entropy(
+            value_cp_loss = _phase_weighted_mean(value_cp_per_example, phase_weights)
+            sharpness_per_example = torch.nn.functional.binary_cross_entropy(
                 sharpness,
                 batch["sharpness_target"],
+                reduction="none",
             )
+            sharpness_loss = _phase_weighted_mean(sharpness_per_example, phase_weights)
             sharpness_target_loss = _trace_sharpness_target_loss(
                 step_sharpness_tensors,
                 batch["sharpness_target"],
                 step_active_masks,
             )
-            policy_ce_loss = torch.nn.functional.cross_entropy(
+            policy_ce_per_example = torch.nn.functional.cross_entropy(
                 logits,
                 batch["teacher_top1_candidate_index"],
+                reduction="none",
             )
+            policy_ce_loss = _phase_weighted_mean(policy_ce_per_example, phase_weights)
             log_probs = torch.nn.functional.log_softmax(logits, dim=1)
-            policy_kl_loss = torch.sum(
+            policy_kl_per_example = torch.sum(
                 batch["teacher_policy"]
                 * (
                     torch.log(batch["teacher_policy"].clamp_min(1e-8))
                     - log_probs
                 ),
                 dim=1,
-            ).mean()
+            )
+            policy_kl_loss = _phase_weighted_mean(policy_kl_per_example, phase_weights)
             policy_margin_loss = _policy_margin_loss(
                 logits,
                 batch["candidate_mask"],
@@ -2389,6 +2411,40 @@ def _normalize_lapv2_shared_loss(
         state[key] = max(running_mean, 1e-6)
     denominator = max(state.get(key, running_mean), 1e-6)
     return raw_loss / denominator
+
+
+def _phase_load_balance_weights(
+    phase_index: torch.Tensor,
+    *,
+    enabled: bool,
+) -> torch.Tensor:
+    if phase_index.ndim != 1:
+        raise ValueError("phase_index must be rank-1 for phase load balancing")
+    weights = torch.ones_like(phase_index, dtype=torch.float32)
+    if not enabled or phase_index.numel() == 0:
+        return weights
+    for phase_value in phase_index.unique(sorted=True).tolist():
+        phase_mask = phase_index == int(phase_value)
+        frequency = float(phase_mask.float().mean().item())
+        raw_weight = max(1.0 / max(frequency, 1e-6), 0.5)
+        weights = torch.where(
+            phase_mask,
+            weights.new_full(weights.shape, raw_weight),
+            weights,
+        )
+    weights = weights / weights.mean().clamp_min(1e-6)
+    return weights
+
+
+def _phase_weighted_mean(
+    per_example_loss: torch.Tensor,
+    phase_weights: torch.Tensor,
+) -> torch.Tensor:
+    if per_example_loss.ndim != 1:
+        raise ValueError("per_example_loss must be rank-1 for phase weighting")
+    if phase_weights.shape != per_example_loss.shape:
+        raise ValueError("phase_weights must align with per_example_loss")
+    return torch.sum(per_example_loss * phase_weights) / phase_weights.sum().clamp_min(1e-6)
 
 
 def _lapv2_adapter_decoupling_loss(model: LAPv1Model) -> torch.Tensor:

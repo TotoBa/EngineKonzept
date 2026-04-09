@@ -211,3 +211,9 @@
 - Added regression coverage for the exported checkpoint contract and the
   copied root-path forward equivalence in
   [test_lapv1_trainer.py](/home/torsten/EngineKonzept/python/tests/test_lapv1_trainer.py).
+- Added the optional Stage-T2 phase load balancer in
+  [lapv1.py](/home/torsten/EngineKonzept/python/train/trainers/lapv1.py)
+  behind `stage2.phase_load_balance`.
+- The trainer now computes per-example phase weights from the current
+  phase distribution and applies them to the root value/policy/sharpness
+  losses before the later shared-loss normalization.

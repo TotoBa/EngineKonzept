@@ -374,6 +374,12 @@ Use [run_phase10_lapv1_stage2_fast_arena_v3_longrun.sh](/home/torsten/EngineKonz
 - [phase10_lapv1_stage2_fast_all_unique_v4.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage2_fast_all_unique_v4.json)
   Preferred next Stage-T2 config after the completed `v3` run. It keeps the fast all-unique Stage-T1 warm start and the hard subset, but fixes the two main `v3` pathologies directly: checkpoint selection now uses one fixed common full-validation holdout across all T2 phases, and the later joint epochs no longer drop the hard subset entirely. Instead they mix `full + hard` at `0.75 / 0.25`, first reopening only `inner_delta_network + inner_loop_core + root_heads`, and only in the final epoch reopening `root_backbone` at a much smaller LR scale. Stage-T2 phases now support weighted train-path mixtures, per-phase epoch example budgets, and per-group LR scales.
 
+Stage-T2 configs now also accept `stage2.phase_load_balance: true`.
+When enabled, the trainer derives empirical per-batch phase weights and
+reweights the per-example root value/policy/sharpness losses so rarer
+phase buckets stay relevant during mixed-corpus LAPv2 training. This is
+still off by default.
+
 - [phase10_agent_lapv1_stage2_fast_all_unique_v4.json](/home/torsten/EngineKonzept/python/configs/phase10_agent_lapv1_stage2_fast_all_unique_v4.json)
   Runtime/arena spec for the `v4` Stage-T2 checkpoint.
 
