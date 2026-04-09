@@ -78,6 +78,10 @@ class LAPv2Config:
     sharpness_phase_moe: bool = False
     shared_opponent_readout: bool = False
     distill_opponent: bool = False
+    distill_fraction: float = 0.25
+    distill_reply_weight: float = 1.0
+    distill_pressure_weight: float = 0.5
+    distill_uncertainty_weight: float = 0.5
     accumulator_cache: bool = False
     N_accumulator: int = 64
     loss_balance: LAPv2LossBalanceConfig = field(default_factory=LAPv2LossBalanceConfig)
@@ -95,6 +99,10 @@ class LAPv2Config:
             sharpness_phase_moe=bool(payload.get("sharpness_phase_moe", False)),
             shared_opponent_readout=bool(payload.get("shared_opponent_readout", False)),
             distill_opponent=bool(payload.get("distill_opponent", False)),
+            distill_fraction=float(payload.get("distill_fraction", 0.25)),
+            distill_reply_weight=float(payload.get("distill_reply_weight", 1.0)),
+            distill_pressure_weight=float(payload.get("distill_pressure_weight", 0.5)),
+            distill_uncertainty_weight=float(payload.get("distill_uncertainty_weight", 0.5)),
             accumulator_cache=bool(payload.get("accumulator_cache", False)),
             N_accumulator=int(payload.get("N_accumulator", 64)),
             loss_balance=LAPv2LossBalanceConfig(
@@ -109,6 +117,16 @@ class LAPv2Config:
             raise ValueError("lapv2.nnue_phase_gate_steps must be non-negative")
         if self.nnue_policy_enabled and not self.nnue_value_enabled:
             raise ValueError("lapv2.nnue_policy requires lapv2.nnue_value")
+        if self.distill_opponent and not self.shared_opponent_readout:
+            raise ValueError("lapv2.distill_opponent requires lapv2.shared_opponent_readout")
+        if not 0.0 <= self.distill_fraction <= 1.0:
+            raise ValueError("lapv2.distill_fraction must be in [0.0, 1.0]")
+        if self.distill_reply_weight < 0.0:
+            raise ValueError("lapv2.distill_reply_weight must be non-negative")
+        if self.distill_pressure_weight < 0.0:
+            raise ValueError("lapv2.distill_pressure_weight must be non-negative")
+        if self.distill_uncertainty_weight < 0.0:
+            raise ValueError("lapv2.distill_uncertainty_weight must be non-negative")
 
     @property
     def phase_moe_enabled(self) -> bool:
@@ -214,9 +232,9 @@ if torch is not None and nn is not None:
             opponent_readout: OpponentReadout | None = None,
         ) -> None:
             super().__init__()
-            if (opponent_head is None) == (opponent_readout is None):
+            if opponent_head is None and opponent_readout is None:
                 raise ValueError(
-                    "exactly one of opponent_head or opponent_readout must be provided"
+                    "at least one of opponent_head or opponent_readout must be provided"
                 )
             self.opponent_head = opponent_head
             self.opponent_readout = opponent_readout
@@ -237,7 +255,46 @@ if torch is not None and nn is not None:
                 self.transition_projection = None
                 self.reply_global_projection = None
 
-        def forward(
+        def _legacy_prediction(
+            self,
+            *,
+            transitioned_latents: torch.Tensor,
+            z_t: torch.Tensor,
+            selected_count: int,
+            state_dim: int,
+            flat_action_indices: torch.Tensor,
+            flat_candidate_action_indices: torch.Tensor,
+            flat_candidate_features: torch.Tensor,
+            flat_candidate_mask: torch.Tensor,
+            flat_reply_global: torch.Tensor,
+        ) -> Any:
+            assert self.opponent_head is not None
+            assert self.root_projection is not None
+            assert self.next_projection is not None
+            assert self.transition_projection is not None
+            assert self.reply_global_projection is not None
+            root_expanded = z_t.unsqueeze(1).expand(-1, selected_count, -1)
+            flat_root = self.root_projection(root_expanded.reshape(-1, state_dim))
+            flat_next = self.next_projection(
+                transitioned_latents.reshape(-1, state_dim)
+            )
+            flat_transition = self.transition_projection(
+                torch.cat([root_expanded, transitioned_latents], dim=2).reshape(
+                    -1, state_dim * 2
+                )
+            )
+            return self.opponent_head(
+                flat_root,
+                flat_next,
+                flat_action_indices,
+                flat_transition,
+                self.reply_global_projection(flat_reply_global),
+                flat_candidate_action_indices,
+                flat_candidate_features,
+                flat_candidate_mask,
+            )
+
+        def predict(
             self,
             transitioned_latents: torch.Tensor,
             *,
@@ -247,7 +304,8 @@ if torch is not None and nn is not None:
             candidate_features: torch.Tensor,
             candidate_mask: torch.Tensor,
             global_features: torch.Tensor,
-        ) -> torch.Tensor:
+            collect_distill_targets: bool = False,
+        ) -> tuple[torch.Tensor, dict[str, torch.Tensor | None]]:
             batch_size, selected_count, state_dim = transitioned_latents.shape
             candidate_count = candidate_action_indices.shape[1]
             flat_reply_global = global_features.unsqueeze(1).expand(
@@ -269,7 +327,7 @@ if torch is not None and nn is not None:
                 -1,
             ).reshape(-1, candidate_count)
             if self.opponent_readout is not None:
-                prediction = self.opponent_readout(
+                active_prediction = self.opponent_readout(
                     transitioned_latents.reshape(-1, state_dim),
                     flat_action_indices,
                     flat_reply_global,
@@ -278,37 +336,98 @@ if torch is not None and nn is not None:
                     flat_candidate_mask,
                 )
             else:
-                assert self.opponent_head is not None
-                assert self.root_projection is not None
-                assert self.next_projection is not None
-                assert self.transition_projection is not None
-                assert self.reply_global_projection is not None
-                root_expanded = z_t.unsqueeze(1).expand(-1, selected_count, -1)
-                flat_root = self.root_projection(root_expanded.reshape(-1, state_dim))
-                flat_next = self.next_projection(
-                    transitioned_latents.reshape(-1, state_dim)
+                active_prediction = self._legacy_prediction(
+                    transitioned_latents=transitioned_latents,
+                    z_t=z_t,
+                    selected_count=selected_count,
+                    state_dim=state_dim,
+                    flat_action_indices=flat_action_indices,
+                    flat_candidate_action_indices=flat_candidate_action_indices,
+                    flat_candidate_features=flat_candidate_features,
+                    flat_candidate_mask=flat_candidate_mask,
+                    flat_reply_global=flat_reply_global,
                 )
-                flat_transition = self.transition_projection(
-                    torch.cat([root_expanded, transitioned_latents], dim=2).reshape(
-                        -1, state_dim * 2
-                    )
+            teacher_prediction = None
+            if (
+                collect_distill_targets
+                and self.opponent_readout is not None
+                and self.opponent_head is not None
+            ):
+                teacher_prediction = self._legacy_prediction(
+                    transitioned_latents=transitioned_latents,
+                    z_t=z_t,
+                    selected_count=selected_count,
+                    state_dim=state_dim,
+                    flat_action_indices=flat_action_indices,
+                    flat_candidate_action_indices=flat_candidate_action_indices,
+                    flat_candidate_features=flat_candidate_features,
+                    flat_candidate_mask=flat_candidate_mask,
+                    flat_reply_global=flat_reply_global,
                 )
-                prediction = self.opponent_head(
-                    flat_root,
-                    flat_next,
-                    flat_action_indices,
-                    flat_transition,
-                    self.reply_global_projection(flat_reply_global),
-                    flat_candidate_action_indices,
-                    flat_candidate_features,
-                    flat_candidate_mask,
-                )
-            best_reply = prediction.reply_logits.masked_fill(
+            best_reply = active_prediction.reply_logits.masked_fill(
                 ~flat_candidate_mask,
                 float("-inf"),
             ).max(dim=1).values
-            signal = best_reply - (prediction.pressure * 10.0) - (prediction.uncertainty * 10.0)
-            return signal.reshape(batch_size, selected_count)
+            signal = best_reply - (active_prediction.pressure * 10.0) - (
+                active_prediction.uncertainty * 10.0
+            )
+            return signal.reshape(batch_size, selected_count), {
+                "student_reply_logits": active_prediction.reply_logits.reshape(
+                    batch_size,
+                    selected_count,
+                    candidate_count,
+                ),
+                "student_pressure": active_prediction.pressure.reshape(
+                    batch_size,
+                    selected_count,
+                ),
+                "student_uncertainty": active_prediction.uncertainty.reshape(
+                    batch_size,
+                    selected_count,
+                ),
+                "teacher_reply_logits": (
+                    None
+                    if teacher_prediction is None
+                    else teacher_prediction.reply_logits.reshape(
+                        batch_size,
+                        selected_count,
+                        candidate_count,
+                    )
+                ),
+                "teacher_pressure": (
+                    None
+                    if teacher_prediction is None
+                    else teacher_prediction.pressure.reshape(batch_size, selected_count)
+                ),
+                "teacher_uncertainty": (
+                    None
+                    if teacher_prediction is None
+                    else teacher_prediction.uncertainty.reshape(batch_size, selected_count)
+                ),
+            }
+
+        def forward(
+            self,
+            transitioned_latents: torch.Tensor,
+            *,
+            z_t: torch.Tensor,
+            selected_action_indices: torch.Tensor,
+            candidate_action_indices: torch.Tensor,
+            candidate_features: torch.Tensor,
+            candidate_mask: torch.Tensor,
+            global_features: torch.Tensor,
+        ) -> torch.Tensor:
+            signal, _ = self.predict(
+                transitioned_latents,
+                z_t=z_t,
+                selected_action_indices=selected_action_indices,
+                candidate_action_indices=candidate_action_indices,
+                candidate_features=candidate_features,
+                candidate_mask=candidate_mask,
+                global_features=global_features,
+                collect_distill_targets=False,
+            )
+            return signal
 
 
     class LAPv1Model(nn.Module):
@@ -440,7 +559,7 @@ if torch is not None and nn is not None:
                 reply_signal_projector=_OpponentReplySignalProjector(
                     state_dim=config.deliberation.state_dim,
                     global_dim=config.state_embedder.global_dim,
-                    opponent_head=None if opponent_readout is not None else self.opponent_head,
+                    opponent_head=self.opponent_head,
                     opponent_readout=opponent_readout,
                 ),
             )
@@ -605,6 +724,7 @@ if torch is not None and nn is not None:
             candidate_has_king_move: torch.Tensor | None = None,
             candidate_uci: list[list[str]] | None = None,
             single_legal_move: bool = False,
+            collect_opponent_distill: bool = False,
         ) -> dict[str, Any]:
             """Run the full LAPv1 wrapper forward pass without trainer glue."""
             phase_idx: torch.Tensor | None = None
@@ -752,6 +872,7 @@ if torch is not None and nn is not None:
                 candidate_uci=candidate_uci,
                 candidate_features=candidate_context_v2,
                 global_features=state_context_v1_global,
+                collect_reply_diagnostics=collect_opponent_distill,
             )
             if self.config.lapv2.nnue_value_enabled:
                 assert a_white is not None and a_black is not None and side_to_move is not None
@@ -790,6 +911,24 @@ if torch is not None and nn is not None:
                 "step_active_masks": deliberation_outputs["step_active_masks"],
                 "step_rollback_masks": deliberation_outputs["step_rollback_masks"],
                 "step_rollback_flags": deliberation_outputs["step_rollback_flags"],
+                "step_student_reply_logits_tensors": deliberation_outputs[
+                    "step_student_reply_logits_tensors"
+                ],
+                "step_student_pressure_tensors": deliberation_outputs[
+                    "step_student_pressure_tensors"
+                ],
+                "step_student_uncertainty_tensors": deliberation_outputs[
+                    "step_student_uncertainty_tensors"
+                ],
+                "step_teacher_reply_logits_tensors": deliberation_outputs[
+                    "step_teacher_reply_logits_tensors"
+                ],
+                "step_teacher_pressure_tensors": deliberation_outputs[
+                    "step_teacher_pressure_tensors"
+                ],
+                "step_teacher_uncertainty_tensors": deliberation_outputs[
+                    "step_teacher_uncertainty_tensors"
+                ],
                 "root_candidate_scores": deliberation_outputs["root_candidate_scores"],
                 "root_sharpness": root_sharpness,
                 "refined_top1_action_index": deliberation_outputs[

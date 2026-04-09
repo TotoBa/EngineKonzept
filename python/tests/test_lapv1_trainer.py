@@ -36,6 +36,7 @@ from train.trainers.lapv1 import (
     _collate_examples,
     _improvement_over_root_loss,
     _normalize_lapv2_shared_loss,
+    _opponent_distill_loss,
     _policy_margin_loss,
     _prepare_example,
     _trace_policy_ce_loss,
@@ -293,6 +294,43 @@ def test_loss_balance_keeps_ema_in_range() -> None:
     assert all(torch.isfinite(loss) for loss in losses)
 
 
+def test_distill_loss_positive_on_random_init() -> None:
+    loss = _opponent_distill_loss(
+        step_student_reply_logits_tensors=(torch.randn(2, 3, 4),),
+        step_student_pressure_tensors=(torch.sigmoid(torch.randn(2, 3)),),
+        step_student_uncertainty_tensors=(torch.sigmoid(torch.randn(2, 3)),),
+        step_teacher_reply_logits_tensors=(torch.randn(2, 3, 4),),
+        step_teacher_pressure_tensors=(torch.sigmoid(torch.randn(2, 3)),),
+        step_teacher_uncertainty_tensors=(torch.sigmoid(torch.randn(2, 3)),),
+        step_active_masks=(torch.tensor([True, True], dtype=torch.bool),),
+        reply_weight=1.0,
+        pressure_weight=0.5,
+        uncertainty_weight=0.5,
+    )
+
+    assert float(loss.item()) > 0.0
+
+
+def test_distill_loss_zero_when_match_teacher() -> None:
+    teacher_reply = torch.randn(2, 3, 4)
+    teacher_pressure = torch.sigmoid(torch.randn(2, 3))
+    teacher_uncertainty = torch.sigmoid(torch.randn(2, 3))
+    loss = _opponent_distill_loss(
+        step_student_reply_logits_tensors=(teacher_reply.clone(),),
+        step_student_pressure_tensors=(teacher_pressure.clone(),),
+        step_student_uncertainty_tensors=(teacher_uncertainty.clone(),),
+        step_teacher_reply_logits_tensors=(teacher_reply,),
+        step_teacher_pressure_tensors=(teacher_pressure,),
+        step_teacher_uncertainty_tensors=(teacher_uncertainty,),
+        step_active_masks=(torch.tensor([True, True], dtype=torch.bool),),
+        reply_weight=1.0,
+        pressure_weight=0.5,
+        uncertainty_weight=0.5,
+    )
+
+    assert float(loss.item()) == pytest.approx(0.0, abs=1e-7)
+
+
 def test_sharpness_phase_moe_on_runs_training_step(tmp_path: Path) -> None:
     train_path = tmp_path / "lapv1_train.jsonl"
     validation_path = tmp_path / "lapv1_validation.jsonl"
@@ -384,6 +422,72 @@ def test_shared_opponent_readout_on_runs_training_step(tmp_path: Path) -> None:
                 "lapv2": {
                     "enabled": True,
                     "shared_opponent_readout": True,
+                },
+                "deliberation": {"max_inner_steps": 2, "min_inner_steps": 1},
+                "opponent_head": {
+                    "architecture": "set_v2",
+                    "hidden_dim": 64,
+                    "hidden_layers": 1,
+                    "action_embedding_dim": 16,
+                    "dropout": 0.0,
+                },
+                "value_head": {"hidden_dim": 256},
+                "policy_head": {
+                    "hidden_dim": 256,
+                    "action_embedding_dim": 32,
+                    "feedforward_dim": 512,
+                },
+                "state_embedder": {"feedforward_dim": 512},
+                "intention_encoder": {"feedforward_dim": 512},
+            }
+        ),
+        optimization=LAPv1OptimizationConfig(
+            epochs=1,
+            batch_size=1,
+            learning_rate=1e-3,
+            weight_decay=0.0,
+        ),
+        evaluation=PlannerEvaluationConfig(top_k=3),
+        runtime=PlannerRuntimeConfig(torch_threads=1, dataloader_workers=0),
+        export=PlannerExportConfig(bundle_dir=str(tmp_path / "bundle")),
+        stage2=LAPv1Stage2Config(max_inner_steps_schedule=(1,)),
+    )
+
+    run = train_lapv1(config, repo_root=tmp_path)
+
+    assert Path(run.export_paths["checkpoint"]).exists()
+
+
+def test_distill_opponent_on_runs_training_step(tmp_path: Path) -> None:
+    train_path = tmp_path / "lapv1_train.jsonl"
+    validation_path = tmp_path / "lapv1_validation.jsonl"
+    _write_examples(
+        train_path,
+        [
+            _planner_example("train-1", teacher_index=0, teacher_cp=60.0, teacher_gap=40.0),
+            _planner_example("train-2", teacher_index=1, teacher_cp=10.0, teacher_gap=10.0),
+        ],
+    )
+    _write_examples(
+        validation_path,
+        [_planner_example("validation-1", teacher_index=0, teacher_cp=50.0, teacher_gap=30.0)],
+    )
+
+    config = LAPv1TrainConfig(
+        seed=14,
+        output_dir=str(tmp_path / "lapv1_out"),
+        stage="T2",
+        data=PlannerDataConfig(
+            train_path=str(train_path),
+            validation_path=str(validation_path),
+        ),
+        model=LAPv1Config.from_mapping(
+            {
+                "lapv2": {
+                    "enabled": True,
+                    "shared_opponent_readout": True,
+                    "distill_opponent": True,
+                    "distill_fraction": 1.0,
                 },
                 "deliberation": {"max_inner_steps": 2, "min_inner_steps": 1},
                 "opponent_head": {

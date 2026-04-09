@@ -274,7 +274,13 @@ on the exact LAPv1 path. When `lapv2.shared_opponent_readout` is enabled,
 the deliberation loop stops using the standalone dense opponent head for
 reply scoring and instead queries the lighter shared-backbone
 `OpponentReadout`, while keeping the downstream reply aggregation formula
-unchanged.
+unchanged. `lapv2.distill_opponent` is now available on top of that
+readout path and adds a training-only teacher loss with
+`lapv2.distill_fraction`, `lapv2.distill_reply_weight`,
+`lapv2.distill_pressure_weight`, and
+`lapv2.distill_uncertainty_weight`; runtime/eval forwards remain on the
+same inference path unless the trainer explicitly asks for the teacher
+targets.
 
 - [phase10_lapv1_stage1_10k_122k_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage1_10k_122k_v1.json)
   First prepared LAPv1 Stage-T1 config. Reuses the preferred filtered `10k + 122k` planner-head workflow slice, keeps deliberation disabled via `max_inner_steps=0`, and targets the first static-head bootstrap run under [models/lapv1/stage1_10k_122k_v1](/home/torsten/EngineKonzept/models/lapv1/stage1_10k_122k_v1). The current reference uses a conservative `learning_rate=3e-4` plus `max_grad_norm=1.0` for large-model CPU stability, sets `log_interval_batches=128` so long CPU runs emit mid-epoch batch progress, clips LAPv1 root-value teacher targets to a robust `±1024cp` range before regression, clips raw teacher top1-top2 gap targets to `±512cp` before they feed margin supervision, skips margin supervision entirely on single-candidate rows, uses a robust Smooth-L1 margin contract instead of raw MSE on logit gaps, defensively re-clips those raw gap targets again inside the loss path, and caps the value-head `cp_score` output to the same `±1024cp` band so early bootstrap updates cannot run away numerically.

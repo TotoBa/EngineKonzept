@@ -157,3 +157,21 @@
   [test_lapv1_model.py](/home/torsten/EngineKonzept/python/tests/test_lapv1_model.py),
   [test_lapv1_trainer.py](/home/torsten/EngineKonzept/python/tests/test_lapv1_trainer.py),
   and [test_lapv1_runtime.py](/home/torsten/EngineKonzept/python/tests/test_lapv1_runtime.py).
+
+## Schritt 11
+
+- Added the optional `lapv2.distill_opponent` training hook in
+  [lapv1.py](/home/torsten/EngineKonzept/python/train/trainers/lapv1.py),
+  including configurable `distill_fraction`, `distill_reply_weight`,
+  `distill_pressure_weight`, and `distill_uncertainty_weight`.
+- Extended the deliberation path in
+  [deliberation.py](/home/torsten/EngineKonzept/python/train/models/deliberation.py)
+  and [lapv1.py](/home/torsten/EngineKonzept/python/train/models/lapv1.py)
+  to emit per-step student and teacher opponent targets only when the
+  trainer explicitly requests distillation diagnostics.
+- Kept runtime unchanged: normal model forwards and the LAPv1 runtime do
+  not request teacher targets, so `lapv2.distill_opponent` adds no extra
+  eval/runtime compute by default.
+- Added regression coverage for positive/nonzero distill loss,
+  zero-loss teacher identity, one no-NaN T2 training step with
+  distillation enabled, and runtime identity with the distill flag set.

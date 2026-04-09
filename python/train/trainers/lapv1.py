@@ -472,6 +472,7 @@ class LAPv1Metrics:
     deliberation_monotonicity_loss: float
     deliberation_step_policy_loss: float
     deliberation_improvement_loss: float
+    opponent_distill_loss: float
     root_top1_accuracy: float
     root_top3_accuracy: float
     teacher_root_mean_reciprocal_rank: float
@@ -520,6 +521,7 @@ class LAPv1Metrics:
                 self.deliberation_improvement_loss,
                 6,
             ),
+            "opponent_distill_loss": round(self.opponent_distill_loss, 6),
             "root_top1_accuracy": round(self.root_top1_accuracy, 6),
             "root_top3_accuracy": round(self.root_top3_accuracy, 6),
             "teacher_root_mean_reciprocal_rank": round(
@@ -1526,6 +1528,7 @@ def _run_epoch(
     total_monotonicity = 0.0
     total_step_policy = 0.0
     total_improvement = 0.0
+    total_opponent_distill = 0.0
     correct_top1 = 0
     correct_topk = 0
     initial_correct_top1 = 0
@@ -1601,6 +1604,9 @@ def _run_epoch(
                 candidate_nnue_feat_black_after_move_indices=batch["candidate_nnue_feat_black_after_move_indices"],
                 candidate_nnue_feat_black_after_move_offsets=batch["candidate_nnue_feat_black_after_move_offsets"],
                 candidate_has_king_move=batch["candidate_has_king_move"],
+                collect_opponent_distill=(
+                    stage == "T2" and model.config.lapv2.enabled and model.config.lapv2.distill_opponent
+                ),
             )
             initial_logits = outputs["initial_policy_logits"]
             logits = outputs["final_policy_logits"]
@@ -1619,6 +1625,24 @@ def _run_epoch(
             step_candidate_score_tensors = tuple(outputs["step_candidate_score_tensors"])
             step_active_masks = tuple(outputs["step_active_masks"])
             step_rollback_masks = tuple(outputs["step_rollback_masks"])
+            step_student_reply_logits_tensors = tuple(
+                outputs["step_student_reply_logits_tensors"]
+            )
+            step_student_pressure_tensors = tuple(
+                outputs["step_student_pressure_tensors"]
+            )
+            step_student_uncertainty_tensors = tuple(
+                outputs["step_student_uncertainty_tensors"]
+            )
+            step_teacher_reply_logits_tensors = tuple(
+                outputs["step_teacher_reply_logits_tensors"]
+            )
+            step_teacher_pressure_tensors = tuple(
+                outputs["step_teacher_pressure_tensors"]
+            )
+            step_teacher_uncertainty_tensors = tuple(
+                outputs["step_teacher_uncertainty_tensors"]
+            )
 
             value_wdl_loss = torch.nn.functional.cross_entropy(
                 wdl_logits,
@@ -1697,6 +1721,35 @@ def _run_epoch(
                     dtype=logits.dtype,
                     device=logits.device,
                 )
+            if (
+                stage == "T2"
+                and model.config.lapv2.enabled
+                and model.config.lapv2.distill_opponent
+                and _should_apply_opponent_distill(
+                    training=training,
+                    seed=seed,
+                    batch_index=batch_index,
+                    fraction=model.config.lapv2.distill_fraction,
+                )
+            ):
+                opponent_distill_loss = _opponent_distill_loss(
+                    step_student_reply_logits_tensors=step_student_reply_logits_tensors,
+                    step_student_pressure_tensors=step_student_pressure_tensors,
+                    step_student_uncertainty_tensors=step_student_uncertainty_tensors,
+                    step_teacher_reply_logits_tensors=step_teacher_reply_logits_tensors,
+                    step_teacher_pressure_tensors=step_teacher_pressure_tensors,
+                    step_teacher_uncertainty_tensors=step_teacher_uncertainty_tensors,
+                    step_active_masks=step_active_masks,
+                    reply_weight=model.config.lapv2.distill_reply_weight,
+                    pressure_weight=model.config.lapv2.distill_pressure_weight,
+                    uncertainty_weight=model.config.lapv2.distill_uncertainty_weight,
+                )
+            else:
+                opponent_distill_loss = torch.zeros(
+                    (),
+                    dtype=logits.dtype,
+                    device=logits.device,
+                )
 
             value_shared_loss = (
                 optimization.value_wdl_weight * value_wdl_loss
@@ -1736,6 +1789,7 @@ def _run_epoch(
                 + optimization.deliberation_monotonicity_weight * deliberation_monotonicity_loss
                 + optimization.deliberation_step_policy_weight * deliberation_step_policy_loss
                 + optimization.deliberation_improvement_weight * deliberation_improvement_loss
+                + opponent_distill_loss
                 + adapter_decoupling_loss
             )
 
@@ -1788,6 +1842,7 @@ def _run_epoch(
             total_monotonicity += float(deliberation_monotonicity_loss.item()) * len(batch_examples)
             total_step_policy += float(deliberation_step_policy_loss.item()) * len(batch_examples)
             total_improvement += float(deliberation_improvement_loss.item()) * len(batch_examples)
+            total_opponent_distill += float(opponent_distill_loss.item()) * len(batch_examples)
             correct_top1 += int(
                 torch.sum(top1_indices == batch["teacher_top1_candidate_index"]).item()
             )
@@ -1903,6 +1958,7 @@ def _run_epoch(
         deliberation_monotonicity_loss=total_monotonicity / total_examples,
         deliberation_step_policy_loss=total_step_policy / total_examples,
         deliberation_improvement_loss=total_improvement / total_examples,
+        opponent_distill_loss=total_opponent_distill / total_examples,
         root_top1_accuracy=correct_top1 / total_examples,
         root_top3_accuracy=correct_topk / total_examples,
         teacher_root_mean_reciprocal_rank=reciprocal_rank_sum / total_examples,
@@ -2399,6 +2455,93 @@ def _improvement_over_root_loss(
                 active_incorrect_mask
             ].mean()
         )
+    return torch.stack(losses).mean()
+
+
+def _should_apply_opponent_distill(
+    *,
+    training: bool,
+    seed: int,
+    batch_index: int,
+    fraction: float,
+) -> bool:
+    if fraction <= 0.0:
+        return False
+    if not training:
+        return True
+    if fraction >= 1.0:
+        return True
+    return random.Random((seed * 1_000_003) + batch_index).random() < fraction
+
+
+def _opponent_distill_loss(
+    *,
+    step_student_reply_logits_tensors: Sequence[torch.Tensor],
+    step_student_pressure_tensors: Sequence[torch.Tensor],
+    step_student_uncertainty_tensors: Sequence[torch.Tensor],
+    step_teacher_reply_logits_tensors: Sequence[torch.Tensor],
+    step_teacher_pressure_tensors: Sequence[torch.Tensor],
+    step_teacher_uncertainty_tensors: Sequence[torch.Tensor],
+    step_active_masks: Sequence[torch.Tensor],
+    reply_weight: float,
+    pressure_weight: float,
+    uncertainty_weight: float,
+) -> torch.Tensor:
+    if not step_student_reply_logits_tensors:
+        return torch.zeros((), dtype=torch.float32)
+    losses: list[torch.Tensor] = []
+    for (
+        student_reply_logits,
+        student_pressure,
+        student_uncertainty,
+        teacher_reply_logits,
+        teacher_pressure,
+        teacher_uncertainty,
+        step_active_mask,
+    ) in zip(
+        step_student_reply_logits_tensors,
+        step_student_pressure_tensors,
+        step_student_uncertainty_tensors,
+        step_teacher_reply_logits_tensors,
+        step_teacher_pressure_tensors,
+        step_teacher_uncertainty_tensors,
+        step_active_masks,
+        strict=True,
+    ):
+        if not bool(step_active_mask.any().item()):
+            continue
+        step_losses: list[torch.Tensor] = []
+        if reply_weight > 0.0:
+            teacher_reply = torch.softmax(teacher_reply_logits.detach(), dim=2)
+            student_log_reply = torch.log_softmax(student_reply_logits, dim=2)
+            per_example_reply = torch.sum(
+                teacher_reply * (torch.log(teacher_reply.clamp_min(1e-8)) - student_log_reply),
+                dim=2,
+            ).mean(dim=1)
+            step_losses.append(reply_weight * per_example_reply[step_active_mask].mean())
+        if pressure_weight > 0.0:
+            per_example_pressure = torch.nn.functional.mse_loss(
+                student_pressure,
+                teacher_pressure.detach(),
+                reduction="none",
+            ).mean(dim=1)
+            step_losses.append(
+                pressure_weight * per_example_pressure[step_active_mask].mean()
+            )
+        if uncertainty_weight > 0.0:
+            per_example_uncertainty = torch.nn.functional.mse_loss(
+                student_uncertainty,
+                teacher_uncertainty.detach(),
+                reduction="none",
+            ).mean(dim=1)
+            step_losses.append(
+                uncertainty_weight * per_example_uncertainty[step_active_mask].mean()
+            )
+        if step_losses:
+            losses.append(torch.stack(step_losses).sum())
+    if not losses:
+        reference = step_student_reply_logits_tensors[0]
+        return torch.zeros((), dtype=reference.dtype, device=reference.device)
     return torch.stack(losses).mean()
 
 

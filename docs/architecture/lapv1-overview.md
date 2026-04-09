@@ -194,6 +194,12 @@ separate dense opponent head with a lighter shared-backbone
 preserving the legacy reply aggregation
 `best_reply - 10 * pressure - 10 * uncertainty`.
 
+On top of that readout path, `lapv2.distill_opponent` now enables an
+optional training-only teacher loss. The trainer asks the deliberation
+stack for per-step student and teacher reply targets and distills the
+shared readout against the legacy opponent path, but ordinary runtime and
+evaluation forwards keep using the same inference graph as before.
+
 ### Bounded Recurrent Deliberation Loop
 
 The deliberation loop is the central runtime mechanism.

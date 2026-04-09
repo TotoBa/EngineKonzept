@@ -337,6 +337,7 @@ if torch is not None and nn is not None:
             candidate_uci: list[list[str]] | None = None,
             candidate_features: torch.Tensor | None = None,
             global_features: torch.Tensor | None = None,
+            collect_reply_diagnostics: bool = False,
         ) -> dict[str, Any]:
             """Run the bounded latent refinement loop and emit a structured trace."""
             if z_root.ndim != 2 or z_root.shape[1] != self.state_dim:
@@ -377,6 +378,12 @@ if torch is not None and nn is not None:
                     "step_active_masks": (),
                     "step_rollback_masks": (),
                     "step_rollback_flags": (),
+                    "step_student_reply_logits_tensors": (),
+                    "step_student_pressure_tensors": (),
+                    "step_student_uncertainty_tensors": (),
+                    "step_teacher_reply_logits_tensors": (),
+                    "step_teacher_pressure_tensors": (),
+                    "step_teacher_uncertainty_tensors": (),
                     "root_candidate_scores": masked_scores,
                     "final_candidate_deltas": torch.zeros_like(masked_scores),
                     "final_z": z_root,
@@ -405,6 +412,12 @@ if torch is not None and nn is not None:
             step_active_masks: list[torch.Tensor] = []
             step_rollback_masks: list[torch.Tensor] = []
             step_rollback_flags: list[bool] = []
+            step_student_reply_logits_tensors: list[torch.Tensor] = []
+            step_student_pressure_tensors: list[torch.Tensor] = []
+            step_student_uncertainty_tensors: list[torch.Tensor] = []
+            step_teacher_reply_logits_tensors: list[torch.Tensor] = []
+            step_teacher_pressure_tensors: list[torch.Tensor] = []
+            step_teacher_uncertainty_tensors: list[torch.Tensor] = []
             top1_history: list[list[int]] = []
             active_mask = legal_counts > 1
 
@@ -448,15 +461,28 @@ if torch is not None and nn is not None:
                 )
                 selected_action_indices = candidate_action_indices.gather(1, selected_indices)
                 transitioned_latents = self.transition(z_t, selected_action_indices)
-                selected_reply_signals = self.reply_signal_projector(
-                    transitioned_latents,
-                    z_t=z_t,
-                    selected_action_indices=selected_action_indices,
-                    candidate_action_indices=candidate_action_indices,
-                    candidate_features=candidate_features,
-                    candidate_mask=candidate_mask,
-                    global_features=global_features,
-                )
+                reply_diagnostics: dict[str, torch.Tensor | None] | None = None
+                if hasattr(self.reply_signal_projector, "predict"):
+                    selected_reply_signals, reply_diagnostics = self.reply_signal_projector.predict(
+                        transitioned_latents,
+                        z_t=z_t,
+                        selected_action_indices=selected_action_indices,
+                        candidate_action_indices=candidate_action_indices,
+                        candidate_features=candidate_features,
+                        candidate_mask=candidate_mask,
+                        global_features=global_features,
+                        collect_distill_targets=collect_reply_diagnostics,
+                    )
+                else:
+                    selected_reply_signals = self.reply_signal_projector(
+                        transitioned_latents,
+                        z_t=z_t,
+                        selected_action_indices=selected_action_indices,
+                        candidate_action_indices=candidate_action_indices,
+                        candidate_features=candidate_features,
+                        candidate_mask=candidate_mask,
+                        global_features=global_features,
+                    )
                 selected_reply_signals = torch.where(
                     step_active_mask.unsqueeze(1),
                     selected_reply_signals,
@@ -552,6 +578,29 @@ if torch is not None and nn is not None:
                 step_active_masks.append(step_active_mask.clone())
                 step_rollback_masks.append(rollback_mask.clone())
                 step_rollback_flags.append(rollback_fired)
+                if reply_diagnostics is not None:
+                    assert reply_diagnostics["student_reply_logits"] is not None
+                    assert reply_diagnostics["student_pressure"] is not None
+                    assert reply_diagnostics["student_uncertainty"] is not None
+                    step_student_reply_logits_tensors.append(
+                        reply_diagnostics["student_reply_logits"].clone()
+                    )
+                    step_student_pressure_tensors.append(
+                        reply_diagnostics["student_pressure"].clone()
+                    )
+                    step_student_uncertainty_tensors.append(
+                        reply_diagnostics["student_uncertainty"].clone()
+                    )
+                    if reply_diagnostics["teacher_reply_logits"] is not None:
+                        step_teacher_reply_logits_tensors.append(
+                            reply_diagnostics["teacher_reply_logits"].clone()
+                        )
+                        step_teacher_pressure_tensors.append(
+                            reply_diagnostics["teacher_pressure"].clone()
+                        )
+                        step_teacher_uncertainty_tensors.append(
+                            reply_diagnostics["teacher_uncertainty"].clone()
+                        )
 
             final_scores = (root_scores + delta_scores).masked_fill(
                 ~candidate_mask,
@@ -573,6 +622,20 @@ if torch is not None and nn is not None:
                 "step_active_masks": tuple(step_active_masks),
                 "step_rollback_masks": tuple(step_rollback_masks),
                 "step_rollback_flags": tuple(step_rollback_flags),
+                "step_student_reply_logits_tensors": tuple(
+                    step_student_reply_logits_tensors
+                ),
+                "step_student_pressure_tensors": tuple(step_student_pressure_tensors),
+                "step_student_uncertainty_tensors": tuple(
+                    step_student_uncertainty_tensors
+                ),
+                "step_teacher_reply_logits_tensors": tuple(
+                    step_teacher_reply_logits_tensors
+                ),
+                "step_teacher_pressure_tensors": tuple(step_teacher_pressure_tensors),
+                "step_teacher_uncertainty_tensors": tuple(
+                    step_teacher_uncertainty_tensors
+                ),
                 "root_candidate_scores": root_scores,
                 "final_candidate_deltas": delta_scores,
                 "final_z": z_t,
