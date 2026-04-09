@@ -297,6 +297,16 @@ value/policy/sharpness losses before the later shared-loss normalization.
 That keeps the rarer phase buckets visible once the LAPv2 runs start mixing
 hard subsets and broader full-corpus epochs.
 
+The old single `nnue_phase_gate_steps` hook is now complemented by an
+explicit two-stage T2 gate:
+
+- `stage2.gate_stage_a_steps`: NNUE experts stay under mean-pull
+- `stage2.gate_stage_b_steps`: the NNUE hook is released and the heads may
+  diverge phase-specifically
+
+The encoder/embedder phase routing stays active in both stages; the gate only
+controls how quickly the NNUE heads are allowed to specialize.
+
 For long CPU runs, LAPv1 also now emits explicit progress logs during the
 previously quiet parts of the pipeline:
 

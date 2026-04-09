@@ -217,3 +217,8 @@
 - The trainer now computes per-example phase weights from the current
   phase distribution and applies them to the root value/policy/sharpness
   losses before the later shared-loss normalization.
+- Added the explicit two-stage LAPv2 gate in
+  [lapv1.py](/home/torsten/EngineKonzept/python/train/trainers/lapv1.py)
+  via `stage2.gate_stage_a_steps` and `stage2.gate_stage_b_steps`.
+- Stage A keeps the NNUE heads under the phase mean-pull hook, while
+  Stage B releases that hook and lets the NNUE experts diverge.

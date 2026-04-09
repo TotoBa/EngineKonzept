@@ -198,6 +198,8 @@ class LAPv1Stage2Config:
     max_inner_steps_schedule: tuple[int, ...] = (2, 4, 8)
     phases: tuple[LAPv1Stage2PhaseConfig, ...] = ()
     phase_load_balance: bool = False
+    gate_stage_a_steps: int = 0
+    gate_stage_b_steps: int = 0
     selection_validation_paths: tuple[str, ...] = ()
     selection_min_inner_steps: int | None = None
     selection_max_inner_steps: int | None = None
@@ -210,6 +212,17 @@ class LAPv1Stage2Config:
         if self.phases and self.max_inner_steps_schedule != (2, 4, 8):
             raise ValueError(
                 "stage2.max_inner_steps_schedule may only be overridden when stage2.phases is empty"
+            )
+        if self.gate_stage_a_steps < 0:
+            raise ValueError("stage2.gate_stage_a_steps must be non-negative")
+        if self.gate_stage_b_steps < 0:
+            raise ValueError("stage2.gate_stage_b_steps must be non-negative")
+        if (
+            self.gate_stage_b_steps > 0
+            and self.gate_stage_b_steps < self.gate_stage_a_steps
+        ):
+            raise ValueError(
+                "stage2.gate_stage_b_steps must be >= stage2.gate_stage_a_steps"
             )
         if any(not path for path in self.selection_validation_paths):
             raise ValueError("stage2.selection_validation_paths entries must be non-empty")
@@ -347,6 +360,12 @@ class LAPv1TrainConfig:
                     ),
                     phase_load_balance=bool(
                         dict(payload["stage2"]).get("phase_load_balance", False)
+                    ),
+                    gate_stage_a_steps=int(
+                        dict(payload["stage2"]).get("gate_stage_a_steps", 0)
+                    ),
+                    gate_stage_b_steps=int(
+                        dict(payload["stage2"]).get("gate_stage_b_steps", 0)
                     ),
                     phases=tuple(
                         LAPv1Stage2PhaseConfig(
@@ -1433,16 +1452,40 @@ def _replicate_phase_moe_module_keys(
     return expanded
 
 
-def _lapv2_phase_gate_active(
+def _lapv2_phase_gate_stage(
     model: LAPv1Model,
     *,
+    stage2: LAPv1Stage2Config | None,
+    optimizer_step: int,
+) -> str:
+    if not model.config.lapv2.nnue_value_phase_moe_enabled:
+        return "off"
+    if stage2 is not None:
+        if stage2.gate_stage_a_steps > 0 and optimizer_step < stage2.gate_stage_a_steps:
+            return "stage_a"
+        if stage2.gate_stage_b_steps > 0 and optimizer_step < stage2.gate_stage_b_steps:
+            return "stage_b"
+        if stage2.gate_stage_a_steps > 0 or stage2.gate_stage_b_steps > 0:
+            return "released"
+    if (
+        model.config.lapv2.nnue_phase_gate_steps > 0
+        and optimizer_step < model.config.lapv2.nnue_phase_gate_steps
+    ):
+        return "stage_a"
+    return "released"
+
+
+def _lapv2_phase_gate_should_mean_pull(
+    model: LAPv1Model,
+    *,
+    stage2: LAPv1Stage2Config | None,
     optimizer_step: int,
 ) -> bool:
-    return (
-        model.config.lapv2.nnue_value_phase_moe_enabled
-        and model.config.lapv2.nnue_phase_gate_steps > 0
-        and optimizer_step < model.config.lapv2.nnue_phase_gate_steps
-    )
+    return _lapv2_phase_gate_stage(
+        model,
+        stage2=stage2,
+        optimizer_step=optimizer_step,
+    ) == "stage_a"
 
 
 def _apply_lapv2_phase_gate_mean_pull(model: LAPv1Model) -> None:
@@ -1915,8 +1958,9 @@ def _run_epoch(
                     )
                 optimizer.step()
                 if optimizer_step_counter is not None:
-                    if _lapv2_phase_gate_active(
+                    if _lapv2_phase_gate_should_mean_pull(
                         model,
+                        stage2=stage2,
                         optimizer_step=optimizer_step_counter[0],
                     ):
                         _apply_lapv2_phase_gate_mean_pull(model)

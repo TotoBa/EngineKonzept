@@ -37,6 +37,8 @@ from train.trainers.lapv1 import (
     _build_lazy_dataset,
     _collate_examples,
     _improvement_over_root_loss,
+    _lapv2_phase_gate_should_mean_pull,
+    _lapv2_phase_gate_stage,
     _normalize_lapv2_shared_loss,
     _phase_load_balance_weights,
     _opponent_distill_loss,
@@ -1798,6 +1800,52 @@ def test_load_balancing_weights_in_range() -> None:
     assert torch.all(weights >= 0.5)
     assert pytest.approx(float(weights.mean().item()), rel=1e-6) == 1.0
     assert float(weights[0].item()) < float(weights[-1].item())
+
+
+def test_phase_gate_pulls_experts_in_stage_a() -> None:
+    model = LAPv1Model(
+        LAPv1Config.from_mapping(
+            {
+                "lapv2": {
+                    "enabled": True,
+                    "nnue_value": True,
+                    "nnue_value_phase_moe": True,
+                    "N_accumulator": 8,
+                }
+            }
+        )
+    )
+    stage2 = LAPv1Stage2Config(gate_stage_a_steps=2, gate_stage_b_steps=4)
+
+    assert _lapv2_phase_gate_stage(model, stage2=stage2, optimizer_step=0) == "stage_a"
+    assert _lapv2_phase_gate_should_mean_pull(
+        model,
+        stage2=stage2,
+        optimizer_step=0,
+    )
+
+
+def test_phase_gate_releases_in_stage_b() -> None:
+    model = LAPv1Model(
+        LAPv1Config.from_mapping(
+            {
+                "lapv2": {
+                    "enabled": True,
+                    "nnue_value": True,
+                    "nnue_value_phase_moe": True,
+                    "N_accumulator": 8,
+                }
+            }
+        )
+    )
+    stage2 = LAPv1Stage2Config(gate_stage_a_steps=2, gate_stage_b_steps=4)
+
+    assert _lapv2_phase_gate_stage(model, stage2=stage2, optimizer_step=3) == "stage_b"
+    assert not _lapv2_phase_gate_should_mean_pull(
+        model,
+        stage2=stage2,
+        optimizer_step=3,
+    )
 
 
 def test_phase_nnue_value_on_runs_training_step(tmp_path: Path) -> None:

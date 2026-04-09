@@ -379,6 +379,11 @@ When enabled, the trainer derives empirical per-batch phase weights and
 reweights the per-example root value/policy/sharpness losses so rarer
 phase buckets stay relevant during mixed-corpus LAPv2 training. This is
 still off by default.
+Stage-T2 configs now also accept `stage2.gate_stage_a_steps` and
+`stage2.gate_stage_b_steps`. During Stage A the phase-routed NNUE heads
+stay under the mean-pull hook; during Stage B that hook is released so
+the NNUE experts can diverge while the encoder/embedder phase routing
+remains active.
 
 - [phase10_agent_lapv1_stage2_fast_all_unique_v4.json](/home/torsten/EngineKonzept/python/configs/phase10_agent_lapv1_stage2_fast_all_unique_v4.json)
   Runtime/arena spec for the `v4` Stage-T2 checkpoint.
