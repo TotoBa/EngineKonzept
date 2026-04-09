@@ -222,3 +222,7 @@
   via `stage2.gate_stage_a_steps` and `stage2.gate_stage_b_steps`.
 - Stage A keeps the NNUE heads under the phase mean-pull hook, while
   Stage B releases that hook and lets the NNUE experts diverge.
+- Added per-epoch LAPv2 diagnostics to the trainer history and live logs:
+  expert usage per phase, per-phase root value/policy losses, FT expert
+  drift, adapter cosine distance, and reply-consistency correlation when
+  teacher reply targets are available.

@@ -529,6 +529,101 @@ def test_distill_opponent_on_runs_training_step(tmp_path: Path) -> None:
     assert Path(run.export_paths["checkpoint"]).exists()
 
 
+def test_lapv2_epoch_diagnostics_are_recorded_and_logged(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    train_path = tmp_path / "lapv1_train.jsonl"
+    validation_path = tmp_path / "lapv1_validation.jsonl"
+    _write_examples(
+        train_path,
+        [
+            _planner_example("train-1", teacher_index=0, teacher_cp=60.0, teacher_gap=40.0),
+            _planner_example("train-2", teacher_index=1, teacher_cp=10.0, teacher_gap=10.0),
+        ],
+    )
+    _write_examples(
+        validation_path,
+        [_planner_example("validation-1", teacher_index=0, teacher_cp=50.0, teacher_gap=30.0)],
+    )
+
+    config = LAPv1TrainConfig(
+        seed=18,
+        output_dir=str(tmp_path / "lapv1_out"),
+        stage="T2",
+        data=PlannerDataConfig(
+            train_path=str(train_path),
+            validation_path=str(validation_path),
+        ),
+        model=LAPv1Config.from_mapping(
+            {
+                "lapv2": {
+                    "enabled": True,
+                    "nnue_value": True,
+                    "nnue_value_phase_moe": True,
+                    "nnue_policy": True,
+                    "shared_opponent_readout": True,
+                    "distill_opponent": True,
+                    "distill_fraction": 1.0,
+                    "N_accumulator": 8,
+                },
+                "deliberation": {"max_inner_steps": 2, "min_inner_steps": 1},
+                "opponent_head": {
+                    "architecture": "set_v2",
+                    "hidden_dim": 64,
+                    "hidden_layers": 1,
+                    "action_embedding_dim": 16,
+                    "dropout": 0.0,
+                },
+                "value_head": {"hidden_dim": 256},
+                "policy_head": {
+                    "hidden_dim": 256,
+                    "action_embedding_dim": 32,
+                    "feedforward_dim": 512,
+                },
+                "state_embedder": {"feedforward_dim": 512},
+                "intention_encoder": {"feedforward_dim": 512},
+            }
+        ),
+        optimization=LAPv1OptimizationConfig(
+            epochs=1,
+            batch_size=1,
+            learning_rate=1e-3,
+            weight_decay=0.0,
+            log_interval_batches=1,
+        ),
+        evaluation=PlannerEvaluationConfig(top_k=3),
+        runtime=PlannerRuntimeConfig(torch_threads=1, dataloader_workers=0),
+        export=PlannerExportConfig(bundle_dir=str(tmp_path / "bundle")),
+        stage2=LAPv1Stage2Config(
+            max_inner_steps_schedule=(1,),
+            phase_load_balance=True,
+            gate_stage_a_steps=1,
+            gate_stage_b_steps=2,
+        ),
+    )
+
+    run = train_lapv1(config, repo_root=tmp_path)
+
+    validation_metrics = run.history[0]["validation"]
+    assert validation_metrics["phase_usage"]
+    assert validation_metrics["phase_value_loss"]
+    assert validation_metrics["phase_policy_loss"]
+    assert validation_metrics["ft_drift"] is not None
+    assert validation_metrics["ft_drift"] >= 0.0
+    assert validation_metrics["adapter_cosine_distance"] is not None
+    assert validation_metrics["adapter_cosine_distance"] >= 0.0
+    assert validation_metrics["reply_consistency"] is not None
+    assert -1.0 <= validation_metrics["reply_consistency"] <= 1.0
+
+    captured = capsys.readouterr()
+    assert "phase_usage=" in captured.out
+    assert "phase_value_loss=" in captured.out
+    assert "phase_policy_loss=" in captured.out
+    assert "ft_drift=" in captured.out
+    assert "reply_consistency=" in captured.out
+
+
 def test_train_lapv1_accepts_older_checkpoint_missing_residual_delta_net(
     tmp_path: Path,
 ) -> None:

@@ -40,6 +40,12 @@ _CP_TARGET_SCALE = 256.0
 _GAP_TARGET_SCALE = 128.0
 _ROOT_VALUE_TARGET_CLIP_CP = 1024.0
 _ROOT_GAP_TARGET_CLIP_CP = 512.0
+_PHASE_NAMES = (
+    "opening",
+    "early_middlegame",
+    "late_middlegame",
+    "endgame",
+)
 
 
 @dataclass(frozen=True)
@@ -516,6 +522,12 @@ class LAPv1Metrics:
     mean_teacher_rank_delta: float
     mean_inner_steps_executed: float
     step_histogram: dict[str, int]
+    phase_usage: dict[str, int]
+    phase_value_loss: dict[str, float]
+    phase_policy_loss: dict[str, float]
+    ft_drift: float | None
+    adapter_cosine_distance: float | None
+    reply_consistency: float | None
     examples_per_second: float
 
     def to_dict(self) -> dict[str, object]:
@@ -580,6 +592,28 @@ class LAPv1Metrics:
             "mean_teacher_rank_delta": round(self.mean_teacher_rank_delta, 6),
             "mean_inner_steps_executed": round(self.mean_inner_steps_executed, 6),
             "step_histogram": dict(self.step_histogram),
+            "phase_usage": dict(self.phase_usage),
+            "phase_value_loss": {
+                key: round(value, 6)
+                for key, value in self.phase_value_loss.items()
+            },
+            "phase_policy_loss": {
+                key: round(value, 6)
+                for key, value in self.phase_policy_loss.items()
+            },
+            "ft_drift": (
+                None if self.ft_drift is None else round(self.ft_drift, 6)
+            ),
+            "adapter_cosine_distance": (
+                None
+                if self.adapter_cosine_distance is None
+                else round(self.adapter_cosine_distance, 6)
+            ),
+            "reply_consistency": (
+                None
+                if self.reply_consistency is None
+                else round(self.reply_consistency, 6)
+            ),
             "examples_per_second": round(self.examples_per_second, 3),
         }
 
@@ -1171,7 +1205,13 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
                 f"rollback_example_rate={validation_metrics.rollback_example_rate:.4f} "
                 f"selection_source={selection_source} "
                 f"selection_top1={selection_reference.root_top1_accuracy:.4f} "
-                f"selection_mrr={selection_reference.teacher_root_mean_reciprocal_rank:.4f}",
+                f"selection_mrr={selection_reference.teacher_root_mean_reciprocal_rank:.4f} "
+                f"phase_usage={_format_phase_metric_map(validation_metrics.phase_usage)} "
+                f"phase_value_loss={_format_phase_metric_map(validation_metrics.phase_value_loss, precision=4)} "
+                f"phase_policy_loss={_format_phase_metric_map(validation_metrics.phase_policy_loss, precision=4)} "
+                f"ft_drift={('n/a' if validation_metrics.ft_drift is None else f'{validation_metrics.ft_drift:.4f}')} "
+                f"adapter_cosine={('n/a' if validation_metrics.adapter_cosine_distance is None else f'{validation_metrics.adapter_cosine_distance:.4f}')} "
+                f"reply_consistency={('n/a' if validation_metrics.reply_consistency is None else f'{validation_metrics.reply_consistency:.4f}')}",
                 flush=True,
             )
 
@@ -1685,6 +1725,17 @@ def _run_epoch(
     root_correct_degraded_count = 0
     teacher_rank_delta_sum = 0.0
     step_histogram: dict[str, int] = {}
+    phase_usage: dict[str, int] = {}
+    phase_value_loss_sums: dict[str, float] = {}
+    phase_policy_loss_sums: dict[str, float] = {}
+    reply_consistency_stats = {
+        "count": 0.0,
+        "sum_student": 0.0,
+        "sum_teacher": 0.0,
+        "sum_student_sq": 0.0,
+        "sum_teacher_sq": 0.0,
+        "sum_product": 0.0,
+    }
 
     order = list(range(len(examples)))
     if training:
@@ -1915,6 +1966,22 @@ def _run_epoch(
                 + optimization.policy_margin_weight * policy_margin_loss
                 + optimization.policy_rank_weight * policy_rank_loss
             )
+            per_example_value_branch = (
+                optimization.value_wdl_weight * value_wdl_per_example.detach()
+                + optimization.value_cp_weight * value_cp_per_example.detach()
+            )
+            per_example_policy_branch = (
+                optimization.policy_ce_weight * policy_ce_per_example.detach()
+                + optimization.policy_kl_weight * policy_kl_per_example.detach()
+                + (
+                    optimization.policy_margin_weight
+                    * float(policy_margin_loss.detach().item())
+                )
+                + (
+                    optimization.policy_rank_weight
+                    * float(policy_rank_loss.detach().item())
+                )
+            )
             if model.config.lapv2.nnue_policy_enabled and loss_balance_state is not None:
                 value_shared_loss = _normalize_lapv2_shared_loss(
                     raw_loss=value_shared_loss,
@@ -1983,6 +2050,28 @@ def _run_epoch(
                 initial_logits,
                 batch["teacher_top1_candidate_index"],
             )
+            for example_index, phase_value in enumerate(batch["phase_index"].tolist()):
+                phase_name = _phase_index_name(int(phase_value))
+                phase_usage[phase_name] = phase_usage.get(phase_name, 0) + 1
+                phase_value_loss_sums[phase_name] = phase_value_loss_sums.get(
+                    phase_name,
+                    0.0,
+                ) + float(per_example_value_branch[example_index].item())
+                phase_policy_loss_sums[phase_name] = phase_policy_loss_sums.get(
+                    phase_name,
+                    0.0,
+                ) + float(per_example_policy_branch[example_index].item())
+            for student_reply_logits, teacher_reply_logits, step_active_mask in zip(
+                step_student_reply_logits_tensors,
+                step_teacher_reply_logits_tensors,
+                step_active_masks,
+            ):
+                _update_reply_consistency_stats(
+                    reply_consistency_stats,
+                    student_reply_logits=student_reply_logits,
+                    teacher_reply_logits=teacher_reply_logits,
+                    step_active_mask=step_active_mask,
+                )
             total_examples += len(batch_examples)
             total_loss += float(loss.item()) * len(batch_examples)
             total_value_wdl += float(value_wdl_loss.item()) * len(batch_examples)
@@ -2097,6 +2186,24 @@ def _run_epoch(
             del sigma_value
 
     duration = max(time.perf_counter() - start_time, 1e-9)
+    phase_usage_sorted = {
+        phase_name: phase_usage[phase_name]
+        for phase_name in sorted(
+            phase_usage,
+            key=lambda name: (
+                _PHASE_NAMES.index(name) if name in _PHASE_NAMES else len(_PHASE_NAMES),
+                name,
+            ),
+        )
+    }
+    phase_value_loss = {
+        phase_name: phase_value_loss_sums[phase_name] / phase_usage_sorted[phase_name]
+        for phase_name in phase_usage_sorted
+    }
+    phase_policy_loss = {
+        phase_name: phase_policy_loss_sums[phase_name] / phase_usage_sorted[phase_name]
+        for phase_name in phase_usage_sorted
+    }
     return LAPv1Metrics(
         total_examples=total_examples,
         supervised_examples=total_examples,
@@ -2148,6 +2255,12 @@ def _run_epoch(
         mean_teacher_rank_delta=teacher_rank_delta_sum / total_examples,
         mean_inner_steps_executed=total_trace_steps / total_examples,
         step_histogram=dict(sorted(step_histogram.items(), key=lambda item: int(item[0]))),
+        phase_usage=phase_usage_sorted,
+        phase_value_loss=phase_value_loss,
+        phase_policy_loss=phase_policy_loss,
+        ft_drift=_lapv2_ft_drift(model),
+        adapter_cosine_distance=_lapv2_adapter_cosine_distance(model),
+        reply_consistency=_finalize_reply_consistency(reply_consistency_stats),
         examples_per_second=total_examples / duration,
     )
 
@@ -2489,6 +2602,108 @@ def _phase_weighted_mean(
     if phase_weights.shape != per_example_loss.shape:
         raise ValueError("phase_weights must align with per_example_loss")
     return torch.sum(per_example_loss * phase_weights) / phase_weights.sum().clamp_min(1e-6)
+
+
+def _phase_index_name(phase_index: int) -> str:
+    if 0 <= phase_index < len(_PHASE_NAMES):
+        return _PHASE_NAMES[phase_index]
+    return f"phase_{phase_index}"
+
+
+def _format_phase_metric_map(
+    phase_metrics: Mapping[str, float | int],
+    *,
+    precision: int | None = None,
+) -> str:
+    ordered_keys = list(_PHASE_NAMES) + sorted(
+        key for key in phase_metrics if key not in _PHASE_NAMES
+    )
+    rendered: list[str] = []
+    for key in ordered_keys:
+        if key not in phase_metrics:
+            continue
+        value = phase_metrics[key]
+        if isinstance(value, float) and precision is not None:
+            rendered.append(f"{key}:{value:.{precision}f}")
+        else:
+            rendered.append(f"{key}:{value}")
+    return ",".join(rendered) if rendered else "none"
+
+
+def _lapv2_ft_drift(model: LAPv1Model) -> float | None:
+    if model.ft is None or not hasattr(model.ft, "experts"):
+        return None
+    experts = list(model.ft.experts)
+    if len(experts) <= 1:
+        return 0.0
+    weights = torch.stack(
+        [expert.ft.weight.detach().reshape(-1) for expert in experts],
+        dim=0,
+    )
+    mean_weight = weights.mean(dim=0, keepdim=True)
+    drift = torch.linalg.vector_norm(weights - mean_weight, dim=1).mean()
+    return float(drift.item())
+
+
+def _lapv2_adapter_cosine_distance(model: LAPv1Model) -> float | None:
+    if (
+        not model.config.lapv2.nnue_policy_enabled
+        or model.policy_head_nnue is None
+        or model.value_head_nnue is None
+    ):
+        return None
+    value_adapters = _lapv2_policy_value_adapters(model.value_head_nnue)
+    policy_adapters = _lapv2_policy_value_adapters(model.policy_head_nnue)
+    distances: list[float] = []
+    for value_adapter, policy_adapter in zip(value_adapters, policy_adapters, strict=True):
+        cosine = torch.nn.functional.cosine_similarity(
+            value_adapter.detach().reshape(1, -1),
+            policy_adapter.detach().reshape(1, -1),
+            dim=1,
+        ).mean()
+        distances.append(float((1.0 - cosine).item()))
+    if not distances:
+        return None
+    return sum(distances) / len(distances)
+
+
+def _update_reply_consistency_stats(
+    stats: dict[str, float],
+    *,
+    student_reply_logits: torch.Tensor,
+    teacher_reply_logits: torch.Tensor,
+    step_active_mask: torch.Tensor,
+) -> None:
+    if not bool(step_active_mask.any().item()):
+        return
+    student_values = student_reply_logits.detach()[step_active_mask].reshape(-1)
+    teacher_values = teacher_reply_logits.detach()[step_active_mask].reshape(-1)
+    if student_values.numel() == 0:
+        return
+    stats["count"] += float(student_values.numel())
+    stats["sum_student"] += float(student_values.sum().item())
+    stats["sum_teacher"] += float(teacher_values.sum().item())
+    stats["sum_student_sq"] += float(student_values.square().sum().item())
+    stats["sum_teacher_sq"] += float(teacher_values.square().sum().item())
+    stats["sum_product"] += float((student_values * teacher_values).sum().item())
+
+
+def _finalize_reply_consistency(stats: Mapping[str, float]) -> float | None:
+    count = stats.get("count", 0.0)
+    if count <= 1.0:
+        return None
+    sum_student = stats.get("sum_student", 0.0)
+    sum_teacher = stats.get("sum_teacher", 0.0)
+    sum_student_sq = stats.get("sum_student_sq", 0.0)
+    sum_teacher_sq = stats.get("sum_teacher_sq", 0.0)
+    sum_product = stats.get("sum_product", 0.0)
+    numerator = (count * sum_product) - (sum_student * sum_teacher)
+    denom_left = (count * sum_student_sq) - (sum_student * sum_student)
+    denom_right = (count * sum_teacher_sq) - (sum_teacher * sum_teacher)
+    denominator = max(denom_left * denom_right, 0.0) ** 0.5
+    if denominator <= 1e-12:
+        return None
+    return numerator / denominator
 
 
 def _lapv2_adapter_decoupling_loss(model: LAPv1Model) -> torch.Tensor:

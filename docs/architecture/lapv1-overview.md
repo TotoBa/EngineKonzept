@@ -315,6 +315,16 @@ previously quiet parts of the pipeline:
 - the Phase-10 campaign log reports the real configured LAPv1 stage (`T1` or
   `T2`) instead of a hard-coded `Stage1` label
 
+On top of those progress lines, each completed epoch now records and prints
+LAPv2-specific diagnostics that are directly useful for longer tuning runs:
+
+- expert usage per phase bucket
+- per-phase root value and policy branch losses
+- FT expert drift from the shared mean
+- cosine distance between NNUE value and policy adapters
+- reply-consistency correlation when opponent distillation exposes both
+  student and teacher reply tensors
+
 Hard boundaries:
 
 - no recursive tree expansion

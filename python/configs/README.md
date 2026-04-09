@@ -384,6 +384,11 @@ Stage-T2 configs now also accept `stage2.gate_stage_a_steps` and
 stay under the mean-pull hook; during Stage B that hook is released so
 the NNUE experts can diverge while the encoder/embedder phase routing
 remains active.
+Stage-T2 epoch summaries now also expose per-phase expert usage, per-phase
+value/policy branch losses, FT drift, adapter cosine distance, and
+reply-consistency correlation in both the live log and the serialized
+`summary.json` history. That output is intended to make long LAPv2 runs
+debuggable without another custom analysis pass.
 
 - [phase10_agent_lapv1_stage2_fast_all_unique_v4.json](/home/torsten/EngineKonzept/python/configs/phase10_agent_lapv1_stage2_fast_all_unique_v4.json)
   Runtime/arena spec for the `v4` Stage-T2 checkpoint.
