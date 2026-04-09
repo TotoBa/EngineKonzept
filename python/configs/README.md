@@ -284,6 +284,13 @@ targets. `lapv2.accumulator_cache` is eval/runtime-only: it keeps the
 existing vectorized training path, but the NNUE policy scorer may reuse
 fixed-phase incremental successor accumulators in inference and now
 writes cache hit/miss diagnostics into the model outputs.
+The first explicit LAPv2 warm-start export path now lives in
+[build_lapv2_warm_start_checkpoint.py](/home/torsten/EngineKonzept/python/scripts/build_lapv2_warm_start_checkpoint.py).
+It takes one existing LAPv1 stage-T2 checkpoint plus a target LAPv2
+training config and materializes an init checkpoint for the next run:
+phase-routed encoder/embedder/sharpness modules are expanded from the
+source weights, while `ft`, `value_head_nnue`, `policy_head_nnue`, and
+`opponent_readout` remain freshly initialized.
 
 - [phase10_lapv1_stage1_10k_122k_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage1_10k_122k_v1.json)
   First prepared LAPv1 Stage-T1 config. Reuses the preferred filtered `10k + 122k` planner-head workflow slice, keeps deliberation disabled via `max_inner_steps=0`, and targets the first static-head bootstrap run under [models/lapv1/stage1_10k_122k_v1](/home/torsten/EngineKonzept/models/lapv1/stage1_10k_122k_v1). The current reference uses a conservative `learning_rate=3e-4` plus `max_grad_norm=1.0` for large-model CPU stability, sets `log_interval_batches=128` so long CPU runs emit mid-epoch batch progress, clips LAPv1 root-value teacher targets to a robust `±1024cp` range before regression, clips raw teacher top1-top2 gap targets to `±512cp` before they feed margin supervision, skips margin supervision entirely on single-candidate rows, uses a robust Smooth-L1 margin contract instead of raw MSE on logit gaps, defensively re-clips those raw gap targets again inside the loss path, and caps the value-head `cp_score` output to the same `±1024cp` band so early bootstrap updates cannot run away numerically.

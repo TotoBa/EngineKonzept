@@ -194,3 +194,20 @@
   eval identity, and top-k cache reuse hits in
   [test_dual_accumulator.py](/home/torsten/EngineKonzept/python/tests/test_dual_accumulator.py)
   and [test_lapv1_model.py](/home/torsten/EngineKonzept/python/tests/test_lapv1_model.py).
+
+## Schritt 13
+
+- Added the dedicated LAPv2 warm-start export path in
+  [lapv1.py](/home/torsten/EngineKonzept/python/train/trainers/lapv1.py)
+  via `build_lapv2_warm_start_checkpoint(...)`.
+- Added the CLI helper
+  [build_lapv2_warm_start_checkpoint.py](/home/torsten/EngineKonzept/python/scripts/build_lapv2_warm_start_checkpoint.py)
+  to materialize a LAPv2 init checkpoint from an existing LAPv1 stage-T2
+  checkpoint and a target LAPv2 config.
+- The warm-start export preserves the copied LAPv1 trunk exactly, expands
+  phase-routed experts from the source checkpoint, and leaves `ft`,
+  `value_head_nnue`, `policy_head_nnue`, and `opponent_readout` on fresh
+  initialization.
+- Added regression coverage for the exported checkpoint contract and the
+  copied root-path forward equivalence in
+  [test_lapv1_trainer.py](/home/torsten/EngineKonzept/python/tests/test_lapv1_trainer.py).

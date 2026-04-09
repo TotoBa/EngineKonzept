@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 import pytest
@@ -30,6 +31,7 @@ from train.trainers.lapv1 import (
     LAPv1Stage2Config,
     LAPv1Stage2PhaseConfig,
     LAPv1TrainConfig,
+    build_lapv2_warm_start_checkpoint,
     _apply_lapv2_phase_gate_mean_pull,
     _load_lapv1_model_state,
     _build_lazy_dataset,
@@ -1519,6 +1521,239 @@ def test_phase_nnue_value_warm_start_matches_single(tmp_path: Path) -> None:
     assert torch.allclose(
         single_outputs["final_value"]["cp_score"],
         phase_outputs["final_value"]["cp_score"],
+        atol=1e-6,
+    )
+
+
+def test_warm_start_checkpoint_forward_matches_lapv1(tmp_path: Path) -> None:
+    source_config = LAPv1TrainConfig(
+        seed=11,
+        output_dir=str(tmp_path / "src_out"),
+        stage="T2",
+        data=PlannerDataConfig(
+            train_path=str(tmp_path / "src_train.jsonl"),
+            validation_path=str(tmp_path / "src_validation.jsonl"),
+        ),
+        model=LAPv1Config.from_mapping(
+            {
+                "deliberation": {"max_inner_steps": 2, "min_inner_steps": 1},
+                "opponent_head": {
+                    "architecture": "set_v2",
+                    "hidden_dim": 64,
+                    "hidden_layers": 1,
+                    "action_embedding_dim": 16,
+                    "dropout": 0.0,
+                },
+                "value_head": {"hidden_dim": 1024},
+                "policy_head": {
+                    "hidden_dim": 512,
+                    "action_embedding_dim": 32,
+                    "feedforward_dim": 1024,
+                },
+                "state_embedder": {"feedforward_dim": 1024},
+                "intention_encoder": {"feedforward_dim": 1024},
+            }
+        ),
+        optimization=LAPv1OptimizationConfig(epochs=1, batch_size=2, learning_rate=1e-3),
+        evaluation=PlannerEvaluationConfig(top_k=3),
+        runtime=PlannerRuntimeConfig(torch_threads=1, dataloader_workers=0),
+        export=PlannerExportConfig(bundle_dir=str(tmp_path / "src_bundle")),
+        stage2=LAPv1Stage2Config(
+            phases=(
+                LAPv1Stage2PhaseConfig(
+                    name="joint",
+                    epochs=1,
+                    trainable_parameter_groups=("all",),
+                    max_inner_steps_schedule=(2,),
+                ),
+            )
+        ),
+    )
+    target_config = LAPv1TrainConfig(
+        seed=12,
+        output_dir=str(tmp_path / "target_out"),
+        stage="T2",
+        data=PlannerDataConfig(
+            train_path=str(tmp_path / "target_train.jsonl"),
+            validation_path=str(tmp_path / "target_validation.jsonl"),
+        ),
+        model=LAPv1Config.from_mapping(
+            {
+                "deliberation": {"max_inner_steps": 2, "min_inner_steps": 1},
+                "opponent_head": {
+                    "architecture": "set_v2",
+                    "hidden_dim": 64,
+                    "hidden_layers": 1,
+                    "action_embedding_dim": 16,
+                    "dropout": 0.0,
+                },
+                "value_head": {"hidden_dim": 1024},
+                "policy_head": {
+                    "hidden_dim": 512,
+                    "action_embedding_dim": 32,
+                    "feedforward_dim": 1024,
+                },
+                "state_embedder": {"feedforward_dim": 1024},
+                "intention_encoder": {"feedforward_dim": 1024},
+                "lapv2": {
+                    "enabled": True,
+                    "phase_moe": True,
+                    "nnue_value": True,
+                    "nnue_value_phase_moe": True,
+                    "nnue_policy": True,
+                    "shared_opponent_readout": True,
+                    "N_accumulator": 8,
+                },
+            }
+        ),
+        optimization=LAPv1OptimizationConfig(epochs=1, batch_size=2, learning_rate=1e-3),
+        evaluation=PlannerEvaluationConfig(top_k=3),
+        runtime=PlannerRuntimeConfig(torch_threads=1, dataloader_workers=0),
+        export=PlannerExportConfig(bundle_dir=str(tmp_path / "target_bundle")),
+        stage2=LAPv1Stage2Config(
+            phases=(
+                LAPv1Stage2PhaseConfig(
+                    name="joint",
+                    epochs=1,
+                    trainable_parameter_groups=("all",),
+                    max_inner_steps_schedule=(2,),
+                ),
+            )
+        ),
+    )
+    source_model = LAPv1Model(source_config.model)
+    source_checkpoint = tmp_path / "lapv1_t2_source.pt"
+    torch.save(
+        {
+            "model_name": LAPV1_MODEL_NAME,
+            "lapv2_version": 0,
+            "model_state_dict": source_model.state_dict(),
+            "training_config": source_config.to_dict(),
+        },
+        source_checkpoint,
+    )
+    output_checkpoint = tmp_path / "lapv2_warm_start.pt"
+
+    result = build_lapv2_warm_start_checkpoint(
+        source_checkpoint,
+        target_config=target_config,
+        output_checkpoint=output_checkpoint,
+    )
+
+    payload = torch.load(output_checkpoint, map_location="cpu")
+    target_model = LAPv1Model(target_config.model)
+    target_model.load_state_dict(payload["model_state_dict"])
+    batch = _collate_examples(
+        [
+            lapv1_training_example_from_planner_head(
+                _planner_example("warm-1", teacher_index=0, teacher_cp=30.0, teacher_gap=20.0)
+            ),
+            lapv1_training_example_from_planner_head(
+                _planner_example("warm-2", teacher_index=1, teacher_cp=-10.0, teacher_gap=15.0)
+            ),
+        ]
+    )
+    source_model.eval()
+    target_model.eval()
+    with torch.inference_mode():
+        source_outputs = source_model(
+            batch["piece_tokens"],
+            batch["square_tokens"],
+            batch["state_context_global"],
+            batch["reachability_edges"],
+            batch["candidate_features"],
+            batch["candidate_action_indices"],
+            batch["candidate_mask"],
+            phase_index=batch["phase_index"],
+            side_to_move=batch["side_to_move"],
+            nnue_feat_white_indices=batch["nnue_feat_white_indices"],
+            nnue_feat_white_offsets=batch["nnue_feat_white_offsets"],
+            nnue_feat_black_indices=batch["nnue_feat_black_indices"],
+            nnue_feat_black_offsets=batch["nnue_feat_black_offsets"],
+            candidate_move_types=batch["candidate_move_types"],
+            candidate_delta_white_leave_indices=batch["candidate_delta_white_leave_indices"],
+            candidate_delta_white_leave_offsets=batch["candidate_delta_white_leave_offsets"],
+            candidate_delta_white_enter_indices=batch["candidate_delta_white_enter_indices"],
+            candidate_delta_white_enter_offsets=batch["candidate_delta_white_enter_offsets"],
+            candidate_delta_black_leave_indices=batch["candidate_delta_black_leave_indices"],
+            candidate_delta_black_leave_offsets=batch["candidate_delta_black_leave_offsets"],
+            candidate_delta_black_enter_indices=batch["candidate_delta_black_enter_indices"],
+            candidate_delta_black_enter_offsets=batch["candidate_delta_black_enter_offsets"],
+            candidate_nnue_feat_white_after_move_indices=batch[
+                "candidate_nnue_feat_white_after_move_indices"
+            ],
+            candidate_nnue_feat_white_after_move_offsets=batch[
+                "candidate_nnue_feat_white_after_move_offsets"
+            ],
+            candidate_nnue_feat_black_after_move_indices=batch[
+                "candidate_nnue_feat_black_after_move_indices"
+            ],
+            candidate_nnue_feat_black_after_move_offsets=batch[
+                "candidate_nnue_feat_black_after_move_offsets"
+            ],
+            candidate_has_king_move=batch["candidate_has_king_move"],
+        )
+        target_outputs = target_model(
+            batch["piece_tokens"],
+            batch["square_tokens"],
+            batch["state_context_global"],
+            batch["reachability_edges"],
+            batch["candidate_features"],
+            batch["candidate_action_indices"],
+            batch["candidate_mask"],
+            phase_index=batch["phase_index"],
+            side_to_move=batch["side_to_move"],
+            nnue_feat_white_indices=batch["nnue_feat_white_indices"],
+            nnue_feat_white_offsets=batch["nnue_feat_white_offsets"],
+            nnue_feat_black_indices=batch["nnue_feat_black_indices"],
+            nnue_feat_black_offsets=batch["nnue_feat_black_offsets"],
+            candidate_move_types=batch["candidate_move_types"],
+            candidate_delta_white_leave_indices=batch["candidate_delta_white_leave_indices"],
+            candidate_delta_white_leave_offsets=batch["candidate_delta_white_leave_offsets"],
+            candidate_delta_white_enter_indices=batch["candidate_delta_white_enter_indices"],
+            candidate_delta_white_enter_offsets=batch["candidate_delta_white_enter_offsets"],
+            candidate_delta_black_leave_indices=batch["candidate_delta_black_leave_indices"],
+            candidate_delta_black_leave_offsets=batch["candidate_delta_black_leave_offsets"],
+            candidate_delta_black_enter_indices=batch["candidate_delta_black_enter_indices"],
+            candidate_delta_black_enter_offsets=batch["candidate_delta_black_enter_offsets"],
+            candidate_nnue_feat_white_after_move_indices=batch[
+                "candidate_nnue_feat_white_after_move_indices"
+            ],
+            candidate_nnue_feat_white_after_move_offsets=batch[
+                "candidate_nnue_feat_white_after_move_offsets"
+            ],
+            candidate_nnue_feat_black_after_move_indices=batch[
+                "candidate_nnue_feat_black_after_move_indices"
+            ],
+            candidate_nnue_feat_black_after_move_offsets=batch[
+                "candidate_nnue_feat_black_after_move_offsets"
+            ],
+            candidate_has_king_move=batch["candidate_has_king_move"],
+        )
+
+    assert result.lapv2_version == 1
+    assert output_checkpoint.exists()
+    assert payload["warm_start_source_checkpoint"] == str(source_checkpoint)
+    assert payload["lapv2_version"] == 1
+    assert tuple(payload["warm_start_fresh_init_prefixes"]) == (
+        "ft.",
+        "value_head_nnue.",
+        "policy_head_nnue.",
+        "deliberation_loop.reply_signal_projector.opponent_readout.",
+    )
+    assert torch.allclose(source_outputs["piece_intentions"], target_outputs["piece_intentions"], atol=1e-6)
+    assert torch.allclose(source_outputs["z_root"], target_outputs["z_root"], atol=1e-6)
+    assert torch.allclose(source_outputs["root_sharpness"], target_outputs["root_sharpness"], atol=1e-6)
+    assert target_model.opponent_readout is not None
+    assert target_model.ft is not None
+    assert math.isclose(
+        float(target_model.ft.experts[0].ft.weight.std().item()),
+        1.0 / math.sqrt(8.0),
+        rel_tol=0.35,
+    )
+    assert torch.allclose(
+        target_model.intention_encoder.experts[0].square_embedding.weight,
+        target_model.intention_encoder.experts[3].square_embedding.weight,
         atol=1e-6,
     )
 

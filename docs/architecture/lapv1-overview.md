@@ -273,6 +273,16 @@ holdout that is fixed across phases. That is important once some phases validate
 on hard subsets and others validate on the full corpus; otherwise `best_epoch`
 quietly compares incomparable validation slices.
 
+The first explicit LAPv2 warm-start export path now also exists. Instead of
+bootstrapping a new LAPv2 run by loading a legacy checkpoint ad hoc at train
+time, [build_lapv2_warm_start_checkpoint.py](/home/torsten/EngineKonzept/python/scripts/build_lapv2_warm_start_checkpoint.py)
+can now materialize one proper init checkpoint in advance:
+
+- phase-routed encoder/embedder/sharpness modules are expanded from the LAPv1 source
+- the old shared trunk remains numerically identical
+- `ft`, `value_head_nnue`, `policy_head_nnue`, and `opponent_readout` stay on
+  fresh initialization for the actual LAPv2 adaptation
+
 Stage-T2 now also uses an explicit improvement-over-root loss on positions where
 the detached root policy is still wrong. Final logits and intermediate step
 logits are penalized when they fail to beat the detached root cross-entropy by a

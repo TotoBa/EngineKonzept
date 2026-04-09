@@ -587,6 +587,26 @@ class LAPv1TrainingRun:
         }
 
 
+@dataclass(frozen=True)
+class LAPv1WarmStartResult:
+    """Serializable result summary for one LAPv2 warm-start checkpoint export."""
+
+    output_checkpoint: str
+    source_checkpoint: str
+    target_stage: str
+    lapv2_version: int
+    fresh_init_prefixes: list[str]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "output_checkpoint": self.output_checkpoint,
+            "source_checkpoint": self.source_checkpoint,
+            "target_stage": self.target_stage,
+            "lapv2_version": self.lapv2_version,
+            "fresh_init_prefixes": list(self.fresh_init_prefixes),
+        }
+
+
 _PreparedLAPv1Example = LAPv1TrainingExample
 
 
@@ -1205,6 +1225,71 @@ def count_lapv1_model_parameters(config: LAPv1TrainConfig) -> int:
     return sum(parameter.numel() for parameter in model.parameters())
 
 
+def build_lapv2_warm_start_checkpoint(
+    source_checkpoint: Path | str,
+    *,
+    target_config: LAPv1TrainConfig,
+    output_checkpoint: Path | str,
+) -> LAPv1WarmStartResult:
+    """Materialize one LAPv2 init checkpoint from an existing LAPv1 T2 checkpoint."""
+    if torch is None or not torch_is_available():  # pragma: no cover
+        raise RuntimeError(
+            "PyTorch is required for LAPv2 warm-start export. Install the 'train' extra or torch."
+        )
+    if not target_config.model.lapv2.enabled:
+        raise ValueError("target_config.model.lapv2.enabled must be true for LAPv2 warm starts")
+    source_path = Path(source_checkpoint)
+    output_path = Path(output_checkpoint)
+    payload = torch.load(source_path, map_location="cpu")
+    if payload.get("model_name") != LAPV1_MODEL_NAME:
+        raise ValueError(
+            f"{source_path}: unsupported LAPv1 model name {payload.get('model_name')!r}"
+        )
+    source_training_config_payload = payload.get("training_config")
+    if not isinstance(source_training_config_payload, Mapping):
+        raise ValueError(f"{source_path}: checkpoint is missing training_config")
+    source_training_config = LAPv1TrainConfig.from_dict(
+        dict(source_training_config_payload)
+    )
+    if source_training_config.stage != "T2":
+        raise ValueError(f"{source_path}: warm-start source must be a stage-T2 checkpoint")
+    model = LAPv1Model(target_config.model)
+    _load_lapv1_model_state(
+        model,
+        dict(payload["model_state_dict"]),
+        checkpoint_path=source_path,
+    )
+    aux_probe = _PieceRoleAuxProbe(
+        intention_dim=target_config.model.intention_encoder.intention_dim
+    )
+    aux_state_dict = payload.get("aux_state_dict")
+    if isinstance(aux_state_dict, Mapping):
+        aux_probe.load_state_dict(dict(aux_state_dict))
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fresh_init_prefixes = list(_lapv2_fresh_init_prefixes(model))
+    torch.save(
+        {
+            "model_name": LAPV1_MODEL_NAME,
+            "lapv2_version": LAPV2_MODEL_VERSION,
+            "model_state_dict": model.state_dict(),
+            "aux_state_dict": aux_probe.state_dict(),
+            "training_config": target_config.to_dict(),
+            "warm_start_source_checkpoint": str(source_path),
+            "warm_start_source_stage": source_training_config.stage,
+            "warm_start_fresh_init_prefixes": fresh_init_prefixes,
+            "warm_start_source_best_validation": payload.get("best_validation"),
+        },
+        output_path,
+    )
+    return LAPv1WarmStartResult(
+        output_checkpoint=str(output_path),
+        source_checkpoint=str(source_path),
+        target_stage=target_config.stage,
+        lapv2_version=LAPV2_MODEL_VERSION,
+        fresh_init_prefixes=fresh_init_prefixes,
+    )
+
+
 def _load_lapv1_model_state(
     model: LAPv1Model,
     state_dict: Mapping[str, Any],
@@ -1214,15 +1299,8 @@ def _load_lapv1_model_state(
     effective_state_dict = _expand_legacy_phase_moe_state_dict(model, state_dict)
     compatible_missing_prefixes = ["deliberation_loop.cell.candidate_delta_network."]
     compatible_unexpected_prefixes: list[str] = []
-    lapv2_fresh_init_prefixes: list[str] = []
-    if model.config.lapv2.nnue_value_enabled:
-        lapv2_fresh_init_prefixes.extend(["ft.", "value_head_nnue."])
-    if model.config.lapv2.nnue_policy_enabled:
-        lapv2_fresh_init_prefixes.append("policy_head_nnue.")
+    lapv2_fresh_init_prefixes = list(_lapv2_fresh_init_prefixes(model))
     if model.config.lapv2.enabled and model.config.lapv2.shared_opponent_readout:
-        lapv2_fresh_init_prefixes.append(
-            "deliberation_loop.reply_signal_projector.opponent_readout."
-        )
         compatible_unexpected_prefixes.extend(
             [
                 "deliberation_loop.reply_signal_projector.opponent_head.",
@@ -1273,6 +1351,17 @@ def _load_lapv1_model_state(
             f"{checkpoint_path}: incompatible LAPv1 checkpoint is missing unsupported keys: "
             + ", ".join(sorted(remaining_missing))
         )
+
+
+def _lapv2_fresh_init_prefixes(model: LAPv1Model) -> tuple[str, ...]:
+    prefixes: list[str] = []
+    if model.config.lapv2.nnue_value_enabled:
+        prefixes.extend(["ft.", "value_head_nnue."])
+    if model.config.lapv2.nnue_policy_enabled:
+        prefixes.append("policy_head_nnue.")
+    if model.config.lapv2.enabled and model.config.lapv2.shared_opponent_readout:
+        prefixes.append("deliberation_loop.reply_signal_projector.opponent_readout.")
+    return tuple(prefixes)
 
 
 def _expand_legacy_phase_moe_state_dict(
