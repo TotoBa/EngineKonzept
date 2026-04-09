@@ -21,7 +21,13 @@ from train.datasets.artifacts import (
 )
 from train.datasets.nnue_features import TOTAL_FEATURES
 from train.models.deliberation import DeliberationLoop
-from train.models.dual_accumulator import DualAccumulatorBuilder, build_sparse_rows
+from train.models.dual_accumulator import (
+    AccumulatorCache,
+    DualAccumulatorBuilder,
+    build_sparse_rows,
+    pack_sparse_feature_lists,
+    unpack_sparse_row,
+)
 from train.models.feature_transformer import FeatureTransformer
 from train.models.intention_encoder import PieceIntentionEncoder
 from train.models.opponent import OpponentHeadModel
@@ -613,62 +619,151 @@ if torch is not None and nn is not None:
             candidate_nnue_feat_black_after_move_indices: torch.Tensor,
             candidate_nnue_feat_black_after_move_offsets: torch.Tensor,
             candidate_has_king_move: torch.Tensor,
-        ) -> torch.Tensor:
+        ) -> tuple[torch.Tensor, list[AccumulatorCache] | None, dict[str, Any]]:
             if self.ft is None or self.policy_head_nnue is None:
                 raise RuntimeError("lapv2.nnue_policy is enabled but policy modules are missing")
             batch_size, candidate_count = candidate_move_types.shape
+            use_cache = bool(self.config.lapv2.accumulator_cache and not self.training)
+            if use_cache:
+                succ_white_rows: list[torch.Tensor] = []
+                succ_black_rows: list[torch.Tensor] = []
+                caches: list[AccumulatorCache] = []
+                for batch_index in range(batch_size):
+                    sample_phase = (
+                        None
+                        if phase_idx is None
+                        else int(phase_idx[batch_index].item())
+                    )
+                    cache = AccumulatorCache(self.ft, phase_idx=sample_phase)
+                    cache.init_from_accumulators(
+                        a_white[batch_index : batch_index + 1],
+                        a_black[batch_index : batch_index + 1],
+                    )
+                    caches.append(cache)
+                    candidate_white_rows: list[torch.Tensor] = []
+                    candidate_black_rows: list[torch.Tensor] = []
+                    for candidate_index in range(candidate_count):
+                        if not bool(candidate_mask[batch_index, candidate_index].item()):
+                            candidate_white_rows.append(
+                                a_white[batch_index : batch_index + 1].clone()
+                            )
+                            candidate_black_rows.append(
+                                a_black[batch_index : batch_index + 1].clone()
+                            )
+                            continue
+                        flat_index = batch_index * candidate_count + candidate_index
+                        has_king_move = bool(
+                            candidate_has_king_move[batch_index, candidate_index].item()
+                        )
+
+                        def full_rebuild(
+                            *,
+                            sample_phase_index: int | None = sample_phase,
+                            row_index: int = flat_index,
+                        ) -> tuple[torch.Tensor, torch.Tensor]:
+                            white_after = self._build_single_sparse_accumulator(
+                                candidate_nnue_feat_white_after_move_indices,
+                                candidate_nnue_feat_white_after_move_offsets,
+                                row_index=row_index,
+                                phase_value=sample_phase_index,
+                                device=a_white.device,
+                            )
+                            black_after = self._build_single_sparse_accumulator(
+                                candidate_nnue_feat_black_after_move_indices,
+                                candidate_nnue_feat_black_after_move_offsets,
+                                row_index=row_index,
+                                phase_value=sample_phase_index,
+                                device=a_white.device,
+                            )
+                            return white_after, black_after
+
+                        succ_white, succ_black = cache.successor(
+                            candidate_index,
+                            unpack_sparse_row(
+                                candidate_delta_white_leave_indices,
+                                candidate_delta_white_leave_offsets,
+                                flat_index,
+                            ),
+                            unpack_sparse_row(
+                                candidate_delta_white_enter_indices,
+                                candidate_delta_white_enter_offsets,
+                                flat_index,
+                            ),
+                            unpack_sparse_row(
+                                candidate_delta_black_leave_indices,
+                                candidate_delta_black_leave_offsets,
+                                flat_index,
+                            ),
+                            unpack_sparse_row(
+                                candidate_delta_black_enter_indices,
+                                candidate_delta_black_enter_offsets,
+                                flat_index,
+                            ),
+                            is_king_w=has_king_move,
+                            is_king_b=has_king_move,
+                            full_rebuild_fn=full_rebuild if has_king_move else None,
+                        )
+                        candidate_white_rows.append(succ_white)
+                        candidate_black_rows.append(succ_black)
+                    succ_white_rows.append(torch.cat(candidate_white_rows, dim=0).unsqueeze(0))
+                    succ_black_rows.append(torch.cat(candidate_black_rows, dim=0).unsqueeze(0))
+                succ_white = torch.cat(succ_white_rows, dim=0)
+                succ_black = torch.cat(succ_black_rows, dim=0)
+            else:
+                caches = None
             candidate_phase_idx = (
                 None
                 if phase_idx is None
                 else phase_idx.repeat_interleave(candidate_count)
             )
-            leave_white = build_sparse_rows(
-                self.ft,
-                candidate_delta_white_leave_indices,
-                candidate_delta_white_leave_offsets,
-                phase_idx=candidate_phase_idx,
-            )
-            enter_white = build_sparse_rows(
-                self.ft,
-                candidate_delta_white_enter_indices,
-                candidate_delta_white_enter_offsets,
-                phase_idx=candidate_phase_idx,
-            )
-            leave_black = build_sparse_rows(
-                self.ft,
-                candidate_delta_black_leave_indices,
-                candidate_delta_black_leave_offsets,
-                phase_idx=candidate_phase_idx,
-            )
-            enter_black = build_sparse_rows(
-                self.ft,
-                candidate_delta_black_enter_indices,
-                candidate_delta_black_enter_offsets,
-                phase_idx=candidate_phase_idx,
-            )
-            flat_white_root = a_white.repeat_interleave(candidate_count, dim=0)
-            flat_black_root = a_black.repeat_interleave(candidate_count, dim=0)
-            succ_white = flat_white_root - leave_white + enter_white
-            succ_black = flat_black_root - leave_black + enter_black
-            flat_candidate_has_king_move = candidate_has_king_move.reshape(-1)
-            if bool(flat_candidate_has_king_move.any().item()):
-                rebuilt_white = build_sparse_rows(
+            if not use_cache:
+                leave_white = build_sparse_rows(
                     self.ft,
-                    candidate_nnue_feat_white_after_move_indices,
-                    candidate_nnue_feat_white_after_move_offsets,
+                    candidate_delta_white_leave_indices,
+                    candidate_delta_white_leave_offsets,
                     phase_idx=candidate_phase_idx,
                 )
-                rebuilt_black = build_sparse_rows(
+                enter_white = build_sparse_rows(
                     self.ft,
-                    candidate_nnue_feat_black_after_move_indices,
-                    candidate_nnue_feat_black_after_move_offsets,
+                    candidate_delta_white_enter_indices,
+                    candidate_delta_white_enter_offsets,
                     phase_idx=candidate_phase_idx,
                 )
-                king_mask = flat_candidate_has_king_move.unsqueeze(1)
-                succ_white = torch.where(king_mask, rebuilt_white, succ_white)
-                succ_black = torch.where(king_mask, rebuilt_black, succ_black)
-            succ_white = succ_white.reshape(batch_size, candidate_count, -1)
-            succ_black = succ_black.reshape(batch_size, candidate_count, -1)
+                leave_black = build_sparse_rows(
+                    self.ft,
+                    candidate_delta_black_leave_indices,
+                    candidate_delta_black_leave_offsets,
+                    phase_idx=candidate_phase_idx,
+                )
+                enter_black = build_sparse_rows(
+                    self.ft,
+                    candidate_delta_black_enter_indices,
+                    candidate_delta_black_enter_offsets,
+                    phase_idx=candidate_phase_idx,
+                )
+                flat_white_root = a_white.repeat_interleave(candidate_count, dim=0)
+                flat_black_root = a_black.repeat_interleave(candidate_count, dim=0)
+                succ_white = flat_white_root - leave_white + enter_white
+                succ_black = flat_black_root - leave_black + enter_black
+                flat_candidate_has_king_move = candidate_has_king_move.reshape(-1)
+                if bool(flat_candidate_has_king_move.any().item()):
+                    rebuilt_white = build_sparse_rows(
+                        self.ft,
+                        candidate_nnue_feat_white_after_move_indices,
+                        candidate_nnue_feat_white_after_move_offsets,
+                        phase_idx=candidate_phase_idx,
+                    )
+                    rebuilt_black = build_sparse_rows(
+                        self.ft,
+                        candidate_nnue_feat_black_after_move_indices,
+                        candidate_nnue_feat_black_after_move_offsets,
+                        phase_idx=candidate_phase_idx,
+                    )
+                    king_mask = flat_candidate_has_king_move.unsqueeze(1)
+                    succ_white = torch.where(king_mask, rebuilt_white, succ_white)
+                    succ_black = torch.where(king_mask, rebuilt_black, succ_black)
+                succ_white = succ_white.reshape(batch_size, candidate_count, -1)
+                succ_black = succ_black.reshape(batch_size, candidate_count, -1)
             stm_white_mask = (side_to_move == 0).unsqueeze(1)
             a_root_stm = torch.where(stm_white_mask, a_white, a_black)
             a_succ_other = torch.where(
@@ -690,7 +785,83 @@ if torch is not None and nn is not None:
                     a_succ_other,
                     candidate_move_types,
                 )
-            return logits.masked_fill(~candidate_mask, float("-1e9"))
+            masked_logits = logits.masked_fill(~candidate_mask, float("-1e9"))
+            return masked_logits, caches, {
+                "enabled": use_cache,
+                "phase_indices": ()
+                if phase_idx is None
+                else tuple(int(value) for value in phase_idx.tolist()),
+            }
+
+        def _build_single_sparse_accumulator(
+            self,
+            indices: torch.Tensor,
+            offsets: torch.Tensor,
+            *,
+            row_index: int,
+            phase_value: int | None,
+            device: torch.device,
+        ) -> torch.Tensor:
+            if self.ft is None:
+                raise RuntimeError("LAPv2 FT path is not initialized")
+            row_features = unpack_sparse_row(indices, offsets, row_index)
+            row_indices, row_offsets = pack_sparse_feature_lists([row_features])
+            row_indices = row_indices.to(device=device)
+            row_offsets = row_offsets.to(device=device)
+            if phase_value is None:
+                return build_sparse_rows(self.ft, row_indices, row_offsets)
+            return build_sparse_rows(
+                self.ft,
+                row_indices,
+                row_offsets,
+                phase_idx=torch.tensor([phase_value], dtype=torch.long, device=device),
+            )
+
+        def _accumulator_cache_stats(
+            self,
+            caches: list[AccumulatorCache] | None,
+            *,
+            phase_idx: torch.Tensor | None,
+            step_selected_candidate_tensors: tuple[torch.Tensor, ...],
+            step_active_masks: tuple[torch.Tensor, ...],
+        ) -> dict[str, Any]:
+            if caches is None:
+                return {
+                    "enabled": False,
+                    "phase_fixed": False,
+                    "phase_indices": ()
+                    if phase_idx is None
+                    else tuple(int(value) for value in phase_idx.tolist()),
+                    "lookup_hits": 0,
+                    "lookup_misses": 0,
+                    "touch_hits": 0,
+                    "touch_misses": 0,
+                    "cached_candidate_count": 0,
+                }
+            for selected_indices, active_mask in zip(
+                step_selected_candidate_tensors,
+                step_active_masks,
+                strict=True,
+            ):
+                for batch_index, cache in enumerate(caches):
+                    if not bool(active_mask[batch_index].item()):
+                        continue
+                    for candidate_index in selected_indices[batch_index].tolist():
+                        cache.touch(int(candidate_index))
+            return {
+                "enabled": True,
+                "phase_fixed": phase_idx is not None,
+                "phase_indices": ()
+                if phase_idx is None
+                else tuple(int(value) for value in phase_idx.tolist()),
+                "lookup_hits": sum(cache.lookup_hits for cache in caches),
+                "lookup_misses": sum(cache.lookup_misses for cache in caches),
+                "touch_hits": sum(cache.touch_hits for cache in caches),
+                "touch_misses": sum(cache.touch_misses for cache in caches),
+                "cached_candidate_count": sum(
+                    cache.cached_candidate_count for cache in caches
+                ),
+            }
 
         def forward(
             self,
@@ -827,7 +998,7 @@ if torch is not None and nn is not None:
                         "candidate move-type and sparse successor inputs are required when "
                         "lapv2.nnue_policy is enabled"
                     )
-                initial_policy_logits = self._nnue_policy_logits(
+                initial_policy_logits, policy_caches, accumulator_cache_meta = self._nnue_policy_logits(
                     a_white=a_white,
                     a_black=a_black,
                     phase_idx=phase_idx,
@@ -857,6 +1028,19 @@ if torch is not None and nn is not None:
                     candidate_has_king_move=candidate_has_king_move,
                 )
             else:
+                policy_caches = None
+                accumulator_cache_meta = {
+                    "enabled": False,
+                    "phase_fixed": False,
+                    "phase_indices": ()
+                    if phase_idx is None
+                    else tuple(int(value) for value in phase_idx.tolist()),
+                    "lookup_hits": 0,
+                    "lookup_misses": 0,
+                    "touch_hits": 0,
+                    "touch_misses": 0,
+                    "cached_candidate_count": 0,
+                }
                 initial_policy_logits = self.policy_head(
                     z_root,
                     candidate_context_v2,
@@ -868,12 +1052,22 @@ if torch is not None and nn is not None:
                 candidate_action_indices,
                 initial_policy_logits,
                 candidate_mask,
+                phase_idx=phase_idx,
                 single_legal_move=single_legal_move,
                 candidate_uci=candidate_uci,
                 candidate_features=candidate_context_v2,
                 global_features=state_context_v1_global,
                 collect_reply_diagnostics=collect_opponent_distill,
             )
+            accumulator_cache_stats = self._accumulator_cache_stats(
+                policy_caches,
+                phase_idx=phase_idx,
+                step_selected_candidate_tensors=deliberation_outputs[
+                    "step_selected_candidate_tensors"
+                ],
+                step_active_masks=deliberation_outputs["step_active_masks"],
+            )
+            accumulator_cache_stats.update(accumulator_cache_meta)
             if self.config.lapv2.nnue_value_enabled:
                 assert a_white is not None and a_black is not None and side_to_move is not None
                 stm_white_mask = (side_to_move == 0).unsqueeze(1)
@@ -908,6 +1102,10 @@ if torch is not None and nn is not None:
                 "step_candidate_score_tensors": deliberation_outputs[
                     "step_candidate_score_tensors"
                 ],
+                "step_selected_candidate_tensors": deliberation_outputs[
+                    "step_selected_candidate_tensors"
+                ],
+                "step_phase_indices": deliberation_outputs["step_phase_indices"],
                 "step_active_masks": deliberation_outputs["step_active_masks"],
                 "step_rollback_masks": deliberation_outputs["step_rollback_masks"],
                 "step_rollback_flags": deliberation_outputs["step_rollback_flags"],
@@ -936,6 +1134,7 @@ if torch is not None and nn is not None:
                 ],
                 "piece_intentions": piece_intentions,
                 "z_root": z_root,
+                "accumulator_cache_stats": accumulator_cache_stats,
             }
 
 else:  # pragma: no cover - exercised when torch is absent

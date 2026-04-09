@@ -417,7 +417,7 @@ def test_policy_nnue_score_invariant_under_kings_move() -> None:
     candidate_delta_black_enter_indices, candidate_delta_black_enter_offsets = (
         pack_sparse_feature_lists([halfka_delta(board, move, "b")[1]])
     )
-    logits = model._nnue_policy_logits(
+    logits, _caches, _cache_stats = model._nnue_policy_logits(
         a_white=a_white,
         a_black=a_black,
         phase_idx=phase_idx,
@@ -613,6 +613,152 @@ def test_runtime_unchanged_with_distill_flag_on() -> None:
         baseline_outputs["final_policy_logits"],
         flagged_outputs["final_policy_logits"],
     )
+
+
+def test_phase_constant_over_loop() -> None:
+    model = LAPv1Model(
+        LAPv1Config.from_mapping(
+            {
+                "deliberation": {
+                    "max_inner_steps": 2,
+                    "min_inner_steps": 2,
+                    "top_k_refine": 2,
+                },
+                "lapv2": {
+                    "enabled": True,
+                    "nnue_value": True,
+                    "nnue_value_phase_moe": True,
+                    "nnue_policy": True,
+                    "accumulator_cache": True,
+                    "N_accumulator": 8,
+                },
+            }
+        )
+    )
+    model.eval()
+    inputs = _sample_inputs(batch_size=1, candidate_count=5)
+    inputs["phase_index"] = torch.tensor([3], dtype=torch.long)
+
+    with torch.inference_mode():
+        outputs = model(**inputs)
+
+    assert len(outputs["step_phase_indices"]) == 2
+    for step_phase in outputs["step_phase_indices"]:
+        assert torch.equal(step_phase, inputs["phase_index"])
+    assert outputs["accumulator_cache_stats"]["phase_fixed"] is True
+    assert outputs["accumulator_cache_stats"]["phase_indices"] == (3,)
+
+
+def test_accumulator_cache_eval_matches_no_cache() -> None:
+    baseline = LAPv1Model(
+        LAPv1Config.from_mapping(
+            {
+                "deliberation": {
+                    "max_inner_steps": 2,
+                    "min_inner_steps": 2,
+                    "top_k_refine": 2,
+                },
+                "lapv2": {
+                    "enabled": True,
+                    "nnue_value": True,
+                    "nnue_value_phase_moe": True,
+                    "nnue_policy": True,
+                    "accumulator_cache": False,
+                    "N_accumulator": 8,
+                },
+            }
+        )
+    )
+    cached = LAPv1Model(
+        LAPv1Config.from_mapping(
+            {
+                "deliberation": {
+                    "max_inner_steps": 2,
+                    "min_inner_steps": 2,
+                    "top_k_refine": 2,
+                },
+                "lapv2": {
+                    "enabled": True,
+                    "nnue_value": True,
+                    "nnue_value_phase_moe": True,
+                    "nnue_policy": True,
+                    "accumulator_cache": True,
+                    "N_accumulator": 8,
+                },
+            }
+        )
+    )
+    cached.load_state_dict(baseline.state_dict())
+    baseline.eval()
+    cached.eval()
+    inputs = _sample_inputs(batch_size=1, candidate_count=5)
+    inputs["phase_index"] = torch.tensor([2], dtype=torch.long)
+    inputs["candidate_has_king_move"][0, 1] = True
+
+    with torch.inference_mode():
+        baseline_outputs = baseline(**inputs)
+        cached_outputs = cached(**inputs)
+
+    assert torch.equal(
+        baseline_outputs["initial_policy_logits"],
+        cached_outputs["initial_policy_logits"],
+    )
+    assert torch.equal(
+        baseline_outputs["final_policy_logits"],
+        cached_outputs["final_policy_logits"],
+    )
+    assert torch.equal(
+        baseline_outputs["final_value"]["wdl_logits"],
+        cached_outputs["final_value"]["wdl_logits"],
+    )
+    assert torch.equal(
+        baseline_outputs["final_value"]["cp_score"],
+        cached_outputs["final_value"]["cp_score"],
+    )
+    assert torch.equal(
+        baseline_outputs["final_value"]["sigma_value"],
+        cached_outputs["final_value"]["sigma_value"],
+    )
+    assert torch.equal(
+        baseline_outputs["refined_top1_action_index"],
+        cached_outputs["refined_top1_action_index"],
+    )
+
+
+def test_cache_hit_for_top_k_candidates() -> None:
+    model = LAPv1Model(
+        LAPv1Config.from_mapping(
+            {
+                "deliberation": {
+                    "max_inner_steps": 2,
+                    "min_inner_steps": 2,
+                    "top_k_refine": 2,
+                },
+                "lapv2": {
+                    "enabled": True,
+                    "nnue_value": True,
+                    "nnue_value_phase_moe": True,
+                    "nnue_policy": True,
+                    "accumulator_cache": True,
+                    "N_accumulator": 8,
+                },
+            }
+        )
+    )
+    model.eval()
+    inputs = _sample_inputs(batch_size=1, candidate_count=5)
+    inputs["phase_index"] = torch.tensor([1], dtype=torch.long)
+
+    with torch.inference_mode():
+        outputs = model(**inputs)
+
+    assert len(outputs["step_selected_candidate_tensors"]) == 2
+    assert outputs["accumulator_cache_stats"]["enabled"] is True
+    assert outputs["accumulator_cache_stats"]["lookup_hits"] == 0
+    assert outputs["accumulator_cache_stats"]["lookup_misses"] == 5
+    assert outputs["accumulator_cache_stats"]["touch_hits"] == 4
+    assert outputs["accumulator_cache_stats"]["touch_misses"] == 0
+    assert outputs["accumulator_cache_stats"]["cached_candidate_count"] == 5
 
 
 def test_lapv1_total_parameter_budget_is_within_target_band() -> None:

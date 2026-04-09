@@ -63,10 +63,15 @@ class DualAccumulatorBuilder:
 class IncrementalAccumulator:
     """Maintain one FT accumulator pair across sparse candidate deltas."""
 
-    def __init__(self, ft: FeatureTransformer) -> None:
+    def __init__(
+        self,
+        ft: FeatureTransformer | PhaseMoE,
+        *,
+        phase_idx: int | None = None,
+    ) -> None:
         if torch is None:  # pragma: no cover
             raise RuntimeError("torch is required to maintain incremental accumulators.")
-        self.ft = ft
+        self.ft = _resolve_incremental_ft(ft, phase_idx=phase_idx)
         self.a_white: torch.Tensor | None = None
         self.a_black: torch.Tensor | None = None
         self.dirty_white = False
@@ -91,6 +96,19 @@ class IncrementalAccumulator:
             black_offsets = batch_pos["nnue_feat_black_offsets"]
         self.a_white = self.ft.build(white_indices, white_offsets)
         self.a_black = self.ft.build(black_indices, black_offsets)
+        self.dirty_white = False
+        self.dirty_black = False
+        self._full_rebuild_fn = full_rebuild_fn
+
+    def init_from_accumulators(
+        self,
+        a_white: torch.Tensor,
+        a_black: torch.Tensor,
+        *,
+        full_rebuild_fn: Any | None = None,
+    ) -> None:
+        self.a_white = a_white.clone()
+        self.a_black = a_black.clone()
         self.dirty_white = False
         self.dirty_black = False
         self._full_rebuild_fn = full_rebuild_fn
@@ -151,6 +169,99 @@ class IncrementalAccumulator:
         self.dirty_white = False
         self.dirty_black = False
 
+    def fork(self) -> "IncrementalAccumulator":
+        clone = IncrementalAccumulator(self.ft)
+        if self.a_white is not None and self.a_black is not None:
+            clone.init_from_accumulators(
+                self.a_white,
+                self.a_black,
+                full_rebuild_fn=self._full_rebuild_fn,
+            )
+        return clone
+
+
+class AccumulatorCache:
+    """Eval-time cache of successor accumulators keyed by candidate id."""
+
+    def __init__(
+        self,
+        ft: FeatureTransformer | PhaseMoE,
+        *,
+        phase_idx: int | None = None,
+    ) -> None:
+        self._root = IncrementalAccumulator(ft, phase_idx=phase_idx)
+        self._cache: dict[int, tuple[torch.Tensor, torch.Tensor]] = {}
+        self.lookup_hits = 0
+        self.lookup_misses = 0
+        self.touch_hits = 0
+        self.touch_misses = 0
+
+    def init_from_position(
+        self,
+        batch_pos: Mapping[str, Any],
+        *,
+        full_rebuild_fn: Any | None = None,
+    ) -> None:
+        self._root.init_from_position(batch_pos, full_rebuild_fn=full_rebuild_fn)
+
+    def init_from_accumulators(
+        self,
+        a_white: torch.Tensor,
+        a_black: torch.Tensor,
+        *,
+        full_rebuild_fn: Any | None = None,
+    ) -> None:
+        self._root.init_from_accumulators(
+            a_white,
+            a_black,
+            full_rebuild_fn=full_rebuild_fn,
+        )
+
+    def successor(
+        self,
+        candidate_id: int,
+        leave_w: Sequence[int],
+        enter_w: Sequence[int],
+        leave_b: Sequence[int],
+        enter_b: Sequence[int],
+        *,
+        is_king_w: bool,
+        is_king_b: bool,
+        full_rebuild_fn: Any | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        cached = self._cache.get(int(candidate_id))
+        if cached is not None:
+            self.lookup_hits += 1
+            return cached
+        worker = self._root.fork()
+        worker.apply_move(
+            leave_w,
+            enter_w,
+            leave_b,
+            enter_b,
+            is_king_w=is_king_w,
+            is_king_b=is_king_b,
+            full_rebuild_fn=full_rebuild_fn,
+        )
+        successor = (
+            worker.get("w", full_rebuild_fn=full_rebuild_fn).clone(),
+            worker.get("b", full_rebuild_fn=full_rebuild_fn).clone(),
+        )
+        self._cache[int(candidate_id)] = successor
+        self.lookup_misses += 1
+        return successor
+
+    def touch(self, candidate_id: int) -> bool:
+        if int(candidate_id) not in self._cache:
+            self.touch_misses += 1
+            return False
+        self.touch_hits += 1
+        return True
+
+    @property
+    def cached_candidate_count(self) -> int:
+        return len(self._cache)
+
 
 def _apply_sparse_delta(
     ft: FeatureTransformer,
@@ -166,6 +277,24 @@ def _apply_sparse_delta(
         enter_rows = ft.gather_rows(torch.tensor(list(enter_indices), dtype=torch.long))
         updated = updated + enter_rows.sum(dim=0, keepdim=True)
     return updated
+
+
+def unpack_sparse_row(
+    indices: "torch.Tensor",
+    offsets: "torch.Tensor",
+    row_index: int,
+) -> list[int]:
+    if offsets.ndim != 1:
+        raise ValueError("offsets must be rank-1")
+    if row_index < 0 or row_index >= int(offsets.shape[0]):
+        raise IndexError("row_index out of range for sparse row pack")
+    start = int(offsets[row_index].item())
+    end = (
+        int(offsets[row_index + 1].item())
+        if row_index + 1 < int(offsets.shape[0])
+        else int(indices.shape[0])
+    )
+    return [int(value) for value in indices[start:end].tolist()]
 
 
 def build_sparse_rows(
@@ -240,3 +369,15 @@ def _slice_sparse_rows(
         torch.tensor(rebuilt_indices, dtype=torch.long, device=indices.device),
         torch.tensor(rebuilt_offsets, dtype=torch.long, device=offsets.device),
     )
+
+
+def _resolve_incremental_ft(
+    ft: FeatureTransformer | PhaseMoE,
+    *,
+    phase_idx: int | None,
+) -> FeatureTransformer:
+    if isinstance(ft, PhaseMoE):
+        if phase_idx is None:
+            raise ValueError("phase_idx is required when IncrementalAccumulator uses a PhaseMoE FT")
+        return ft.experts[int(phase_idx)]
+    return ft

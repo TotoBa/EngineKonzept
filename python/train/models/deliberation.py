@@ -333,6 +333,7 @@ if torch is not None and nn is not None:
             initial_candidate_scores: torch.Tensor,
             candidate_mask: torch.Tensor,
             *,
+            phase_idx: torch.Tensor | None = None,
             single_legal_move: bool = False,
             candidate_uci: list[list[str]] | None = None,
             candidate_features: torch.Tensor | None = None,
@@ -375,6 +376,8 @@ if torch is not None and nn is not None:
                     "step_value_cp_tensors": (),
                     "step_sharpness_tensors": (),
                     "step_candidate_score_tensors": (),
+                    "step_selected_candidate_tensors": (),
+                    "step_phase_indices": (),
                     "step_active_masks": (),
                     "step_rollback_masks": (),
                     "step_rollback_flags": (),
@@ -409,6 +412,8 @@ if torch is not None and nn is not None:
             step_value_cp_tensors: list[torch.Tensor] = []
             step_sharpness_tensors: list[torch.Tensor] = []
             step_candidate_score_tensors: list[torch.Tensor] = []
+            step_selected_candidate_tensors: list[torch.Tensor] = []
+            step_phase_indices: list[torch.Tensor] = []
             step_active_masks: list[torch.Tensor] = []
             step_rollback_masks: list[torch.Tensor] = []
             step_rollback_flags: list[bool] = []
@@ -575,6 +580,9 @@ if torch is not None and nn is not None:
                 step_value_cp_tensors.append(value_cp.clone())
                 step_sharpness_tensors.append(sharpness.clone())
                 step_candidate_score_tensors.append(final_scores.clone())
+                step_selected_candidate_tensors.append(selected_indices.clone())
+                if phase_idx is not None:
+                    step_phase_indices.append(phase_idx.clone())
                 step_active_masks.append(step_active_mask.clone())
                 step_rollback_masks.append(rollback_mask.clone())
                 step_rollback_flags.append(rollback_fired)
@@ -619,6 +627,8 @@ if torch is not None and nn is not None:
                 "step_value_cp_tensors": tuple(step_value_cp_tensors),
                 "step_sharpness_tensors": tuple(step_sharpness_tensors),
                 "step_candidate_score_tensors": tuple(step_candidate_score_tensors),
+                "step_selected_candidate_tensors": tuple(step_selected_candidate_tensors),
+                "step_phase_indices": tuple(step_phase_indices),
                 "step_active_masks": tuple(step_active_masks),
                 "step_rollback_masks": tuple(step_rollback_masks),
                 "step_rollback_flags": tuple(step_rollback_flags),

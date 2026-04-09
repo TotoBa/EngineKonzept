@@ -200,6 +200,14 @@ stack for per-step student and teacher reply targets and distills the
 shared readout against the legacy opponent path, but ordinary runtime and
 evaluation forwards keep using the same inference graph as before.
 
+The current LAPv2 eval/runtime path can now also enable
+`lapv2.accumulator_cache`. In that mode the NNUE policy scorer fixes the
+phase expert once at the root, scores successor accumulators through the
+incremental cache, and emits explicit cache hit/miss diagnostics. The
+training path deliberately stays on the old vectorized scorer so step-12
+does not change optimization behavior while the cache contract is still
+being hardened.
+
 ### Bounded Recurrent Deliberation Loop
 
 The deliberation loop is the central runtime mechanism.
@@ -300,6 +308,11 @@ Every inner step should emit a trace record containing:
 - uncertainty
 - scratch PV
 - whether rollback fired
+
+For the cache audit path, the loop now also emits:
+
+- selected candidate-slot tensors per step
+- fixed phase indices per step when phase-routed LAPv2 modules are active
 
 The future UCI `info depth ... pv ...` output is intended to reflect these learned deliberation steps, not classical search depths.
 

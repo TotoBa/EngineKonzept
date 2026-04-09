@@ -14,6 +14,7 @@ from train.datasets.nnue_features import TOTAL_FEATURES, halfka_active_indices
 from train.datasets.planner_head import PlannerHeadExample
 from train.datasets.schema import PositionEncoding
 from train.models.dual_accumulator import (
+    AccumulatorCache,
     DualAccumulatorBuilder,
     IncrementalAccumulator,
     pack_sparse_feature_lists,
@@ -225,6 +226,61 @@ def test_dirty_flag_lazy_rebuild() -> None:
     assert rebuild_calls == 0
     inc.get("w")
     assert rebuild_calls == 1
+
+
+def test_accumulator_cache_reuses_cached_candidate() -> None:
+    ft = FeatureTransformer(num_features=TOTAL_FEATURES, accumulator_dim=4)
+    board = chess.Board("4k3/8/8/8/8/8/4P3/4K3 w - - 0 1")
+    move = chess.Move.from_uci("e2e4")
+    cache = AccumulatorCache(ft)
+    cache.init_from_position(
+        {
+            "nnue_feat_white": halfka_active_indices(board, "w"),
+            "nnue_feat_black": halfka_active_indices(board, "b"),
+        }
+    )
+    after_board = board.copy()
+    after_board.push(move)
+
+    def full_rebuild() -> tuple[torch.Tensor, torch.Tensor]:
+        white_indices, white_offsets = pack_sparse_feature_lists(
+            [halfka_active_indices(after_board, "w")]
+        )
+        black_indices, black_offsets = pack_sparse_feature_lists(
+            [halfka_active_indices(after_board, "b")]
+        )
+        return (
+            ft.build(white_indices, white_offsets),
+            ft.build(black_indices, black_offsets),
+        )
+
+    leave_w, enter_w = halfka_delta(board, move, "w")
+    leave_b, enter_b = halfka_delta(board, move, "b")
+    first_white, first_black = cache.successor(
+        0,
+        leave_w,
+        enter_w,
+        leave_b,
+        enter_b,
+        is_king_w=False,
+        is_king_b=False,
+        full_rebuild_fn=full_rebuild,
+    )
+    second_white, second_black = cache.successor(
+        0,
+        leave_w,
+        enter_w,
+        leave_b,
+        enter_b,
+        is_king_w=False,
+        is_king_b=False,
+        full_rebuild_fn=full_rebuild,
+    )
+
+    assert torch.allclose(first_white, second_white, atol=1e-6)
+    assert torch.allclose(first_black, second_black, atol=1e-6)
+    assert cache.lookup_misses == 1
+    assert cache.lookup_hits == 1
 
 
 def test_collate_examples_emits_sparse_embedding_bag_inputs() -> None:

@@ -175,3 +175,22 @@
 - Added regression coverage for positive/nonzero distill loss,
   zero-loss teacher identity, one no-NaN T2 training step with
   distillation enabled, and runtime identity with the distill flag set.
+
+## Schritt 12
+
+- Added eval-only successor caching in
+  [dual_accumulator.py](/home/torsten/EngineKonzept/python/train/models/dual_accumulator.py)
+  via `AccumulatorCache`, plus fixed-phase support for phase-routed FT
+  experts.
+- Extended the deliberation loop in
+  [deliberation.py](/home/torsten/EngineKonzept/python/train/models/deliberation.py)
+  to emit per-step selected candidate tensors and fixed phase indices so
+  cache reuse can be audited explicitly.
+- Integrated `lapv2.accumulator_cache` into the NNUE policy path in
+  [lapv1.py](/home/torsten/EngineKonzept/python/train/models/lapv1.py).
+  Training keeps the previous vectorized path; eval/runtime now optionally
+  score successors through the incremental cache without changing outputs.
+- Added regression coverage for phase fixation over the loop, cache-vs-no-cache
+  eval identity, and top-k cache reuse hits in
+  [test_dual_accumulator.py](/home/torsten/EngineKonzept/python/tests/test_dual_accumulator.py)
+  and [test_lapv1_model.py](/home/torsten/EngineKonzept/python/tests/test_lapv1_model.py).
