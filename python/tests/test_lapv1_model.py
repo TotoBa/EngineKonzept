@@ -478,6 +478,48 @@ def test_phase_nnue_value_runs_all_phases() -> None:
     assert torch.isfinite(outputs["final_value"]["cp_score"]).all()
 
 
+def test_sharpness_phase_moe_runs() -> None:
+    model = LAPv1Model(
+        LAPv1Config.from_mapping(
+            {
+                "lapv2": {
+                    "enabled": True,
+                    "sharpness_phase_moe": True,
+                }
+            }
+        )
+    )
+
+    outputs = model(**_sample_inputs(batch_size=4))
+
+    assert tuple(outputs["root_sharpness"].shape) == (4,)
+    assert torch.isfinite(outputs["root_sharpness"]).all()
+
+
+def test_sharpness_phase_flag_off_is_bit_identical_to_v1() -> None:
+    baseline = LAPv1Model(LAPv1Config())
+    flagged = LAPv1Model(
+        LAPv1Config.from_mapping(
+            {
+                "lapv2": {
+                    "enabled": True,
+                    "sharpness_phase_moe": False,
+                }
+            }
+        )
+    )
+    flagged.load_state_dict(baseline.state_dict(), strict=False)
+    inputs = _sample_inputs()
+
+    baseline_outputs = baseline(**inputs)
+    flagged_outputs = flagged(**inputs)
+
+    assert torch.equal(
+        baseline_outputs["root_sharpness"],
+        flagged_outputs["root_sharpness"],
+    )
+
+
 def test_lapv1_total_parameter_budget_is_within_target_band() -> None:
     model = LAPv1Model(LAPv1Config())
     parameter_bytes = sum(parameter.numel() for parameter in model.parameters()) * 4

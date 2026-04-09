@@ -1271,6 +1271,12 @@ def _expand_legacy_phase_moe_state_dict(
             module_prefix="state_embedder",
             num_phases=4,
         )
+    if model.config.lapv2.sharpness_phase_moe_enabled:
+        expanded = _replicate_phase_moe_module_keys(
+            expanded,
+            module_prefix="sharpness_head",
+            num_phases=4,
+        )
     if model.config.lapv2.nnue_value_phase_moe_enabled:
         expanded = _replicate_phase_moe_module_keys(
             expanded,
@@ -1583,7 +1589,7 @@ def _run_epoch(
             wdl_logits = outputs["final_value"]["wdl_logits"]
             cp_score = outputs["final_value"]["cp_score"].squeeze(1)
             sigma_value = outputs["final_value"]["sigma_value"].squeeze(1)
-            sharpness = model.sharpness_head(outputs["z_root"]).squeeze(1)
+            sharpness = outputs["root_sharpness"]
             if not torch.isfinite(sharpness).all():
                 raise RuntimeError(
                     "non-finite sharpness probabilities encountered during LAPv1 training"

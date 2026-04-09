@@ -125,6 +125,10 @@ class LAPv2Config:
     def nnue_policy_enabled(self) -> bool:
         return self.enabled and self.nnue_policy
 
+    @property
+    def sharpness_phase_moe_enabled(self) -> bool:
+        return self.enabled and self.sharpness_phase_moe
+
 
 @dataclass(frozen=True)
 class LAPv1Config:
@@ -181,11 +185,21 @@ if torch is not None and nn is not None:
 
 
     class _SharpnessProjectorAdapter(nn.Module):
-        def __init__(self, sharpness_head: SharpnessHead) -> None:
+        def __init__(self, sharpness_head: SharpnessHead | PhaseMoE) -> None:
             super().__init__()
             self.sharpness_head = sharpness_head
+            self._phase_idx: torch.Tensor | None = None
+
+        def set_phase_idx(self, phase_idx: torch.Tensor | None) -> None:
+            self._phase_idx = phase_idx
 
         def forward(self, z_t: torch.Tensor) -> torch.Tensor:
+            if isinstance(self.sharpness_head, PhaseMoE):
+                if self._phase_idx is None:
+                    raise ValueError(
+                        "phase_idx is required when sharpness head is phase-routed"
+                    )
+                return self.sharpness_head(z_t, phase_idx=self._phase_idx).squeeze(1)
             return self.sharpness_head(z_t).squeeze(1)
 
 
@@ -333,11 +347,17 @@ if torch is not None and nn is not None:
                 self.ft = None
                 self.dual_acc_builder = None
                 self.value_head_nnue = None
-            self.sharpness_head = SharpnessHead(
+            sharpness_head: SharpnessHead | PhaseMoE = SharpnessHead(
                 state_dim=config.sharpness_head.state_dim,
                 hidden_dim=config.sharpness_head.hidden_dim,
                 dropout=config.sharpness_head.dropout,
             )
+            if config.lapv2.enabled and config.lapv2.sharpness_phase_moe:
+                if self.phase_router is None:
+                    self.phase_router = PhaseRouter()
+                sharpness_head = PhaseMoE.from_single(sharpness_head)
+            self.sharpness_head = sharpness_head
+            self._sharpness_projector = _SharpnessProjectorAdapter(self.sharpness_head)
             self.policy_head = LargePolicyHead(
                 state_dim=config.policy_head.state_dim,
                 hidden_dim=config.policy_head.hidden_dim,
@@ -379,7 +399,7 @@ if torch is not None and nn is not None:
                 top1_stable_steps=config.deliberation.top1_stable_steps,
                 rollback_buffer_size=config.deliberation.rollback_buffer_size,
                 value_projector=_ValueProjectorAdapter(self.value_head),
-                sharpness_projector=_SharpnessProjectorAdapter(self.sharpness_head),
+                sharpness_projector=self._sharpness_projector,
                 reply_signal_projector=_OpponentReplySignalProjector(
                     state_dim=config.deliberation.state_dim,
                     global_dim=config.state_embedder.global_dim,
@@ -545,13 +565,25 @@ if torch is not None and nn is not None:
         ) -> dict[str, Any]:
             """Run the full LAPv1 wrapper forward pass without trainer glue."""
             phase_idx: torch.Tensor | None = None
-            if self.config.lapv2.phase_moe_enabled or self.config.lapv2.nnue_value_phase_moe_enabled:
+            if (
+                self.config.lapv2.phase_moe_enabled
+                or self.config.lapv2.nnue_value_phase_moe_enabled
+                or self.config.lapv2.sharpness_phase_moe_enabled
+            ):
                 if phase_index is None:
                     raise ValueError(
                         "phase_index is required when LAPv2 phase-routed modules are enabled"
                     )
                 assert self.phase_router is not None
                 phase_idx = self.phase_router({"phase_index": phase_index})
+            if self.config.lapv2.sharpness_phase_moe_enabled:
+                if phase_idx is None:
+                    raise ValueError(
+                        "phase_index is required when lapv2.sharpness_phase_moe is enabled"
+                    )
+                self._sharpness_projector.set_phase_idx(phase_idx)
+            else:
+                self._sharpness_projector.set_phase_idx(None)
             if self.config.lapv2.phase_moe_enabled:
                 piece_intentions = self.intention_encoder(
                     piece_tokens,
@@ -578,6 +610,11 @@ if torch is not None and nn is not None:
                     state_context_v1_global,
                     reachability_edges,
                 )
+            if self.config.lapv2.sharpness_phase_moe_enabled:
+                assert phase_idx is not None
+                root_sharpness = self.sharpness_head(z_root, phase_idx=phase_idx).squeeze(1)
+            else:
+                root_sharpness = self.sharpness_head(z_root).squeeze(1)
             a_white: torch.Tensor | None = None
             a_black: torch.Tensor | None = None
             if self.config.lapv2.nnue_value_enabled:
@@ -711,6 +748,7 @@ if torch is not None and nn is not None:
                 "step_rollback_masks": deliberation_outputs["step_rollback_masks"],
                 "step_rollback_flags": deliberation_outputs["step_rollback_flags"],
                 "root_candidate_scores": deliberation_outputs["root_candidate_scores"],
+                "root_sharpness": root_sharpness,
                 "refined_top1_action_index": deliberation_outputs[
                     "refined_top1_action_index"
                 ],

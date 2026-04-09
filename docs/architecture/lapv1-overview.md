@@ -181,6 +181,11 @@ When `lapv2.nnue_policy` is enabled, root candidate logits come from
 NNUE-style successor scoring on the same sparse FT used by the NNUE
 value head instead of the dense `LargePolicyHead`.
 
+The sharpness path can now also be phase-routed. With
+`lapv2.sharpness_phase_moe`, the root sharpness scalar and the inner-loop
+sharpness projector share the same hard phase routing as the other LAPv2
+phase-aware modules while remaining bit-identical in the flag-off path.
+
 ### Bounded Recurrent Deliberation Loop
 
 The deliberation loop is the central runtime mechanism.

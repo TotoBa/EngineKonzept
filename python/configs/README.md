@@ -263,9 +263,9 @@ The intended use is one arena Python process controlling several concurrent game
 The LAPv1 wrapper config now also accepts an optional nested `lapv2`
 block. For the current Rev-3 execution state `lapv2.enabled`,
 `lapv2.phase_moe`, `lapv2.nnue_value`, `lapv2.nnue_value_phase_moe`, and
-`lapv2.nnue_policy` are live; `lapv2.nnue_phase_gate_steps` controls the
-early expert mean-pull gate for the phase-routed NNUE value/policy path.
-`lapv2.loss_balance.value_loss_norm`,
+`lapv2.nnue_policy`, and `lapv2.sharpness_phase_moe` are live;
+`lapv2.nnue_phase_gate_steps` controls the early expert mean-pull gate
+for the phase-routed NNUE value/policy path. `lapv2.loss_balance.value_loss_norm`,
 `lapv2.loss_balance.policy_loss_norm`, and
 `lapv2.loss_balance.adapter_decoupling` now control the shared-FT
 value/policy loss rebalancing. Leaving the block out keeps the wrapper

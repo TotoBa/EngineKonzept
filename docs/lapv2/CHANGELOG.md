@@ -121,3 +121,19 @@
   reusing the same FT as the NNUE value head.
 - Added module, model, artifact, trainer, runtime, and FT-gradient
   regression coverage for the new policy path.
+
+## Schritt 9
+
+- Wrapped the sharpness head behind `lapv2.sharpness_phase_moe` in
+  [lapv1.py](/home/torsten/EngineKonzept/python/train/models/lapv1.py)
+  via the existing hard-routed
+  [PhaseMoE](/home/torsten/EngineKonzept/python/train/models/phase_moe.py).
+- Extended the inner-loop sharpness projector and root forward path so
+  phase-routed sharpness works both at the root and inside deliberation
+  without changing the flag-off behavior.
+- Added legacy checkpoint warm-start expansion for phase-routed
+  `sharpness_head` weights in
+  [lapv1.py](/home/torsten/EngineKonzept/python/train/trainers/lapv1.py).
+- Added regression coverage for sharpness-phase forwards, flag-off
+  identity, and one no-NaN training step with `lapv2.sharpness_phase_moe`
+  enabled.
