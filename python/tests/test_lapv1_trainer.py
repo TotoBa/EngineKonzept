@@ -1856,6 +1856,127 @@ def test_warm_start_checkpoint_forward_matches_lapv1(tmp_path: Path) -> None:
     )
 
 
+def test_warm_start_checkpoint_allows_sharpness_phase_moe_aliases(tmp_path: Path) -> None:
+    source_config = LAPv1TrainConfig(
+        seed=11,
+        output_dir=str(tmp_path / "src_out"),
+        stage="T2",
+        data=PlannerDataConfig(
+            train_path=str(tmp_path / "src_train.jsonl"),
+            validation_path=str(tmp_path / "src_validation.jsonl"),
+        ),
+        model=LAPv1Config.from_mapping(
+            {
+                "deliberation": {"max_inner_steps": 2, "min_inner_steps": 1},
+                "opponent_head": {
+                    "architecture": "set_v2",
+                    "hidden_dim": 64,
+                    "hidden_layers": 1,
+                    "action_embedding_dim": 16,
+                    "dropout": 0.0,
+                },
+                "value_head": {"hidden_dim": 1024},
+                "policy_head": {
+                    "hidden_dim": 512,
+                    "action_embedding_dim": 32,
+                    "feedforward_dim": 1024,
+                },
+                "state_embedder": {"feedforward_dim": 1024},
+                "intention_encoder": {"feedforward_dim": 1024},
+            }
+        ),
+        optimization=LAPv1OptimizationConfig(epochs=1, batch_size=2, learning_rate=1e-3),
+        evaluation=PlannerEvaluationConfig(top_k=3),
+        runtime=PlannerRuntimeConfig(torch_threads=1, dataloader_workers=0),
+        export=PlannerExportConfig(bundle_dir=str(tmp_path / "src_bundle")),
+        stage2=LAPv1Stage2Config(
+            phases=(
+                LAPv1Stage2PhaseConfig(
+                    name="joint",
+                    epochs=1,
+                    trainable_parameter_groups=("all",),
+                    max_inner_steps_schedule=(2,),
+                ),
+            )
+        ),
+    )
+    target_config = LAPv1TrainConfig(
+        seed=12,
+        output_dir=str(tmp_path / "target_out"),
+        stage="T2",
+        data=PlannerDataConfig(
+            train_path=str(tmp_path / "target_train.jsonl"),
+            validation_path=str(tmp_path / "target_validation.jsonl"),
+        ),
+        model=LAPv1Config.from_mapping(
+            {
+                "deliberation": {"max_inner_steps": 2, "min_inner_steps": 1},
+                "opponent_head": {
+                    "architecture": "set_v2",
+                    "hidden_dim": 64,
+                    "hidden_layers": 1,
+                    "action_embedding_dim": 16,
+                    "dropout": 0.0,
+                },
+                "value_head": {"hidden_dim": 1024},
+                "policy_head": {
+                    "hidden_dim": 512,
+                    "action_embedding_dim": 32,
+                    "feedforward_dim": 1024,
+                },
+                "state_embedder": {"feedforward_dim": 1024},
+                "intention_encoder": {"feedforward_dim": 1024},
+                "lapv2": {
+                    "enabled": True,
+                    "phase_moe": True,
+                    "nnue_value": True,
+                    "nnue_value_phase_moe": True,
+                    "nnue_policy": True,
+                    "sharpness_phase_moe": True,
+                    "shared_opponent_readout": True,
+                    "N_accumulator": 8,
+                },
+            }
+        ),
+        optimization=LAPv1OptimizationConfig(epochs=1, batch_size=2, learning_rate=1e-3),
+        evaluation=PlannerEvaluationConfig(top_k=3),
+        runtime=PlannerRuntimeConfig(torch_threads=1, dataloader_workers=0),
+        export=PlannerExportConfig(bundle_dir=str(tmp_path / "target_bundle")),
+        stage2=LAPv1Stage2Config(
+            phases=(
+                LAPv1Stage2PhaseConfig(
+                    name="joint",
+                    epochs=1,
+                    trainable_parameter_groups=("all",),
+                    max_inner_steps_schedule=(2,),
+                ),
+            )
+        ),
+    )
+    source_model = LAPv1Model(source_config.model)
+    source_checkpoint = tmp_path / "lapv1_t2_source.pt"
+    torch.save(
+        {
+            "model_name": LAPV1_MODEL_NAME,
+            "lapv2_version": 0,
+            "model_state_dict": source_model.state_dict(),
+            "training_config": source_config.to_dict(),
+        },
+        source_checkpoint,
+    )
+    output_checkpoint = tmp_path / "lapv2_warm_start_sharpness.pt"
+
+    result = build_lapv2_warm_start_checkpoint(
+        source_checkpoint,
+        target_config=target_config,
+        output_checkpoint=output_checkpoint,
+    )
+
+    assert output_checkpoint.exists()
+    assert "_sharpness_projector.sharpness_head." in result.fresh_init_prefixes
+    assert "deliberation_loop.sharpness_projector.sharpness_head." in result.fresh_init_prefixes
+
+
 def test_gate_mean_pull_converges_experts() -> None:
     model = LAPv1Model(
         LAPv1Config.from_mapping(

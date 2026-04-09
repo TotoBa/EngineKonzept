@@ -20,6 +20,7 @@ _SPEC.loader.exec_module(_MODULE)
 Phase10Lapv1ArenaCampaignSpec = _MODULE.Phase10Lapv1ArenaCampaignSpec
 _build_resolved_arena_spec = _MODULE._build_resolved_arena_spec
 _select_reference_agents = _MODULE._select_reference_agents
+run_phase10_lapv1_stage1_arena_campaign = _MODULE.run_phase10_lapv1_stage1_arena_campaign
 
 
 def test_select_reference_agents_uses_arena_then_verify_tiebreak(tmp_path: Path) -> None:
@@ -91,6 +92,7 @@ def test_campaign_spec_parses_workflow_chunk_size(tmp_path: Path) -> None:
             "phase5_source_name": "stockfish-unique-pgn",
             "phase5_seed": "seed",
             "workflow_output_root": "workflow",
+            "model_label": "LAPv2",
             "proposer_checkpoint": "models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
             "lapv1_config_path": "python/configs/phase10_lapv1_stage1_all_unique_v1.json",
             "lapv1_agent_spec_path": "python/configs/phase10_agent_lapv1_stage1_all_unique_v1.json",
@@ -99,6 +101,7 @@ def test_campaign_spec_parses_workflow_chunk_size(tmp_path: Path) -> None:
                 {"name": "lapv1_inner1", "deliberation_max_inner_steps": 1},
             ],
             "lapv1_verify_output_path": "verify_head.jsonl",
+            "warm_start_source_checkpoint": "models/lapv1/baseline_v5/freeze_inner_hard_best.pt",
             "reference_arena_summary_path": str(arena_path),
             "reference_verify_matrix_path": str(verify_path),
             "reference_agents": [],
@@ -109,10 +112,60 @@ def test_campaign_spec_parses_workflow_chunk_size(tmp_path: Path) -> None:
     )
 
     assert spec.workflow_chunk_size == 1024
+    assert spec.model_label == "LAPv2"
+    assert (
+        spec.warm_start_source_checkpoint
+        == "models/lapv1/baseline_v5/freeze_inner_hard_best.pt"
+    )
     assert [variant.name for variant in spec.lapv1_agent_variants] == [
         "lapv1_inner0",
         "lapv1_inner1",
     ]
+
+
+def test_campaign_dry_run_exposes_model_label_and_warm_start(tmp_path: Path) -> None:
+    arena_path = tmp_path / "arena.json"
+    verify_path = tmp_path / "verify.json"
+    arena_path.write_text(json.dumps({"standings": {}}), encoding="utf-8")
+    verify_path.write_text(json.dumps({"runs": {}}), encoding="utf-8")
+
+    spec = Phase10Lapv1ArenaCampaignSpec.from_dict(
+        {
+            "name": "phase10_test",
+            "output_root": str(tmp_path / "out"),
+            "model_label": "LAPv2",
+            "merged_raw_dir": "raw",
+            "train_dataset_dir": "train",
+            "verify_dataset_dir": "verify",
+            "phase5_source_name": "stockfish-unique-pgn",
+            "phase5_seed": "seed",
+            "workflow_output_root": "workflow",
+            "proposer_checkpoint": "models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+            "lapv1_config_path": "python/configs/phase10_lapv1_stage1_all_unique_v1.json",
+            "lapv1_agent_spec_path": "python/configs/phase10_agent_lapv1_stage1_all_unique_v1.json",
+            "lapv1_verify_output_path": "verify_head.jsonl",
+            "warm_start_source_checkpoint": "models/lapv1/stage2_fast_all_unique_v4/bundle/checkpoint.pt",
+            "reference_arena_summary_path": str(arena_path),
+            "reference_verify_matrix_path": str(verify_path),
+            "reference_agents": [],
+            "top_reference_agents_count": 0,
+            "benchmark_agent_specs": {"vice_v2": "python/configs/phase9_agent_uci_vice_v2.json"},
+            "initial_fen_suite_path": "artifacts/phase9/initial_fens_active_replay_campaign_adjudicated_v2.json",
+        }
+    )
+
+    summary = run_phase10_lapv1_stage1_arena_campaign(
+        spec=spec,
+        skip_existing=True,
+        dry_run=True,
+    )
+
+    assert summary["dry_run"] is True
+    assert summary["model_label"] == "LAPv2"
+    assert (
+        summary["warm_start_source_checkpoint"]
+        == "models/lapv1/stage2_fast_all_unique_v4/bundle/checkpoint.pt"
+    )
 
 
 def test_build_resolved_arena_spec_uses_initial_fen_suite_entries(tmp_path: Path) -> None:

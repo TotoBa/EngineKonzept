@@ -396,6 +396,17 @@ debuggable without another custom analysis pass.
 - [phase10_lapv1_stage2_fast_arena_all_unique_v4.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv1_stage2_fast_arena_all_unique_v4.json)
   Focused `v4` comparison campaign. It keeps only `inner0` and `auto4` on the LAPv1 side, uses the top four non-LAPv1 reference arms from the completed `v3` arena, and keeps `vice_v2` as the external benchmark.
 
+- [phase10_lapv2_stage2_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv2_stage2_all_unique_v1.json)
+  First real LAPv2 Stage-T2 run. It reuses the completed all-unique workflow, warm-starts from the best available `stage2_fast_all_unique_v4` checkpoint via the new LAPv2 warm-start export path, and enables the current full LAPv2 flag set in one shared model.
+- [phase10_lapv2_stage2_arena_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv2_stage2_arena_all_unique_v1.json)
+  First end-to-end LAPv2 campaign. It trains the `v1` LAPv2 checkpoint, verifies it on the common holdout, and then compares four LAPv2 budgets against four LAPv1-v4 baseline budgets, four strong Phase-9 references, and `vice_v2`.
+
+The Phase-10 campaign runner now also accepts `model_label` plus
+`warm_start_source_checkpoint`. When the source checkpoint is set and
+the target train config is LAPv2-enabled, the runner materializes the
+configured LAPv2 init checkpoint before training and logs the run under
+that model label instead of hard-coding `LAPv1`.
+
 Use [run_phase10_lapv1_stage2_fast_arena_v4_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase10_lapv1_stage2_fast_arena_v4_longrun.sh) for the prepared next LAPv1 run.
 
 The next planned LAPv1 configs keep the same namespace and data-contract boundary:

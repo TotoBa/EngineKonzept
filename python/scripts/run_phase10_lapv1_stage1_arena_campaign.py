@@ -22,7 +22,11 @@ from train.eval.matrix import (  # noqa: E402
     write_selfplay_arena_matrix,
 )
 from train.eval.selfplay import SelfplayMaxPliesAdjudicationSpec  # noqa: E402
-from train.trainers import evaluate_lapv1_checkpoint, load_lapv1_train_config  # noqa: E402
+from train.trainers import (  # noqa: E402
+    build_lapv2_warm_start_checkpoint,
+    evaluate_lapv1_checkpoint,
+    load_lapv1_train_config,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -73,6 +77,7 @@ class Phase10Lapv1ArenaCampaignSpec:
     verify_dataset_dir: str
     phase5_source_name: str
     phase5_seed: str
+    model_label: str = "LAPv1"
     phase5_oracle_workers: int = 6
     phase5_oracle_batch_size: int = 0
     phase5_chunk_size: int = 5000
@@ -90,6 +95,7 @@ class Phase10Lapv1ArenaCampaignSpec:
     lapv1_agent_spec_path: str = ""
     lapv1_agent_variants: tuple[Phase10Lapv1AgentVariantSpec, ...] = ()
     lapv1_verify_output_path: str = ""
+    warm_start_source_checkpoint: str | None = None
     reference_arena_summary_path: str = ""
     reference_verify_matrix_path: str | None = None
     reference_agents: tuple[Phase10ReferenceAgentSpec, ...] = ()
@@ -110,6 +116,7 @@ class Phase10Lapv1ArenaCampaignSpec:
         return cls(
             name=str(payload["name"]),
             output_root=str(payload["output_root"]),
+            model_label=str(payload.get("model_label", "LAPv1")),
             merged_raw_dir=str(payload["merged_raw_dir"]),
             train_dataset_dir=str(payload["train_dataset_dir"]),
             verify_dataset_dir=str(payload["verify_dataset_dir"]),
@@ -135,6 +142,11 @@ class Phase10Lapv1ArenaCampaignSpec:
                 for entry in list(payload.get("lapv1_agent_variants") or [])
             ),
             lapv1_verify_output_path=str(payload["lapv1_verify_output_path"]),
+            warm_start_source_checkpoint=(
+                str(payload["warm_start_source_checkpoint"])
+                if payload.get("warm_start_source_checkpoint") is not None
+                else None
+            ),
             reference_arena_summary_path=str(payload["reference_arena_summary_path"]),
             reference_verify_matrix_path=(
                 str(payload["reference_verify_matrix_path"])
@@ -216,12 +228,14 @@ def run_phase10_lapv1_stage1_arena_campaign(
     selected_reference_agents = _select_reference_agents(spec)
     plan = {
         "campaign_name": spec.name,
+        "model_label": spec.model_label,
         "output_root": str(output_root),
         "selected_reference_agents": selected_reference_agents,
         "benchmark_agents": spec.benchmark_agent_specs,
         "lapv1_config_path": str(lapv1_config_path),
         "lapv1_agent_spec_path": str(_resolve_repo_path(Path(spec.lapv1_agent_spec_path))),
         "lapv1_agent_variants": [variant.name for variant in spec.lapv1_agent_variants],
+        "warm_start_source_checkpoint": spec.warm_start_source_checkpoint,
     }
     if dry_run:
         return {"dry_run": True, **plan}
@@ -247,15 +261,21 @@ def run_phase10_lapv1_stage1_arena_campaign(
     else:
         _log("[phase10] reusing existing LAPv1 workflow artifacts")
 
-    _log(f"[phase10] training LAPv1 {lapv1_config.stage}")
+    _maybe_build_lapv2_warm_start_checkpoint(
+        spec=spec,
+        lapv1_config=lapv1_config,
+        skip_existing=skip_existing,
+    )
+
+    _log(f"[phase10] training {spec.model_label} {lapv1_config.stage}")
     lapv1_checkpoint = _resolve_repo_path(Path(lapv1_config.export.bundle_dir)) / lapv1_config.export.checkpoint_name
     lapv1_summary_path = _resolve_repo_path(Path(lapv1_config.output_dir)) / "summary.json"
     if not skip_existing or not lapv1_checkpoint.exists() or not lapv1_summary_path.exists():
         _run_lapv1_training(lapv1_config_path)
     else:
-        _log(f"[phase10] reusing existing LAPv1 {lapv1_config.stage} checkpoint")
+        _log(f"[phase10] reusing existing {spec.model_label} {lapv1_config.stage} checkpoint")
 
-    _log("[phase10] evaluating LAPv1 verify holdout")
+    _log(f"[phase10] evaluating {spec.model_label} verify holdout")
     lapv1_verify_metrics = evaluate_lapv1_checkpoint(
         lapv1_checkpoint,
         dataset_path=lapv1_verify_path,
@@ -267,7 +287,7 @@ def run_phase10_lapv1_stage1_arena_campaign(
         encoding="utf-8",
     )
 
-    _log("[phase10] writing resolved LAPv1 agent spec")
+    _log(f"[phase10] writing resolved {spec.model_label} agent spec")
     tracked_lapv1_agent_path = _resolve_repo_path(Path(spec.lapv1_agent_spec_path))
     resolved_lapv1_agent_paths = _materialize_resolved_lapv1_agent_specs(
         spec=spec,
@@ -275,7 +295,7 @@ def run_phase10_lapv1_stage1_arena_campaign(
         output_root=output_root,
     )
 
-    _log("[phase10] materializing resolved arena spec")
+    _log(f"[phase10] materializing resolved arena spec for {spec.model_label}")
     resolved_arena_spec = _build_resolved_arena_spec(
         spec,
         selected_reference_agents,
@@ -392,6 +412,39 @@ def _run_lapv1_training(config_path: Path) -> None:
     subprocess.run(command, cwd=REPO_ROOT, check=True)
 
 
+def _maybe_build_lapv2_warm_start_checkpoint(
+    *,
+    spec: Phase10Lapv1ArenaCampaignSpec,
+    lapv1_config: Any,
+    skip_existing: bool,
+) -> None:
+    if spec.warm_start_source_checkpoint is None:
+        return
+    if lapv1_config.initial_checkpoint is None:
+        raise ValueError(
+            "warm_start_source_checkpoint requires lapv1_config.initial_checkpoint to be set"
+        )
+    if not lapv1_config.model.lapv2.enabled:
+        raise ValueError(
+            "warm_start_source_checkpoint is only valid when lapv1_config.model.lapv2.enabled is true"
+        )
+    source_checkpoint = _resolve_repo_path(Path(spec.warm_start_source_checkpoint))
+    output_checkpoint = _resolve_repo_path(Path(lapv1_config.initial_checkpoint))
+    if skip_existing and output_checkpoint.exists():
+        _log(f"[phase10] reusing existing {spec.model_label} warm-start checkpoint")
+        return
+    _log(f"[phase10] building {spec.model_label} warm-start checkpoint")
+    result = build_lapv2_warm_start_checkpoint(
+        source_checkpoint,
+        target_config=lapv1_config,
+        output_checkpoint=output_checkpoint,
+    )
+    _log(
+        "[phase10] "
+        f"{spec.model_label} warm-start ready output={result.output_checkpoint}"
+    )
+
+
 def _select_reference_agents(spec: Phase10Lapv1ArenaCampaignSpec) -> list[str]:
     arena_summary = json.loads(
         _resolve_repo_path(Path(spec.reference_arena_summary_path)).read_text(encoding="utf-8")
@@ -480,7 +533,8 @@ def _build_resolved_arena_spec(
         max_plies_adjudication=adjudication,
         metadata={
             "campaign_name": spec.name,
-            "purpose": "lapv1_compare_vs_selected_refs_plus_benchmarks",
+            "purpose": "lap_model_compare_vs_selected_refs_plus_benchmarks",
+            "model_label": spec.model_label,
             "lapv1_agent_names": list(lapv1_specs),
             "reference_arena_summary_path": spec.reference_arena_summary_path,
             "selected_reference_agents": list(selected_reference_agents),

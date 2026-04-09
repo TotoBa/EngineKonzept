@@ -1373,6 +1373,13 @@ def _load_lapv1_model_state(
                 "deliberation_loop.reply_signal_projector.reply_global_projection.",
             ]
         )
+    if model.config.lapv2.enabled and model.config.lapv2.sharpness_phase_moe:
+        compatible_unexpected_prefixes.extend(
+            [
+                "_sharpness_projector.sharpness_head.network.",
+                "deliberation_loop.sharpness_projector.sharpness_head.network.",
+            ]
+        )
     if lapv2_fresh_init_prefixes:
         compatible_missing_prefixes.extend(lapv2_fresh_init_prefixes)
         print(
@@ -1422,6 +1429,13 @@ def _lapv2_fresh_init_prefixes(model: LAPv1Model) -> tuple[str, ...]:
         prefixes.extend(["ft.", "value_head_nnue."])
     if model.config.lapv2.nnue_policy_enabled:
         prefixes.append("policy_head_nnue.")
+    if model.config.lapv2.enabled and model.config.lapv2.sharpness_phase_moe:
+        prefixes.extend(
+            [
+                "_sharpness_projector.sharpness_head.",
+                "deliberation_loop.sharpness_projector.sharpness_head.",
+            ]
+        )
     if model.config.lapv2.enabled and model.config.lapv2.shared_opponent_readout:
         prefixes.append("deliberation_loop.reply_signal_projector.opponent_readout.")
     return tuple(prefixes)

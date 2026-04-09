@@ -1,0 +1,22 @@
+{
+  "spec_version": 1,
+  "name": "lapv1_stage2_fast_all_unique_v4_inner1",
+  "agent_kind": "lapv1",
+  "lapv1_checkpoint": "models/lapv1/stage2_fast_all_unique_v4/bundle/checkpoint.pt",
+  "state_context_version": 1,
+  "deliberation_max_inner_steps": 1,
+  "deliberation_q_threshold": 0.3,
+  "tags": [
+    "lapv1",
+    "stage2",
+    "fast",
+    "all_unique",
+    "v4",
+    "inner1"
+  ],
+  "metadata": {
+    "description": "LAPv1 Stage2 fast v4 one-step deliberation baseline.",
+    "trained_max_inner_steps": 4,
+    "variant_role": "single_step_deliberation_baseline"
+  }
+}

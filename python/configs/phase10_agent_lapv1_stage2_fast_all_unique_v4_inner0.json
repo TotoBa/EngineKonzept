@@ -1,0 +1,21 @@
+{
+  "spec_version": 1,
+  "name": "lapv1_stage2_fast_all_unique_v4_inner0",
+  "agent_kind": "lapv1",
+  "lapv1_checkpoint": "models/lapv1/stage2_fast_all_unique_v4/bundle/checkpoint.pt",
+  "state_context_version": 1,
+  "deliberation_max_inner_steps": 0,
+  "tags": [
+    "lapv1",
+    "stage2",
+    "fast",
+    "all_unique",
+    "v4",
+    "inner0"
+  ],
+  "metadata": {
+    "description": "LAPv1 Stage2 fast v4 root-only baseline.",
+    "trained_max_inner_steps": 4,
+    "variant_role": "root_only_baseline"
+  }
+}

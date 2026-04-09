@@ -226,3 +226,23 @@
   expert usage per phase, per-phase root value/policy losses, FT expert
   drift, adapter cosine distance, and reply-consistency correlation when
   teacher reply targets are available.
+
+## Schritt 14
+
+- Extended the Phase-10 arena campaign runner in
+  [run_phase10_lapv1_stage1_arena_campaign.py](/home/torsten/EngineKonzept/python/scripts/run_phase10_lapv1_stage1_arena_campaign.py)
+  with an optional LAPv2 warm-start export step plus explicit
+  model-label logging so LAPv2 campaigns no longer masquerade as LAPv1
+  runs in the console output.
+- Added the first real LAPv2 Stage-T2 training config in
+  [phase10_lapv2_stage2_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv2_stage2_all_unique_v1.json),
+  warm-starting from the best available completed `stage2_fast_all_unique_v4`
+  checkpoint while enabling the full current LAPv2 flag set.
+- Added the first LAPv2 arena campaign prep in
+  [phase10_lapv2_stage2_arena_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv2_stage2_arena_all_unique_v1.json),
+  comparing four LAPv2 runtime budgets against four LAPv1-v4 baseline
+  budgets, four strong Phase-9 references, and `vice_v2`.
+- Verified the real `stage2_fast_all_unique_v4` -> `LAPv2 v1` warm-start
+  export path and extended the legacy loader so the new sharpness-phase-MoE
+  alias paths are treated as compatible fresh-init / legacy-unexpected keys
+  instead of aborting the bootstrap.

@@ -23,3 +23,4 @@ Current planner-migration notes:
 - [phase10-lapv1-stage2-v3-prep-2026-04-07.md](/home/torsten/EngineKonzept/docs/experiments/phase10-lapv1-stage2-v3-prep-2026-04-07.md)
 - [phase10-lapv1-stage2-fast-arena-v3-summary-2026-04-08.md](/home/torsten/EngineKonzept/docs/experiments/phase10-lapv1-stage2-fast-arena-v3-summary-2026-04-08.md)
 - [phase10-lapv1-stage2-v4-prep-2026-04-08.md](/home/torsten/EngineKonzept/docs/experiments/phase10-lapv1-stage2-v4-prep-2026-04-08.md)
+- [phase10-lapv2-stage2-v1-prep-2026-04-09.md](/home/torsten/EngineKonzept/docs/experiments/phase10-lapv2-stage2-v1-prep-2026-04-09.md)

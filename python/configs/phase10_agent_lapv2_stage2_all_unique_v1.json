@@ -1,0 +1,21 @@
+{
+  "spec_version": 1,
+  "name": "lapv2_stage2_all_unique_v1",
+  "agent_kind": "lapv1",
+  "lapv1_checkpoint": "models/lapv2/stage2_all_unique_v1/bundle/checkpoint.pt",
+  "state_context_version": 1,
+  "deliberation_max_inner_steps": 4,
+  "deliberation_q_threshold": 0.3,
+  "tags": [
+    "lapv2",
+    "stage2",
+    "all_unique",
+    "v1"
+  ],
+  "metadata": {
+    "description": "First full LAPv2 stage-T2 checkpoint with phase MoE, shared FT NNUE value/policy, sharpness routing, shared opponent readout, and opponent distillation.",
+    "trained_max_inner_steps": 4,
+    "warm_start_source": "models/lapv1/stage2_fast_all_unique_v4/bundle/checkpoint.pt",
+    "status_updates_todo": "future_uci_inner_loop_reporting"
+  }
+}

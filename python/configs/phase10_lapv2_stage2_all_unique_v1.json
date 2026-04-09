@@ -1,0 +1,247 @@
+{
+  "seed": 21,
+  "output_dir": "models/lapv2/stage2_all_unique_v1",
+  "stage": "T2",
+  "initial_checkpoint": "models/lapv2/warm_starts/stage2_all_unique_v1_init.pt",
+  "data": {
+    "train_path": "/srv/schach/engine_training/phase10/lapv1_workflow_all_unique_v1/all_unique_train_v1/lapv1_train.jsonl",
+    "validation_path": "/srv/schach/engine_training/phase10/lapv1_workflow_all_unique_v1/all_unique_validation_v1/lapv1_validation.jsonl",
+    "additional_train_paths": [],
+    "additional_validation_paths": []
+  },
+  "model": {
+    "architecture": "lapv1",
+    "intention_encoder": {
+      "hidden_dim": 96,
+      "intention_dim": 48,
+      "num_layers": 3,
+      "num_heads": 4,
+      "feedforward_dim": 1024,
+      "dropout": 0.0,
+      "max_edge_count": 128
+    },
+    "state_embedder": {
+      "intention_dim": 48,
+      "square_input_dim": 2,
+      "global_dim": 11,
+      "hidden_dim": 160,
+      "state_dim": 320,
+      "num_layers": 4,
+      "num_heads": 8,
+      "feedforward_dim": 1024,
+      "dropout": 0.0,
+      "max_edge_count": 128
+    },
+    "value_head": {
+      "state_dim": 320,
+      "memory_dim": 160,
+      "hidden_dim": 1024,
+      "hidden_layers": 3,
+      "cp_score_cap": 1024.0,
+      "dropout": 0.0
+    },
+    "sharpness_head": {
+      "state_dim": 320,
+      "hidden_dim": 96,
+      "dropout": 0.0
+    },
+    "policy_head": {
+      "state_dim": 320,
+      "hidden_dim": 512,
+      "action_embedding_dim": 64,
+      "num_layers": 3,
+      "num_heads": 8,
+      "feedforward_dim": 1024,
+      "dropout": 0.0
+    },
+    "opponent_head": {
+      "architecture": "set_v2",
+      "hidden_dim": 160,
+      "hidden_layers": 2,
+      "action_embedding_dim": 48,
+      "dropout": 0.1
+    },
+    "deliberation": {
+      "state_dim": 320,
+      "memory_dim": 160,
+      "memory_slots": 16,
+      "action_embedding_dim": 48,
+      "top_k_refine": 3,
+      "max_inner_steps": 4,
+      "min_inner_steps": 1,
+      "q_threshold": 0.3,
+      "rollback_threshold": 40.0,
+      "top1_stable_steps": 2,
+      "rollback_buffer_size": 4
+    },
+    "lapv2": {
+      "enabled": true,
+      "phase_moe": true,
+      "dual_accumulator": true,
+      "nnue_value": true,
+      "nnue_value_phase_moe": true,
+      "nnue_policy": true,
+      "sharpness_phase_moe": true,
+      "shared_opponent_readout": true,
+      "distill_opponent": true,
+      "distill_fraction": 0.25,
+      "distill_reply_weight": 1.0,
+      "distill_pressure_weight": 0.5,
+      "distill_uncertainty_weight": 0.5,
+      "accumulator_cache": true,
+      "N_accumulator": 64,
+      "loss_balance": {
+        "value_loss_norm": "ema",
+        "policy_loss_norm": "ema",
+        "adapter_decoupling": 0.0
+      }
+    }
+  },
+  "optimization": {
+    "epochs": 4,
+    "batch_size": 256,
+    "learning_rate": 0.00015,
+    "weight_decay": 0.0001,
+    "max_grad_norm": 1.0,
+    "log_interval_batches": 48,
+    "value_wdl_weight": 1.0,
+    "value_cp_weight": 0.25,
+    "sharpness_weight": 0.1,
+    "sharpness_target_loss_weight": 0.15,
+    "policy_ce_weight": 1.0,
+    "policy_kl_weight": 0.25,
+    "policy_margin_weight": 0.1,
+    "policy_rank_weight": 0.1,
+    "intention_aux_weight": 0.05,
+    "deliberation_monotonicity_weight": 0.05,
+    "deliberation_step_policy_weight": 0.25,
+    "deliberation_improvement_weight": 0.25
+  },
+  "evaluation": {
+    "top_k": 3
+  },
+  "runtime": {
+    "torch_threads": 6,
+    "dataloader_workers": 0
+  },
+  "export": {
+    "bundle_dir": "models/lapv2/stage2_all_unique_v1/bundle",
+    "checkpoint_name": "checkpoint.pt"
+  },
+  "stage2": {
+    "phase_load_balance": true,
+    "gate_stage_a_steps": 1200,
+    "gate_stage_b_steps": 5000,
+    "selection_validation_paths": [
+      "/srv/schach/engine_training/phase10/lapv1_workflow_all_unique_v1/all_unique_validation_v1/lapv1_validation.jsonl"
+    ],
+    "selection_min_inner_steps": 2,
+    "selection_max_inner_steps": 4,
+    "phases": [
+      {
+        "name": "lapv2_bootstrap_mix",
+        "epochs": 1,
+        "trainable_parameter_groups": [
+          "inner_delta_network",
+          "inner_loop_core",
+          "root_heads",
+          "root_backbone"
+        ],
+        "learning_rate_scale_by_group": {
+          "inner_delta_network": 1.0,
+          "inner_loop_core": 0.85,
+          "root_heads": 1.0,
+          "root_backbone": 0.4
+        },
+        "train_paths": [
+          "/srv/schach/engine_training/phase10/lapv1_workflow_all_unique_v1/all_unique_train_hard_v1/lapv1_train_hard.jsonl",
+          "/srv/schach/engine_training/phase10/lapv1_workflow_all_unique_v1/all_unique_train_v1/lapv1_train.jsonl"
+        ],
+        "train_path_weights": [
+          0.5,
+          0.5
+        ],
+        "train_epoch_examples": 300000,
+        "validation_paths": [
+          "/srv/schach/engine_training/phase10/lapv1_workflow_all_unique_v1/all_unique_validation_hard_v1/lapv1_validation_hard.jsonl"
+        ],
+        "max_inner_steps_schedule": [
+          1
+        ],
+        "min_inner_steps_schedule": [
+          1
+        ]
+      },
+      {
+        "name": "lapv2_joint_mix",
+        "epochs": 2,
+        "trainable_parameter_groups": [
+          "inner_delta_network",
+          "inner_loop_core",
+          "root_heads",
+          "root_backbone"
+        ],
+        "learning_rate_scale_by_group": {
+          "inner_delta_network": 1.0,
+          "inner_loop_core": 0.75,
+          "root_heads": 0.6,
+          "root_backbone": 0.25
+        },
+        "train_paths": [
+          "/srv/schach/engine_training/phase10/lapv1_workflow_all_unique_v1/all_unique_train_v1/lapv1_train.jsonl",
+          "/srv/schach/engine_training/phase10/lapv1_workflow_all_unique_v1/all_unique_train_hard_v1/lapv1_train_hard.jsonl"
+        ],
+        "train_path_weights": [
+          0.75,
+          0.25
+        ],
+        "train_epoch_examples": 675386,
+        "validation_paths": [
+          "/srv/schach/engine_training/phase10/lapv1_workflow_all_unique_v1/all_unique_validation_v1/lapv1_validation.jsonl"
+        ],
+        "max_inner_steps_schedule": [
+          2,
+          4
+        ],
+        "min_inner_steps_schedule": [
+          1,
+          2
+        ]
+      },
+      {
+        "name": "lapv2_joint_stabilize",
+        "epochs": 1,
+        "trainable_parameter_groups": [
+          "inner_delta_network",
+          "inner_loop_core",
+          "root_heads",
+          "root_backbone"
+        ],
+        "learning_rate_scale_by_group": {
+          "inner_delta_network": 0.75,
+          "inner_loop_core": 0.5,
+          "root_heads": 0.35,
+          "root_backbone": 0.1
+        },
+        "train_paths": [
+          "/srv/schach/engine_training/phase10/lapv1_workflow_all_unique_v1/all_unique_train_v1/lapv1_train.jsonl",
+          "/srv/schach/engine_training/phase10/lapv1_workflow_all_unique_v1/all_unique_train_hard_v1/lapv1_train_hard.jsonl"
+        ],
+        "train_path_weights": [
+          0.75,
+          0.25
+        ],
+        "train_epoch_examples": 675386,
+        "validation_paths": [
+          "/srv/schach/engine_training/phase10/lapv1_workflow_all_unique_v1/all_unique_validation_v1/lapv1_validation.jsonl"
+        ],
+        "max_inner_steps_schedule": [
+          4
+        ],
+        "min_inner_steps_schedule": [
+          2
+        ]
+      }
+    ]
+  }
+}
