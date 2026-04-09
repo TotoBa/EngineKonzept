@@ -186,6 +186,14 @@ The sharpness path can now also be phase-routed. With
 sharpness projector share the same hard phase routing as the other LAPv2
 phase-aware modules while remaining bit-identical in the flag-off path.
 
+The opponent reply path now also has an optional LAPv2 upgrade in
+[opponent_readout.py](/home/torsten/EngineKonzept/python/train/models/opponent_readout.py).
+With `lapv2.shared_opponent_readout`, the deliberation loop replaces the
+separate dense opponent head with a lighter shared-backbone
+`OpponentReadout` built around a move-conditioned `DeltaOperator`, while
+preserving the legacy reply aggregation
+`best_reply - 10 * pressure - 10 * uncertainty`.
+
 ### Bounded Recurrent Deliberation Loop
 
 The deliberation loop is the central runtime mechanism.

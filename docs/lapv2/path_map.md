@@ -12,6 +12,7 @@ LAPv2 documents.
 | ValueHead | [python/train/models/value_head.py](/home/torsten/EngineKonzept/python/train/models/value_head.py) | `ValueHead` | Scalar root value head. |
 | SharpnessHead | [python/train/models/value_head.py](/home/torsten/EngineKonzept/python/train/models/value_head.py) | `SharpnessHead` | Sharpness / uncertainty head. |
 | OpponentHead | [python/train/models/opponent.py](/home/torsten/EngineKonzept/python/train/models/opponent.py) | `OpponentHeadModel` | Opponent reply readout in the current LAPv1 runtime. |
+| OpponentReadout | [python/train/models/opponent_readout.py](/home/torsten/EngineKonzept/python/train/models/opponent_readout.py) | `DeltaOperator`, `OpponentReadout` | LAPv2 shared-backbone opponent readout that replaces the separate opponent head behind a feature flag. |
 | DeliberationLoop | [python/train/models/deliberation.py](/home/torsten/EngineKonzept/python/train/models/deliberation.py) | `DeliberationLoop` | Bounded inner-loop planning module. |
 | LAPv1 Top-Level Model | [python/train/models/lapv1.py](/home/torsten/EngineKonzept/python/train/models/lapv1.py) | `LAPv1Model`, `LAPv1Config` | Wrapper that composes encoder, heads, and deliberation. |
 | LAPv1 Artifact Loader | [python/train/datasets/lapv1_training.py](/home/torsten/EngineKonzept/python/train/datasets/lapv1_training.py) | `LAPv1TrainingExample`, `lapv1_training_example_from_planner_head` | Phase-10 JSONL artifact used by LAPv1 T1/T2. |

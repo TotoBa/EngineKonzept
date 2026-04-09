@@ -356,6 +356,70 @@ def test_sharpness_phase_moe_on_runs_training_step(tmp_path: Path) -> None:
     assert Path(run.export_paths["checkpoint"]).exists()
 
 
+def test_shared_opponent_readout_on_runs_training_step(tmp_path: Path) -> None:
+    train_path = tmp_path / "lapv1_train.jsonl"
+    validation_path = tmp_path / "lapv1_validation.jsonl"
+    _write_examples(
+        train_path,
+        [
+            _planner_example("train-1", teacher_index=0, teacher_cp=60.0, teacher_gap=40.0),
+            _planner_example("train-2", teacher_index=1, teacher_cp=10.0, teacher_gap=10.0),
+        ],
+    )
+    _write_examples(
+        validation_path,
+        [_planner_example("validation-1", teacher_index=0, teacher_cp=50.0, teacher_gap=30.0)],
+    )
+
+    config = LAPv1TrainConfig(
+        seed=13,
+        output_dir=str(tmp_path / "lapv1_out"),
+        stage="T2",
+        data=PlannerDataConfig(
+            train_path=str(train_path),
+            validation_path=str(validation_path),
+        ),
+        model=LAPv1Config.from_mapping(
+            {
+                "lapv2": {
+                    "enabled": True,
+                    "shared_opponent_readout": True,
+                },
+                "deliberation": {"max_inner_steps": 2, "min_inner_steps": 1},
+                "opponent_head": {
+                    "architecture": "set_v2",
+                    "hidden_dim": 64,
+                    "hidden_layers": 1,
+                    "action_embedding_dim": 16,
+                    "dropout": 0.0,
+                },
+                "value_head": {"hidden_dim": 256},
+                "policy_head": {
+                    "hidden_dim": 256,
+                    "action_embedding_dim": 32,
+                    "feedforward_dim": 512,
+                },
+                "state_embedder": {"feedforward_dim": 512},
+                "intention_encoder": {"feedforward_dim": 512},
+            }
+        ),
+        optimization=LAPv1OptimizationConfig(
+            epochs=1,
+            batch_size=1,
+            learning_rate=1e-3,
+            weight_decay=0.0,
+        ),
+        evaluation=PlannerEvaluationConfig(top_k=3),
+        runtime=PlannerRuntimeConfig(torch_threads=1, dataloader_workers=0),
+        export=PlannerExportConfig(bundle_dir=str(tmp_path / "bundle")),
+        stage2=LAPv1Stage2Config(max_inner_steps_schedule=(1,)),
+    )
+
+    run = train_lapv1(config, repo_root=tmp_path)
+
+    assert Path(run.export_paths["checkpoint"]).exists()
+
+
 def test_train_lapv1_accepts_older_checkpoint_missing_residual_delta_net(
     tmp_path: Path,
 ) -> None:
@@ -423,6 +487,100 @@ def test_train_lapv1_accepts_older_checkpoint_missing_residual_delta_net(
         runtime=PlannerRuntimeConfig(torch_threads=1, dataloader_workers=0),
         export=PlannerExportConfig(bundle_dir=str(tmp_path / "bundle")),
         initial_checkpoint=str(checkpoint_path),
+    )
+
+    run = train_lapv1(config, repo_root=tmp_path)
+
+    assert Path(run.export_paths["checkpoint"]).exists()
+
+
+def test_train_lapv1_accepts_older_checkpoint_missing_shared_opponent_readout(
+    tmp_path: Path,
+) -> None:
+    train_path = tmp_path / "lapv1_train.jsonl"
+    validation_path = tmp_path / "lapv1_validation.jsonl"
+    _write_examples(
+        train_path,
+        [_planner_example("train-1", teacher_index=0, teacher_cp=60.0, teacher_gap=40.0)],
+    )
+    _write_examples(
+        validation_path,
+        [_planner_example("validation-1", teacher_index=0, teacher_cp=50.0, teacher_gap=30.0)],
+    )
+
+    legacy_model_config = LAPv1Config.from_mapping(
+        {
+            "deliberation": {"max_inner_steps": 2, "min_inner_steps": 1},
+            "opponent_head": {
+                "architecture": "set_v2",
+                "hidden_dim": 64,
+                "hidden_layers": 1,
+                "action_embedding_dim": 16,
+                "dropout": 0.0,
+            },
+            "value_head": {"hidden_dim": 256},
+            "policy_head": {
+                "hidden_dim": 256,
+                "action_embedding_dim": 32,
+                "feedforward_dim": 512,
+            },
+            "state_embedder": {"feedforward_dim": 512},
+            "intention_encoder": {"feedforward_dim": 512},
+        }
+    )
+    checkpoint_path = tmp_path / "initial_checkpoint_legacy_shared_opponent.pt"
+    model = LAPv1Model(legacy_model_config)
+    torch.save(
+        {
+            "model_name": LAPV1_MODEL_NAME,
+            "model_state_dict": dict(model.state_dict()),
+        },
+        checkpoint_path,
+    )
+
+    config = LAPv1TrainConfig(
+        seed=32,
+        output_dir=str(tmp_path / "lapv1_out"),
+        stage="T2",
+        data=PlannerDataConfig(
+            train_path=str(train_path),
+            validation_path=str(validation_path),
+        ),
+        model=LAPv1Config.from_mapping(
+            {
+                "lapv2": {
+                    "enabled": True,
+                    "shared_opponent_readout": True,
+                },
+                "deliberation": {"max_inner_steps": 2, "min_inner_steps": 1},
+                "opponent_head": {
+                    "architecture": "set_v2",
+                    "hidden_dim": 64,
+                    "hidden_layers": 1,
+                    "action_embedding_dim": 16,
+                    "dropout": 0.0,
+                },
+                "value_head": {"hidden_dim": 256},
+                "policy_head": {
+                    "hidden_dim": 256,
+                    "action_embedding_dim": 32,
+                    "feedforward_dim": 512,
+                },
+                "state_embedder": {"feedforward_dim": 512},
+                "intention_encoder": {"feedforward_dim": 512},
+            }
+        ),
+        optimization=LAPv1OptimizationConfig(
+            epochs=1,
+            batch_size=1,
+            learning_rate=1e-3,
+            weight_decay=0.0,
+        ),
+        evaluation=PlannerEvaluationConfig(top_k=3),
+        runtime=PlannerRuntimeConfig(torch_threads=1, dataloader_workers=0),
+        export=PlannerExportConfig(bundle_dir=str(tmp_path / "bundle")),
+        initial_checkpoint=str(checkpoint_path),
+        stage2=LAPv1Stage2Config(max_inner_steps_schedule=(1,)),
     )
 
     run = train_lapv1(config, repo_root=tmp_path)

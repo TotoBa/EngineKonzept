@@ -520,6 +520,60 @@ def test_sharpness_phase_flag_off_is_bit_identical_to_v1() -> None:
     )
 
 
+def test_shared_opponent_readout_runs() -> None:
+    model = LAPv1Model(
+        LAPv1Config.from_mapping(
+            {
+                "lapv2": {
+                    "enabled": True,
+                    "shared_opponent_readout": True,
+                },
+                "deliberation": {"max_inner_steps": 2, "min_inner_steps": 1},
+            }
+        )
+    )
+
+    outputs = model(**_sample_inputs(batch_size=4))
+
+    assert tuple(outputs["final_policy_logits"].shape) == (4, 5)
+    assert torch.isfinite(outputs["final_policy_logits"]).all()
+
+
+def test_flag_off_uses_legacy_opponent() -> None:
+    baseline = LAPv1Model(
+        LAPv1Config.from_mapping(
+            {
+                "deliberation": {"max_inner_steps": 2, "min_inner_steps": 1},
+            }
+        )
+    )
+    flagged = LAPv1Model(
+        LAPv1Config.from_mapping(
+            {
+                "lapv2": {
+                    "enabled": True,
+                    "shared_opponent_readout": False,
+                },
+                "deliberation": {"max_inner_steps": 2, "min_inner_steps": 1},
+            }
+        )
+    )
+    flagged.load_state_dict(baseline.state_dict(), strict=False)
+    inputs = _sample_inputs()
+
+    baseline_outputs = baseline(**inputs)
+    flagged_outputs = flagged(**inputs)
+
+    assert torch.equal(
+        baseline_outputs["initial_policy_logits"],
+        flagged_outputs["initial_policy_logits"],
+    )
+    assert torch.equal(
+        baseline_outputs["final_policy_logits"],
+        flagged_outputs["final_policy_logits"],
+    )
+
+
 def test_lapv1_total_parameter_budget_is_within_target_band() -> None:
     model = LAPv1Model(LAPv1Config())
     parameter_bytes = sum(parameter.numel() for parameter in model.parameters()) * 4

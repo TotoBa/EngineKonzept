@@ -1211,11 +1211,25 @@ def _load_lapv1_model_state(
 ) -> None:
     effective_state_dict = _expand_legacy_phase_moe_state_dict(model, state_dict)
     compatible_missing_prefixes = ["deliberation_loop.cell.candidate_delta_network."]
+    compatible_unexpected_prefixes: list[str] = []
     lapv2_fresh_init_prefixes: list[str] = []
     if model.config.lapv2.nnue_value_enabled:
         lapv2_fresh_init_prefixes.extend(["ft.", "value_head_nnue."])
     if model.config.lapv2.nnue_policy_enabled:
         lapv2_fresh_init_prefixes.append("policy_head_nnue.")
+    if model.config.lapv2.enabled and model.config.lapv2.shared_opponent_readout:
+        lapv2_fresh_init_prefixes.append(
+            "deliberation_loop.reply_signal_projector.opponent_readout."
+        )
+        compatible_unexpected_prefixes.extend(
+            [
+                "deliberation_loop.reply_signal_projector.opponent_head.",
+                "deliberation_loop.reply_signal_projector.root_projection.",
+                "deliberation_loop.reply_signal_projector.next_projection.",
+                "deliberation_loop.reply_signal_projector.transition_projection.",
+                "deliberation_loop.reply_signal_projector.reply_global_projection.",
+            ]
+        )
     if lapv2_fresh_init_prefixes:
         compatible_missing_prefixes.extend(lapv2_fresh_init_prefixes)
         print(
@@ -1237,7 +1251,11 @@ def _load_lapv1_model_state(
             + ", ".join(sorted(incompatible_missing_keys))
         )
     load_result = model.load_state_dict(dict(effective_state_dict), strict=False)
-    unexpected_keys = list(load_result.unexpected_keys)
+    unexpected_keys = [
+        key
+        for key in load_result.unexpected_keys
+        if not key.startswith(tuple(compatible_unexpected_prefixes))
+    ]
     if unexpected_keys:
         raise RuntimeError(
             f"{checkpoint_path}: incompatible LAPv1 checkpoint has unexpected keys: "
@@ -2508,7 +2526,12 @@ def _named_parameter_groups(
         for name, parameter in model.deliberation_loop.named_parameters()
         if not name.startswith("cell.candidate_delta_network.")
     ]
-    inner_loop_core_parameters.extend(model.opponent_head.parameters())
+    active_opponent_parameters = (
+        list(model.opponent_readout.parameters())
+        if model.opponent_readout is not None
+        else list(model.opponent_head.parameters())
+    )
+    inner_loop_core_parameters.extend(active_opponent_parameters)
     return {
         "root_backbone": [
             *model.intention_encoder.parameters(),
@@ -2527,7 +2550,7 @@ def _named_parameter_groups(
         ],
         "inner_loop": [
             *model.deliberation_loop.parameters(),
-            *model.opponent_head.parameters(),
+            *active_opponent_parameters,
         ],
         "inner_loop_core": [
             parameter

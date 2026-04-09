@@ -137,3 +137,23 @@
 - Added regression coverage for sharpness-phase forwards, flag-off
   identity, and one no-NaN training step with `lapv2.sharpness_phase_moe`
   enabled.
+
+## Schritt 10
+
+- Added the shared-backbone opponent readout modules in
+  [opponent_readout.py](/home/torsten/EngineKonzept/python/train/models/opponent_readout.py),
+  including `DeltaOperator` plus the lightweight
+  `OpponentReadout` reply/pressure/uncertainty heads.
+- Integrated the new `lapv2.shared_opponent_readout` flag into
+  [lapv1.py](/home/torsten/EngineKonzept/python/train/models/lapv1.py)
+  without changing the legacy reply-signal aggregation formula
+  `best_reply - 10 * pressure - 10 * uncertainty`.
+- Kept the legacy opponent-head path intact for flag-off runs and added
+  warm-start compatibility so older checkpoints can switch into the new
+  readout path while freshly initializing only the step-10 weights.
+- Extended the trainer and runtime coverage to exercise the new readout
+  path, the flag-off identity path, and legacy checkpoint upgrades in
+  [test_opponent_readout.py](/home/torsten/EngineKonzept/python/tests/test_opponent_readout.py),
+  [test_lapv1_model.py](/home/torsten/EngineKonzept/python/tests/test_lapv1_model.py),
+  [test_lapv1_trainer.py](/home/torsten/EngineKonzept/python/tests/test_lapv1_trainer.py),
+  and [test_lapv1_runtime.py](/home/torsten/EngineKonzept/python/tests/test_lapv1_runtime.py).

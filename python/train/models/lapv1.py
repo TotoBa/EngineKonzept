@@ -25,6 +25,7 @@ from train.models.dual_accumulator import DualAccumulatorBuilder, build_sparse_r
 from train.models.feature_transformer import FeatureTransformer
 from train.models.intention_encoder import PieceIntentionEncoder
 from train.models.opponent import OpponentHeadModel
+from train.models.opponent_readout import OpponentReadout
 from train.models.phase_moe import PhaseMoE
 from train.models.phase_router import PhaseRouter
 from train.models.policy_head_large import LargePolicyHead
@@ -209,20 +210,32 @@ if torch is not None and nn is not None:
             *,
             state_dim: int,
             global_dim: int,
-            opponent_head: OpponentHeadModel,
+            opponent_head: OpponentHeadModel | None = None,
+            opponent_readout: OpponentReadout | None = None,
         ) -> None:
             super().__init__()
+            if (opponent_head is None) == (opponent_readout is None):
+                raise ValueError(
+                    "exactly one of opponent_head or opponent_readout must be provided"
+                )
             self.opponent_head = opponent_head
-            self.root_projection = nn.Linear(state_dim, POSITION_FEATURE_SIZE)
-            self.next_projection = nn.Linear(state_dim, POSITION_FEATURE_SIZE)
-            self.transition_projection = nn.Linear(
-                state_dim * 2,
-                TRANSITION_CONTEXT_FEATURE_SIZE,
-            )
-            self.reply_global_projection = nn.Linear(
-                global_dim,
-                SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE,
-            )
+            self.opponent_readout = opponent_readout
+            if opponent_head is not None:
+                self.root_projection = nn.Linear(state_dim, POSITION_FEATURE_SIZE)
+                self.next_projection = nn.Linear(state_dim, POSITION_FEATURE_SIZE)
+                self.transition_projection = nn.Linear(
+                    state_dim * 2,
+                    TRANSITION_CONTEXT_FEATURE_SIZE,
+                )
+                self.reply_global_projection = nn.Linear(
+                    global_dim,
+                    SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE,
+                )
+            else:
+                self.root_projection = None
+                self.next_projection = None
+                self.transition_projection = None
+                self.reply_global_projection = None
 
         def forward(
             self,
@@ -237,17 +250,9 @@ if torch is not None and nn is not None:
         ) -> torch.Tensor:
             batch_size, selected_count, state_dim = transitioned_latents.shape
             candidate_count = candidate_action_indices.shape[1]
-            root_expanded = z_t.unsqueeze(1).expand(-1, selected_count, -1)
-            flat_root = self.root_projection(root_expanded.reshape(-1, state_dim))
-            flat_next = self.next_projection(transitioned_latents.reshape(-1, state_dim))
-            flat_transition = self.transition_projection(
-                torch.cat([root_expanded, transitioned_latents], dim=2).reshape(
-                    -1, state_dim * 2
-                )
-            )
-            flat_reply_global = self.reply_global_projection(global_features).unsqueeze(1).expand(
+            flat_reply_global = global_features.unsqueeze(1).expand(
                 -1, selected_count, -1
-            ).reshape(-1, SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE)
+            ).reshape(-1, global_features.shape[1])
             flat_action_indices = selected_action_indices.reshape(-1)
             flat_candidate_action_indices = candidate_action_indices.unsqueeze(1).expand(
                 -1, selected_count, -1
@@ -263,17 +268,41 @@ if torch is not None and nn is not None:
                 selected_count,
                 -1,
             ).reshape(-1, candidate_count)
-
-            prediction = self.opponent_head(
-                flat_root,
-                flat_next,
-                flat_action_indices,
-                flat_transition,
-                flat_reply_global,
-                flat_candidate_action_indices,
-                flat_candidate_features,
-                flat_candidate_mask,
-            )
+            if self.opponent_readout is not None:
+                prediction = self.opponent_readout(
+                    transitioned_latents.reshape(-1, state_dim),
+                    flat_action_indices,
+                    flat_reply_global,
+                    flat_candidate_action_indices,
+                    flat_candidate_features,
+                    flat_candidate_mask,
+                )
+            else:
+                assert self.opponent_head is not None
+                assert self.root_projection is not None
+                assert self.next_projection is not None
+                assert self.transition_projection is not None
+                assert self.reply_global_projection is not None
+                root_expanded = z_t.unsqueeze(1).expand(-1, selected_count, -1)
+                flat_root = self.root_projection(root_expanded.reshape(-1, state_dim))
+                flat_next = self.next_projection(
+                    transitioned_latents.reshape(-1, state_dim)
+                )
+                flat_transition = self.transition_projection(
+                    torch.cat([root_expanded, transitioned_latents], dim=2).reshape(
+                        -1, state_dim * 2
+                    )
+                )
+                prediction = self.opponent_head(
+                    flat_root,
+                    flat_next,
+                    flat_action_indices,
+                    flat_transition,
+                    self.reply_global_projection(flat_reply_global),
+                    flat_candidate_action_indices,
+                    flat_candidate_features,
+                    flat_candidate_mask,
+                )
             best_reply = prediction.reply_logits.masked_fill(
                 ~flat_candidate_mask,
                 float("-inf"),
@@ -386,6 +415,14 @@ if torch is not None and nn is not None:
                 action_embedding_dim=config.opponent_head.action_embedding_dim,
                 dropout=config.opponent_head.dropout,
             )
+            opponent_readout: OpponentReadout | None = None
+            if config.lapv2.enabled and config.lapv2.shared_opponent_readout:
+                opponent_readout = OpponentReadout(
+                    state_dim=config.deliberation.state_dim,
+                    global_dim=config.state_embedder.global_dim,
+                    action_embedding_dim=config.opponent_head.action_embedding_dim,
+                    hidden_dim=config.opponent_head.hidden_dim,
+                )
             self.deliberation_loop = DeliberationLoop(
                 state_dim=config.deliberation.state_dim,
                 memory_dim=config.deliberation.memory_dim,
@@ -403,9 +440,15 @@ if torch is not None and nn is not None:
                 reply_signal_projector=_OpponentReplySignalProjector(
                     state_dim=config.deliberation.state_dim,
                     global_dim=config.state_embedder.global_dim,
-                    opponent_head=self.opponent_head,
+                    opponent_head=None if opponent_readout is not None else self.opponent_head,
+                    opponent_readout=opponent_readout,
                 ),
             )
+
+        @property
+        def opponent_readout(self) -> OpponentReadout | None:
+            projector = self.deliberation_loop.reply_signal_projector
+            return getattr(projector, "opponent_readout", None)
 
         def _root_dual_accumulators(
             self,

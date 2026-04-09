@@ -28,6 +28,11 @@ if TYPE_CHECKING:
     )
     from train.models.lapv1 import LAPV1_MODEL_NAME, LAPv1Config, LAPv1Model
     from train.models.opponent import OPPONENT_MODEL_NAME, OpponentHeadModel
+    from train.models.opponent_readout import (
+        OPPONENT_READOUT_MODEL_NAME,
+        DeltaOperator,
+        OpponentReadout,
+    )
     from train.models.planner import PLANNER_MODEL_NAME, PlannerHeadModel
     from train.models.policy_head_large import (
         LARGE_POLICY_HEAD_MODEL_NAME,
@@ -70,6 +75,12 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "PieceIntentionEncoder": ("train.models.intention_encoder", "PieceIntentionEncoder"),
     "OPPONENT_MODEL_NAME": ("train.models.opponent", "OPPONENT_MODEL_NAME"),
     "OpponentHeadModel": ("train.models.opponent", "OpponentHeadModel"),
+    "OPPONENT_READOUT_MODEL_NAME": (
+        "train.models.opponent_readout",
+        "OPPONENT_READOUT_MODEL_NAME",
+    ),
+    "DeltaOperator": ("train.models.opponent_readout", "DeltaOperator"),
+    "OpponentReadout": ("train.models.opponent_readout", "OpponentReadout"),
     "PLANNER_MODEL_NAME": ("train.models.planner", "PLANNER_MODEL_NAME"),
     "PlannerHeadModel": ("train.models.planner", "PlannerHeadModel"),
     "LARGE_POLICY_HEAD_MODEL_NAME": (
@@ -108,7 +119,7 @@ _EXPORTS: dict[str, tuple[str, str]] = {
 
 def module_purpose() -> str:
     """Describe the current responsibility of the model package."""
-    return "Legality/policy proposer, piece-intention encoder, state embedder, value/sharpness heads, large policy head, bounded deliberation, latent dynamics, opponent-head, and planner-head model definitions"
+    return "Legality/policy proposer, piece-intention encoder, state embedder, value/sharpness heads, large policy head, NNUE policy/value heads, bounded deliberation, latent dynamics, opponent-head/readout, and planner-head model definitions"
 
 
 def __getattr__(name: str) -> Any:
@@ -146,10 +157,13 @@ __all__ = [
     "LatentDynamicsModel",
     "MODEL_NAME",
     "OPPONENT_MODEL_NAME",
+    "OPPONENT_READOUT_MODEL_NAME",
     "PLANNER_MODEL_NAME",
     "PlannerHeadModel",
     "PieceIntentionEncoder",
     "OpponentHeadModel",
+    "OpponentReadout",
+    "DeltaOperator",
     "RelationalStateEmbedder",
     "STATE_EMBEDDER_MODEL_NAME",
     "NNUE_VALUE_HEAD_MODEL_NAME",

@@ -101,11 +101,36 @@ def test_lapv1_runtime_loads_legacy_checkpoint_missing_residual_delta_net(
     assert runtime.model.deliberation_loop.max_inner_steps == 1
 
 
+def test_lapv1_runtime_shared_opponent_readout_selects_legal_move(tmp_path: Path) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    checkpoint_path = _write_untrained_lapv1_checkpoint(
+        tmp_path / "lapv1_stage2_shared_opponent.pt",
+        max_inner_steps=2,
+        lapv2={"enabled": True, "shared_opponent_readout": True},
+    )
+    spec = SelfplayAgentSpec(
+        name="lapv1_runtime_shared_opponent",
+        agent_kind="lapv1",
+        lapv1_checkpoint=str(checkpoint_path),
+        state_context_version=1,
+        deliberation_max_inner_steps=2,
+    )
+    runtime = build_lapv1_runtime_from_spec(spec, repo_root=repo_root)
+    runtime.label_selected_move = _label_selected_move
+
+    example = _oracle_example(repo_root, chess.STARTING_FEN)
+    decision = runtime.select_move(example)
+
+    assert decision.move_uci in example.legal_moves
+    assert runtime.last_deliberation_trace is not None
+
+
 def _write_untrained_lapv1_checkpoint(
     path: Path,
     *,
     max_inner_steps: int,
     strip_residual_delta_net: bool = False,
+    lapv2: dict[str, object] | None = None,
 ) -> Path:
     config = LAPv1TrainConfig(
         seed=17,
@@ -123,6 +148,7 @@ def _write_untrained_lapv1_checkpoint(
                     "memory_slots": 4,
                     "rollback_buffer_size": 4,
                 },
+                "lapv2": dict(lapv2 or {}),
                 "opponent_head": {
                     "architecture": "set_v2",
                     "hidden_dim": 64,
