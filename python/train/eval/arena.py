@@ -13,9 +13,6 @@ import threading
 from typing import Any, Callable
 
 from train.eval.agent_spec import load_selfplay_agent_spec
-from train.eval.external_engine import build_external_engine_agent_from_spec
-from train.eval.lapv1_runtime import build_lapv1_runtime_from_spec
-from train.eval.planner_runtime import build_planner_runtime_from_spec
 from train.eval.selfplay import (
     STARTING_FEN,
     SelfplayGameRecord,
@@ -279,6 +276,95 @@ def write_selfplay_arena_spec(path: Path, spec: SelfplayArenaSpec) -> None:
     path.write_text(json.dumps(spec.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def arena_matchup_session_filename(
+    *,
+    matchup_index: int,
+    white_agent: str,
+    black_agent: str,
+) -> str:
+    """Return the canonical session filename for one ordered arena matchup."""
+    return f"{matchup_index:02d}_{white_agent}_vs_{black_agent}.json"
+
+
+def run_selfplay_arena_matchup(
+    *,
+    spec: SelfplayArenaSpec,
+    matchup_index: int,
+    repo_root: Path,
+    output_root: Path,
+    agent_builder: AgentBuilder | None = None,
+    oracle_loader: OracleLoader | None = None,
+) -> dict[str, object]:
+    """Run exactly one expanded arena matchup and write the canonical session file."""
+    if matchup_index <= 0:
+        raise ValueError("matchup_index must be positive")
+    matchups = spec.expanded_matchups()
+    if matchup_index > len(matchups):
+        raise ValueError(f"matchup_index {matchup_index} exceeds matchup count {len(matchups)}")
+
+    output_root.mkdir(parents=True, exist_ok=True)
+    sessions_root = output_root / "sessions"
+    sessions_root.mkdir(parents=True, exist_ok=True)
+    matchups_root = output_root / "matchups"
+    matchups_root.mkdir(parents=True, exist_ok=True)
+    matchup = matchups[matchup_index - 1]
+    selected_initial_fens = _selected_initial_fens_for_arena(spec=spec, matchups=matchups)[
+        matchup_index - 1
+    ]
+    builder = agent_builder or _default_agent_builder
+    agents = {
+        agent_name: builder(agent_name, _resolve_repo_path(repo_root, spec_path), repo_root)
+        for agent_name, spec_path in spec.agent_specs.items()
+    }
+    adjudication_cm = (
+        open_max_plies_adjudicator(spec.max_plies_adjudication)
+        if spec.max_plies_adjudication is not None
+        else nullcontext(None)
+    )
+    with adjudication_cm as adjudicator:
+        session = run_selfplay_session(
+            white_agent=agents[matchup.white_agent],
+            black_agent=agents[matchup.black_agent],
+            repo_root=repo_root,
+            games=matchup.games,
+            initial_fens=selected_initial_fens,
+            max_plies=matchup.max_plies or spec.default_max_plies,
+            oracle_loader=oracle_loader,
+            adjudicator=adjudicator,
+            adjudication_spec=spec.max_plies_adjudication,
+        )
+    session_path = sessions_root / arena_matchup_session_filename(
+        matchup_index=matchup_index,
+        white_agent=matchup.white_agent,
+        black_agent=matchup.black_agent,
+    )
+    session_path.write_text(
+        json.dumps(session.to_dict(), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    result = _summarize_matchup(
+        session=session,
+        white_agent=matchup.white_agent,
+        black_agent=matchup.black_agent,
+        session_path=session_path,
+    )
+    summary = {
+        "arena_name": spec.name,
+        "arena_spec_version": spec.spec_version,
+        "matchup_index": matchup_index,
+        "matchup_count": len(matchups),
+        "matchup": matchup.to_dict(),
+        "session_path": str(session_path),
+        "result": result.to_dict(),
+    }
+    summary_path = matchups_root / f"{matchup_index:02d}_summary.json"
+    summary_path.write_text(
+        json.dumps(summary, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return summary
+
+
 def run_selfplay_arena(
     *,
     spec: SelfplayArenaSpec,
@@ -473,8 +559,10 @@ def run_selfplay_arena(
                     adjudicator=adjudicator,
                     adjudication_spec=spec.max_plies_adjudication,
                 )
-                session_path = sessions_root / (
-                    f"{matchup_index:02d}_{matchup.white_agent}_vs_{matchup.black_agent}.json"
+                session_path = sessions_root / arena_matchup_session_filename(
+                    matchup_index=matchup_index,
+                    white_agent=matchup.white_agent,
+                    black_agent=matchup.black_agent,
                 )
                 session_path.write_text(
                     json.dumps(session.to_dict(), indent=2, sort_keys=True) + "\n",
@@ -657,8 +745,10 @@ def _finalize_parallel_matchup(
         for _game_index, game in sorted(grouped_games[matchup_index], key=lambda item: item[0])
     ]
     session = SelfplaySessionRecord(games=session_games)
-    session_path = sessions_root / (
-        f"{matchup_index:02d}_{matchup.white_agent}_vs_{matchup.black_agent}.json"
+    session_path = sessions_root / arena_matchup_session_filename(
+        matchup_index=matchup_index,
+        white_agent=matchup.white_agent,
+        black_agent=matchup.black_agent,
     )
     session_path.write_text(
         json.dumps(session.to_dict(), indent=2, sort_keys=True) + "\n",
@@ -748,6 +838,8 @@ def _run_arena_game_job(job: _ArenaGameJob) -> dict[str, object]:
 
 
 def _load_arena_job_agent(agent_name: str, spec_path: Path, repo_root: Path) -> tuple[Any, bool]:
+    from train.eval.external_engine import build_external_engine_agent_from_spec
+
     spec = load_selfplay_agent_spec(spec_path)
     if spec.agent_kind == "uci_engine":
         if spec.name != agent_name:
@@ -768,6 +860,10 @@ def _load_thread_local_agent(agent_name: str, spec_path: Path, repo_root: Path) 
 
 
 def _default_agent_builder(agent_name: str, spec_path: Path, repo_root: Path) -> Any:
+    from train.eval.external_engine import build_external_engine_agent_from_spec
+    from train.eval.lapv1_runtime import build_lapv1_runtime_from_spec
+    from train.eval.planner_runtime import build_planner_runtime_from_spec
+
     spec = load_selfplay_agent_spec(spec_path)
     if spec.name != agent_name:
         spec = SelfplayAgentProxySpec(spec=spec, name=agent_name).materialize()

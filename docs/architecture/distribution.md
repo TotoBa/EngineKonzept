@@ -1,8 +1,46 @@
 # Distribution And IPC
 
-EngineKonzept currently remains local-first.
+EngineKonzept runtime remains local-first, but the training and evaluation stack now has
+an explicit distributed control plane.
 
 The only required external runtime protocol is still UCI over stdio. Dataset generation and training stay outside the runtime and must preserve the Rust/Python boundary from [AGENTS.md](/home/torsten/EngineKonzept/AGENTS.md).
+
+## Current Control Plane
+
+Distributed training is now split into three layers:
+
+- MySQL as the control plane for campaigns, tasks, leases, heartbeats, and artifact metadata
+- filesystem artifacts for datasets, workflow chunks, checkpoints, arena sessions, and summaries
+- worker-local scratch plus worker-local logs for hot state
+
+The new operator entry points are:
+
+- [ek_ctl.py](/home/persk/repos/EngineKonzept/python/scripts/ek_ctl.py)
+- [ek_worker.py](/home/persk/repos/EngineKonzept/python/scripts/ek_worker.py)
+
+The corresponding Python modules live under:
+
+- [train/orchestrator](/home/persk/repos/EngineKonzept/python/train/orchestrator)
+
+The control plane intentionally stores only small metadata:
+
+- task payloads
+- task states
+- leases
+- worker heartbeats
+- compact result summaries
+- artifact paths and checksums
+
+Large payloads remain file-based:
+
+- no checkpoints in MySQL
+- no dataset JSONL in MySQL
+- no arena sessions in MySQL
+- no workflow blobs in MySQL
+
+Credentials are intentionally externalized. Use CLI flags or environment variables such as
+`EK_MYSQL_HOST`, `EK_MYSQL_DATABASE`, `EK_MYSQL_USER`, and `EK_MYSQL_PASSWORD`; do not
+write them into tracked configs.
 
 ## Current State
 
@@ -20,6 +58,11 @@ The IPC mode is intentionally narrow:
 - no new runtime networking stack
 
 This keeps Phase 5 deterministic and externally checkable while removing the need to spawn a fresh Rust process for every dataset batch.
+
+For multi-step Phase-10 style runs, the new control plane replaces the old assumption that one
+long-lived process must materialize datasets, build workflow chunks, train, verify, and run arena
+serially. The current DAG is now expressed as MySQL-tracked tasks, with the existing
+artifact-producing scripts still acting as the execution units.
 
 ## Why IPC First
 

@@ -8,7 +8,9 @@ version = "0.1.0"
 description = "Training and experiment scaffolding for the EngineKonzept project"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "PyMySQL>=1.1",
+]
 
 [project.optional-dependencies]
 train = [
@@ -24,9 +26,11 @@ dev = [
 packages = [
     "train",
     "train.datasets",
+    "train.eval",
     "train.export",
     "train.losses",
     "train.models",
+    "train.orchestrator",
     "train.trainers",
 ]
 

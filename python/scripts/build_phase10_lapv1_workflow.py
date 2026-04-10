@@ -54,6 +54,12 @@ def main() -> int:
     parser.add_argument("--validation-chunk-end", type=int, default=None)
     parser.add_argument("--verify-chunk-start", type=int, default=None)
     parser.add_argument("--verify-chunk-end", type=int, default=None)
+    parser.add_argument(
+        "--only-split",
+        choices=("train", "validation", "verify"),
+        default=None,
+        help="limit chunk building/finalize work to one canonical split",
+    )
     parser.add_argument("--skip-finalize", action="store_true")
     parser.add_argument("--finalize-only", action="store_true")
     args = parser.parse_args()
@@ -117,6 +123,15 @@ def main() -> int:
             "chunk_end": args.verify_chunk_end,
         },
     )
+    if args.only_split is not None:
+        selected_name = {
+            "train": "all_unique_train",
+            "validation": "all_unique_validation",
+            "verify": "all_unique_verify",
+        }[args.only_split]
+        split_specs = tuple(
+            split_spec for split_spec in split_specs if split_spec["name"] == selected_name
+        )
 
     summary: dict[str, Any] = {
         "train_dataset_dir": str(train_dataset_dir),

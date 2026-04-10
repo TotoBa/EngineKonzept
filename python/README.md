@@ -106,3 +106,34 @@ Reference configs in the repository currently cover:
 The current larger comparison summary lives at [stockfish_pgn_pi_10k_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_pi_10k_compare_v1.json).
 
 Install the training dependency set with `pip install -e python[train,dev]` or equivalent before running the proposer training script.
+
+## Distributed Orchestration
+
+The Python project now also includes a MySQL-backed control plane for distributed Phase-10 style
+campaigns. The operator entry points are:
+
+- [ek_ctl.py](/home/persk/repos/EngineKonzept/python/scripts/ek_ctl.py)
+- [ek_worker.py](/home/persk/repos/EngineKonzept/python/scripts/ek_worker.py)
+
+Typical control-plane workflow:
+
+```bash
+export EK_MYSQL_HOST=...
+export EK_MYSQL_DATABASE=...
+export EK_MYSQL_USER=...
+export EK_MYSQL_PASSWORD=...
+
+python3 python/scripts/ek_ctl.py init-db
+python3 python/scripts/ek_ctl.py submit-phase10 --config python/configs/phase10_lapv2_stage2_native_arena_all_sources_v1.json
+python3 python/scripts/ek_ctl.py status
+python3 python/scripts/ek_worker.py \
+  --capabilities materialize,workflow,train,verify,arena,aggregate \
+  --scratch-root /local/enginekonzept-scratch \
+  --log-root /local/enginekonzept-logs
+```
+
+Design rules:
+
+- MySQL stores orchestration metadata only.
+- Datasets, workflow outputs, checkpoints, and arena sessions remain file artifacts.
+- Worker credentials and database passwords must stay outside the repository.

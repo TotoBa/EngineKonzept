@@ -8,6 +8,53 @@ Der Kernwechsel lautet:
 - Das NAS unter `/srv/schach/engine_training/...` ist der Artefakt- und Datenspeicher.
 - Jeder Worker nutzt nur lokalen Scratch für Hot State, temporäre Datenbanken und Zwischenzustände.
 
+## Implementierungsstand vom 2026-04-10
+
+Der Stand im Repository ist nicht mehr rein planerisch. Die erste lauffähige
+Control-Plane-Schicht ist jetzt implementiert.
+
+Bereits umgesetzt:
+
+- MySQL-Schema für Campaigns, Models, Tasks, Task-Attempts, Workers, Artefakte und Arena-Matches
+- Python-Orchestrator unter `python/train/orchestrator/`
+- CLI-Einstiege `python/scripts/ek_ctl.py` und `python/scripts/ek_worker.py`
+- Lease- und Heartbeat-Handling
+- Task-Claiming mit Requeue abgelaufener Leases
+- DAG-Planung für einen Phase-10-Lauf:
+  - Materialisierung
+  - Workflow-Prepare
+  - Workflow-Chunk-Tasks
+  - Workflow-Finalize
+  - Training
+  - Verify
+  - Arena-Prepare
+  - Arena-Match-Tasks
+  - Arena-Finalize
+  - Top-Level-Campaign-Finalize
+- verteilbarer Arena-Pfad über einzelne Matchup-Tasks statt nur monolithischer Gesamtausführung
+- Workflow-Builder-Unterstützung für splitweise Ausführung über `--only-split`
+
+Bereits verifiziert:
+
+- lokale Python-Tests für Controller-DAG, Workflow-Chunking und Arena-Matchup-Pfad
+- lokale Ruff-Prüfung des Python-Baums
+- erfolgreiche Initialisierung der MariaDB-Control-Plane auf `10.42.42.42`
+- erfolgreiche Submission der realen Campaign
+  `phase10_lapv2_stage2_native_arena_all_sources_v1`
+
+Bewusst noch nicht ausgeführt:
+
+- keine Worker-Ausführung gegen das NAS
+- keine Materialisierung auf `/srv/schach`
+- kein Training, Verify oder Arena-Lauf mit echten NAS-Artefakten
+
+Das ist absichtlich so, weil das NAS in dieser Arbeitsphase nicht benutzt werden durfte.
+Der aktuelle Stopppunkt ist daher:
+
+- Code und DB-Control-Plane sind bereit
+- die erste echte Campaign ist in MySQL angelegt
+- der Data-Plane-Lauf beginnt erst, wenn NAS-Zugriffe wieder erlaubt sind
+
 ## Aktueller Repo-Stand und vorhandene Bausteine
 
 Der aktuelle Repo-Stand ist für diesen Umbau günstig, weil die zentralen Domänenbausteine bereits existieren:

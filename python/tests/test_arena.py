@@ -9,7 +9,9 @@ from train.eval.arena import (
     SelfplayArenaMatchupSpec,
     SelfplayArenaSpec,
     _selected_initial_fens_for_arena,
+    arena_matchup_session_filename,
     rebuild_selfplay_arena_summary,
+    run_selfplay_arena_matchup,
     run_selfplay_arena,
 )
 from train.eval.planner_runtime import PlannerRootDecision
@@ -418,3 +420,76 @@ def test_round_robin_unique_openings_are_global_per_unordered_pair() -> None:
     ]
     assert len(all_unique_games) == 6
     assert len(set(all_unique_games)) == 6
+
+
+def test_run_selfplay_arena_matchup_writes_single_session(tmp_path: Path) -> None:
+    start_fen = "8/8/8/8/8/8/8/K6k w - - 0 1"
+    mate_fen = "7k/6Q1/6K1/8/8/8/8/8 b - - 0 1"
+    oracle_examples = {
+        start_fen: _make_example(
+            sample_id="root",
+            fen=start_fen,
+            side_to_move="w",
+            legal_moves=["e2e4"],
+        ),
+        mate_fen: _make_example(
+            sample_id="mate",
+            fen=mate_fen,
+            side_to_move="b",
+            legal_moves=[],
+            is_checkmate=True,
+        ),
+    }
+
+    def _agent_builder(agent_name: str, _spec_path: Path, _repo_root: Path) -> _FakeAgent:
+        return _FakeAgent(
+            name=agent_name,
+            move_map={
+                start_fen: PlannerRootDecision(
+                    move_uci="e2e4",
+                    action_index=0,
+                    next_fen=mate_fen,
+                    selector_name=agent_name,
+                    legal_candidate_count=1,
+                    considered_candidate_count=1,
+                    proposer_score=1.0,
+                    planner_score=1.0,
+                    reply_peak_probability=0.0,
+                    pressure=0.0,
+                    uncertainty=0.0,
+                )
+            },
+        )
+
+    spec = SelfplayArenaSpec(
+        name="single_matchup",
+        agent_specs={"white_arm": "white.json", "black_arm": "black.json"},
+        schedule_mode="explicit",
+        matchups=[
+            SelfplayArenaMatchupSpec(
+                white_agent="white_arm",
+                black_agent="black_arm",
+                games=1,
+                max_plies=8,
+                initial_fens=[start_fen],
+            )
+        ],
+    )
+
+    output_root = tmp_path / "arena_matchup"
+    summary = run_selfplay_arena_matchup(
+        spec=spec,
+        matchup_index=1,
+        repo_root=tmp_path,
+        output_root=output_root,
+        agent_builder=_agent_builder,
+        oracle_loader=lambda fen: oracle_examples[fen],
+    )
+
+    assert summary["matchup_index"] == 1
+    session_path = output_root / "sessions" / arena_matchup_session_filename(
+        matchup_index=1,
+        white_agent="white_arm",
+        black_agent="black_arm",
+    )
+    assert session_path.exists()
