@@ -48,12 +48,22 @@ def main() -> int:
     parser.add_argument("--parallel-workers", type=int, default=1)
     parser.add_argument("--log-every", type=int, default=1000)
     parser.add_argument("--skip-existing", action="store_true")
+    parser.add_argument("--train-chunk-start", type=int, default=None)
+    parser.add_argument("--train-chunk-end", type=int, default=None)
+    parser.add_argument("--validation-chunk-start", type=int, default=None)
+    parser.add_argument("--validation-chunk-end", type=int, default=None)
+    parser.add_argument("--verify-chunk-start", type=int, default=None)
+    parser.add_argument("--verify-chunk-end", type=int, default=None)
+    parser.add_argument("--skip-finalize", action="store_true")
+    parser.add_argument("--finalize-only", action="store_true")
     args = parser.parse_args()
 
     if args.chunk_size <= 0:
         raise ValueError("chunk-size must be positive")
     if args.parallel_workers <= 0:
         raise ValueError("parallel-workers must be positive")
+    if args.skip_finalize and args.finalize_only:
+        raise ValueError("skip-finalize and finalize-only cannot be combined")
     if (
         args.nodes is None
         and args.depth is None
@@ -83,6 +93,8 @@ def main() -> int:
             "canonical_split": "train",
             "output_dir": output_root / "all_unique_train_v1",
             "max_examples": int(train_summary["split_counts"]["train"]),
+            "chunk_start": args.train_chunk_start,
+            "chunk_end": args.train_chunk_end,
         },
         {
             "name": "all_unique_validation",
@@ -91,6 +103,8 @@ def main() -> int:
             "canonical_split": "validation",
             "output_dir": output_root / "all_unique_validation_v1",
             "max_examples": int(train_summary["split_counts"]["validation"]),
+            "chunk_start": args.validation_chunk_start,
+            "chunk_end": args.validation_chunk_end,
         },
         {
             "name": "all_unique_verify",
@@ -99,6 +113,8 @@ def main() -> int:
             "canonical_split": "test",
             "output_dir": output_root / "all_unique_verify_v1",
             "max_examples": int(verify_summary["split_counts"]["test"]),
+            "chunk_start": args.verify_chunk_start,
+            "chunk_end": args.verify_chunk_end,
         },
     )
 
@@ -119,6 +135,8 @@ def main() -> int:
         "chunk_size": args.chunk_size,
         "parallel_workers": args.parallel_workers,
         "log_every": args.log_every,
+        "skip_finalize": bool(args.skip_finalize),
+        "finalize_only": bool(args.finalize_only),
         "output_root": str(output_root),
         "tiers": {},
         "train_paths": [],
@@ -129,22 +147,33 @@ def main() -> int:
     for split_spec in split_specs:
         split_name = str(split_spec["name"])
         output_dir = Path(split_spec["output_dir"])
+        total_chunks = _total_chunks_for_examples(
+            max_examples=int(split_spec["max_examples"]),
+            chunk_size=args.chunk_size,
+        )
+        chunk_start, chunk_end = _normalize_chunk_range(
+            total_chunks=total_chunks,
+            chunk_start=_optional_int(split_spec["chunk_start"]),
+            chunk_end=_optional_int(split_spec["chunk_end"]),
+        )
+        chunk_records = _build_expected_chunk_records(
+            output_dir=output_dir,
+            canonical_split=str(split_spec["canonical_split"]),
+            max_examples=int(split_spec["max_examples"]),
+            chunk_size=args.chunk_size,
+            chunk_start=chunk_start,
+            chunk_end=chunk_end,
+        )
         planner_head_path = output_dir / planner_head_artifact_name(str(split_spec["canonical_split"]))
         workflow_summary_path = output_dir / "summary.json"
         planner_head_summary_path = output_dir / "planner_head.summary.json"
         lapv1_artifact_path = output_dir / lapv1_training_artifact_name(str(split_spec["canonical_split"]))
         lapv1_summary_path = output_dir / "lapv1.summary.json"
-        if (
-            not args.skip_existing
-            or not planner_head_path.exists()
-            or not workflow_summary_path.exists()
-            or not planner_head_summary_path.exists()
-            or not lapv1_artifact_path.exists()
-            or not lapv1_summary_path.exists()
-        ):
+        if not args.finalize_only and chunk_records:
             _log(
                 f"[workflow] chunked build for {split_name}: split={split_spec['split']} "
-                f"max_examples={split_spec['max_examples']} chunk_size={args.chunk_size}"
+                f"max_examples={split_spec['max_examples']} chunk_size={args.chunk_size} "
+                f"chunk_range={chunk_start}-{chunk_end}"
             )
             _build_chunked_split_workflow(
                 dataset_dir=Path(split_spec["dataset_dir"]),
@@ -153,7 +182,6 @@ def main() -> int:
                 checkpoint_path=checkpoint_path,
                 teacher_engine=teacher_engine,
                 output_dir=output_dir,
-                max_examples=int(split_spec["max_examples"]),
                 nodes=args.nodes,
                 depth=_resolve_teacher_depth_for_split(
                     split=str(split_spec["split"]),
@@ -166,11 +194,42 @@ def main() -> int:
                 policy_temperature_cp=args.policy_temperature_cp,
                 top_k=args.top_k,
                 root_top_k=args.root_top_k,
-                chunk_size=args.chunk_size,
                 parallel_workers=args.parallel_workers,
                 log_every=args.log_every,
                 skip_existing=bool(args.skip_existing),
+                chunk_records=chunk_records,
             )
+        if not args.skip_finalize:
+            _finalize_chunked_split_workflow(
+                dataset_dir=Path(split_spec["dataset_dir"]),
+                split=str(split_spec["split"]),
+                canonical_split=str(split_spec["canonical_split"]),
+                checkpoint_path=checkpoint_path,
+                teacher_engine=teacher_engine,
+                output_dir=output_dir,
+                max_examples=int(split_spec["max_examples"]),
+                chunk_size=args.chunk_size,
+                nodes=args.nodes,
+                depth=_resolve_teacher_depth_for_split(
+                    split=str(split_spec["split"]),
+                    default_depth=args.depth,
+                    train_depth=args.train_depth,
+                    validation_depth=args.validation_depth,
+                    verify_depth=args.verify_depth,
+                ),
+                multipv=args.multipv,
+                policy_temperature_cp=args.policy_temperature_cp,
+                root_top_k=args.root_top_k,
+            )
+        if args.skip_finalize:
+            summary["tiers"][split_name] = {
+                "dataset_dir": str(split_spec["dataset_dir"]),
+                "workflow_dir": str(output_dir),
+                "chunk_range": [chunk_start, chunk_end],
+                "chunk_count": len(chunk_records),
+                "status": "chunk_build_only",
+            }
+            continue
         split_summary = json.loads(workflow_summary_path.read_text(encoding="utf-8"))
         planner_head_summary = json.loads(planner_head_summary_path.read_text(encoding="utf-8"))
         lapv1_summary = json.loads(lapv1_summary_path.read_text(encoding="utf-8"))
@@ -192,8 +251,9 @@ def main() -> int:
             "lapv1_summary": lapv1_summary,
         }
 
-    summary_path = output_root / "summary.json"
-    summary_path.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    if not args.skip_finalize:
+        summary_path = output_root / "summary.json"
+        summary_path.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps(summary, indent=2, sort_keys=True))
     return 0
 
@@ -206,36 +266,30 @@ def _build_chunked_split_workflow(
     checkpoint_path: Path,
     teacher_engine: Path,
     output_dir: Path,
-    max_examples: int,
     nodes: int | None,
     depth: int | None,
     multipv: int,
     policy_temperature_cp: float,
     top_k: int,
     root_top_k: int,
-    chunk_size: int,
     parallel_workers: int,
     log_every: int,
     skip_existing: bool,
+    chunk_records: Sequence[dict[str, Any]],
 ) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     chunk_root = output_dir / "chunks"
     chunk_root.mkdir(parents=True, exist_ok=True)
-
-    total_chunks = math.ceil(max_examples / chunk_size) if max_examples else 0
-    chunk_jobs: list[dict[str, Any]] = []
-    for chunk_index, start_index in enumerate(range(0, max_examples, chunk_size), start=1):
-        example_count = min(chunk_size, max_examples - start_index)
-        chunk_dir = chunk_root / f"chunk_{chunk_index:04d}_{start_index:08d}"
-        chunk_jobs.append(
-            {
-                "chunk_index": chunk_index,
-                "total_chunks": total_chunks,
-                "start_index": start_index,
-                "example_count": example_count,
-                "chunk_dir": chunk_dir,
-            }
-        )
+    chunk_jobs = [
+        {
+            "chunk_index": int(record["index"]),
+            "total_chunks": int(record["total_chunks"]),
+            "start_index": int(record["start_index"]),
+            "example_count": int(record["example_count"]),
+            "chunk_dir": Path(record["dir"]),
+        }
+        for record in chunk_records
+    ]
 
     if parallel_workers == 1:
         chunk_records = [
@@ -284,6 +338,35 @@ def _build_chunked_split_workflow(
                 chunk_records.append(future.result())
         chunk_records.sort(key=lambda record: int(record["index"]))
 
+
+def _finalize_chunked_split_workflow(
+    *,
+    dataset_dir: Path,
+    split: str,
+    canonical_split: str,
+    checkpoint_path: Path,
+    teacher_engine: Path,
+    output_dir: Path,
+    max_examples: int,
+    chunk_size: int,
+    nodes: int | None,
+    depth: int | None,
+    multipv: int,
+    policy_temperature_cp: float,
+    root_top_k: int,
+) -> None:
+    chunk_records = _build_expected_chunk_records(
+        output_dir=output_dir,
+        canonical_split=canonical_split,
+        max_examples=max_examples,
+        chunk_size=chunk_size,
+        chunk_start=1,
+        chunk_end=None,
+    )
+    _validate_chunk_records_complete(
+        chunk_records=chunk_records,
+        canonical_split=canonical_split,
+    )
     _merge_chunk_artifact(
         output_path=output_dir / search_teacher_artifact_name(canonical_split),
         chunk_paths=[
@@ -522,6 +605,100 @@ def _resolve_teacher_depth_for_split(
     if split == "test" and verify_depth is not None:
         return verify_depth
     return default_depth
+
+
+def _optional_int(value: Any) -> int | None:
+    return int(value) if value is not None else None
+
+
+def _total_chunks_for_examples(*, max_examples: int, chunk_size: int) -> int:
+    return math.ceil(max_examples / chunk_size) if max_examples else 0
+
+
+def _normalize_chunk_range(
+    *,
+    total_chunks: int,
+    chunk_start: int | None,
+    chunk_end: int | None,
+) -> tuple[int, int]:
+    if total_chunks <= 0:
+        return 1, 0
+    start = 1 if chunk_start is None else chunk_start
+    end = total_chunks if chunk_end is None else chunk_end
+    if start < 1 or end < 1:
+        raise ValueError("chunk range indices must be positive")
+    if start > end:
+        raise ValueError("chunk_start must be <= chunk_end")
+    if end > total_chunks:
+        raise ValueError(f"chunk_end {end} exceeds total_chunks {total_chunks}")
+    return start, end
+
+
+def _build_expected_chunk_records(
+    *,
+    output_dir: Path,
+    canonical_split: str,
+    max_examples: int,
+    chunk_size: int,
+    chunk_start: int,
+    chunk_end: int | None,
+) -> list[dict[str, Any]]:
+    total_chunks = _total_chunks_for_examples(max_examples=max_examples, chunk_size=chunk_size)
+    start, end = _normalize_chunk_range(
+        total_chunks=total_chunks,
+        chunk_start=chunk_start,
+        chunk_end=chunk_end,
+    )
+    chunk_root = output_dir / "chunks"
+    records: list[dict[str, Any]] = []
+    for chunk_index, start_index in enumerate(range(0, max_examples, chunk_size), start=1):
+        if chunk_index < start or chunk_index > end:
+            continue
+        example_count = min(chunk_size, max_examples - start_index)
+        chunk_dir = chunk_root / f"chunk_{chunk_index:04d}_{start_index:08d}"
+        records.append(
+            {
+                "index": chunk_index,
+                "total_chunks": total_chunks,
+                "start_index": start_index,
+                "example_count": example_count,
+                "dir": str(chunk_dir),
+                "workflow_summary_path": str(chunk_dir / "workflow.summary.json"),
+                "planner_head_path": str(chunk_dir / planner_head_artifact_name(canonical_split)),
+                "planner_head_summary_path": str(chunk_dir / "planner_head.summary.json"),
+                "lapv1_path": str(chunk_dir / lapv1_training_artifact_name(canonical_split)),
+                "lapv1_summary_path": str(chunk_dir / "lapv1.summary.json"),
+            }
+        )
+    return records
+
+
+def _validate_chunk_records_complete(
+    *,
+    chunk_records: Sequence[dict[str, Any]],
+    canonical_split: str,
+) -> None:
+    required_paths = []
+    for record in chunk_records:
+        chunk_dir = Path(record["dir"])
+        required_paths.extend(
+            [
+                Path(record["workflow_summary_path"]),
+                chunk_dir / search_teacher_artifact_name(canonical_split),
+                chunk_dir / search_traces_artifact_name(canonical_split),
+                chunk_dir / search_disagreements_artifact_name(canonical_split),
+                chunk_dir / search_curriculum_artifact_name(canonical_split),
+                Path(record["planner_head_path"]),
+                Path(record["planner_head_summary_path"]),
+                Path(record["lapv1_path"]),
+                Path(record["lapv1_summary_path"]),
+            ]
+        )
+    missing = [str(path) for path in required_paths if not path.exists()]
+    if missing:
+        raise FileNotFoundError(
+            "missing chunk artifacts required for finalize:\n" + "\n".join(missing[:20])
+        )
 
 
 def _merge_chunk_artifact(*, output_path: Path, chunk_paths: Sequence[Path]) -> None:

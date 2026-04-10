@@ -70,6 +70,13 @@ Teacher workflow quality mode:
 - `3` parallel workflow workers on the Pi
 - full native workflow rebuild from scratch once the upgraded builder is in place
 
+Distributed rebuild mode:
+
+- the workflow builder can now run split-specific chunk shards
+- intended deployment is `2` local shards plus `1` Pi shard
+- worker shards use `--skip-finalize`
+- one final local `--finalize-only` pass merges all completed chunk artifacts
+
 Arena:
 
 - `lapv2_inner0`
