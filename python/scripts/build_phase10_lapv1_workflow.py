@@ -37,6 +37,9 @@ def main() -> int:
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--nodes", type=int, default=64)
     parser.add_argument("--depth", type=int, default=None)
+    parser.add_argument("--train-depth", type=int, default=None)
+    parser.add_argument("--validation-depth", type=int, default=None)
+    parser.add_argument("--verify-depth", type=int, default=None)
     parser.add_argument("--multipv", type=int, default=8)
     parser.add_argument("--policy-temperature-cp", type=float, default=100.0)
     parser.add_argument("--top-k", type=int, default=8)
@@ -51,8 +54,16 @@ def main() -> int:
         raise ValueError("chunk-size must be positive")
     if args.parallel_workers <= 0:
         raise ValueError("parallel-workers must be positive")
-    if args.nodes is None and args.depth is None:
-        raise ValueError("one of --nodes or --depth must be provided")
+    if (
+        args.nodes is None
+        and args.depth is None
+        and args.train_depth is None
+        and args.validation_depth is None
+        and args.verify_depth is None
+    ):
+        raise ValueError(
+            "one of --nodes, --depth, --train-depth, --validation-depth, or --verify-depth must be provided"
+        )
 
     train_dataset_dir = _resolve_repo_path(args.train_dataset_dir)
     verify_dataset_dir = _resolve_repo_path(args.verify_dataset_dir)
@@ -98,6 +109,9 @@ def main() -> int:
         "teacher_engine": str(teacher_engine),
         "teacher_nodes": args.nodes,
         "teacher_depth": args.depth,
+        "train_teacher_depth": args.train_depth,
+        "validation_teacher_depth": args.validation_depth,
+        "verify_teacher_depth": args.verify_depth,
         "teacher_multipv": args.multipv,
         "policy_temperature_cp": args.policy_temperature_cp,
         "top_k": args.top_k,
@@ -141,7 +155,13 @@ def main() -> int:
                 output_dir=output_dir,
                 max_examples=int(split_spec["max_examples"]),
                 nodes=args.nodes,
-                depth=args.depth,
+                depth=_resolve_teacher_depth_for_split(
+                    split=str(split_spec["split"]),
+                    default_depth=args.depth,
+                    train_depth=args.train_depth,
+                    validation_depth=args.validation_depth,
+                    verify_depth=args.verify_depth,
+                ),
                 multipv=args.multipv,
                 policy_temperature_cp=args.policy_temperature_cp,
                 top_k=args.top_k,
@@ -485,6 +505,23 @@ def _weighted_mean(
         for summary in summaries
     )
     return weighted_sum / total_weight
+
+
+def _resolve_teacher_depth_for_split(
+    *,
+    split: str,
+    default_depth: int | None,
+    train_depth: int | None,
+    validation_depth: int | None,
+    verify_depth: int | None,
+) -> int | None:
+    if split == "train" and train_depth is not None:
+        return train_depth
+    if split == "validation" and validation_depth is not None:
+        return validation_depth
+    if split == "test" and verify_depth is not None:
+        return verify_depth
+    return default_depth
 
 
 def _merge_chunk_artifact(*, output_path: Path, chunk_paths: Sequence[Path]) -> None:

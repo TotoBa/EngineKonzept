@@ -87,6 +87,9 @@ class Phase10Lapv1ArenaCampaignSpec:
     teacher_engine_path: str = "/usr/games/stockfish18"
     teacher_nodes: int | None = 64
     teacher_depth: int | None = None
+    train_teacher_depth: int | None = None
+    validation_teacher_depth: int | None = None
+    verify_teacher_depth: int | None = None
     teacher_multipv: int = 8
     teacher_policy_temperature_cp: float = 100.0
     teacher_top_k: int = 8
@@ -139,6 +142,21 @@ class Phase10Lapv1ArenaCampaignSpec:
             teacher_depth=(
                 int(payload["teacher_depth"])
                 if payload.get("teacher_depth") is not None
+                else None
+            ),
+            train_teacher_depth=(
+                int(payload["train_teacher_depth"])
+                if payload.get("train_teacher_depth") is not None
+                else None
+            ),
+            validation_teacher_depth=(
+                int(payload["validation_teacher_depth"])
+                if payload.get("validation_teacher_depth") is not None
+                else None
+            ),
+            verify_teacher_depth=(
+                int(payload["verify_teacher_depth"])
+                if payload.get("verify_teacher_depth") is not None
                 else None
             ),
             teacher_multipv=int(payload.get("teacher_multipv", 8)),
@@ -416,6 +434,12 @@ def _run_workflow_build(spec: Phase10Lapv1ArenaCampaignSpec) -> None:
         command.extend(["--nodes", str(spec.teacher_nodes)])
     else:
         raise ValueError("one of teacher_nodes or teacher_depth must be configured")
+    if spec.train_teacher_depth is not None:
+        command.extend(["--train-depth", str(spec.train_teacher_depth)])
+    if spec.validation_teacher_depth is not None:
+        command.extend(["--validation-depth", str(spec.validation_teacher_depth)])
+    if spec.verify_teacher_depth is not None:
+        command.extend(["--verify-depth", str(spec.verify_teacher_depth)])
     subprocess.run(command, cwd=REPO_ROOT, check=True)
 
 

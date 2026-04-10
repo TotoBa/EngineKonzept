@@ -64,7 +64,9 @@ Training:
 Teacher workflow quality mode:
 
 - `MultiPV=8`
-- `depth=10` instead of a low fixed node budget
+- `train depth=8`
+- `validation depth=10`
+- `verify depth=10`
 - `3` parallel workflow workers on the Pi
 - full native workflow rebuild from scratch once the upgraded builder is in place
 

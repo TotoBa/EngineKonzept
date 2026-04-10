@@ -142,6 +142,9 @@ def test_campaign_spec_parses_teacher_depth_and_parallel_workers(tmp_path: Path)
             "proposer_checkpoint": "models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
             "teacher_nodes": None,
             "teacher_depth": 10,
+            "train_teacher_depth": 8,
+            "validation_teacher_depth": 10,
+            "verify_teacher_depth": 10,
             "teacher_multipv": 8,
             "workflow_parallel_workers": 3,
             "lapv1_config_path": "python/configs/phase10_lapv1_stage1_all_unique_v1.json",
@@ -157,6 +160,9 @@ def test_campaign_spec_parses_teacher_depth_and_parallel_workers(tmp_path: Path)
 
     assert spec.teacher_nodes is None
     assert spec.teacher_depth == 10
+    assert spec.train_teacher_depth == 8
+    assert spec.validation_teacher_depth == 10
+    assert spec.verify_teacher_depth == 10
     assert spec.workflow_parallel_workers == 3
 
 
