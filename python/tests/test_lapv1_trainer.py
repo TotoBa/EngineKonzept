@@ -1977,6 +1977,26 @@ def test_warm_start_checkpoint_allows_sharpness_phase_moe_aliases(tmp_path: Path
     assert "deliberation_loop.sharpness_projector.sharpness_head." in result.fresh_init_prefixes
 
 
+def test_load_model_state_allows_legacy_sharpness_projector_aliases(tmp_path: Path) -> None:
+    model = LAPv1Model(LAPv1Config.from_mapping({}))
+    legacy_state_dict = {
+        key: value
+        for key, value in model.state_dict().items()
+        if not key.startswith("_sharpness_projector.sharpness_head.")
+    }
+
+    reloaded_model = LAPv1Model(LAPv1Config.from_mapping({}))
+    _load_lapv1_model_state(
+        reloaded_model,
+        legacy_state_dict,
+        checkpoint_path=tmp_path / "legacy_lapv1_sharpness_alias.pt",
+    )
+
+    reloaded_state = reloaded_model.state_dict()
+    for key, value in model.state_dict().items():
+        assert torch.allclose(reloaded_state[key], value)
+
+
 def test_gate_mean_pull_converges_experts() -> None:
     model = LAPv1Model(
         LAPv1Config.from_mapping(

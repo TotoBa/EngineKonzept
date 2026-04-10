@@ -1445,7 +1445,7 @@ def _expand_legacy_phase_moe_state_dict(
     model: LAPv1Model,
     state_dict: Mapping[str, Any],
 ) -> dict[str, Any]:
-    expanded = dict(state_dict)
+    expanded = _expand_legacy_sharpness_alias_state_dict(dict(state_dict))
     if model.config.lapv2.phase_moe_enabled:
         expanded = _replicate_phase_moe_module_keys(
             expanded,
@@ -1480,6 +1480,36 @@ def _expand_legacy_phase_moe_state_dict(
                 module_prefix="policy_head_nnue",
                 num_phases=4,
             )
+    return expanded
+
+
+def _expand_legacy_sharpness_alias_state_dict(
+    state_dict: Mapping[str, Any],
+) -> dict[str, Any]:
+    expanded = dict(state_dict)
+    alias_prefixes = (
+        "sharpness_head.",
+        "_sharpness_projector.sharpness_head.",
+        "deliberation_loop.sharpness_projector.sharpness_head.",
+    )
+    alias_payloads: dict[str, dict[str, Any]] = {}
+    for prefix in alias_prefixes:
+        payload = {
+            key.removeprefix(prefix): value
+            for key, value in expanded.items()
+            if key.startswith(prefix)
+        }
+        if payload:
+            alias_payloads[prefix] = payload
+    if not alias_payloads:
+        return expanded
+
+    source_prefix, source_payload = next(iter(alias_payloads.items()))
+    for alias_prefix in alias_prefixes:
+        if alias_prefix in alias_payloads:
+            continue
+        for suffix, value in source_payload.items():
+            expanded[f"{alias_prefix}{suffix}"] = value
     return expanded
 
 
