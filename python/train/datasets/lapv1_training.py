@@ -16,6 +16,7 @@ from train.datasets.artifacts import (
     SQUARE_TOKEN_WIDTH,
     split_position_features,
 )
+from train.action_space import flatten_action
 from train.datasets.contracts import build_state_context_v1, state_context_v1_feature_spec
 from train.datasets.move_delta import halfka_delta, is_king_move, move_type_hash
 from train.datasets.nnue_features import halfka_active_indices
@@ -302,8 +303,15 @@ def lapv1_training_example_from_planner_head(
     candidate_is_black_king_move: list[bool] = []
     candidate_nnue_feat_white_after_move: list[list[int]] = []
     candidate_nnue_feat_black_after_move: list[list[int]] = []
+    legal_move_by_action_index = {
+        _action_index_for_move(move): move.uci()
+        for move in board.legal_moves
+    }
     for action_index in example.candidate_action_indices:
-        move = chess.Move.from_uci(move_uci_for_action(dataset_example, int(action_index)))
+        resolved_move_uci = legal_move_by_action_index.get(int(action_index))
+        if resolved_move_uci is None:
+            resolved_move_uci = move_uci_for_action(dataset_example, int(action_index))
+        move = chess.Move.from_uci(resolved_move_uci)
         white_leave, white_enter = halfka_delta(board, move, "w")
         black_leave, black_enter = halfka_delta(board, move, "b")
         white_king_move = is_king_move(board, move, "w")
@@ -404,6 +412,19 @@ def _dataset_example_for_fen(fen: str) -> DatasetExample:
         result=None,
         metadata={},
     )
+
+
+def _action_index_for_move(move: chess.Move) -> int:
+    promotion_index = {
+        None: 0,
+        chess.KNIGHT: 1,
+        chess.BISHOP: 2,
+        chess.ROOK: 3,
+        chess.QUEEN: 4,
+    }.get(move.promotion)
+    if promotion_index is None:
+        raise ValueError(f"unsupported promotion piece: {move.promotion}")
+    return flatten_action([move.from_square, move.to_square, promotion_index])
 
 
 def _optional_int_field(payload: dict[str, object], field_name: str, *, default: int) -> int:

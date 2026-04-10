@@ -10,6 +10,7 @@ from train.datasets.artifacts import (
     SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE,
     pack_position_features,
 )
+from train.action_space import flatten_action
 from train.datasets.lapv1_training import (
     lapv1_training_example_from_planner_head,
     load_lapv1_training_examples,
@@ -189,6 +190,58 @@ def test_lapv1_training_example_contains_phase_and_delta_fields() -> None:
     assert len(example.candidate_is_black_king_move) == len(example.candidate_action_indices)
     assert len(example.candidate_nnue_feat_white_after_move) == len(example.candidate_action_indices)
     assert len(example.candidate_nnue_feat_black_after_move) == len(example.candidate_action_indices)
+
+
+def test_lapv1_training_example_resolves_real_flat_action_indices() -> None:
+    board = chess.Board("3rr1k1/4qpbp/2p1nnp1/1p2p3/1P2P3/2N1B1QP/2P1BPP1/1R1R2K1 w - - 0 25")
+    moves = [chess.Move.from_uci("d1d8"), chess.Move.from_uci("d1d3")]
+    candidate_action_indices = [
+        flatten_action(
+            [
+                move.from_square,
+                move.to_square,
+                0 if move.promotion is None else 4,
+            ]
+        )
+        for move in moves
+    ]
+    example = PlannerHeadExample(
+        sample_id="real_flat_indices",
+        split="train",
+        fen=board.fen(),
+        feature_vector=pack_position_features(
+            PositionEncoding(
+                piece_tokens=[],
+                square_tokens=[[square_index, 0] for square_index in range(64)],
+                rule_token=[0, 0, -1, 0, 1, 0],
+            )
+        ),
+        candidate_context_version=2,
+        global_context_version=1,
+        global_features=[0.0] * SYMBOLIC_PROPOSER_GLOBAL_FEATURE_SIZE,
+        candidate_action_indices=candidate_action_indices,
+        candidate_features=[[0.0] * 35, [0.0] * 35],
+        proposer_scores=[0.1, 0.0],
+        transition_context_version=1,
+        transition_features=[[0.0] * 8, [0.0] * 8],
+        reply_peak_probabilities=[0.0, 0.0],
+        pressures=[0.0, 0.0],
+        uncertainties=[0.0, 0.0],
+        curriculum_bucket_labels=["unit_test"],
+        curriculum_priority=1.0,
+        teacher_top1_action_index=candidate_action_indices[0],
+        teacher_top1_candidate_index=0,
+        teacher_policy=[1.0, 0.0],
+        teacher_root_value_cp=32.0,
+        teacher_top1_minus_top2_cp=12.0,
+        teacher_candidate_rank_bucket_targets=[0, 1],
+    )
+
+    built = lapv1_training_example_from_planner_head(example)
+
+    assert built.candidate_action_indices == candidate_action_indices
+    assert built.candidate_move_types[0] == move_type_hash(board, moves[0])
+    assert built.candidate_move_types[1] == move_type_hash(board, moves[1])
 
 
 def _planner_example(

@@ -1,0 +1,22 @@
+{
+  "spec_version": 1,
+  "name": "lapv2_stage2_native_all_sources_v1",
+  "agent_kind": "lapv1",
+  "lapv1_checkpoint": "models/lapv2/stage2_native_all_sources_v1/bundle/checkpoint.pt",
+  "state_context_version": 1,
+  "deliberation_max_inner_steps": 4,
+  "deliberation_q_threshold": 0.3,
+  "tags": [
+    "lapv2",
+    "stage2",
+    "native",
+    "all_sources",
+    "v1"
+  ],
+  "metadata": {
+    "description": "First fully native LAPv2 stage-T2 checkpoint built from the all-sources workflow on NAS/Pi artifacts.",
+    "trained_max_inner_steps": 4,
+    "warm_start_source": "models/lapv2/stage2_all_unique_v1/bundle/checkpoint.pt",
+    "status_updates_todo": "future_uci_inner_loop_reporting"
+  }
+}

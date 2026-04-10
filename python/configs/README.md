@@ -400,6 +400,10 @@ debuggable without another custom analysis pass.
   First real LAPv2 Stage-T2 run. It reuses the completed all-unique workflow, warm-starts from the best available `stage2_fast_all_unique_v4` checkpoint via the new LAPv2 warm-start export path, and enables the current full LAPv2 flag set in one shared model.
 - [phase10_lapv2_stage2_arena_all_unique_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv2_stage2_arena_all_unique_v1.json)
   First end-to-end LAPv2 campaign. It trains the `v1` LAPv2 checkpoint, verifies it on the common holdout, and then compares four LAPv2 budgets against four LAPv1-v4 baseline budgets, four strong Phase-9 references, and `vice_v2`.
+- [phase10_lapv2_stage2_native_all_sources_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv2_stage2_native_all_sources_v1.json)
+  First full native LAPv2 Stage-T2 follow-up. It starts from the completed `stage2_all_unique_v1` LAPv2 checkpoint rather than a LAPv1 checkpoint, swaps every train/validation path over to the NAS/Pi `lapv2_workflow_all_sources_v1` root, and preserves the stable four-epoch T2 schedule so the main variable is native artifact quality rather than another trainer rewrite.
+- [phase10_lapv2_stage2_native_arena_all_sources_v1.json](/home/torsten/EngineKonzept/python/configs/phase10_lapv2_stage2_native_arena_all_sources_v1.json)
+  First fully native LAPv2 comparison campaign. It keeps only the three useful LAPv2 runtime budgets from the completed `v1` arena (`inner0`, `inner1`, `auto4`), drops all LAPv1 baselines, and compares them only against the four strongest non-LAPv1 planner references plus `vice_v2`.
 
 The Phase-10 campaign runner now also accepts `model_label` plus
 `warm_start_source_checkpoint`. When the source checkpoint is set and
@@ -407,10 +411,8 @@ the target train config is LAPv2-enabled, the runner materializes the
 configured LAPv2 init checkpoint before training and logs the run under
 that model label instead of hard-coding `LAPv1`.
 
-Use [run_phase10_lapv1_stage2_fast_arena_v4_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase10_lapv1_stage2_fast_arena_v4_longrun.sh) for the prepared next LAPv1 run.
-
-The next planned LAPv1 configs keep the same namespace and data-contract boundary:
-
-- Stage T2: deliberation-on curriculum over the same `10k + 122k` or all-unique workflow slice
-- Stage T3: opponent-integrated LAPv1 follow-up
-- Stage T4: selfplay/retrain LAPv1 arena and replay configs
+The completed `phase10_lapv2_stage2_arena_all_unique_v1` run retires
+LAPv1 from the next Phase-10 comparison slot. Use
+[run_phase10_lapv2_stage2_native_arena_v1_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase10_lapv2_stage2_native_arena_v1_longrun.sh)
+for the prepared first full native LAPv2 run once the NAS/Pi workflow
+conversion has finished.
