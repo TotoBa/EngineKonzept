@@ -123,6 +123,43 @@ def test_campaign_spec_parses_workflow_chunk_size(tmp_path: Path) -> None:
     ]
 
 
+def test_campaign_spec_parses_teacher_depth_and_parallel_workers(tmp_path: Path) -> None:
+    arena_path = tmp_path / "arena.json"
+    verify_path = tmp_path / "verify.json"
+    arena_path.write_text(json.dumps({"standings": {}}), encoding="utf-8")
+    verify_path.write_text(json.dumps({"runs": {}}), encoding="utf-8")
+
+    spec = Phase10Lapv1ArenaCampaignSpec.from_dict(
+        {
+            "name": "phase10_test",
+            "output_root": str(tmp_path / "out"),
+            "merged_raw_dir": "raw",
+            "train_dataset_dir": "train",
+            "verify_dataset_dir": "verify",
+            "phase5_source_name": "stockfish-unique-pgn",
+            "phase5_seed": "seed",
+            "workflow_output_root": "workflow",
+            "proposer_checkpoint": "models/proposer/stockfish_pgn_symbolic_v1_v1/checkpoint.pt",
+            "teacher_nodes": None,
+            "teacher_depth": 10,
+            "teacher_multipv": 8,
+            "workflow_parallel_workers": 3,
+            "lapv1_config_path": "python/configs/phase10_lapv1_stage1_all_unique_v1.json",
+            "lapv1_agent_spec_path": "python/configs/phase10_agent_lapv1_stage1_all_unique_v1.json",
+            "lapv1_verify_output_path": "verify_head.jsonl",
+            "reference_arena_summary_path": str(arena_path),
+            "reference_verify_matrix_path": str(verify_path),
+            "reference_agents": [],
+            "benchmark_agent_specs": {"vice_v2": "python/configs/phase9_agent_uci_vice_v2.json"},
+            "initial_fen_suite_path": "artifacts/phase9/initial_fens_active_replay_campaign_adjudicated_v2.json",
+        }
+    )
+
+    assert spec.teacher_nodes is None
+    assert spec.teacher_depth == 10
+    assert spec.workflow_parallel_workers == 3
+
+
 def test_campaign_dry_run_exposes_model_label_and_warm_start(tmp_path: Path) -> None:
     arena_path = tmp_path / "arena.json"
     verify_path = tmp_path / "verify.json"

@@ -61,6 +61,13 @@ Training:
 - same `batch_size=256`
 - native workflow root swapped in everywhere
 
+Teacher workflow quality mode:
+
+- `MultiPV=8`
+- `depth=10` instead of a low fixed node budget
+- `3` parallel workflow workers on the Pi
+- full native workflow rebuild from scratch once the upgraded builder is in place
+
 Arena:
 
 - `lapv2_inner0`

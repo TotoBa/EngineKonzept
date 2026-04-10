@@ -51,7 +51,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--teacher-engine", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
-    parser.add_argument("--nodes", type=int, default=64)
+    parser.add_argument("--nodes", type=int, default=None)
+    parser.add_argument("--depth", type=int, default=None)
     parser.add_argument("--multipv", type=int, default=8)
     parser.add_argument("--policy-temperature-cp", type=float, default=100.0)
     parser.add_argument("--top-k", type=int, default=8)
@@ -60,6 +61,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--log-every", type=int, default=0)
     parser.add_argument("--skip-opponent-head", action="store_true")
     args = parser.parse_args(argv)
+    if args.nodes is None and args.depth is None:
+        raise ValueError("one of --nodes or --depth must be provided")
 
     dataset_dir = _resolve_repo_path(args.dataset_dir)
     checkpoint_path = _resolve_repo_path(args.checkpoint)
@@ -81,6 +84,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         selected_examples,
         teacher_engine_path=teacher_engine,
         nodes=args.nodes,
+        depth=args.depth,
         multipv=args.multipv,
         policy_temperature_cp=args.policy_temperature_cp,
         log_every=args.log_every,
@@ -132,6 +136,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "checkpoint": str(checkpoint_path),
         "teacher_engine": str(teacher_engine),
         "teacher_nodes": args.nodes,
+        "teacher_depth": args.depth,
         "teacher_multipv": args.multipv,
         "example_count": len(selected_examples),
         "skip_opponent_head": bool(args.skip_opponent_head),
@@ -165,7 +170,8 @@ def _build_teacher_and_trace_examples(
     examples: Sequence[Any],
     *,
     teacher_engine_path: Path,
-    nodes: int,
+    nodes: int | None,
+    depth: int | None,
     multipv: int,
     policy_temperature_cp: float,
     log_every: int,
@@ -189,6 +195,7 @@ def _build_teacher_and_trace_examples(
             analysis_list = teacher.analyse(
                 example.fen,
                 nodes=nodes,
+                depth=depth,
                 multipv=effective_multipv,
             )
             teacher_examples.append(
@@ -198,7 +205,7 @@ def _build_teacher_and_trace_examples(
                     analysis_list=analysis_list,
                     teacher_engine=str(teacher_engine_path),
                     nodes=nodes,
-                    depth=None,
+                    depth=depth,
                     movetime_ms=None,
                     effective_multipv=effective_multipv,
                     policy_temperature_cp=policy_temperature_cp,
@@ -211,7 +218,7 @@ def _build_teacher_and_trace_examples(
                     analysis_list=analysis_list,
                     teacher_engine=str(teacher_engine_path),
                     nodes=nodes,
-                    depth=None,
+                    depth=depth,
                     movetime_ms=None,
                     effective_multipv=effective_multipv,
                     policy_temperature_cp=policy_temperature_cp,
@@ -256,13 +263,25 @@ class _UciTeacher:
             self._process.wait(timeout=5)
             self._process = None
 
-    def analyse(self, fen: str, *, nodes: int, multipv: int) -> list[dict[str, Any]]:
+    def analyse(
+        self,
+        fen: str,
+        *,
+        nodes: int | None,
+        depth: int | None,
+        multipv: int,
+    ) -> list[dict[str, Any]]:
         board = chess.Board(fen)
         self._send(f"setoption name MultiPV value {max(1, multipv)}")
         self._send("isready")
         self._expect("readyok")
         self._send(f"position fen {fen}")
-        self._send(f"go nodes {nodes}")
+        if depth is not None:
+            self._send(f"go depth {depth}")
+        elif nodes is not None:
+            self._send(f"go nodes {nodes}")
+        else:
+            raise ValueError("one of nodes or depth must be provided")
         by_multipv: dict[int, dict[str, Any]] = {}
         for raw_line in self._stdout():
             line = raw_line.strip()

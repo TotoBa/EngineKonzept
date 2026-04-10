@@ -85,11 +85,13 @@ class Phase10Lapv1ArenaCampaignSpec:
     workflow_output_root: str = ""
     proposer_checkpoint: str = ""
     teacher_engine_path: str = "/usr/games/stockfish18"
-    teacher_nodes: int = 64
+    teacher_nodes: int | None = 64
+    teacher_depth: int | None = None
     teacher_multipv: int = 8
     teacher_policy_temperature_cp: float = 100.0
     teacher_top_k: int = 8
     workflow_chunk_size: int = 2048
+    workflow_parallel_workers: int = 1
     workflow_log_every: int = 1000
     lapv1_config_path: str = ""
     lapv1_agent_spec_path: str = ""
@@ -129,11 +131,21 @@ class Phase10Lapv1ArenaCampaignSpec:
             workflow_output_root=str(payload["workflow_output_root"]),
             proposer_checkpoint=str(payload["proposer_checkpoint"]),
             teacher_engine_path=str(payload.get("teacher_engine_path", "/usr/games/stockfish18")),
-            teacher_nodes=int(payload.get("teacher_nodes", 64)),
+            teacher_nodes=(
+                int(payload["teacher_nodes"])
+                if payload.get("teacher_nodes") is not None
+                else None
+            ),
+            teacher_depth=(
+                int(payload["teacher_depth"])
+                if payload.get("teacher_depth") is not None
+                else None
+            ),
             teacher_multipv=int(payload.get("teacher_multipv", 8)),
             teacher_policy_temperature_cp=float(payload.get("teacher_policy_temperature_cp", 100.0)),
             teacher_top_k=int(payload.get("teacher_top_k", 8)),
             workflow_chunk_size=int(payload.get("workflow_chunk_size", 2048)),
+            workflow_parallel_workers=int(payload.get("workflow_parallel_workers", 1)),
             workflow_log_every=int(payload.get("workflow_log_every", 1000)),
             lapv1_config_path=str(payload["lapv1_config_path"]),
             lapv1_agent_spec_path=str(payload["lapv1_agent_spec_path"]),
@@ -382,8 +394,6 @@ def _run_workflow_build(spec: Phase10Lapv1ArenaCampaignSpec) -> None:
         str(_resolve_repo_path(Path(spec.teacher_engine_path))),
         "--output-root",
         str(_resolve_repo_path(Path(spec.workflow_output_root))),
-        "--nodes",
-        str(spec.teacher_nodes),
         "--multipv",
         str(spec.teacher_multipv),
         "--policy-temperature-cp",
@@ -394,10 +404,18 @@ def _run_workflow_build(spec: Phase10Lapv1ArenaCampaignSpec) -> None:
         "4",
         "--chunk-size",
         str(spec.workflow_chunk_size),
+        "--parallel-workers",
+        str(spec.workflow_parallel_workers),
         "--log-every",
         str(spec.workflow_log_every),
         "--skip-existing",
     ]
+    if spec.teacher_depth is not None:
+        command.extend(["--depth", str(spec.teacher_depth)])
+    elif spec.teacher_nodes is not None:
+        command.extend(["--nodes", str(spec.teacher_nodes)])
+    else:
+        raise ValueError("one of teacher_nodes or teacher_depth must be configured")
     subprocess.run(command, cwd=REPO_ROOT, check=True)
 
 

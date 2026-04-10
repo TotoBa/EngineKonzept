@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import math
 from pathlib import Path
@@ -35,17 +36,23 @@ def main() -> int:
     parser.add_argument("--teacher-engine", type=Path, required=True)
     parser.add_argument("--output-root", type=Path, required=True)
     parser.add_argument("--nodes", type=int, default=64)
+    parser.add_argument("--depth", type=int, default=None)
     parser.add_argument("--multipv", type=int, default=8)
     parser.add_argument("--policy-temperature-cp", type=float, default=100.0)
     parser.add_argument("--top-k", type=int, default=8)
     parser.add_argument("--root-top-k", type=int, default=4)
     parser.add_argument("--chunk-size", type=int, default=2048)
+    parser.add_argument("--parallel-workers", type=int, default=1)
     parser.add_argument("--log-every", type=int, default=1000)
     parser.add_argument("--skip-existing", action="store_true")
     args = parser.parse_args()
 
     if args.chunk_size <= 0:
         raise ValueError("chunk-size must be positive")
+    if args.parallel_workers <= 0:
+        raise ValueError("parallel-workers must be positive")
+    if args.nodes is None and args.depth is None:
+        raise ValueError("one of --nodes or --depth must be provided")
 
     train_dataset_dir = _resolve_repo_path(args.train_dataset_dir)
     verify_dataset_dir = _resolve_repo_path(args.verify_dataset_dir)
@@ -90,11 +97,13 @@ def main() -> int:
         "checkpoint": str(checkpoint_path),
         "teacher_engine": str(teacher_engine),
         "teacher_nodes": args.nodes,
+        "teacher_depth": args.depth,
         "teacher_multipv": args.multipv,
         "policy_temperature_cp": args.policy_temperature_cp,
         "top_k": args.top_k,
         "root_top_k": args.root_top_k,
         "chunk_size": args.chunk_size,
+        "parallel_workers": args.parallel_workers,
         "log_every": args.log_every,
         "output_root": str(output_root),
         "tiers": {},
@@ -132,11 +141,13 @@ def main() -> int:
                 output_dir=output_dir,
                 max_examples=int(split_spec["max_examples"]),
                 nodes=args.nodes,
+                depth=args.depth,
                 multipv=args.multipv,
                 policy_temperature_cp=args.policy_temperature_cp,
                 top_k=args.top_k,
                 root_top_k=args.root_top_k,
                 chunk_size=args.chunk_size,
+                parallel_workers=args.parallel_workers,
                 log_every=args.log_every,
                 skip_existing=bool(args.skip_existing),
             )
@@ -176,12 +187,14 @@ def _build_chunked_split_workflow(
     teacher_engine: Path,
     output_dir: Path,
     max_examples: int,
-    nodes: int,
+    nodes: int | None,
+    depth: int | None,
     multipv: int,
     policy_temperature_cp: float,
     top_k: int,
     root_top_k: int,
     chunk_size: int,
+    parallel_workers: int,
     log_every: int,
     skip_existing: bool,
 ) -> None:
@@ -189,65 +202,67 @@ def _build_chunked_split_workflow(
     chunk_root = output_dir / "chunks"
     chunk_root.mkdir(parents=True, exist_ok=True)
 
-    chunk_records: list[dict[str, Any]] = []
     total_chunks = math.ceil(max_examples / chunk_size) if max_examples else 0
+    chunk_jobs: list[dict[str, Any]] = []
     for chunk_index, start_index in enumerate(range(0, max_examples, chunk_size), start=1):
         example_count = min(chunk_size, max_examples - start_index)
         chunk_dir = chunk_root / f"chunk_{chunk_index:04d}_{start_index:08d}"
-        workflow_summary_path = chunk_dir / "workflow.summary.json"
-        planner_head_path = chunk_dir / planner_head_artifact_name(canonical_split)
-        planner_head_summary_path = chunk_dir / "planner_head.summary.json"
-        lapv1_path = chunk_dir / lapv1_training_artifact_name(canonical_split)
-        lapv1_summary_path = chunk_dir / "lapv1.summary.json"
-        _log(
-            f"[workflow:{split}] chunk {chunk_index}/{total_chunks} "
-            f"start={start_index} count={example_count}"
+        chunk_jobs.append(
+            {
+                "chunk_index": chunk_index,
+                "total_chunks": total_chunks,
+                "start_index": start_index,
+                "example_count": example_count,
+                "chunk_dir": chunk_dir,
+            }
         )
-        if not skip_existing or not workflow_summary_path.exists():
-            _run_workflow_build(
+
+    if parallel_workers == 1:
+        chunk_records = [
+            _process_chunk_job(
+                job=job,
                 dataset_dir=dataset_dir,
                 split=split,
+                canonical_split=canonical_split,
                 checkpoint_path=checkpoint_path,
                 teacher_engine=teacher_engine,
-                output_dir=chunk_dir,
-                start_index=start_index,
-                max_examples=example_count,
                 nodes=nodes,
+                depth=depth,
                 multipv=multipv,
                 policy_temperature_cp=policy_temperature_cp,
                 top_k=top_k,
-                log_every=log_every,
-            )
-        if not skip_existing or not planner_head_path.exists() or not planner_head_summary_path.exists():
-            _run_planner_head_build(
-                dataset_dir=dataset_dir,
-                canonical_split=canonical_split,
-                workflow_dir=chunk_dir,
-                checkpoint_path=checkpoint_path,
-                start_index=start_index,
-                max_examples=example_count,
                 root_top_k=root_top_k,
-                output_path=planner_head_path,
-            )
-        if not skip_existing or not lapv1_path.exists() or not lapv1_summary_path.exists():
-            _run_lapv1_training_artifact_build(
-                planner_head_path=planner_head_path,
-                output_path=lapv1_path,
                 log_every=log_every,
+                skip_existing=skip_existing,
             )
-        chunk_records.append(
-            {
-                "index": chunk_index,
-                "start_index": start_index,
-                "example_count": example_count,
-                "dir": str(chunk_dir),
-                "workflow_summary_path": str(workflow_summary_path),
-                "planner_head_path": str(planner_head_path),
-                "planner_head_summary_path": str(planner_head_summary_path),
-                "lapv1_path": str(lapv1_path),
-                "lapv1_summary_path": str(lapv1_summary_path),
-            }
-        )
+            for job in chunk_jobs
+        ]
+    else:
+        chunk_records = []
+        with ThreadPoolExecutor(max_workers=parallel_workers) as executor:
+            futures = [
+                executor.submit(
+                    _process_chunk_job,
+                    job=job,
+                    dataset_dir=dataset_dir,
+                    split=split,
+                    canonical_split=canonical_split,
+                    checkpoint_path=checkpoint_path,
+                    teacher_engine=teacher_engine,
+                    nodes=nodes,
+                    depth=depth,
+                    multipv=multipv,
+                    policy_temperature_cp=policy_temperature_cp,
+                    top_k=top_k,
+                    root_top_k=root_top_k,
+                    log_every=log_every,
+                    skip_existing=skip_existing,
+                )
+                for job in chunk_jobs
+            ]
+            for future in as_completed(futures):
+                chunk_records.append(future.result())
+        chunk_records.sort(key=lambda record: int(record["index"]))
 
     _merge_chunk_artifact(
         output_path=output_dir / search_teacher_artifact_name(canonical_split),
@@ -305,6 +320,7 @@ def _build_chunked_split_workflow(
         checkpoint_path=checkpoint_path,
         teacher_engine=teacher_engine,
         nodes=nodes,
+        depth=depth,
         multipv=multipv,
         policy_temperature_cp=policy_temperature_cp,
     )
@@ -345,7 +361,8 @@ def _aggregate_workflow_chunk_summaries(
     chunk_records: Sequence[dict[str, Any]],
     checkpoint_path: Path,
     teacher_engine: Path,
-    nodes: int,
+    nodes: int | None,
+    depth: int | None,
     multipv: int,
     policy_temperature_cp: float,
 ) -> dict[str, Any]:
@@ -361,6 +378,7 @@ def _aggregate_workflow_chunk_summaries(
         "checkpoint": str(checkpoint_path),
         "teacher_engine": str(teacher_engine),
         "teacher_nodes": nodes,
+        "teacher_depth": depth,
         "teacher_multipv": multipv,
         "example_count": example_count,
         "reply_supervised_count": sum(
@@ -482,6 +500,83 @@ def _merge_chunk_artifact(*, output_path: Path, chunk_paths: Sequence[Path]) -> 
                         output_handle.write("\n")
 
 
+def _process_chunk_job(
+    *,
+    job: dict[str, Any],
+    dataset_dir: Path,
+    split: str,
+    canonical_split: str,
+    checkpoint_path: Path,
+    teacher_engine: Path,
+    nodes: int | None,
+    depth: int | None,
+    multipv: int,
+    policy_temperature_cp: float,
+    top_k: int,
+    root_top_k: int,
+    log_every: int,
+    skip_existing: bool,
+) -> dict[str, Any]:
+    chunk_index = int(job["chunk_index"])
+    total_chunks = int(job["total_chunks"])
+    start_index = int(job["start_index"])
+    example_count = int(job["example_count"])
+    chunk_dir = Path(job["chunk_dir"])
+    workflow_summary_path = chunk_dir / "workflow.summary.json"
+    planner_head_path = chunk_dir / planner_head_artifact_name(canonical_split)
+    planner_head_summary_path = chunk_dir / "planner_head.summary.json"
+    lapv1_path = chunk_dir / lapv1_training_artifact_name(canonical_split)
+    lapv1_summary_path = chunk_dir / "lapv1.summary.json"
+    _log(
+        f"[workflow:{split}] chunk {chunk_index}/{total_chunks} "
+        f"start={start_index} count={example_count}"
+    )
+    if not skip_existing or not workflow_summary_path.exists():
+        _run_workflow_build(
+            dataset_dir=dataset_dir,
+            split=split,
+            checkpoint_path=checkpoint_path,
+            teacher_engine=teacher_engine,
+            output_dir=chunk_dir,
+            start_index=start_index,
+            max_examples=example_count,
+            nodes=nodes,
+            depth=depth,
+            multipv=multipv,
+            policy_temperature_cp=policy_temperature_cp,
+            top_k=top_k,
+            log_every=log_every,
+        )
+    if not skip_existing or not planner_head_path.exists() or not planner_head_summary_path.exists():
+        _run_planner_head_build(
+            dataset_dir=dataset_dir,
+            canonical_split=canonical_split,
+            workflow_dir=chunk_dir,
+            checkpoint_path=checkpoint_path,
+            start_index=start_index,
+            max_examples=example_count,
+            root_top_k=root_top_k,
+            output_path=planner_head_path,
+        )
+    if not skip_existing or not lapv1_path.exists() or not lapv1_summary_path.exists():
+        _run_lapv1_training_artifact_build(
+            planner_head_path=planner_head_path,
+            output_path=lapv1_path,
+            log_every=log_every,
+        )
+    return {
+        "index": chunk_index,
+        "start_index": start_index,
+        "example_count": example_count,
+        "dir": str(chunk_dir),
+        "workflow_summary_path": str(workflow_summary_path),
+        "planner_head_path": str(planner_head_path),
+        "planner_head_summary_path": str(planner_head_summary_path),
+        "lapv1_path": str(lapv1_path),
+        "lapv1_summary_path": str(lapv1_summary_path),
+    }
+
+
 def _run_workflow_build(
     *,
     dataset_dir: Path,
@@ -491,7 +586,8 @@ def _run_workflow_build(
     output_dir: Path,
     start_index: int,
     max_examples: int,
-    nodes: int,
+    nodes: int | None,
+    depth: int | None,
     multipv: int,
     policy_temperature_cp: float,
     top_k: int,
@@ -511,8 +607,6 @@ def _run_workflow_build(
         str(teacher_engine),
         "--output-dir",
         str(output_dir),
-        "--nodes",
-        str(nodes),
         "--multipv",
         str(multipv),
         "--policy-temperature-cp",
@@ -527,6 +621,12 @@ def _run_workflow_build(
         str(log_every),
         "--skip-opponent-head",
     ]
+    if depth is not None:
+        command.extend(["--depth", str(depth)])
+    elif nodes is not None:
+        command.extend(["--nodes", str(nodes)])
+    else:
+        raise ValueError("one of nodes or depth must be provided")
     subprocess.run(command, cwd=REPO_ROOT, check=True)
     summary_path = output_dir / "summary.json"
     workflow_summary_path = output_dir / "workflow.summary.json"
