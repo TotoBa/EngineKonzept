@@ -17,7 +17,7 @@
   "teacher_engine_path": "/usr/games/stockfish18",
   "teacher_nodes": null,
   "teacher_depth": null,
-  "train_teacher_depth": 6,
+  "train_teacher_depth": 7,
   "validation_teacher_depth": 8,
   "verify_teacher_depth": 8,
   "teacher_multipv": 8,

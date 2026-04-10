@@ -64,7 +64,7 @@ Training:
 Teacher workflow quality mode:
 
 - `MultiPV=8`
-- `train depth=6`
+- `train depth=7`
 - `validation depth=8`
 - `verify depth=8`
 - `3` parallel workflow workers on the Pi
