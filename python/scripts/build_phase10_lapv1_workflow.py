@@ -9,6 +9,7 @@ import math
 from pathlib import Path
 import subprocess
 import sys
+import time
 from typing import Any, Sequence
 
 from train.datasets import (
@@ -760,7 +761,10 @@ def _process_chunk_job(
         f"[workflow:{split}] chunk {chunk_index}/{total_chunks} "
         f"start={start_index} count={example_count}"
     )
-    if not skip_existing or not workflow_summary_path.exists():
+    if not skip_existing or not _workflow_chunk_artifacts_complete(
+        chunk_dir=chunk_dir,
+        canonical_split=canonical_split,
+    ):
         _run_workflow_build(
             dataset_dir=dataset_dir,
             split=split,
@@ -775,6 +779,10 @@ def _process_chunk_job(
             policy_temperature_cp=policy_temperature_cp,
             top_k=top_k,
             log_every=log_every,
+        )
+        _wait_for_workflow_chunk_artifacts_complete(
+            chunk_dir=chunk_dir,
+            canonical_split=canonical_split,
         )
     if not skip_existing or not planner_head_path.exists() or not planner_head_summary_path.exists():
         _run_planner_head_build(
@@ -804,6 +812,50 @@ def _process_chunk_job(
         "lapv1_path": str(lapv1_path),
         "lapv1_summary_path": str(lapv1_summary_path),
     }
+
+
+def _workflow_chunk_artifacts_complete(*, chunk_dir: Path, canonical_split: str) -> bool:
+    return not _missing_workflow_chunk_artifacts(
+        chunk_dir=chunk_dir,
+        canonical_split=canonical_split,
+    )
+
+
+def _wait_for_workflow_chunk_artifacts_complete(
+    *,
+    chunk_dir: Path,
+    canonical_split: str,
+    timeout_seconds: float = 5.0,
+    poll_interval_seconds: float = 0.2,
+) -> None:
+    deadline = time.monotonic() + max(0.0, timeout_seconds)
+    missing = _missing_workflow_chunk_artifacts(
+        chunk_dir=chunk_dir,
+        canonical_split=canonical_split,
+    )
+    while missing and time.monotonic() < deadline:
+        time.sleep(max(0.0, poll_interval_seconds))
+        missing = _missing_workflow_chunk_artifacts(
+            chunk_dir=chunk_dir,
+            canonical_split=canonical_split,
+        )
+    if missing:
+        raise FileNotFoundError(
+            "workflow build did not produce required chunk artifacts:\n"
+            + "\n".join(str(path) for path in missing)
+        )
+
+
+def _missing_workflow_chunk_artifacts(*, chunk_dir: Path, canonical_split: str) -> tuple[Path, ...]:
+    required_paths = (
+        chunk_dir / "summary.json",
+        chunk_dir / "workflow.summary.json",
+        chunk_dir / search_teacher_artifact_name(canonical_split),
+        chunk_dir / search_traces_artifact_name(canonical_split),
+        chunk_dir / search_disagreements_artifact_name(canonical_split),
+        chunk_dir / search_curriculum_artifact_name(canonical_split),
+    )
+    return tuple(path for path in required_paths if not path.exists())
 
 
 def _run_workflow_build(

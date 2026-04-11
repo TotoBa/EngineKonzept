@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import contextmanager, redirect_stderr, redirect_stdout
 import hashlib
 import json
 import os
@@ -26,6 +26,10 @@ from train.orchestrator.models import ArtifactRef, TaskResult, TaskRow, WorkerDe
 class OrchestratorWorker:
     """Single-process worker that claims, executes, and records task attempts."""
 
+    _HARD_TRAIN_MAX_EXAMPLES = 150_000
+    _HARD_VALIDATION_MAX_EXAMPLES = 15_000
+    _HARD_LOG_EVERY = 10_000
+
     def __init__(
         self,
         *,
@@ -36,6 +40,7 @@ class OrchestratorWorker:
         log_root: Path,
         lease_seconds: int = 300,
         heartbeat_interval_seconds: float = 30.0,
+        distributed_task_threads: int = 1,
     ) -> None:
         self._db = db
         self._controller = controller
@@ -44,6 +49,7 @@ class OrchestratorWorker:
         self._log_root = log_root
         self._lease_seconds = lease_seconds
         self._heartbeat_interval_seconds = heartbeat_interval_seconds
+        self._distributed_task_threads = max(1, distributed_task_threads)
 
     def register(self) -> None:
         """Register or refresh the worker row in MySQL."""
@@ -165,6 +171,8 @@ class OrchestratorWorker:
         stderr_handle: IO[str],
     ) -> TaskResult:
         task_type = task.task_type
+        if task_type == "label_pgn_corpus":
+            return self._handle_label_pgn_corpus(task, stdout_handle, stderr_handle)
         if task_type == "phase10_materialize":
             return self._handle_phase10_materialize(task, stdout_handle, stderr_handle)
         if task_type == "phase10_workflow_prepare":
@@ -175,6 +183,12 @@ class OrchestratorWorker:
             return self._handle_phase10_workflow_finalize(task, stdout_handle, stderr_handle)
         if task_type == "train_lapv1":
             return self._handle_train_lapv1(task, stdout_handle, stderr_handle)
+        if task_type == "phase10_selfplay_prepare":
+            return self._handle_phase10_selfplay_prepare(task)
+        if task_type == "phase10_selfplay_shard":
+            return self._handle_phase10_selfplay_shard(task)
+        if task_type == "phase10_selfplay_finalize":
+            return self._handle_phase10_selfplay_finalize(task)
         if task_type == "verify_lapv1":
             return self._handle_verify_lapv1(task, stdout_handle, stderr_handle)
         if task_type == "phase10_arena_prepare":
@@ -186,6 +200,115 @@ class OrchestratorWorker:
         if task_type == "phase10_finalize":
             return self._handle_phase10_finalize(task)
         raise ValueError(f"unsupported task type: {task_type}")
+
+    def _handle_label_pgn_corpus(
+        self,
+        task: TaskRow,
+        stdout_handle: IO[str],
+        stderr_handle: IO[str],
+    ) -> TaskResult:
+        payload = dict(task.payload)
+        work_dir = resolve_repo_path(self._repo_root, Path(str(payload["work_dir"])))
+        command = [
+            sys.executable,
+            "-u",
+            str(self._repo_root / "python" / "scripts" / "build_unique_stockfish_pgn_corpus.py"),
+            "--pgn-root",
+            str(payload["pgn_root"]),
+            "--glob",
+            str(payload["pgn_glob"]),
+            "--engine-path",
+            str(payload["engine_path"]),
+            "--work-dir",
+            str(payload["work_dir"]),
+            "--target-train-records",
+            str(payload["target_train_records"]),
+            "--target-verify-records",
+            str(payload["target_verify_records"]),
+            "--min-ply",
+            str(payload["min_ply"]),
+            "--max-ply",
+            str(payload["max_ply"]),
+            "--ply-stride",
+            str(payload["ply_stride"]),
+            "--engine-nodes",
+            str(payload["engine_nodes"]),
+            "--hash-mb",
+            str(payload["hash_mb"]),
+            "--threads",
+            str(payload["threads"]),
+            "--split-seed",
+            str(payload["split_seed"]),
+            "--verify-divisor",
+            str(payload["verify_divisor"]),
+            "--progress-every",
+            str(payload["progress_every"]),
+            "--max-games",
+            str(payload["max_games"]),
+        ]
+        if not bool(payload.get("export_jsonl_on_complete", True)):
+            command.append("--no-export-jsonl-on-complete")
+        if bool(payload.get("complete_at_eof", False)):
+            command.append("--complete-at-eof")
+        self._run_command(
+            command,
+            stdout_handle=stdout_handle,
+            stderr_handle=stderr_handle,
+            thread_budget=self._distributed_task_threads,
+        )
+        progress_path = work_dir / "progress.json"
+        if not progress_path.exists():
+            raise FileNotFoundError(f"label progress file not found: {progress_path}")
+        progress = json.loads(progress_path.read_text(encoding="utf-8"))
+        if not bool(progress.get("completed")):
+            raise RuntimeError(
+                f"label campaign did not reach requested targets: {progress_path}"
+            )
+        train_raw_path = work_dir / "train_raw.jsonl"
+        verify_raw_path = work_dir / "verify_raw.jsonl"
+        if not train_raw_path.exists() or not verify_raw_path.exists():
+            raise FileNotFoundError(
+                "label campaign completed without exported raw corpora: "
+                f"{train_raw_path} / {verify_raw_path}"
+            )
+        summary_path = self._write_json(
+            work_dir / "summary.json",
+            {
+                "config_path": str(payload["config_path"]),
+                "pgn_root": str(payload["pgn_root"]),
+                "work_dir": str(work_dir),
+                "progress_path": str(progress_path),
+                "train_raw_path": str(train_raw_path),
+                "verify_raw_path": str(verify_raw_path),
+                "progress": progress,
+            },
+        )
+        counts = dict(progress.get("counts") or {})
+        return TaskResult(
+            summary_path=str(summary_path),
+            artifacts=(
+                self._artifact_ref(
+                    kind="raw_corpus_dir",
+                    path=work_dir,
+                    summary_path=summary_path,
+                ),
+                self._artifact_ref(
+                    kind="raw_train_jsonl",
+                    path=train_raw_path,
+                    summary_path=summary_path,
+                ),
+                self._artifact_ref(
+                    kind="raw_verify_jsonl",
+                    path=verify_raw_path,
+                    summary_path=summary_path,
+                ),
+            ),
+            metrics={
+                "train_records": int(counts.get("train", 0)),
+                "verify_records": int(counts.get("verify", 0)),
+                "games_seen": int(progress.get("games_seen", 0)),
+            },
+        )
 
     def _handle_phase10_materialize(
         self,
@@ -220,7 +343,12 @@ class OrchestratorWorker:
             "--log-every-chunks",
             str(payload["log_every_chunks"]),
         ]
-        self._run_command(command, stdout_handle=stdout_handle, stderr_handle=stderr_handle)
+        self._run_command(
+            command,
+            stdout_handle=stdout_handle,
+            stderr_handle=stderr_handle,
+            thread_budget=self._distributed_task_threads,
+        )
         summary_path = self._write_json(
             output_root / "orchestrator" / "materialize" / "summary.json",
             {
@@ -331,7 +459,12 @@ class OrchestratorWorker:
             command.extend(["--validation-depth", str(spec.validation_teacher_depth)])
         if spec.verify_teacher_depth is not None:
             command.extend(["--verify-depth", str(spec.verify_teacher_depth)])
-        self._run_command(command, stdout_handle=stdout_handle, stderr_handle=stderr_handle)
+        self._run_command(
+            command,
+            stdout_handle=stdout_handle,
+            stderr_handle=stderr_handle,
+            thread_budget=self._distributed_task_threads,
+        )
         workflow_root = resolve_repo_path(self._repo_root, Path(spec.workflow_output_root))
         split_dir = workflow_root / {
             "train": "all_unique_train_v1",
@@ -402,11 +535,27 @@ class OrchestratorWorker:
             command.extend(["--validation-depth", str(spec.validation_teacher_depth)])
         if spec.verify_teacher_depth is not None:
             command.extend(["--verify-depth", str(spec.verify_teacher_depth)])
-        self._run_command(command, stdout_handle=stdout_handle, stderr_handle=stderr_handle)
+        self._run_command(
+            command,
+            stdout_handle=stdout_handle,
+            stderr_handle=stderr_handle,
+            thread_budget=self._distributed_task_threads,
+        )
         workflow_root = resolve_repo_path(self._repo_root, Path(spec.workflow_output_root))
+        hard_paths = self._build_phase10_hard_subsets(
+            workflow_root=workflow_root,
+            stdout_handle=stdout_handle,
+            stderr_handle=stderr_handle,
+        )
         summary_path = self._write_json(
             workflow_root / "orchestrator" / "workflow_finalize" / "summary.json",
-            {"workflow_summary_path": str(workflow_root / "summary.json")},
+            {
+                "workflow_summary_path": str(workflow_root / "summary.json"),
+                "hard_train_path": str(hard_paths["train_path"]),
+                "hard_train_summary_path": str(hard_paths["train_summary_path"]),
+                "hard_validation_path": str(hard_paths["validation_path"]),
+                "hard_validation_summary_path": str(hard_paths["validation_summary_path"]),
+            },
         )
         return TaskResult(
             summary_path=str(summary_path),
@@ -417,6 +566,71 @@ class OrchestratorWorker:
                     summary_path=workflow_root / "summary.json",
                 ),
             ),
+        )
+
+    def _build_phase10_hard_subsets(
+        self,
+        *,
+        workflow_root: Path,
+        stdout_handle: IO[str],
+        stderr_handle: IO[str],
+    ) -> dict[str, Path]:
+        full_train_path = workflow_root / "all_unique_train_v1" / "lapv1_train.jsonl"
+        full_validation_path = workflow_root / "all_unique_validation_v1" / "lapv1_validation.jsonl"
+        hard_train_path = workflow_root / "all_unique_train_hard_v1" / "lapv1_train_hard.jsonl"
+        hard_validation_path = (
+            workflow_root / "all_unique_validation_hard_v1" / "lapv1_validation_hard.jsonl"
+        )
+        self._build_lapv1_hard_positions_dataset(
+            input_path=full_train_path,
+            output_path=hard_train_path,
+            max_examples=self._HARD_TRAIN_MAX_EXAMPLES,
+            stdout_handle=stdout_handle,
+            stderr_handle=stderr_handle,
+        )
+        self._build_lapv1_hard_positions_dataset(
+            input_path=full_validation_path,
+            output_path=hard_validation_path,
+            max_examples=self._HARD_VALIDATION_MAX_EXAMPLES,
+            stdout_handle=stdout_handle,
+            stderr_handle=stderr_handle,
+        )
+        return {
+            "train_path": hard_train_path,
+            "train_summary_path": hard_train_path.parent / "lapv1_train_hard.summary.json",
+            "validation_path": hard_validation_path,
+            "validation_summary_path": (
+                hard_validation_path.parent / "lapv1_validation_hard.summary.json"
+            ),
+        }
+
+    def _build_lapv1_hard_positions_dataset(
+        self,
+        *,
+        input_path: Path,
+        output_path: Path,
+        max_examples: int,
+        stdout_handle: IO[str],
+        stderr_handle: IO[str],
+    ) -> None:
+        command = [
+            sys.executable,
+            "-u",
+            str(self._repo_root / "python" / "scripts" / "build_lapv1_hard_positions_dataset.py"),
+            "--input-path",
+            str(input_path),
+            "--output-path",
+            str(output_path),
+            "--max-examples",
+            str(max_examples),
+            "--log-every",
+            str(self._HARD_LOG_EVERY),
+        ]
+        self._run_command(
+            command,
+            stdout_handle=stdout_handle,
+            stderr_handle=stderr_handle,
+            thread_budget=self._distributed_task_threads,
         )
 
     def _handle_train_lapv1(
@@ -458,6 +672,89 @@ class OrchestratorWorker:
             ),
         )
 
+    def _handle_phase10_selfplay_prepare(self, task: TaskRow) -> TaskResult:
+        payload = dict(task.payload)
+        expanded = self._controller.expand_phase10_selfplay(
+            parent_task_id=task.id,
+            campaign_id=task.campaign_id,
+            model_id=int(payload["model_id"]),
+            config_path=Path(str(payload["config_path"])),
+        )
+        return TaskResult(
+            summary_path=str(expanded["summary_path"]),
+            created_task_keys=tuple(sorted(dict(expanded["created_task_ids"]).keys())),
+            metadata={
+                "created_task_ids": dict(expanded["created_task_ids"]),
+                "agent_name": expanded["agent_name"],
+                "agent_spec_path": expanded["agent_spec_path"],
+            },
+            artifacts=(
+                self._artifact_ref(
+                    kind="selfplay_agent_spec",
+                    path=Path(str(expanded["agent_spec_path"])),
+                    summary_path=Path(str(expanded["summary_path"])),
+                ),
+            ),
+        )
+
+    def _handle_phase10_selfplay_shard(self, task: TaskRow) -> TaskResult:
+        from train.eval.distributed_selfplay import run_phase10_pre_verify_selfplay_shard
+
+        payload = dict(task.payload)
+        spec = load_phase10_lapv1_arena_campaign_spec(Path(str(payload["config_path"])))
+        output_root = Path(str(payload["output_root"]))
+        with self._thread_budget(self._distributed_task_threads):
+            summary = run_phase10_pre_verify_selfplay_shard(
+                spec=spec,
+                repo_root=self._repo_root,
+                agent_spec_path=Path(str(payload["agent_spec_path"])),
+                agent_name=str(payload["agent_name"]),
+                output_root=output_root,
+                shard_index=int(payload["shard_index"]),
+                starting_game_index=int(payload["starting_game_index"]),
+                games=int(payload["games"]),
+                max_plies=int(payload["max_plies"]),
+            )
+        summary_path = output_root / "shards" / f"selfplay_shard_{int(payload['shard_index']):04d}.summary.json"
+        return TaskResult(
+            summary_path=str(summary_path),
+            artifacts=(
+                self._artifact_ref(
+                    kind="selfplay_session",
+                    path=Path(str(summary["session_path"])),
+                    summary_path=summary_path,
+                ),
+            ),
+            metrics=dict(summary["aggregate"]),
+        )
+
+    def _handle_phase10_selfplay_finalize(self, task: TaskRow) -> TaskResult:
+        from train.eval.distributed_selfplay import rebuild_phase10_pre_verify_selfplay_summary
+
+        payload = dict(task.payload)
+        output_root = Path(str(payload["output_root"]))
+        summary = rebuild_phase10_pre_verify_selfplay_summary(
+            output_root=output_root,
+            agent_name=str(payload["agent_name"]),
+            agent_spec_path=Path(str(payload["agent_spec_path"])),
+        )
+        self._db.update_model_record(
+            int(payload["model_id"]),
+            status="selfplay_completed",
+        )
+        summary_path = output_root / "summary.json"
+        return TaskResult(
+            summary_path=str(summary_path),
+            artifacts=(
+                self._artifact_ref(
+                    kind="selfplay_summary",
+                    path=summary_path,
+                    summary_path=summary_path,
+                ),
+            ),
+            metrics=dict(summary["aggregate"]),
+        )
+
     def _handle_verify_lapv1(
         self,
         task: TaskRow,
@@ -484,6 +781,7 @@ class OrchestratorWorker:
             stdout_handle=output_path.open("w", encoding="utf-8"),
             stderr_handle=stderr_handle,
             close_stdout=True,
+            thread_budget=self._distributed_task_threads,
         )
         metrics = json.loads(output_path.read_text(encoding="utf-8"))
         summary_path = self._write_json(
@@ -543,12 +841,13 @@ class OrchestratorWorker:
         resolved_spec_path = Path(str(payload["resolved_arena_spec_path"]))
         spec = load_selfplay_arena_spec(resolved_spec_path)
         output_root = Path(str(payload["output_root"]))
-        summary = run_selfplay_arena_matchup(
-            spec=spec,
-            matchup_index=int(payload["matchup_index"]),
-            repo_root=self._repo_root,
-            output_root=output_root,
-        )
+        with self._thread_budget(self._distributed_task_threads):
+            summary = run_selfplay_arena_matchup(
+                spec=spec,
+                matchup_index=int(payload["matchup_index"]),
+                repo_root=self._repo_root,
+                output_root=output_root,
+            )
         summary_path = self._write_json(
             output_root
             / "matchup_tasks"
@@ -620,10 +919,15 @@ class OrchestratorWorker:
     def _after_success(self, *, task: TaskRow, result: TaskResult) -> None:
         if task.task_type == "phase10_finalize":
             return
+        if task.task_type == "label_pgn_corpus":
+            self._db.update_campaign_record(task.campaign_id, status="succeeded")
+            return
         if task.task_type == "phase10_workflow_prepare":
             self._db.update_campaign_record(task.campaign_id, status="running")
         if task.task_type == "train_lapv1":
             self._db.update_campaign_record(task.campaign_id, status="training")
+        if task.task_type == "phase10_selfplay_finalize":
+            self._db.update_campaign_record(task.campaign_id, status="selfplay_completed")
         if task.task_type == "verify_lapv1":
             self._db.update_campaign_record(task.campaign_id, status="verifying")
         if task.task_type == "arena_finalize":
@@ -636,10 +940,29 @@ class OrchestratorWorker:
         stdout_handle: IO[str],
         stderr_handle: IO[str],
         close_stdout: bool = False,
+        thread_budget: int | None = None,
     ) -> None:
+        env = os.environ.copy()
+        python_root = str(self._repo_root / "python")
+        current_pythonpath = env.get("PYTHONPATH")
+        env["PYTHONPATH"] = (
+            python_root
+            if not current_pythonpath
+            else os.pathsep.join((python_root, current_pythonpath))
+        )
+        if thread_budget is not None:
+            for variable in (
+                "OMP_NUM_THREADS",
+                "MKL_NUM_THREADS",
+                "OPENBLAS_NUM_THREADS",
+                "NUMEXPR_NUM_THREADS",
+                "VECLIB_MAXIMUM_THREADS",
+            ):
+                env[variable] = str(thread_budget)
         process = subprocess.Popen(
             command,
             cwd=self._repo_root,
+            env=env,
             stdout=stdout_handle,
             stderr=stderr_handle,
             text=True,
@@ -649,6 +972,42 @@ class OrchestratorWorker:
             stdout_handle.close()
         if return_code != 0:
             raise RuntimeError(f"command failed with exit code {return_code}: {' '.join(command)}")
+
+    @contextmanager
+    def _thread_budget(self, thread_budget: int | None):
+        if thread_budget is None:
+            yield
+            return
+        variables = (
+            "OMP_NUM_THREADS",
+            "MKL_NUM_THREADS",
+            "OPENBLAS_NUM_THREADS",
+            "NUMEXPR_NUM_THREADS",
+            "VECLIB_MAXIMUM_THREADS",
+        )
+        previous_env = {variable: os.environ.get(variable) for variable in variables}
+        for variable in variables:
+            os.environ[variable] = str(thread_budget)
+
+        torch_module: Any | None = None
+        previous_threads: int | None = None
+        try:
+            import torch as torch_module  # type: ignore[no-redef]
+        except ModuleNotFoundError:
+            torch_module = None
+        if torch_module is not None:
+            previous_threads = int(torch_module.get_num_threads())
+            torch_module.set_num_threads(thread_budget)
+        try:
+            yield
+        finally:
+            if torch_module is not None and previous_threads is not None:
+                torch_module.set_num_threads(previous_threads)
+            for variable, value in previous_env.items():
+                if value is None:
+                    os.environ.pop(variable, None)
+                else:
+                    os.environ[variable] = value
 
     def _attempt_log_paths(self, task: TaskRow) -> tuple[Path, Path]:
         task_root = self._log_root / self._descriptor.worker_id / f"task_{task.id:08d}"

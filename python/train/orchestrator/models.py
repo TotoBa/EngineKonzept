@@ -201,6 +201,124 @@ class TaskRow:
 
 
 @dataclass(frozen=True)
+class CampaignRow:
+    """Normalized campaign row returned from the MySQL layer."""
+
+    id: int
+    name: str
+    kind: str
+    status: str
+    config_path: str
+    active_model_id: int | None
+    metadata: dict[str, Any]
+    created_at: str | None
+    updated_at: str | None
+
+    @classmethod
+    def from_db_row(cls, row: Mapping[str, Any]) -> "CampaignRow":
+        return cls(
+            id=int(row["id"]),
+            name=str(row["name"]),
+            kind=str(row["kind"]),
+            status=str(row["status"]),
+            config_path=str(row["config_path"]),
+            active_model_id=(
+                int(row["active_model_id"]) if row.get("active_model_id") is not None else None
+            ),
+            metadata=dict(row.get("metadata_json") or {}),
+            created_at=(str(row["created_at"]) if row.get("created_at") is not None else None),
+            updated_at=(str(row["updated_at"]) if row.get("updated_at") is not None else None),
+        )
+
+
+@dataclass(frozen=True)
+class ModelRow:
+    """Normalized model row returned from the MySQL layer."""
+
+    id: int
+    campaign_id: int
+    parent_model_id: int | None
+    generation: int
+    train_config_path: str | None
+    agent_spec_path: str | None
+    checkpoint_path: str | None
+    bundle_path: str | None
+    verify_json_path: str | None
+    arena_summary_path: str | None
+    status: str
+    promotion_score: float | None
+    metadata: dict[str, Any]
+    created_at: str | None
+
+    @classmethod
+    def from_db_row(cls, row: Mapping[str, Any]) -> "ModelRow":
+        return cls(
+            id=int(row["id"]),
+            campaign_id=int(row["campaign_id"]),
+            parent_model_id=(
+                int(row["parent_model_id"]) if row.get("parent_model_id") is not None else None
+            ),
+            generation=int(row["generation"]),
+            train_config_path=(
+                str(row["train_config_path"])
+                if row.get("train_config_path") is not None
+                else None
+            ),
+            agent_spec_path=(
+                str(row["agent_spec_path"]) if row.get("agent_spec_path") is not None else None
+            ),
+            checkpoint_path=(
+                str(row["checkpoint_path"]) if row.get("checkpoint_path") is not None else None
+            ),
+            bundle_path=(str(row["bundle_path"]) if row.get("bundle_path") is not None else None),
+            verify_json_path=(
+                str(row["verify_json_path"]) if row.get("verify_json_path") is not None else None
+            ),
+            arena_summary_path=(
+                str(row["arena_summary_path"])
+                if row.get("arena_summary_path") is not None
+                else None
+            ),
+            status=str(row["status"]),
+            promotion_score=(
+                float(row["promotion_score"]) if row.get("promotion_score") is not None else None
+            ),
+            metadata=dict(row.get("metadata_json") or {}),
+            created_at=(str(row["created_at"]) if row.get("created_at") is not None else None),
+        )
+
+
+@dataclass(frozen=True)
+class LabelPgnCorpusPayload:
+    """Task payload for one resumable PGN -> Stockfish raw corpus labeling run."""
+
+    config_path: str
+    pgn_root: str
+    pgn_glob: str
+    engine_path: str
+    work_dir: str
+    target_train_records: int
+    target_verify_records: int
+    min_ply: int
+    max_ply: int
+    ply_stride: int
+    engine_nodes: int
+    hash_mb: int
+    threads: int
+    split_seed: str
+    verify_divisor: int
+    progress_every: int
+    max_games: int
+    export_jsonl_on_complete: bool = True
+    complete_at_eof: bool = False
+    schema_version: int = ORCHESTRATOR_SCHEMA_VERSION
+    task_kind: str = "label_pgn_corpus"
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
 class Phase10MaterializePayload:
     """Task payload for the exact Phase-5 materialization stage."""
 
@@ -273,6 +391,55 @@ class TrainLapv1Payload:
     model_label: str
     schema_version: int = ORCHESTRATOR_SCHEMA_VERSION
     task_kind: str = "train_lapv1"
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class Phase10SelfplayPreparePayload:
+    """Task payload for resolving the tracked LAP agent and expanding selfplay shards."""
+
+    config_path: str
+    model_id: int
+    schema_version: int = ORCHESTRATOR_SCHEMA_VERSION
+    task_kind: str = "phase10_selfplay_prepare"
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class Phase10SelfplayShardPayload:
+    """Task payload for one distributed pre-verify LAP selfplay shard."""
+
+    config_path: str
+    agent_spec_path: str
+    agent_name: str
+    output_root: str
+    shard_index: int
+    starting_game_index: int
+    games: int
+    max_plies: int
+    model_id: int
+    schema_version: int = ORCHESTRATOR_SCHEMA_VERSION
+    task_kind: str = "phase10_selfplay_shard"
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class Phase10SelfplayFinalizePayload:
+    """Task payload for the pre-verify selfplay aggregate summary."""
+
+    config_path: str
+    agent_spec_path: str
+    agent_name: str
+    output_root: str
+    model_id: int
+    schema_version: int = ORCHESTRATOR_SCHEMA_VERSION
+    task_kind: str = "phase10_selfplay_finalize"
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

@@ -1,4 +1,4 @@
-"""Control-plane CLI for the MySQL-backed distributed training orchestrator."""
+"""Master CLI for the MySQL-backed distributed training orchestrator."""
 
 from __future__ import annotations
 
@@ -15,59 +15,47 @@ if str(PYTHON_ROOT) not in sys.path:
 
 from train.orchestrator.controller import OrchestratorController  # noqa: E402
 from train.orchestrator.db import OrchestratorDB  # noqa: E402
+from train.orchestrator.master import OrchestratorMaster, load_master_spec  # noqa: E402
 from train.orchestrator.models import DEFAULT_MYSQL_PORT, MySQLConfig  # noqa: E402
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     _add_db_args(parser)
-    subparsers = parser.add_subparsers(dest="command", required=True)
-
-    init_db = subparsers.add_parser("init-db", help="create the orchestrator schema")
-    init_db.add_argument("--drop-existing", action="store_true")
-
-    status = subparsers.add_parser("status", help="show campaigns, tasks, and workers")
-    status.add_argument("--limit", type=int, default=20)
-
-    subparsers.add_parser("requeue-expired", help="requeue tasks with expired leases")
-
-    submit = subparsers.add_parser("submit-phase10", help="submit one Phase-10 campaign")
-    submit.add_argument("--config", type=Path, required=True)
-    submit.add_argument("--kind", default="phase10_native")
-
-    submit_label = subparsers.add_parser("submit-label", help="submit one PGN labeling campaign")
-    submit_label.add_argument("--config", type=Path, required=True)
-    submit_label.add_argument("--kind", default="label_pgn_corpus")
-
+    parser.add_argument("--config", type=Path, required=True)
+    parser.add_argument("--poll-seconds", type=float, default=None)
+    parser.add_argument("--once", action="store_true")
+    parser.add_argument("--until-terminal", action="store_true")
+    parser.add_argument("--max-cycles", type=int, default=1000)
     args = parser.parse_args()
+
     db = OrchestratorDB(_db_config_from_args(args))
     controller = OrchestratorController(db=db, repo_root=REPO_ROOT)
+    master = OrchestratorMaster(
+        db=db,
+        controller=controller,
+        repo_root=REPO_ROOT,
+        spec=load_master_spec(args.config),
+        spec_path=args.config,
+    )
 
-    if args.command == "init-db":
-        db.init_schema(drop_existing=bool(args.drop_existing))
-        print(json.dumps({"initialized": True, "drop_existing": bool(args.drop_existing)}))
+    if args.once:
+        print(json.dumps(master.reconcile_once(), indent=2, sort_keys=True))
         return 0
-    if args.command == "status":
-        print(json.dumps(db.status_snapshot(limit=int(args.limit)), indent=2, sort_keys=True))
-        return 0
-    if args.command == "requeue-expired":
-        print(json.dumps(db.requeue_expired_tasks(), indent=2, sort_keys=True))
-        return 0
-    if args.command == "submit-phase10":
-        result = controller.submit_phase10_campaign(
-            config_path=args.config,
-            kind=str(args.kind),
+    if args.until_terminal:
+        print(
+            json.dumps(
+                master.run_until_terminal(
+                    poll_interval_seconds=args.poll_seconds,
+                    max_cycles=int(args.max_cycles),
+                ),
+                indent=2,
+                sort_keys=True,
+            )
         )
-        print(json.dumps(result, indent=2, sort_keys=True))
         return 0
-    if args.command == "submit-label":
-        result = controller.submit_label_pgn_corpus_campaign(
-            config_path=args.config,
-            kind=str(args.kind),
-        )
-        print(json.dumps(result, indent=2, sort_keys=True))
-        return 0
-    raise ValueError(f"unsupported command: {args.command}")
+    master.run_forever(poll_interval_seconds=args.poll_seconds)
+    return 0
 
 
 def _add_db_args(parser: argparse.ArgumentParser) -> None:

@@ -37,6 +37,7 @@ class UniqueCorpusConfig:
     progress_every: int = 1000
     max_games: int = 0
     export_jsonl_on_complete: bool = True
+    complete_at_eof: bool = False
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -62,6 +63,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_false",
         dest="export_jsonl_on_complete",
     )
+    parser.add_argument("--complete-at-eof", action="store_true")
     args = parser.parse_args(argv)
 
     config = UniqueCorpusConfig(
@@ -80,6 +82,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         progress_every=args.progress_every,
         max_games=args.max_games,
         export_jsonl_on_complete=args.export_jsonl_on_complete,
+        complete_at_eof=args.complete_at_eof,
     )
 
     pgn_paths = sorted(path for path in args.pgn_root.glob(args.glob) if path.is_file())
@@ -116,10 +119,12 @@ def build_unique_corpus_from_pgns(
             pgn_paths=pgn_paths,
             current_pgn=None,
             games_seen=0,
+            skipped_games=0,
         )
         _write_progress(progress_path, progress)
 
         games_seen = int(progress["games_seen"])
+        skipped_games = int(progress.get("skipped_games", 0))
         accepted_since_progress = 0
         for pgn_path in pgn_paths:
             if _targets_reached(connection, config=config):
@@ -130,74 +135,93 @@ def build_unique_corpus_from_pgns(
                         break
                     if _targets_reached(connection, config=config):
                         break
-                    game = chess.pgn.read_game(handle)
+                    try:
+                        game = chess.pgn.read_game(handle)
+                    except Exception:
+                        skipped_games += 1
+                        break
                     if game is None:
                         break
                     games_seen += 1
-                    board = game.board()
-                    result = _normalize_result(game.headers.get("Result"))
-                    for ply_index, move in enumerate(game.mainline_moves(), start=1):
-                        if config.min_ply <= ply_index <= config.max_ply and (
-                            (ply_index - config.min_ply) % config.ply_stride == 0
-                        ):
-                            if board.is_valid() and not board.is_game_over(claim_draw=True):
-                                fen = board.fen()
-                                split = _choose_split(
-                                    fen,
-                                    connection=connection,
-                                    config=config,
-                                )
-                                if split is not None:
-                                    sample_id = (
-                                        f"stockfish-unique:{pgn_path.stem}:{games_seen}:{ply_index}:"
-                                        f"{_fen_hash_hex(fen)[:12]}"
+                    try:
+                        board = game.board()
+                        result = _normalize_result(game.headers.get("Result"))
+                        for ply_index, move in enumerate(game.mainline_moves(), start=1):
+                            if config.min_ply <= ply_index <= config.max_ply and (
+                                (ply_index - config.min_ply) % config.ply_stride == 0
+                            ):
+                                if board.is_valid() and not board.is_game_over(claim_draw=True):
+                                    fen = board.fen()
+                                    split = _choose_split(
+                                        fen,
+                                        connection=connection,
+                                        config=config,
                                     )
-                                    reserved = _reserve_sample(
-                                        connection,
-                                        sample_id=sample_id,
-                                        fen=fen,
-                                        split=split,
-                                        source="stockfish-unique-pgn",
-                                        result=result,
-                                        metadata={
-                                            "source_pgn": pgn_path.stem,
-                                            "game_index": games_seen,
-                                            "ply": ply_index,
-                                            "event": game.headers.get("Event"),
-                                            "white": game.headers.get("White"),
-                                            "black": game.headers.get("Black"),
-                                            "played_move_uci": move.uci(),
-                                        },
-                                    )
-                                    if reserved:
-                                        _label_reserved_sample(
-                                            connection,
-                                            engine=engine,
-                                            fen_hash_hex=_fen_hash_hex(fen),
-                                            config=config,
+                                    if split is not None:
+                                        sample_id = (
+                                            f"stockfish-unique:{pgn_path.stem}:{games_seen}:{ply_index}:"
+                                            f"{_fen_hash_hex(fen)[:12]}"
                                         )
-                                        accepted_since_progress += 1
-                                        if accepted_since_progress >= config.progress_every:
-                                            accepted_since_progress = 0
-                                            _write_progress(
-                                                progress_path,
-                                                _current_progress(
-                                                    connection,
-                                                    config=config,
-                                                    pgn_paths=pgn_paths,
-                                                    current_pgn=str(pgn_path),
-                                                    games_seen=games_seen,
-                                                ),
+                                        reserved = _reserve_sample(
+                                            connection,
+                                            sample_id=sample_id,
+                                            fen=fen,
+                                            split=split,
+                                            source="stockfish-unique-pgn",
+                                            result=result,
+                                            metadata={
+                                                "source_pgn": pgn_path.stem,
+                                                "game_index": games_seen,
+                                                "ply": ply_index,
+                                                "event": game.headers.get("Event"),
+                                                "white": game.headers.get("White"),
+                                                "black": game.headers.get("Black"),
+                                                "played_move_uci": move.uci(),
+                                            },
+                                        )
+                                        if reserved:
+                                            _label_reserved_sample(
+                                                connection,
+                                                engine=engine,
+                                                fen_hash_hex=_fen_hash_hex(fen),
+                                                config=config,
                                             )
-                        board.push(move)
+                                            accepted_since_progress += 1
+                                            if accepted_since_progress >= config.progress_every:
+                                                accepted_since_progress = 0
+                                                _write_progress(
+                                                    progress_path,
+                                                    _current_progress(
+                                                        connection,
+                                                        config=config,
+                                                        pgn_paths=pgn_paths,
+                                                        current_pgn=str(pgn_path),
+                                                        games_seen=games_seen,
+                                                        skipped_games=skipped_games,
+                                                    ),
+                                                )
+                            board.push(move)
+                    except Exception:
+                        skipped_games += 1
+                        continue
         final_summary = _current_progress(
             connection,
             config=config,
             pgn_paths=pgn_paths,
             current_pgn=None,
             games_seen=games_seen,
+            skipped_games=skipped_games,
         )
-        final_summary["completed"] = _targets_reached(connection, config=config)
+        final_summary["completed"] = bool(
+            _targets_reached(connection, config=config) or config.complete_at_eof
+        )
+        final_summary["completion_reason"] = (
+            "targets_reached"
+            if _targets_reached(connection, config=config)
+            else "eof"
+            if config.complete_at_eof
+            else "targets_not_reached"
+        )
         if final_summary["completed"] and config.export_jsonl_on_complete:
             export_summary = _export_jsonl(connection, work_dir=config.work_dir)
             final_summary["export"] = export_summary
@@ -429,6 +453,7 @@ def _current_progress(
     pgn_paths: Sequence[Path],
     current_pgn: str | None,
     games_seen: int,
+    skipped_games: int,
 ) -> dict[str, Any]:
     counts = _split_counts(connection)
     labeled_counts = _labeled_counts(connection)
@@ -442,6 +467,7 @@ def _current_progress(
         "pgn_files": [str(path) for path in pgn_paths],
         "current_pgn": current_pgn,
         "games_seen": games_seen,
+        "skipped_games": skipped_games,
         "targets": {
             "train": config.target_train_records,
             "verify": config.target_verify_records,

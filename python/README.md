@@ -16,7 +16,7 @@ The repository now includes the Phase-5 proposer stack and the first Phase-6 dyn
 
 The PGN utility entry point is `python/scripts/build_stockfish_pgn_dataset.py`. It streams selected PGNs, queries `/usr/games/stockfish18` for bounded move labels, then routes legality and next-state generation back through the Rust oracle.
 
-For much larger side-host labeling runs with corpus-wide uniqueness guarantees, use [build_unique_stockfish_pgn_corpus.py](/home/torsten/EngineKonzept/python/scripts/build_unique_stockfish_pgn_corpus.py). That builder stores a resumable `corpus.sqlite3`, keeps `train` and `verify` FENs disjoint by construction, and exports `train_raw.jsonl` / `verify_raw.jsonl` once the requested targets are complete. Its `--work-dir` should be on a normal local filesystem, not on an unreliable shared or lockless temporary mount.
+For much larger side-host labeling runs with corpus-wide uniqueness guarantees, use [build_unique_stockfish_pgn_corpus.py](/home/torsten/EngineKonzept/python/scripts/build_unique_stockfish_pgn_corpus.py). That builder stores a resumable `corpus.sqlite3`, keeps `train` and `verify` FENs disjoint by construction, exports `train_raw.jsonl` / `verify_raw.jsonl` once the requested targets are complete, and now skips malformed PGN games instead of aborting the whole job. Its `--work-dir` should be on a normal local filesystem, not on an unreliable shared or lockless temporary mount.
 
 The Rust oracle can now run either as a subprocess or as a local Unix-domain-socket daemon. Set `ENGINEKONZEPT_DATASET_ORACLE=unix:///path/to/socket` to use the daemon path during dataset builds.
 
@@ -114,6 +114,7 @@ campaigns. The operator entry points are:
 
 - [ek_ctl.py](/home/persk/repos/EngineKonzept/python/scripts/ek_ctl.py)
 - [ek_worker.py](/home/persk/repos/EngineKonzept/python/scripts/ek_worker.py)
+- [ek_master.py](/home/persk/repos/EngineKonzept/python/scripts/ek_master.py)
 
 Typical control-plane workflow:
 
@@ -124,12 +125,24 @@ export EK_MYSQL_USER=...
 export EK_MYSQL_PASSWORD=...
 
 python3 python/scripts/ek_ctl.py init-db
-python3 python/scripts/ek_ctl.py submit-phase10 --config python/configs/phase10_lapv2_stage2_native_arena_all_sources_v1.json
-python3 python/scripts/ek_ctl.py status
 python3 python/scripts/ek_worker.py \
-  --capabilities materialize,workflow,train,verify,arena,aggregate \
+  --capabilities aggregate,train \
+  --scratch-root /local/enginekonzept-train-scratch \
+  --log-root /local/enginekonzept-train-logs
+python3 python/scripts/ek_worker.py \
+  --capabilities materialize,workflow,verify,selfplay,arena \
   --scratch-root /local/enginekonzept-scratch \
-  --log-root /local/enginekonzept-logs
+  --log-root /local/enginekonzept-logs \
+  --distributed-task-threads 1
+python3 python/scripts/ek_worker.py \
+  --capabilities label,selfplay,arena \
+  --scratch-root /local/enginekonzept-label-scratch \
+  --log-root /local/enginekonzept-label-logs \
+  --distributed-task-threads 1
+python3 python/scripts/ek_master.py \
+  --config /path/to/master_config.json \
+  --until-terminal
+python3 python/scripts/ek_ctl.py status
 ```
 
 Design rules:
@@ -137,3 +150,10 @@ Design rules:
 - MySQL stores orchestration metadata only.
 - Datasets, workflow outputs, checkpoints, and arena sessions remain file artifacts.
 - Worker credentials and database passwords must stay outside the repository.
+- `ek_master.py` manages lineages above the raw task DAG and can chain `label -> phase10 -> evaluate -> next generation`.
+- The current Phase-10 DAG can insert tracked-LAP pre-verify selfplay shards between `train` and `verify`.
+- The master can now recycle both pre-verify selfplay and arena sessions by exporting PGNs, relabeling them through `label_pgn_corpus`, and merging the resulting raw corpora into the next generation.
+- Arena progression is explicit: non-`LAPv1` historical arms and `vice` stay active until safely beaten, while `stockfish18` advances on its own skill ladder in parallel.
+- `bootstrap_generation_from_seed_artifacts=true` on one lineage lets generation 1 skip materialize/workflow and train directly from the dataset/workflow artifacts referenced by the seed Phase-10 config.
+- `reuse_existing_artifacts=true` on the generated Phase-10 campaign config is the low-level switch that turns that direct-train bootstrap on.
+- Training is best kept on one strong `train` worker; shardable selfplay/verify/arena work is best spread over multiple narrow workers.

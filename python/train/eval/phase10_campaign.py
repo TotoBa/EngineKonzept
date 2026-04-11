@@ -67,6 +67,7 @@ class Phase10Lapv1ArenaCampaignSpec:
     phase5_oracle_batch_size: int = 0
     phase5_chunk_size: int = 5000
     phase5_log_every_chunks: int = 1
+    reuse_existing_artifacts: bool = False
     workflow_output_root: str = ""
     proposer_checkpoint: str = ""
     teacher_engine_path: str = "/usr/games/stockfish18"
@@ -84,6 +85,11 @@ class Phase10Lapv1ArenaCampaignSpec:
     lapv1_config_path: str = ""
     lapv1_agent_spec_path: str = ""
     lapv1_agent_variants: tuple[Phase10Lapv1AgentVariantSpec, ...] = ()
+    pre_verify_selfplay_games: int = 0
+    pre_verify_selfplay_games_per_task: int = 8
+    pre_verify_selfplay_max_plies: int | None = None
+    pre_verify_selfplay_opening_selection_seed: int | None = None
+    pre_verify_selfplay_agent_variant_name: str | None = None
     lapv1_verify_output_path: str = ""
     warm_start_source_checkpoint: str | None = None
     reference_arena_summary_path: str = ""
@@ -116,6 +122,7 @@ class Phase10Lapv1ArenaCampaignSpec:
             phase5_oracle_batch_size=int(payload.get("phase5_oracle_batch_size", 0)),
             phase5_chunk_size=int(payload.get("phase5_chunk_size", 5000)),
             phase5_log_every_chunks=int(payload.get("phase5_log_every_chunks", 1)),
+            reuse_existing_artifacts=bool(payload.get("reuse_existing_artifacts", False)),
             workflow_output_root=str(payload["workflow_output_root"]),
             proposer_checkpoint=str(payload["proposer_checkpoint"]),
             teacher_engine_path=str(payload.get("teacher_engine_path", "/usr/games/stockfish18")),
@@ -155,6 +162,25 @@ class Phase10Lapv1ArenaCampaignSpec:
             lapv1_agent_variants=tuple(
                 Phase10Lapv1AgentVariantSpec.from_dict(dict(entry))
                 for entry in list(payload.get("lapv1_agent_variants") or [])
+            ),
+            pre_verify_selfplay_games=int(payload.get("pre_verify_selfplay_games", 0)),
+            pre_verify_selfplay_games_per_task=int(
+                payload.get("pre_verify_selfplay_games_per_task", 8)
+            ),
+            pre_verify_selfplay_max_plies=(
+                int(payload["pre_verify_selfplay_max_plies"])
+                if payload.get("pre_verify_selfplay_max_plies") is not None
+                else None
+            ),
+            pre_verify_selfplay_opening_selection_seed=(
+                int(payload["pre_verify_selfplay_opening_selection_seed"])
+                if payload.get("pre_verify_selfplay_opening_selection_seed") is not None
+                else None
+            ),
+            pre_verify_selfplay_agent_variant_name=(
+                str(payload["pre_verify_selfplay_agent_variant_name"])
+                if payload.get("pre_verify_selfplay_agent_variant_name") is not None
+                else None
             ),
             lapv1_verify_output_path=str(payload["lapv1_verify_output_path"]),
             warm_start_source_checkpoint=(
@@ -303,6 +329,47 @@ def materialize_resolved_lapv1_agent_specs(
         write_selfplay_agent_spec(resolved_path, variant_spec)
         resolved[variant.name] = resolved_path
     return resolved
+
+
+def select_pre_verify_lapv1_agent(
+    spec: Phase10Lapv1ArenaCampaignSpec,
+    *,
+    resolved_agent_paths: Mapping[str, Path] | None,
+    repo_root: Path,
+) -> tuple[str, Path]:
+    """Select the tracked LAP runtime used for pre-verify selfplay."""
+    if resolved_agent_paths:
+        if spec.pre_verify_selfplay_agent_variant_name is not None:
+            selected_name = spec.pre_verify_selfplay_agent_variant_name
+            selected_path = resolved_agent_paths.get(selected_name)
+            if selected_path is None:
+                raise ValueError(
+                    "unknown pre_verify_selfplay_agent_variant_name: "
+                    f"{spec.pre_verify_selfplay_agent_variant_name}"
+                )
+            return selected_name, selected_path
+
+        for variant in spec.lapv1_agent_variants:
+            if str(variant.metadata.get("variant_role", "")) == "primary_runtime_candidate":
+                selected_path = resolved_agent_paths.get(variant.name)
+                if selected_path is not None:
+                    return variant.name, selected_path
+        for variant in spec.lapv1_agent_variants:
+            if str(variant.metadata.get("variant_role", "")) == "budgeted_deeper_runtime_candidate":
+                selected_path = resolved_agent_paths.get(variant.name)
+                if selected_path is not None:
+                    return variant.name, selected_path
+        first_name = next(iter(resolved_agent_paths))
+        return first_name, resolved_agent_paths[first_name]
+
+    base_path = resolve_repo_path(repo_root, Path(spec.lapv1_agent_spec_path))
+    base_spec = load_selfplay_agent_spec(base_path)
+    if spec.pre_verify_selfplay_agent_variant_name not in (None, base_spec.name):
+        raise ValueError(
+            "pre_verify_selfplay_agent_variant_name requires configured lapv1_agent_variants "
+            f"or must match the base agent name {base_spec.name!r}"
+        )
+    return base_spec.name, base_path
 
 
 def build_resolved_arena_spec(

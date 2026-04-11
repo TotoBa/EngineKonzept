@@ -17,6 +17,7 @@ The new operator entry points are:
 
 - [ek_ctl.py](/home/persk/repos/EngineKonzept/python/scripts/ek_ctl.py)
 - [ek_worker.py](/home/persk/repos/EngineKonzept/python/scripts/ek_worker.py)
+- [ek_master.py](/home/persk/repos/EngineKonzept/python/scripts/ek_master.py)
 
 The corresponding Python modules live under:
 
@@ -63,6 +64,43 @@ For multi-step Phase-10 style runs, the new control plane replaces the old assum
 long-lived process must materialize datasets, build workflow chunks, train, verify, and run arena
 serially. The current DAG is now expressed as MySQL-tracked tasks, with the existing
 artifact-producing scripts still acting as the execution units.
+
+The current Phase-10 DAG is:
+
+- `materialize -> workflow_prepare -> workflow_chunk* -> workflow_finalize -> train`
+- optional `selfplay_prepare -> selfplay_shard* -> selfplay_finalize`
+- `verify -> arena_prepare -> arena_match* -> arena_finalize -> phase10_finalize`
+- `label_pgn_corpus` exists as a separate resumable campaign type for PGN/Stockfish corpus jobs
+
+The new master layer sits above that DAG:
+
+- submit a label campaign when fresh raw data is needed
+- wait for the exported `train_raw.jsonl` / `verify_raw.jsonl`
+- materialize one generation-specific Phase-10 config
+- evaluate the finished generation from `verify` and `arena` summaries
+- either stop, reject, or spawn the next warm-started generation
+
+The pre-verify selfplay stage is intentionally limited to the tracked LAP runtime and reuses the
+opening FEN suite from the campaign spec. It is not a replacement for the later arena stage.
+
+On multi-core hosts, the preferred topology is also asymmetric:
+
+- one strong `train` worker for the exclusive training job
+- multiple narrow workers for `selfplay`, `verify`, `workflow`, and `arena`
+
+That matches the current worker contract, where one worker executes one leased task at a time.
+Throughput for selfplay therefore comes from more shard tasks and more workers, not from one giant
+worker process. `ek_worker.py` now exposes `--distributed-task-threads` so those distributed tasks
+can be clamped to `1` CPU thread while leaving the dedicated training worker free to use a wider
+Torch thread budget.
+
+The same topology also worked in the first real master smoke run:
+
+- one `aggregate,train` worker
+- two narrow distributed workers
+- one `label,selfplay,arena` worker
+
+That run completed a real `label -> g0001 -> evaluate -> g0002` chain against MySQL.
 
 ## Why IPC First
 

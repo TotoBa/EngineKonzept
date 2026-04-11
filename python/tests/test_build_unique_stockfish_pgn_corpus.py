@@ -241,3 +241,48 @@ def test_main_scans_nested_pgns_by_default(tmp_path: Path) -> None:
 
     assert exit_code == 0
     assert seen_paths == [pgn_path]
+
+
+def test_build_unique_corpus_can_complete_at_eof(tmp_path: Path) -> None:
+    pgn_path = tmp_path / "sample.pgn"
+    pgn_path.write_text(
+        """
+[Event "Short"]
+[Site "?"]
+[Date "2026.04.10"]
+[Round "1"]
+[White "A"]
+[Black "B"]
+[Result "1-0"]
+
+1. e4 e5 1-0
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    config = UniqueCorpusConfig(
+        engine_path=Path("/usr/games/stockfish18"),
+        work_dir=tmp_path / "work",
+        target_train_records=100,
+        target_verify_records=10,
+        min_ply=1,
+        max_ply=2,
+        ply_stride=1,
+        progress_every=1,
+        complete_at_eof=True,
+    )
+
+    real_connect = sqlite3.connect
+    with tempfile.TemporaryDirectory() as database_tmpdir:
+        database_path = Path(database_tmpdir) / "corpus.sqlite3"
+        with (
+            patch.object(_MODULE.chess.engine.SimpleEngine, "popen_uci", return_value=_FakeEngine()),
+            patch.object(_MODULE.sqlite3, "connect", side_effect=lambda _: real_connect(database_path)),
+        ):
+            summary = build_unique_corpus_from_pgns([pgn_path], config=config)
+
+    assert summary["completed"] is True
+    assert summary["completion_reason"] == "eof"
+    assert summary["counts"]["train"] > 0
+    assert (config.work_dir / "train_raw.jsonl").exists()

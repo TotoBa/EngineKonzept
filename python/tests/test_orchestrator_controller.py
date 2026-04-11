@@ -4,8 +4,11 @@ from pathlib import Path
 
 from train.eval.phase10_campaign import Phase10Lapv1ArenaCampaignSpec
 from train.orchestrator.controller import (
+    build_label_pgn_corpus_tasks,
     build_phase10_arena_tasks,
     build_phase10_bootstrap_tasks,
+    build_phase10_reuse_existing_artifact_tasks,
+    build_phase10_selfplay_tasks,
     build_phase10_workflow_tasks,
 )
 
@@ -55,6 +58,64 @@ def test_build_phase10_bootstrap_tasks_has_materialize_then_prepare(tmp_path: Pa
     assert tasks[0].payload["task_kind"] == "phase10_materialize"
 
 
+def test_build_phase10_reuse_existing_artifact_tasks_starts_with_train(tmp_path: Path) -> None:
+    config_path = tmp_path / "python" / "configs" / "test_lapv1.json"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(
+        """
+{
+  "output_dir": "models/lapv1/test_run",
+  "evaluation": {"top_k": 5},
+  "export": {
+    "bundle_dir": "models/lapv1/test_run/bundle",
+    "checkpoint_name": "checkpoint.pt"
+  }
+}
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    spec = Phase10Lapv1ArenaCampaignSpec(
+        **{
+            **_phase10_spec(tmp_path).__dict__,
+            "lapv1_config_path": str(config_path.relative_to(tmp_path)),
+            "reuse_existing_artifacts": True,
+            "pre_verify_selfplay_games": 12,
+            "pre_verify_selfplay_games_per_task": 4,
+        }
+    )
+
+    tasks = build_phase10_reuse_existing_artifact_tasks(
+        spec_path=tmp_path / "phase10.json",
+        spec=spec,
+        model_id=11,
+        repo_root=tmp_path,
+    )
+
+    assert [task.key for task in tasks] == ["train", "selfplay_prepare"]
+    assert tasks[0].depends_on == ()
+    assert tasks[1].depends_on == ("train",)
+
+
+def test_build_label_pgn_corpus_tasks_has_single_label_task(tmp_path: Path) -> None:
+    tasks = build_label_pgn_corpus_tasks(
+        config_path=tmp_path / "label.json",
+        config_payload={
+            "name": "label_smoke",
+            "pgn_root": "/srv/schach/PGN_DATA/pgn",
+            "work_dir": str(tmp_path / "label_work"),
+            "target_train_records": 32,
+            "target_verify_records": 8,
+            "engine_nodes": 64,
+        },
+    )
+
+    assert [task.key for task in tasks] == ["label"]
+    assert tasks[0].task_type == "label_pgn_corpus"
+    assert tasks[0].capability == "label"
+    assert tasks[0].payload["work_dir"] == str(tmp_path / "label_work")
+
+
 def test_build_phase10_workflow_tasks_expands_chunks_and_downstream_steps(tmp_path: Path) -> None:
     spec = _phase10_spec(tmp_path)
     config_path = tmp_path / "python" / "configs" / "test_lapv1.json"
@@ -102,6 +163,102 @@ def test_build_phase10_workflow_tasks_expands_chunks_and_downstream_steps(tmp_pa
     verify_task = next(task for task in tasks if task.key == "verify")
     assert verify_task.payload["task_kind"] == "verify_lapv1"
     assert verify_task.payload["top_k"] == 5
+
+
+def test_build_phase10_workflow_tasks_inserts_selfplay_prepare_when_enabled(tmp_path: Path) -> None:
+    spec = _phase10_spec(tmp_path)
+    config_path = tmp_path / "python" / "configs" / "test_lapv1.json"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(
+        """
+{
+  "output_dir": "models/lapv1/test_run",
+  "evaluation": {"top_k": 5},
+  "export": {
+    "bundle_dir": "models/lapv1/test_run/bundle",
+    "checkpoint_name": "checkpoint.pt"
+  }
+}
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    spec = Phase10Lapv1ArenaCampaignSpec(
+        **{
+            **spec.__dict__,
+            "lapv1_config_path": str(config_path.relative_to(tmp_path)),
+            "pre_verify_selfplay_games": 12,
+            "pre_verify_selfplay_games_per_task": 4,
+        }
+    )
+
+    tasks = build_phase10_workflow_tasks(
+        spec_path=tmp_path / "phase10.json",
+        spec=spec,
+        model_id=13,
+        train_summary={"split_counts": {"train": 9, "validation": 5}},
+        verify_summary={"split_counts": {"test": 3}},
+        repo_root=tmp_path,
+    )
+
+    task_keys = [task.key for task in tasks]
+    assert "selfplay_prepare" in task_keys
+    assert "verify" not in task_keys
+    selfplay_prepare = next(task for task in tasks if task.key == "selfplay_prepare")
+    assert selfplay_prepare.depends_on == ("train",)
+
+
+def test_build_phase10_selfplay_tasks_expands_shards_and_verify(tmp_path: Path) -> None:
+    spec = Phase10Lapv1ArenaCampaignSpec(
+        **{
+            **_phase10_spec(tmp_path).__dict__,
+            "lapv1_config_path": "python/configs/test_lapv1.json",
+            "pre_verify_selfplay_games": 10,
+            "pre_verify_selfplay_games_per_task": 4,
+            "pre_verify_selfplay_max_plies": 24,
+        }
+    )
+    config_path = tmp_path / "python" / "configs" / "test_lapv1.json"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(
+        """
+{
+  "output_dir": "models/lapv1/test_run",
+  "evaluation": {"top_k": 5},
+  "export": {
+    "bundle_dir": "models/lapv1/test_run/bundle",
+    "checkpoint_name": "checkpoint.pt"
+  }
+}
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    tasks = build_phase10_selfplay_tasks(
+        spec_path=tmp_path / "phase10.json",
+        spec=spec,
+        model_id=21,
+        repo_root=tmp_path,
+        agent_name="lapv2_primary",
+        agent_spec_path=tmp_path / "lapv2_primary.json",
+    )
+
+    shard_tasks = [task for task in tasks if task.task_type == "phase10_selfplay_shard"]
+    assert len(shard_tasks) == 3
+    assert shard_tasks[0].payload["starting_game_index"] == 0
+    assert shard_tasks[1].payload["starting_game_index"] == 4
+    assert shard_tasks[2].payload["games"] == 2
+    finalize_task = next(task for task in tasks if task.key == "selfplay_finalize")
+    assert finalize_task.depends_on == (
+        "selfplay_shard_0001",
+        "selfplay_shard_0002",
+        "selfplay_shard_0003",
+    )
+    verify_task = next(task for task in tasks if task.key == "verify")
+    assert verify_task.depends_on == ("selfplay_finalize",)
+    arena_prepare = next(task for task in tasks if task.key == "arena_prepare")
+    assert arena_prepare.depends_on == ("verify",)
 
 
 def test_build_phase10_arena_tasks_expands_matchups_and_finalizers(tmp_path: Path) -> None:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 import json
+import time
 from typing import Any, Mapping, Sequence
 
 import pymysql
@@ -11,6 +12,8 @@ from pymysql.cursors import DictCursor
 
 from train.orchestrator.models import (
     ArtifactRef,
+    CampaignRow,
+    ModelRow,
     MySQLConfig,
     PlannedTask,
     TASK_STATE_FAILED,
@@ -278,6 +281,90 @@ class OrchestratorDB:
             except Exception:
                 connection.rollback()
                 raise
+
+    def load_campaign(self, campaign_id: int) -> CampaignRow | None:
+        """Load one normalized campaign row."""
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT * FROM campaigns WHERE id = %s", (campaign_id,))
+                row = cursor.fetchone()
+        if row is None:
+            return None
+        return CampaignRow.from_db_row(_decode_campaign_row(row))
+
+    def list_campaign_records(
+        self,
+        *,
+        kind: str | None = None,
+        status: str | None = None,
+        limit: int = 1000,
+    ) -> list[CampaignRow]:
+        """List normalized campaign rows ordered by creation id."""
+        where_clauses: list[str] = []
+        parameters: list[Any] = []
+        if kind is not None:
+            where_clauses.append("kind = %s")
+            parameters.append(kind)
+        if status is not None:
+            where_clauses.append("status = %s")
+            parameters.append(status)
+        where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"""
+                    SELECT *
+                    FROM campaigns
+                    {where_sql}
+                    ORDER BY id ASC
+                    LIMIT %s
+                    """,
+                    (*parameters, limit),
+                )
+                rows = cursor.fetchall()
+        return [CampaignRow.from_db_row(_decode_campaign_row(row)) for row in rows]
+
+    def load_model(self, model_id: int) -> ModelRow | None:
+        """Load one normalized model row."""
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT * FROM models WHERE id = %s", (model_id,))
+                row = cursor.fetchone()
+        if row is None:
+            return None
+        return ModelRow.from_db_row(_decode_model_row(row))
+
+    def list_model_records(
+        self,
+        *,
+        campaign_id: int | None = None,
+        status: str | None = None,
+        limit: int = 1000,
+    ) -> list[ModelRow]:
+        """List normalized model rows ordered by creation id."""
+        where_clauses: list[str] = []
+        parameters: list[Any] = []
+        if campaign_id is not None:
+            where_clauses.append("campaign_id = %s")
+            parameters.append(campaign_id)
+        if status is not None:
+            where_clauses.append("status = %s")
+            parameters.append(status)
+        where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"""
+                    SELECT *
+                    FROM models
+                    {where_sql}
+                    ORDER BY id ASC
+                    LIMIT %s
+                    """,
+                    (*parameters, limit),
+                )
+                rows = cursor.fetchall()
+        return [ModelRow.from_db_row(_decode_model_row(row)) for row in rows]
 
     def load_task(self, task_id: int) -> TaskRow | None:
         """Load one normalized task row."""
@@ -549,6 +636,19 @@ class OrchestratorDB:
 
     def requeue_expired_tasks(self) -> dict[str, int]:
         """Requeue expired leases or mark them failed after the final attempt."""
+        max_retries = 3
+        for attempt_index in range(max_retries):
+            try:
+                return self._requeue_expired_tasks_once()
+            except (pymysql.err.InternalError, pymysql.err.OperationalError) as exc:
+                error_code = int(exc.args[0]) if exc.args else 0
+                if error_code not in {1205, 1213} or attempt_index + 1 >= max_retries:
+                    raise
+                time.sleep(0.05 * (attempt_index + 1))
+        raise AssertionError("unreachable")
+
+    def _requeue_expired_tasks_once(self) -> dict[str, int]:
+        """Execute one best-effort expired-lease reconciliation transaction."""
         with self._connect() as connection:
             try:
                 with connection.cursor() as cursor:
@@ -873,6 +973,18 @@ def _decode_task_row(row: Mapping[str, Any]) -> dict[str, Any]:
     decoded = dict(row)
     decoded["payload_json"] = _decode_json_column(decoded["payload_json"])
     decoded["result_json"] = _decode_json_column(decoded.get("result_json"))
+    return decoded
+
+
+def _decode_campaign_row(row: Mapping[str, Any]) -> dict[str, Any]:
+    decoded = dict(row)
+    decoded["metadata_json"] = _decode_json_column(decoded.get("metadata_json")) or {}
+    return decoded
+
+
+def _decode_model_row(row: Mapping[str, Any]) -> dict[str, Any]:
+    decoded = dict(row)
+    decoded["metadata_json"] = _decode_json_column(decoded.get("metadata_json")) or {}
     return decoded
 
 

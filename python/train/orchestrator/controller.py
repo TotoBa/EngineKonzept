@@ -13,15 +13,20 @@ from train.eval.phase10_campaign import (
     load_phase10_lapv1_arena_campaign_spec,
     materialize_resolved_lapv1_agent_specs,
     resolve_repo_path,
+    select_pre_verify_lapv1_agent,
     select_reference_agents,
 )
 from train.orchestrator.db import OrchestratorDB
 from train.orchestrator.models import (
     ArenaFinalizePayload,
     ArenaMatchPayload,
+    LabelPgnCorpusPayload,
     Phase10ArenaPreparePayload,
     Phase10FinalizePayload,
     Phase10MaterializePayload,
+    Phase10SelfplayFinalizePayload,
+    Phase10SelfplayPreparePayload,
+    Phase10SelfplayShardPayload,
     Phase10WorkflowChunkPayload,
     Phase10WorkflowFinalizePayload,
     Phase10WorkflowPreparePayload,
@@ -54,6 +59,10 @@ class OrchestratorController:
         *,
         config_path: Path,
         kind: str = "phase10_native",
+        campaign_metadata: Mapping[str, Any] | None = None,
+        model_metadata: Mapping[str, Any] | None = None,
+        generation: int = 0,
+        parent_model_id: int | None = None,
     ) -> dict[str, Any]:
         """Insert the initial campaign plus bootstrap tasks into MySQL."""
         resolved_config_path = resolve_repo_path(self._repo_root, config_path)
@@ -69,23 +78,36 @@ class OrchestratorController:
             metadata={
                 "model_label": spec.model_label,
                 "output_root": spec.output_root,
+                **dict(campaign_metadata or {}),
             },
         )
         model_id = self._db.insert_model(
             campaign_id=campaign_id,
             status="queued",
+            generation=generation,
+            parent_model_id=parent_model_id,
             train_config_path=str(resolve_repo_path(self._repo_root, Path(spec.lapv1_config_path))),
             agent_spec_path=str(resolve_repo_path(self._repo_root, Path(spec.lapv1_agent_spec_path))),
             metadata={
                 "model_label": spec.model_label,
                 "expected_checkpoint_path": train_metadata["checkpoint_path"],
+                **dict(model_metadata or {}),
             },
         )
-        planned_tasks = build_phase10_bootstrap_tasks(
-            spec_path=resolved_config_path,
-            spec=spec,
-            model_id=model_id,
-        )
+        if spec.reuse_existing_artifacts:
+            _assert_existing_phase10_artifacts(spec=spec, repo_root=self._repo_root)
+            planned_tasks = build_phase10_reuse_existing_artifact_tasks(
+                spec_path=resolved_config_path,
+                spec=spec,
+                model_id=model_id,
+                repo_root=self._repo_root,
+            )
+        else:
+            planned_tasks = build_phase10_bootstrap_tasks(
+                spec_path=resolved_config_path,
+                spec=spec,
+                model_id=model_id,
+            )
         task_ids = self._db.insert_planned_tasks(
             campaign_id=campaign_id,
             model_id=model_id,
@@ -95,6 +117,41 @@ class OrchestratorController:
         return {
             "campaign_id": campaign_id,
             "model_id": model_id,
+            "task_ids": task_ids,
+            "config_path": str(resolved_config_path),
+        }
+
+    def submit_label_pgn_corpus_campaign(
+        self,
+        *,
+        config_path: Path,
+        kind: str = "label_pgn_corpus",
+        campaign_metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Insert one PGN-labeling campaign plus its single label task."""
+        resolved_config_path = resolve_repo_path(self._repo_root, config_path)
+        label_config = _load_json(resolved_config_path)
+        campaign_id = self._db.insert_campaign(
+            name=str(label_config["name"]),
+            kind=kind,
+            status="queued",
+            config_path=str(resolved_config_path),
+            metadata={
+                "work_dir": str(label_config["work_dir"]),
+                "pgn_root": str(label_config["pgn_root"]),
+                **dict(campaign_metadata or {}),
+            },
+        )
+        task_ids = self._db.insert_planned_tasks(
+            campaign_id=campaign_id,
+            model_id=None,
+            planned_tasks=build_label_pgn_corpus_tasks(
+                config_path=resolved_config_path,
+                config_payload=label_config,
+            ),
+        )
+        return {
+            "campaign_id": campaign_id,
             "task_ids": task_ids,
             "config_path": str(resolved_config_path),
         }
@@ -214,6 +271,62 @@ class OrchestratorController:
             "created_task_ids": task_ids,
         }
 
+    def expand_phase10_selfplay(
+        self,
+        *,
+        parent_task_id: int,
+        campaign_id: int,
+        model_id: int,
+        config_path: Path,
+    ) -> dict[str, Any]:
+        """Resolve the tracked LAP runtime and expand distributed pre-verify selfplay."""
+        resolved_config_path = resolve_repo_path(self._repo_root, config_path)
+        spec = load_phase10_lapv1_arena_campaign_spec(resolved_config_path)
+        campaign_output_root = resolve_repo_path(self._repo_root, Path(spec.output_root))
+        resolved_agent_paths = materialize_resolved_lapv1_agent_specs(
+            spec=spec,
+            tracked_lapv1_agent_path=resolve_repo_path(
+                self._repo_root, Path(spec.lapv1_agent_spec_path)
+            ),
+            output_root=campaign_output_root / "pre_verify_selfplay",
+        )
+        agent_name, agent_spec_path = select_pre_verify_lapv1_agent(
+            spec,
+            resolved_agent_paths=resolved_agent_paths,
+            repo_root=self._repo_root,
+        )
+        planned_tasks = build_phase10_selfplay_tasks(
+            spec_path=resolved_config_path,
+            spec=spec,
+            model_id=model_id,
+            repo_root=self._repo_root,
+            agent_name=agent_name,
+            agent_spec_path=agent_spec_path,
+        )
+        task_ids = self._db.insert_planned_tasks(
+            campaign_id=campaign_id,
+            model_id=model_id,
+            planned_tasks=planned_tasks,
+            extra_dependency_task_ids=(parent_task_id,),
+        )
+        summary_path = _write_json_summary(
+            campaign_output_root / "orchestrator" / "selfplay_prepare" / "summary.json",
+            {
+                "campaign_name": spec.name,
+                "agent_name": agent_name,
+                "agent_spec_path": str(agent_spec_path),
+                "games": spec.pre_verify_selfplay_games,
+                "games_per_task": spec.pre_verify_selfplay_games_per_task,
+                "created_task_ids": task_ids,
+            },
+        )
+        return {
+            "summary_path": str(summary_path),
+            "agent_name": agent_name,
+            "agent_spec_path": str(agent_spec_path),
+            "created_task_ids": task_ids,
+        }
+
     def write_phase10_summary(
         self,
         *,
@@ -229,6 +342,7 @@ class OrchestratorController:
         )
         verify_summary_path = campaign_output_root / "verify" / "summary.json"
         verify_metrics_path = campaign_output_root / "verify" / "metrics.json"
+        selfplay_summary_path = campaign_output_root / "pre_verify_selfplay" / "summary.json"
         arena_summary_path = campaign_output_root / "arena" / "summary.json"
         arena_matrix_path = campaign_output_root / "arena_matrix.json"
         from train.eval.arena import SelfplayArenaSpec
@@ -251,6 +365,9 @@ class OrchestratorController:
             ),
             "verify_dataset_summary_path": str(
                 resolve_repo_path(self._repo_root, Path(spec.verify_dataset_dir)) / "summary.json"
+            ),
+            "pre_verify_selfplay_summary_path": (
+                str(selfplay_summary_path) if selfplay_summary_path.exists() else None
             ),
             "lapv1_verify_path": str(verify_metrics_path),
             "lapv1_verify_summary_path": str(verify_summary_path),
@@ -303,6 +420,100 @@ def build_phase10_bootstrap_tasks(
                 model_id=model_id,
             ).to_dict(),
         ),
+    ]
+
+
+def build_phase10_reuse_existing_artifact_tasks(
+    *,
+    spec_path: Path,
+    spec: Phase10Lapv1ArenaCampaignSpec,
+    model_id: int,
+    repo_root: Path,
+) -> list[PlannedTask]:
+    """Return the train/eval DAG when dataset and workflow artifacts already exist."""
+    train_config_path = resolve_repo_path(repo_root, Path(spec.lapv1_config_path))
+    train_metadata = _load_lap_train_metadata(train_config_path)
+    tasks = [
+        PlannedTask(
+            key="train",
+            task_type="train_lapv1",
+            capability="train",
+            priority=40,
+            max_attempts=2,
+            payload=TrainLapv1Payload(
+                config_path=str(train_config_path),
+                model_id=model_id,
+                model_label=spec.model_label,
+            ).to_dict(),
+        )
+    ]
+    if spec.pre_verify_selfplay_games > 0:
+        tasks.append(
+            PlannedTask(
+                key="selfplay_prepare",
+                task_type="phase10_selfplay_prepare",
+                capability="aggregate",
+                priority=30,
+                max_attempts=2,
+                depends_on=("train",),
+                payload=Phase10SelfplayPreparePayload(
+                    config_path=str(spec_path),
+                    model_id=model_id,
+                ).to_dict(),
+            )
+        )
+    else:
+        tasks.extend(
+            _build_phase10_verify_and_arena_prepare_tasks(
+                spec=spec,
+                model_id=model_id,
+                repo_root=repo_root,
+                train_config_path=train_config_path,
+                train_metadata=train_metadata,
+                verify_depends_on=("train",),
+                spec_path=spec_path,
+            )
+        )
+    return tasks
+
+
+def build_label_pgn_corpus_tasks(
+    *,
+    config_path: Path,
+    config_payload: Mapping[str, Any],
+) -> list[PlannedTask]:
+    """Return the single-task DAG for one resumable PGN-labeling campaign."""
+    return [
+        PlannedTask(
+            key="label",
+            task_type="label_pgn_corpus",
+            capability="label",
+            priority=90,
+            max_attempts=2,
+            payload=LabelPgnCorpusPayload(
+                config_path=str(config_path),
+                pgn_root=str(config_payload["pgn_root"]),
+                pgn_glob=str(config_payload.get("glob", "**/*.pgn")),
+                engine_path=str(config_payload.get("engine_path", "/usr/games/stockfish18")),
+                work_dir=str(config_payload["work_dir"]),
+                target_train_records=int(config_payload["target_train_records"]),
+                target_verify_records=int(config_payload["target_verify_records"]),
+                min_ply=int(config_payload.get("min_ply", 8)),
+                max_ply=int(config_payload.get("max_ply", 80)),
+                ply_stride=int(config_payload.get("ply_stride", 2)),
+                engine_nodes=int(config_payload.get("engine_nodes", 1500)),
+                hash_mb=int(config_payload.get("hash_mb", 32)),
+                threads=int(config_payload.get("threads", 1)),
+                split_seed=str(config_payload.get("split_seed", "phase5-stockfish-unique-v1")),
+                verify_divisor=int(config_payload.get("verify_divisor", 1000)),
+                progress_every=int(config_payload.get("progress_every", 1000)),
+                max_games=int(config_payload.get("max_games", 0)),
+                export_jsonl_on_complete=bool(
+                    config_payload.get("export_jsonl_on_complete", True)
+                ),
+                complete_at_eof=bool(config_payload.get("complete_at_eof", False)),
+            ).to_dict(),
+        )
     ]
 
 
@@ -376,16 +587,132 @@ def build_phase10_workflow_tasks(
             ).to_dict(),
         )
     )
+    if spec.pre_verify_selfplay_games > 0:
+        tasks.append(
+            PlannedTask(
+                key="selfplay_prepare",
+                task_type="phase10_selfplay_prepare",
+                capability="aggregate",
+                priority=30,
+                max_attempts=2,
+                depends_on=("train",),
+                payload=Phase10SelfplayPreparePayload(
+                    config_path=str(spec_path),
+                    model_id=model_id,
+                ).to_dict(),
+            )
+        )
+    else:
+        tasks.extend(
+            _build_phase10_verify_and_arena_prepare_tasks(
+                spec=spec,
+                model_id=model_id,
+                repo_root=repo_root,
+                train_config_path=train_config_path,
+                train_metadata=train_metadata,
+                verify_depends_on=("train",),
+                spec_path=spec_path,
+            )
+        )
+    return tasks
+
+
+def build_phase10_selfplay_tasks(
+    *,
+    spec_path: Path,
+    spec: Phase10Lapv1ArenaCampaignSpec,
+    model_id: int,
+    repo_root: Path,
+    agent_name: str,
+    agent_spec_path: Path,
+) -> list[PlannedTask]:
+    """Return the distributed pre-verify selfplay DAG for one tracked LAP runtime."""
+    if spec.pre_verify_selfplay_games <= 0:
+        raise ValueError("pre_verify_selfplay_games must be positive to build selfplay tasks")
+    games_per_task = max(1, spec.pre_verify_selfplay_games_per_task)
+    total_shards = _chunk_count(count=spec.pre_verify_selfplay_games, chunk_size=games_per_task)
+    output_root = resolve_repo_path(repo_root, Path(spec.output_root)) / "pre_verify_selfplay"
+    max_plies = spec.pre_verify_selfplay_max_plies or spec.arena_default_max_plies
+    tasks: list[PlannedTask] = []
+    shard_keys: list[str] = []
+    for shard_index in range(1, total_shards + 1):
+        starting_game_index = (shard_index - 1) * games_per_task
+        games = min(games_per_task, spec.pre_verify_selfplay_games - starting_game_index)
+        key = f"selfplay_shard_{shard_index:04d}"
+        shard_keys.append(key)
+        tasks.append(
+            PlannedTask(
+                key=key,
+                task_type="phase10_selfplay_shard",
+                capability="selfplay",
+                priority=25,
+                max_attempts=2,
+                payload=Phase10SelfplayShardPayload(
+                    config_path=str(spec_path),
+                    agent_spec_path=str(agent_spec_path),
+                    agent_name=agent_name,
+                    output_root=str(output_root),
+                    shard_index=shard_index,
+                    starting_game_index=starting_game_index,
+                    games=games,
+                    max_plies=max_plies,
+                    model_id=model_id,
+                ).to_dict(),
+            )
+        )
+    tasks.append(
+        PlannedTask(
+            key="selfplay_finalize",
+            task_type="phase10_selfplay_finalize",
+            capability="aggregate",
+            priority=24,
+            max_attempts=2,
+            depends_on=tuple(shard_keys),
+            payload=Phase10SelfplayFinalizePayload(
+                config_path=str(spec_path),
+                agent_spec_path=str(agent_spec_path),
+                agent_name=agent_name,
+                output_root=str(output_root),
+                model_id=model_id,
+            ).to_dict(),
+        )
+    )
+    tasks.extend(
+        _build_phase10_verify_and_arena_prepare_tasks(
+            spec=spec,
+            model_id=model_id,
+            repo_root=repo_root,
+            train_config_path=resolve_repo_path(repo_root, Path(spec.lapv1_config_path)),
+            train_metadata=_load_lap_train_metadata(
+                resolve_repo_path(repo_root, Path(spec.lapv1_config_path))
+            ),
+            verify_depends_on=("selfplay_finalize",),
+            spec_path=spec_path,
+        )
+    )
+    return tasks
+
+
+def _build_phase10_verify_and_arena_prepare_tasks(
+    *,
+    spec: Phase10Lapv1ArenaCampaignSpec,
+    model_id: int,
+    repo_root: Path,
+    train_config_path: Path,
+    train_metadata: Mapping[str, Any],
+    verify_depends_on: tuple[str, ...],
+    spec_path: Path,
+) -> list[PlannedTask]:
     verify_output_dir = resolve_repo_path(repo_root, Path(spec.output_root)) / "verify"
     verify_output_path = verify_output_dir / "metrics.json"
-    tasks.append(
+    return [
         PlannedTask(
             key="verify",
             task_type="verify_lapv1",
             capability="verify",
-            priority=30,
+            priority=20,
             max_attempts=2,
-            depends_on=("train",),
+            depends_on=verify_depends_on,
             payload=VerifyLapv1Payload(
                 config_path=str(train_config_path),
                 model_id=model_id,
@@ -395,23 +722,20 @@ def build_phase10_workflow_tasks(
                 output_path=str(verify_output_path),
                 top_k=int(train_metadata["top_k"]),
             ).to_dict(),
-        )
-    )
-    tasks.append(
+        ),
         PlannedTask(
             key="arena_prepare",
             task_type="phase10_arena_prepare",
             capability="aggregate",
-            priority=20,
+            priority=10,
             max_attempts=2,
             depends_on=("verify",),
             payload=Phase10ArenaPreparePayload(
                 config_path=str(spec_path),
                 model_id=model_id,
             ).to_dict(),
-        )
-    )
-    return tasks
+        ),
+    ]
 
 
 def build_phase10_arena_tasks(
@@ -485,6 +809,25 @@ def build_phase10_arena_tasks(
 
 def _chunk_count(*, count: int, chunk_size: int) -> int:
     return math.ceil(count / chunk_size) if count > 0 else 0
+
+
+def _assert_existing_phase10_artifacts(
+    *,
+    spec: Phase10Lapv1ArenaCampaignSpec,
+    repo_root: Path,
+) -> None:
+    required_paths = (
+        resolve_repo_path(repo_root, Path(spec.train_dataset_dir)) / "summary.json",
+        resolve_repo_path(repo_root, Path(spec.verify_dataset_dir)) / "summary.json",
+        resolve_repo_path(repo_root, Path(spec.workflow_output_root)) / "summary.json",
+        resolve_repo_path(repo_root, Path(spec.lapv1_verify_output_path)),
+    )
+    missing = [str(path) for path in required_paths if not path.exists()]
+    if missing:
+        raise FileNotFoundError(
+            "phase10 config requested reuse_existing_artifacts, but required files are missing: "
+            + ", ".join(missing)
+        )
 
 
 def _load_lap_train_metadata(config_path: Path) -> dict[str, Any]:

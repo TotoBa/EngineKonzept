@@ -7,12 +7,14 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 import subprocess
-from typing import Callable, Protocol, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Protocol, Sequence
 
-from train.datasets import dataset_example_from_oracle_payload
-from train.datasets.oracle import label_records_with_oracle
-from train.datasets.schema import DatasetExample, RawPositionRecord
-from train.eval.planner_runtime import PlannerRootDecision
+if TYPE_CHECKING:
+    from train.datasets.schema import DatasetExample
+    from train.eval.planner_runtime import PlannerRootDecision
+else:
+    DatasetExample = Any
+    PlannerRootDecision = Any
 
 
 STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
@@ -560,6 +562,10 @@ def run_selfplay_session(
 
 def _build_oracle_loader(repo_root: Path) -> OracleLoader:
     def _loader(fen: str) -> DatasetExample:
+        from train.datasets.opponent_head import dataset_example_from_oracle_payload
+        from train.datasets.oracle import label_records_with_oracle
+        from train.datasets.schema import RawPositionRecord
+
         payload = label_records_with_oracle(
             [RawPositionRecord(sample_id=f"selfplay:{fen}", fen=fen, source="selfplay")],
             repo_root=repo_root,

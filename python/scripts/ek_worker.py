@@ -33,6 +33,7 @@ def main() -> int:
     parser.add_argument("--lease-seconds", type=int, default=300)
     parser.add_argument("--heartbeat-seconds", type=float, default=30.0)
     parser.add_argument("--poll-seconds", type=float, default=15.0)
+    parser.add_argument("--distributed-task-threads", type=int, default=1)
     parser.add_argument("--once", action="store_true")
     args = parser.parse_args()
 
@@ -52,12 +53,16 @@ def main() -> int:
         log_root=args.log_root,
         lease_seconds=int(args.lease_seconds),
         heartbeat_interval_seconds=float(args.heartbeat_seconds),
+        distributed_task_threads=int(args.distributed_task_threads),
     )
     if args.once:
         claimed = worker.run_once()
         print(json.dumps({"claimed": claimed, "worker_id": descriptor.worker_id}))
         return 0
-    worker.run_forever(poll_interval_seconds=float(args.poll_seconds))
+    try:
+        worker.run_forever(poll_interval_seconds=float(args.poll_seconds))
+    except KeyboardInterrupt:
+        return 130
     return 0
 
 

@@ -78,6 +78,10 @@
       }
     }
   ],
+  "pre_verify_selfplay_games": 64,
+  "pre_verify_selfplay_games_per_task": 8,
+  "pre_verify_selfplay_max_plies": 96,
+  "pre_verify_selfplay_opening_selection_seed": 20260404,
   "lapv1_verify_output_path": "/srv/schach/engine_training/phase10/lapv2_workflow_all_sources_v1/all_unique_verify_v1/lapv1_test.jsonl",
   "reference_arena_summary_path": "/srv/schach/engine_training/phase10/lapv2_stage2_arena_all_unique_v1/arena/summary.json",
   "reference_verify_matrix_path": "/srv/schach/engine_training/phase9/evolution_round03_vice_v1/final/planner_verify_matrix.json",

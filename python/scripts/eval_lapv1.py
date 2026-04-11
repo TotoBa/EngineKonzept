@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import redirect_stdout
 import json
 from pathlib import Path
 import sys
@@ -22,11 +23,12 @@ def main() -> int:
 
     from train.trainers import evaluate_lapv1_checkpoint
 
-    metrics = evaluate_lapv1_checkpoint(
-        _resolve_repo_path(args.checkpoint),
-        dataset_path=_resolve_repo_path(args.dataset_path),
-        top_k=args.top_k,
-    )
+    with redirect_stdout(sys.stderr):
+        metrics = evaluate_lapv1_checkpoint(
+            _resolve_repo_path(args.checkpoint),
+            dataset_path=_resolve_repo_path(args.dataset_path),
+            top_k=args.top_k,
+        )
     print(json.dumps(metrics.to_dict(), indent=2, sort_keys=True))
     return 0
 

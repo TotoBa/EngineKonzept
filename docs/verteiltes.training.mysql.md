@@ -17,22 +17,38 @@ Bereits umgesetzt:
 
 - MySQL-Schema für Campaigns, Models, Tasks, Task-Attempts, Workers, Artefakte und Arena-Matches
 - Python-Orchestrator unter `python/train/orchestrator/`
-- CLI-Einstiege `python/scripts/ek_ctl.py` und `python/scripts/ek_worker.py`
+- CLI-Einstiege `python/scripts/ek_ctl.py`, `python/scripts/ek_worker.py` und `python/scripts/ek_master.py`
 - Lease- und Heartbeat-Handling
 - Task-Claiming mit Requeue abgelaufener Leases
+- Master-Prozess für langlebige Lineages:
+  - Label- und Phase-10-Campaigns submitten
+  - Generationen bewerten
+  - historische Nicht-`LAPv1`-Arme und `vice` so lange in der Arena halten, bis sie sicher geschlagen sind
+  - `stockfish18` parallel dazu als Skill-Leiter hochstufen, sobald die aktuelle Stufe sicher geschlagen ist
+  - Modelle akzeptieren oder verwerfen
+  - Folgegenerationen mit Warm-Start materialisieren
+  - Selfplay- und Arena-Partien als PGN-Feedback exportieren, über `label_pgn_corpus` neu labeln und in Folgegenerationen zurückmischen
 - DAG-Planung für einen Phase-10-Lauf:
   - Materialisierung
   - Workflow-Prepare
   - Workflow-Chunk-Tasks
   - Workflow-Finalize
   - Training
+  - optionales verteiltes Pre-Verify-Selfplay nur für das getrackte LAPv2
+  - Selfplay-Prepare
+  - Selfplay-Shard-Tasks mit Opening-Suite
+  - Selfplay-Finalize
   - Verify
   - Arena-Prepare
   - Arena-Match-Tasks
   - Arena-Finalize
   - Top-Level-Campaign-Finalize
+- dedizierter `label_pgn_corpus`-Task für resumables PGN/Stockfish-Labeling
 - verteilbarer Arena-Pfad über einzelne Matchup-Tasks statt nur monolithischer Gesamtausführung
+- verteilbarer Pre-Verify-Selfplay-Pfad über einzelne Session-Shards
 - Workflow-Builder-Unterstützung für splitweise Ausführung über `--only-split`
+- Worker-seitige Thread-Drossel für verteilte Inferenz-/Workflow-Tasks über `--distributed-task-threads`
+- Lineage-Bootstrap für Generation 1 auf bereits fertigen Seed-Dataset-/Workflow-Artefakten über `bootstrap_generation_from_seed_artifacts=true` plus generiertes `reuse_existing_artifacts=true`
 
 Bereits verifiziert:
 
@@ -41,6 +57,8 @@ Bereits verifiziert:
 - erfolgreiche Initialisierung der MariaDB-Control-Plane auf `10.42.42.42`
 - erfolgreiche Submission der realen Campaign
   `phase10_lapv2_stage2_native_arena_all_sources_v1`
+- echter lokaler MySQL-Smoke-Run mit `2` und danach `4` parallelen Workern unter `/srv/engine_training_temp/...`
+- echter Master-Smoke-Run mit einem dedizierten `label`-Worker und zwei vollständig durchgelaufenen Phase-10-Generationen
 
 Bewusst noch nicht ausgeführt:
 
@@ -196,10 +214,10 @@ Ein vollständiger Dauerbetrieb sieht so aus:
 3. Materialisierung der Phase-5-Dataset-Tiers
 4. Phase-10-Workflow-Build
 5. Training
-6. Verify
-7. Arena
-8. Promotion oder Archivierung
-9. optional Selfplay
+6. optional Selfplay des frisch trainierten LAP-Modells mit Opening-Suite
+7. Verify
+8. Arena
+9. Promotion oder Archivierung
 10. Rückfluss in neue Rohdaten
 
 Wesentlich ist:
@@ -208,6 +226,70 @@ Wesentlich ist:
 - Training und Verify sind exklusive Modelljobs.
 - Promotion und Registry-Updates bleiben zentral.
 - Selfplay ist ein zusätzlicher Datenzufluss, nicht der Scheduler selbst.
+- Das neue Pre-Verify-Selfplay ist bewusst ein eigener Zwischenschritt zwischen `train` und `verify`.
+- Selfplay- und Arena-Sessions werden generationweise als PGNs exportiert, vom `label`-Worker mit Stockfish gelabelt und vor der nächsten Generation in den Raw-Corpus zurückgeführt.
+
+## Reell getesteter Master-Lauf
+
+Ein echter lokaler Testlauf unter `/srv/engine_training_temp/mysql_master_label_smoke_20260410_run1`
+lief inzwischen komplett durch.
+
+Ablauf:
+
+1. `label_pgn_corpus`
+2. `phase10_master:g0001`
+3. Master-Auswertung von `g0001`
+4. `phase10_master:g0002`
+5. Master-Endzustand `all_terminal=true`
+
+Reale Resultate:
+
+- Label-Job:
+  - `16` Train-Records
+  - `4` Verify-Records
+  - `5` gelesene Partien
+  - `0` übersprungene Partien
+- Generation `g0001`:
+  - akzeptiert
+  - `verify_top1=0.0`
+  - `verify_top3=1.0`
+  - bestes getracktes Arena-`score_rate=0.375`
+- Generation `g0002`:
+  - akzeptiert
+  - `verify_top1=0.0`
+  - `verify_top3=1.0`
+  - bestes getracktes Arena-`score_rate=0.5`
+- MySQL-Endstand:
+  - `3` Campaigns
+  - `65` Tasks
+  - alle `succeeded`
+
+Wichtige Artefakte:
+
+- `/srv/engine_training_temp/mysql_master_label_smoke_20260410_run1/master/summary.json`
+- `/srv/engine_training_temp/mysql_master_label_smoke_20260410_run1/label_work/summary.json`
+- `/srv/engine_training_temp/mysql_master_label_smoke_20260410_run1/lineage/generation_0001/decision.json`
+- `/srv/engine_training_temp/mysql_master_label_smoke_20260410_run1/lineage/generation_0002/decision.json`
+
+## Worker-Topologie für Mehrkern-Hosts
+
+Für echte Läufe ist die CPU-Strategie jetzt bewusst asymmetrisch:
+
+- `train` läuft idealerweise auf genau einem starken Host mit vielen Threads.
+- `selfplay`, `verify`, `workflow` und einzelne `arena_match`-Tasks werden besser über mehrere Worker verteilt als über einen Worker mit vielen Kernen.
+
+Der Grund ist simpel:
+
+- ein Orchestrator-Worker claimed immer nur einen Task gleichzeitig
+- Parallelität entsteht daher primär über viele shardbare Tasks und mehrere Worker-Prozesse
+- ein einzelner Worker mit vielen freien Kernen beschleunigt verteiltes Selfplay kaum, wenn jeder Shard nur seriell läuft
+- mehrere Worker mit `--distributed-task-threads 1` verhindern Oversubscription in `torch`, BLAS und OpenMP deutlich robuster
+
+Die empfohlene Praxis ist daher:
+
+- auf dem stärksten Host ein Worker mit `train,aggregate` und ohne künstliche Trainingsdrossel
+- auf Selfplay-/Verify-Hosts mehrere Worker mit `selfplay,verify,workflow,arena` und `--distributed-task-threads 1`
+- keine Annahme, dass ein Selfplay-Subprozess automatisch CPU-fair bleibt; die Thread-Grenze wird explizit gesetzt
 
 ## Warum MySQL und nicht Filesystem-Queue
 
