@@ -21,8 +21,12 @@ from train.orchestrator.models import (
     ArenaFinalizePayload,
     ArenaMatchPayload,
     LabelPgnCorpusPayload,
+    LabelPgnCorpusIdleSlicePayload,
+    Phase10ArtifactFinalizePayload,
+    Phase10ArtifactWorkflowPreparePayload,
     Phase10ArenaPreparePayload,
     Phase10FinalizePayload,
+    Phase5RawMergePayload,
     Phase10MaterializePayload,
     Phase10SelfplayFinalizePayload,
     Phase10SelfplayPreparePayload,
@@ -156,6 +160,90 @@ class OrchestratorController:
             "config_path": str(resolved_config_path),
         }
 
+    def submit_idle_label_pgn_corpus_campaign(
+        self,
+        *,
+        config_path: Path,
+        kind: str = "label_pgn_corpus_idle",
+        campaign_metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Insert one low-priority, shardable PGN-labeling campaign for idle workers."""
+        resolved_config_path = resolve_repo_path(self._repo_root, config_path)
+        label_config = _load_json(resolved_config_path)
+        campaign_id = self._db.insert_campaign(
+            name=str(label_config["name"]),
+            kind=kind,
+            status="queued",
+            config_path=str(resolved_config_path),
+            metadata={
+                "work_root": str(label_config["work_root"]),
+                "pgn_root": str(label_config["pgn_root"]),
+                "shard_count": int(label_config.get("shard_count", 1)),
+                **dict(campaign_metadata or {}),
+            },
+        )
+        task_ids = self._db.insert_planned_tasks(
+            campaign_id=campaign_id,
+            model_id=None,
+            planned_tasks=build_label_pgn_corpus_idle_tasks(
+                config_path=resolved_config_path,
+                config_payload=label_config,
+            ),
+        )
+        return {
+            "campaign_id": campaign_id,
+            "task_ids": task_ids,
+            "config_path": str(resolved_config_path),
+        }
+
+    def submit_idle_phase10_artifact_campaign(
+        self,
+        *,
+        config_path: Path,
+        kind: str = "phase10_idle_artifacts",
+        campaign_metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Insert one low-priority PGN -> LAPv2 Phase-10 artifact build campaign."""
+        resolved_config_path = resolve_repo_path(self._repo_root, config_path)
+        idle_config = _load_idle_phase10_artifact_config(resolved_config_path)
+        phase10_config_path = resolve_repo_path(
+            self._repo_root,
+            Path(str(idle_config["phase10_config_path"])),
+        )
+        phase10_spec = load_phase10_lapv1_arena_campaign_spec(phase10_config_path)
+        campaign_id = self._db.insert_campaign(
+            name=str(idle_config["name"]),
+            kind=kind,
+            status="queued",
+            config_path=str(resolved_config_path),
+            metadata={
+                "phase10_config_path": str(phase10_config_path),
+                "work_root": str(idle_config["work_root"]),
+                "merged_raw_dir": phase10_spec.merged_raw_dir,
+                "train_dataset_dir": phase10_spec.train_dataset_dir,
+                "verify_dataset_dir": phase10_spec.verify_dataset_dir,
+                "workflow_output_root": phase10_spec.workflow_output_root,
+                "shard_count": int(idle_config.get("shard_count", 1)),
+                **dict(campaign_metadata or {}),
+            },
+        )
+        task_ids = self._db.insert_planned_tasks(
+            campaign_id=campaign_id,
+            model_id=None,
+            planned_tasks=build_phase10_idle_artifact_tasks(
+                config_path=resolved_config_path,
+                config_payload=idle_config,
+                phase10_config_path=phase10_config_path,
+                phase10_spec=phase10_spec,
+            ),
+        )
+        return {
+            "campaign_id": campaign_id,
+            "task_ids": task_ids,
+            "config_path": str(resolved_config_path),
+            "phase10_config_path": str(phase10_config_path),
+        }
+
     def expand_phase10_workflow(
         self,
         *,
@@ -194,6 +282,58 @@ class OrchestratorController:
             / "summary.json",
             {
                 "campaign_name": spec.name,
+                "train_split_counts": dict(train_summary.get("split_counts") or {}),
+                "verify_split_counts": dict(verify_summary.get("split_counts") or {}),
+                "created_task_ids": task_ids,
+            },
+        )
+        self._db.update_campaign_record(campaign_id, status="running")
+        return {
+            "summary_path": str(summary_path),
+            "created_task_ids": task_ids,
+        }
+
+    def expand_phase10_artifact_workflow(
+        self,
+        *,
+        parent_task_id: int,
+        campaign_id: int,
+        config_path: Path,
+    ) -> dict[str, Any]:
+        """Expand the workflow-only DAG for a low-priority Phase-10 artifact build."""
+        resolved_config_path = resolve_repo_path(self._repo_root, config_path)
+        idle_config = _load_idle_phase10_artifact_config(resolved_config_path)
+        phase10_config_path = resolve_repo_path(
+            self._repo_root,
+            Path(str(idle_config["phase10_config_path"])),
+        )
+        spec = load_phase10_lapv1_arena_campaign_spec(phase10_config_path)
+        train_summary = _load_json(
+            resolve_repo_path(self._repo_root, Path(spec.train_dataset_dir)) / "summary.json"
+        )
+        verify_summary = _load_json(
+            resolve_repo_path(self._repo_root, Path(spec.verify_dataset_dir)) / "summary.json"
+        )
+        planned_tasks = build_phase10_idle_artifact_workflow_tasks(
+            config_path=resolved_config_path,
+            config_payload=idle_config,
+            phase10_config_path=phase10_config_path,
+            spec=spec,
+            train_summary=train_summary,
+            verify_summary=verify_summary,
+        )
+        task_ids = self._db.insert_planned_tasks(
+            campaign_id=campaign_id,
+            model_id=None,
+            planned_tasks=planned_tasks,
+            extra_dependency_task_ids=(parent_task_id,),
+        )
+        work_root = resolve_repo_path(self._repo_root, Path(str(idle_config["work_root"])))
+        summary_path = _write_json_summary(
+            work_root / "orchestrator" / "workflow_prepare" / "summary.json",
+            {
+                "campaign_name": str(idle_config["name"]),
+                "phase10_config_path": str(phase10_config_path),
                 "train_split_counts": dict(train_summary.get("split_counts") or {}),
                 "verify_split_counts": dict(verify_summary.get("split_counts") or {}),
                 "created_task_ids": task_ids,
@@ -379,6 +519,41 @@ class OrchestratorController:
         }
         return _write_json_summary(campaign_output_root / "summary.json", summary)
 
+    def write_phase10_artifact_summary(
+        self,
+        *,
+        config_path: Path,
+    ) -> Path:
+        """Write the final top-level summary for one idle artifact-build campaign."""
+        resolved_config_path = resolve_repo_path(self._repo_root, config_path)
+        idle_config = _load_idle_phase10_artifact_config(resolved_config_path)
+        phase10_config_path = resolve_repo_path(
+            self._repo_root,
+            Path(str(idle_config["phase10_config_path"])),
+        )
+        spec = load_phase10_lapv1_arena_campaign_spec(phase10_config_path)
+        work_root = resolve_repo_path(self._repo_root, Path(str(idle_config["work_root"])))
+        workflow_root = resolve_repo_path(self._repo_root, Path(spec.workflow_output_root))
+        merged_raw_dir = resolve_repo_path(self._repo_root, Path(spec.merged_raw_dir))
+        train_dataset_dir = resolve_repo_path(self._repo_root, Path(spec.train_dataset_dir))
+        verify_dataset_dir = resolve_repo_path(self._repo_root, Path(spec.verify_dataset_dir))
+        summary = {
+            "campaign_name": str(idle_config["name"]),
+            "work_root": str(work_root),
+            "phase10_config_path": str(phase10_config_path),
+            "merged_raw_dir": str(merged_raw_dir),
+            "merged_raw_summary_path": str(merged_raw_dir / "selection_summary.json"),
+            "train_dataset_summary_path": str(train_dataset_dir / "summary.json"),
+            "verify_dataset_summary_path": str(verify_dataset_dir / "summary.json"),
+            "workflow_output_root": str(workflow_root),
+            "workflow_summary_path": str(workflow_root / "summary.json"),
+            "hard_train_path": str(workflow_root / "all_unique_train_hard_v1" / "lapv1_train_hard.jsonl"),
+            "hard_validation_path": str(
+                workflow_root / "all_unique_validation_hard_v1" / "lapv1_validation_hard.jsonl"
+            ),
+        }
+        return _write_json_summary(work_root / "summary.json", summary)
+
 
 def build_phase10_bootstrap_tasks(
     *,
@@ -515,6 +690,211 @@ def build_label_pgn_corpus_tasks(
             ).to_dict(),
         )
     ]
+
+
+def build_label_pgn_corpus_idle_tasks(
+    *,
+    config_path: Path,
+    config_payload: Mapping[str, Any],
+) -> list[PlannedTask]:
+    """Return one low-priority idle labeling task per configured shard."""
+    shard_count = int(config_payload.get("shard_count", 1))
+    if shard_count <= 0:
+        raise ValueError("idle label shard_count must be positive")
+    work_root = Path(str(config_payload["work_root"]))
+    tasks: list[PlannedTask] = []
+    for shard_index in range(1, shard_count + 1):
+        shard_name = f"shard_{shard_index:02d}"
+        tasks.append(
+            PlannedTask(
+                key=f"idle_label_{shard_name}",
+                task_type="label_pgn_corpus_idle_slice",
+                capability=str(config_payload.get("capability", "label_idle")),
+                priority=int(config_payload.get("priority", -100)),
+                max_attempts=int(config_payload.get("max_attempts", 1000)),
+                payload=LabelPgnCorpusIdleSlicePayload(
+                    config_path=str(config_path),
+                    pgn_root=str(config_payload["pgn_root"]),
+                    pgn_glob=str(config_payload.get("glob", "**/*.pgn")),
+                    engine_path=str(config_payload.get("engine_path", "/usr/games/stockfish18")),
+                    work_dir=str(work_root / shard_name),
+                    target_train_records=_split_target_across_shards(
+                        total=int(config_payload["target_train_records"]),
+                        shard_count=shard_count,
+                        shard_index=shard_index,
+                    ),
+                    target_verify_records=_split_target_across_shards(
+                        total=int(config_payload["target_verify_records"]),
+                        shard_count=shard_count,
+                        shard_index=shard_index,
+                    ),
+                    min_ply=int(config_payload.get("min_ply", 8)),
+                    max_ply=int(config_payload.get("max_ply", 80)),
+                    ply_stride=int(config_payload.get("ply_stride", 2)),
+                    engine_nodes=int(config_payload.get("engine_nodes", 1500)),
+                    hash_mb=int(config_payload.get("hash_mb", 32)),
+                    threads=int(config_payload.get("threads", 1)),
+                    split_seed=str(config_payload.get("split_seed", "phase5-stockfish-unique-v1")),
+                    verify_divisor=int(config_payload.get("verify_divisor", 1000)),
+                    progress_every=int(config_payload.get("progress_every", 1000)),
+                    max_games=int(config_payload.get("max_games", 0)),
+                    file_shard_index=shard_index,
+                    file_shard_count=shard_count,
+                    run_max_games=int(config_payload.get("run_max_games", 0)),
+                    export_jsonl_on_complete=bool(
+                        config_payload.get("export_jsonl_on_complete", True)
+                    ),
+                    complete_at_eof=bool(config_payload.get("complete_at_eof", False)),
+                ).to_dict(),
+            )
+        )
+    return tasks
+
+
+def build_phase10_idle_artifact_tasks(
+    *,
+    config_path: Path,
+    config_payload: Mapping[str, Any],
+    phase10_config_path: Path,
+    phase10_spec: Phase10Lapv1ArenaCampaignSpec,
+) -> list[PlannedTask]:
+    """Return the low-priority DAG for PGN -> Phase-10 artifact construction."""
+    work_root = Path(str(config_payload["work_root"]))
+    label_tasks = build_label_pgn_corpus_idle_tasks(
+        config_path=config_path,
+        config_payload={
+            **dict(config_payload),
+            "work_root": str(work_root / "label_shards"),
+            "capability": str(config_payload.get("label_capability", "label_idle")),
+            "priority": int(config_payload.get("label_priority", -100)),
+            "complete_at_eof": bool(config_payload.get("complete_at_eof", True)),
+        },
+    )
+    merge_task = PlannedTask(
+        key="merge_raw",
+        task_type="phase5_raw_merge",
+        capability=str(config_payload.get("merge_capability", "aggregate_idle")),
+        priority=int(config_payload.get("merge_priority", -90)),
+        max_attempts=2,
+        depends_on=tuple(task.key for task in label_tasks),
+        payload=Phase5RawMergePayload(
+            config_path=str(config_path),
+            output_dir=phase10_spec.merged_raw_dir,
+            source_dirs=tuple(
+                str(work_root / "label_shards" / f"shard_{shard_index:02d}")
+                for shard_index in range(1, int(config_payload.get("shard_count", 1)) + 1)
+            ),
+        ).to_dict(),
+    )
+    return [
+        *label_tasks,
+        merge_task,
+        PlannedTask(
+            key="materialize",
+            task_type="phase10_materialize",
+            capability=str(config_payload.get("materialize_capability", "materialize_idle")),
+            priority=int(config_payload.get("materialize_priority", -80)),
+            max_attempts=2,
+            depends_on=("merge_raw",),
+            payload=Phase10MaterializePayload(
+                config_path=str(phase10_config_path),
+                output_root=phase10_spec.output_root,
+                raw_dir=phase10_spec.merged_raw_dir,
+                train_output_dir=phase10_spec.train_dataset_dir,
+                verify_output_dir=phase10_spec.verify_dataset_dir,
+                source_name=phase10_spec.phase5_source_name,
+                seed=phase10_spec.phase5_seed,
+                oracle_workers=phase10_spec.phase5_oracle_workers,
+                oracle_batch_size=phase10_spec.phase5_oracle_batch_size,
+                chunk_size=phase10_spec.phase5_chunk_size,
+                log_every_chunks=phase10_spec.phase5_log_every_chunks,
+            ).to_dict(),
+        ),
+        PlannedTask(
+            key="workflow_prepare",
+            task_type="phase10_artifact_workflow_prepare",
+            capability=str(config_payload.get("aggregate_capability", "aggregate_idle")),
+            priority=int(config_payload.get("aggregate_priority", -70)),
+            max_attempts=2,
+            depends_on=("materialize",),
+            payload=Phase10ArtifactWorkflowPreparePayload(
+                config_path=str(config_path),
+            ).to_dict(),
+        ),
+    ]
+
+
+def build_phase10_idle_artifact_workflow_tasks(
+    *,
+    config_path: Path,
+    config_payload: Mapping[str, Any],
+    phase10_config_path: Path,
+    spec: Phase10Lapv1ArenaCampaignSpec,
+    train_summary: Mapping[str, Any],
+    verify_summary: Mapping[str, Any],
+) -> list[PlannedTask]:
+    """Return the workflow-only Phase-10 DAG for one idle artifact-build campaign."""
+    train_split_counts = dict(train_summary.get("split_counts") or {})
+    verify_split_counts = dict(verify_summary.get("split_counts") or {})
+    tasks: list[PlannedTask] = []
+    chunk_keys: list[str] = []
+    workflow_capability = str(config_payload.get("workflow_capability", "workflow_idle"))
+    workflow_priority = int(config_payload.get("workflow_priority", -60))
+    aggregate_capability = str(config_payload.get("aggregate_capability", "aggregate_idle"))
+    aggregate_priority = int(config_payload.get("aggregate_priority", -70))
+    for split_name, canonical_split, count in (
+        ("train", "train", int(train_split_counts.get("train", 0))),
+        ("validation", "validation", int(train_split_counts.get("validation", 0))),
+        ("verify", "test", int(verify_split_counts.get("test", 0))),
+    ):
+        total_chunks = _chunk_count(count=count, chunk_size=spec.workflow_chunk_size)
+        for chunk_index in range(1, total_chunks + 1):
+            key = f"workflow_{split_name}_chunk_{chunk_index:04d}"
+            chunk_keys.append(key)
+            tasks.append(
+                PlannedTask(
+                    key=key,
+                    task_type="phase10_workflow_chunk",
+                    capability=workflow_capability,
+                    priority=workflow_priority,
+                    max_attempts=2,
+                    payload=Phase10WorkflowChunkPayload(
+                        config_path=str(phase10_config_path),
+                        split=split_name,
+                        canonical_split=canonical_split,
+                        chunk_index=chunk_index,
+                        model_id=0,
+                    ).to_dict(),
+                )
+            )
+    tasks.append(
+        PlannedTask(
+            key="workflow_finalize",
+            task_type="phase10_workflow_finalize",
+            capability=aggregate_capability,
+            priority=aggregate_priority,
+            max_attempts=2,
+            depends_on=tuple(chunk_keys),
+            payload=Phase10WorkflowFinalizePayload(
+                config_path=str(phase10_config_path),
+                model_id=0,
+            ).to_dict(),
+        )
+    )
+    tasks.append(
+        PlannedTask(
+            key="artifact_finalize",
+            task_type="phase10_artifact_finalize",
+            capability=aggregate_capability,
+            priority=int(config_payload.get("finalize_priority", aggregate_priority + 10)),
+            max_attempts=1,
+            depends_on=("workflow_finalize",),
+            payload=Phase10ArtifactFinalizePayload(
+                config_path=str(config_path),
+            ).to_dict(),
+        )
+    )
+    return tasks
 
 
 def build_phase10_workflow_tasks(
@@ -811,6 +1191,20 @@ def _chunk_count(*, count: int, chunk_size: int) -> int:
     return math.ceil(count / chunk_size) if count > 0 else 0
 
 
+def _split_target_across_shards(*, total: int, shard_count: int, shard_index: int) -> int:
+    if total < 0:
+        raise ValueError("split target total must be non-negative")
+    if shard_count <= 0:
+        raise ValueError("split target shard_count must be positive")
+    if not 1 <= shard_index <= shard_count:
+        raise ValueError("split target shard_index out of range")
+    if total == 0:
+        return 0
+    base = total // shard_count
+    remainder = total % shard_count
+    return base + (1 if shard_index <= remainder else 0)
+
+
 def _assert_existing_phase10_artifacts(
     *,
     spec: Phase10Lapv1ArenaCampaignSpec,
@@ -851,6 +1245,26 @@ def _load_json(path: Path) -> dict[str, Any]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise ValueError(f"{path}: expected a JSON object")
+    return payload
+
+
+def _load_idle_phase10_artifact_config(path: Path) -> dict[str, Any]:
+    payload = _load_json(path)
+    required = (
+        "name",
+        "phase10_config_path",
+        "pgn_root",
+        "work_root",
+        "target_train_records",
+        "target_verify_records",
+    )
+    missing = [key for key in required if key not in payload]
+    if missing:
+        raise ValueError(
+            f"{path}: missing required idle phase10 artifact keys: {', '.join(missing)}"
+        )
+    if int(payload.get("shard_count", 1)) <= 0:
+        raise ValueError(f"{path}: shard_count must be positive")
     return payload
 
 

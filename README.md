@@ -23,7 +23,7 @@ The repository now covers Phase 8 foundations plus prepared LAPv1 scaffolding:
 - bounded PGN ingestion with offline Stockfish 18 labeling for policy-supervised runs
 - a `torch.export` proposer bundle plus Rust-side metadata loading/validation
 - a local-first Unix-domain-socket oracle daemon for faster reproducible dataset builds
-- a MySQL-backed distributed training control plane with task leases, worker heartbeats, artifact metadata, resumable PGN labeling, and a master process for multi-generation Phase-10 lineages
+- a MySQL-backed distributed training control plane with task leases, worker heartbeats, artifact metadata, resumable PGN labeling, a master process for multi-generation Phase-10 lineages, and a CherryPy-based HTTP control/status surface for future runs
 - a first action-conditioned latent dynamics baseline with held-out reconstruction and drift metrics
 - the first explicit Phase-7 dataset contract for opponent-reply supervision
 - the first trained Phase-7 opponent-head baseline

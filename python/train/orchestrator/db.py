@@ -865,6 +865,41 @@ class OrchestratorDB:
                 connection.rollback()
                 raise
 
+    def requeue_task(
+        self,
+        *,
+        task_id: int,
+        result: TaskResult | None = None,
+    ) -> None:
+        """Release one leased task back to the queue with optional partial progress metadata."""
+        with self._connect() as connection:
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        UPDATE tasks
+                        SET
+                            state = %s,
+                            worker_id = NULL,
+                            lease_until = NULL,
+                            result_json = %s
+                        WHERE id = %s
+                        """,
+                        (
+                            TASK_STATE_QUEUED,
+                            (
+                                json.dumps(result.to_dict(), sort_keys=True)
+                                if result is not None
+                                else None
+                            ),
+                            task_id,
+                        ),
+                    )
+                connection.commit()
+            except Exception:
+                connection.rollback()
+                raise
+
     def update_model_record(self, model_id: int, **fields: Any) -> None:
         """Patch mutable model fields on one row."""
         self._update_row(table="models", row_id=model_id, id_column="id", fields=fields)
@@ -877,6 +912,44 @@ class OrchestratorDB:
             id_column="id",
             fields=fields,
         )
+
+    def has_active_training_tasks(self) -> bool:
+        """Return whether at least one training task is currently leased."""
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT 1
+                    FROM tasks
+                    WHERE task_type = 'train_lapv1'
+                      AND state = %s
+                    LIMIT 1
+                    """,
+                    (TASK_STATE_LEASED,),
+                )
+                row = cursor.fetchone()
+        return row is not None
+
+    def campaign_has_pending_tasks(self, campaign_id: int) -> bool:
+        """Return whether one campaign still has queued or leased tasks."""
+        with self._connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT 1
+                    FROM tasks
+                    WHERE campaign_id = %s
+                      AND state IN (%s, %s)
+                    LIMIT 1
+                    """,
+                    (
+                        campaign_id,
+                        TASK_STATE_QUEUED,
+                        TASK_STATE_LEASED,
+                    ),
+                )
+                row = cursor.fetchone()
+        return row is not None
 
     def status_snapshot(self, *, limit: int = 20) -> dict[str, Any]:
         """Return a compact JSON-ready status view."""

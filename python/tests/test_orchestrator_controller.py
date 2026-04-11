@@ -5,6 +5,9 @@ from pathlib import Path
 from train.eval.phase10_campaign import Phase10Lapv1ArenaCampaignSpec
 from train.orchestrator.controller import (
     build_label_pgn_corpus_tasks,
+    build_label_pgn_corpus_idle_tasks,
+    build_phase10_idle_artifact_tasks,
+    build_phase10_idle_artifact_workflow_tasks,
     build_phase10_arena_tasks,
     build_phase10_bootstrap_tasks,
     build_phase10_reuse_existing_artifact_tasks,
@@ -114,6 +117,84 @@ def test_build_label_pgn_corpus_tasks_has_single_label_task(tmp_path: Path) -> N
     assert tasks[0].task_type == "label_pgn_corpus"
     assert tasks[0].capability == "label"
     assert tasks[0].payload["work_dir"] == str(tmp_path / "label_work")
+
+
+def test_build_label_pgn_corpus_idle_tasks_splits_targets_across_shards(tmp_path: Path) -> None:
+    tasks = build_label_pgn_corpus_idle_tasks(
+        config_path=tmp_path / "idle_label.json",
+        config_payload={
+            "name": "label_idle",
+            "pgn_root": "/srv/schach/PGN_DATA/pgn",
+            "work_root": str(tmp_path / "label_work"),
+            "target_train_records": 10,
+            "target_verify_records": 4,
+            "shard_count": 3,
+            "run_max_games": 25,
+        },
+    )
+
+    assert [task.task_type for task in tasks] == ["label_pgn_corpus_idle_slice"] * 3
+    assert [task.payload["target_train_records"] for task in tasks] == [4, 3, 3]
+    assert [task.payload["target_verify_records"] for task in tasks] == [2, 1, 1]
+    assert tasks[0].payload["run_max_games"] == 25
+    assert tasks[0].capability == "label_idle"
+
+
+def test_build_phase10_idle_artifact_tasks_builds_merge_materialize_prepare(tmp_path: Path) -> None:
+    spec = _phase10_spec(tmp_path)
+
+    tasks = build_phase10_idle_artifact_tasks(
+        config_path=tmp_path / "idle_phase10.json",
+        config_payload={
+            "name": "idle_phase10",
+            "phase10_config_path": str(tmp_path / "phase10.json"),
+            "pgn_root": "/srv/schach/PGN_DATA/pgn",
+            "work_root": str(tmp_path / "idle_phase10"),
+            "target_train_records": 12,
+            "target_verify_records": 3,
+            "shard_count": 2,
+        },
+        phase10_config_path=tmp_path / "phase10.json",
+        phase10_spec=spec,
+    )
+
+    assert [task.key for task in tasks[:4]] == [
+        "idle_label_shard_01",
+        "idle_label_shard_02",
+        "merge_raw",
+        "materialize",
+    ]
+    assert tasks[2].task_type == "phase5_raw_merge"
+    assert tasks[2].depends_on == ("idle_label_shard_01", "idle_label_shard_02")
+    assert tasks[3].capability == "materialize_idle"
+    assert tasks[4].task_type == "phase10_artifact_workflow_prepare"
+
+
+def test_build_phase10_idle_artifact_workflow_tasks_excludes_train_and_verify(tmp_path: Path) -> None:
+    spec = _phase10_spec(tmp_path)
+
+    tasks = build_phase10_idle_artifact_workflow_tasks(
+        config_path=tmp_path / "idle_phase10.json",
+        config_payload={
+            "name": "idle_phase10",
+            "phase10_config_path": str(tmp_path / "phase10.json"),
+            "pgn_root": "/srv/schach/PGN_DATA/pgn",
+            "work_root": str(tmp_path / "idle_phase10"),
+            "target_train_records": 12,
+            "target_verify_records": 3,
+        },
+        phase10_config_path=tmp_path / "phase10.json",
+        spec=spec,
+        train_summary={"split_counts": {"train": 9, "validation": 5}},
+        verify_summary={"split_counts": {"test": 3}},
+    )
+
+    task_keys = [task.key for task in tasks]
+    assert "workflow_train_chunk_0001" in task_keys
+    assert "workflow_finalize" in task_keys
+    assert "artifact_finalize" in task_keys
+    assert "train" not in task_keys
+    assert "verify" not in task_keys
 
 
 def test_build_phase10_workflow_tasks_expands_chunks_and_downstream_steps(tmp_path: Path) -> None:

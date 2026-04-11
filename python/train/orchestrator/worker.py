@@ -71,9 +71,17 @@ class OrchestratorWorker:
         """Claim and execute at most one task."""
         self.register()
         self._db.requeue_expired_tasks()
+        capabilities = self._claim_capabilities()
+        if not capabilities:
+            self._db.heartbeat_worker(
+                worker_id=self._descriptor.worker_id,
+                status="idle",
+                current_task_id=None,
+            )
+            return False
         claimed = self._db.claim_tasks(
             worker_id=self._descriptor.worker_id,
-            capabilities=self._descriptor.capabilities,
+            capabilities=capabilities,
             lease_seconds=self._lease_seconds,
             limit=1,
         )
@@ -102,6 +110,7 @@ class OrchestratorWorker:
         details: dict[str, Any] = {"task_type": task.task_type}
         exit_code = 0
         try:
+            self._before_execute(task)
             stdout_path.parent.mkdir(parents=True, exist_ok=True)
             with (
                 stdout_path.open("w", encoding="utf-8") as stdout_handle,
@@ -121,13 +130,16 @@ class OrchestratorWorker:
                     stdout_handle=stdout_handle,
                     stderr_handle=stderr_handle,
                 )
-            self._db.mark_task_succeeded(
-                task_id=task.id,
-                result=result,
-                artifacts=result.artifacts,
-            )
             result_summary_path = result.summary_path
-            self._after_success(task=task, result=result)
+            if bool(result.metadata.get("requeue_requested", False)):
+                self._db.requeue_task(task_id=task.id, result=result)
+            else:
+                self._db.mark_task_succeeded(
+                    task_id=task.id,
+                    result=result,
+                    artifacts=result.artifacts,
+                )
+                self._after_success(task=task, result=result)
         except Exception as exc:
             exit_code = 1
             details.update(
@@ -163,6 +175,13 @@ class OrchestratorWorker:
             if not claimed:
                 time.sleep(poll_interval_seconds)
 
+    def _claim_capabilities(self) -> tuple[str, ...]:
+        if self._db.has_active_training_tasks():
+            return self._descriptor.capabilities
+        return tuple(
+            capability for capability in self._descriptor.capabilities if not capability.endswith("_idle")
+        )
+
     def _execute_task(
         self,
         *,
@@ -173,10 +192,16 @@ class OrchestratorWorker:
         task_type = task.task_type
         if task_type == "label_pgn_corpus":
             return self._handle_label_pgn_corpus(task, stdout_handle, stderr_handle)
+        if task_type == "label_pgn_corpus_idle_slice":
+            return self._handle_label_pgn_corpus_idle_slice(task, stdout_handle, stderr_handle)
+        if task_type == "phase5_raw_merge":
+            return self._handle_phase5_raw_merge(task)
         if task_type == "phase10_materialize":
             return self._handle_phase10_materialize(task, stdout_handle, stderr_handle)
         if task_type == "phase10_workflow_prepare":
             return self._handle_phase10_workflow_prepare(task)
+        if task_type == "phase10_artifact_workflow_prepare":
+            return self._handle_phase10_artifact_workflow_prepare(task)
         if task_type == "phase10_workflow_chunk":
             return self._handle_phase10_workflow_chunk(task, stdout_handle, stderr_handle)
         if task_type == "phase10_workflow_finalize":
@@ -197,6 +222,8 @@ class OrchestratorWorker:
             return self._handle_arena_match(task)
         if task_type == "arena_finalize":
             return self._handle_arena_finalize(task)
+        if task_type == "phase10_artifact_finalize":
+            return self._handle_phase10_artifact_finalize(task)
         if task_type == "phase10_finalize":
             return self._handle_phase10_finalize(task)
         raise ValueError(f"unsupported task type: {task_type}")
@@ -207,6 +234,39 @@ class OrchestratorWorker:
         stdout_handle: IO[str],
         stderr_handle: IO[str],
     ) -> TaskResult:
+        return self._run_label_pgn_corpus_task(
+            task=task,
+            stdout_handle=stdout_handle,
+            stderr_handle=stderr_handle,
+            require_completed=True,
+            allow_requeue=False,
+        )
+
+    def _handle_label_pgn_corpus_idle_slice(
+        self,
+        task: TaskRow,
+        stdout_handle: IO[str],
+        stderr_handle: IO[str],
+    ) -> TaskResult:
+        return self._run_label_pgn_corpus_task(
+            task=task,
+            stdout_handle=stdout_handle,
+            stderr_handle=stderr_handle,
+            require_completed=False,
+            allow_requeue=True,
+        )
+
+    def _run_label_pgn_corpus_task(
+        self,
+        *,
+        task: TaskRow,
+        stdout_handle: IO[str],
+        stderr_handle: IO[str],
+        require_completed: bool,
+        allow_requeue: bool,
+    ) -> TaskResult:
+        from scripts.build_unique_stockfish_pgn_corpus import export_unique_corpus_snapshot
+
         payload = dict(task.payload)
         work_dir = resolve_repo_path(self._repo_root, Path(str(payload["work_dir"])))
         command = [
@@ -250,6 +310,15 @@ class OrchestratorWorker:
             command.append("--no-export-jsonl-on-complete")
         if bool(payload.get("complete_at_eof", False)):
             command.append("--complete-at-eof")
+        file_shard_index = payload.get("file_shard_index")
+        file_shard_count = payload.get("file_shard_count")
+        if file_shard_index is not None:
+            command.extend(["--file-shard-index", str(file_shard_index)])
+        if file_shard_count is not None:
+            command.extend(["--file-shard-count", str(file_shard_count)])
+        run_max_games = int(payload.get("run_max_games", 0))
+        if run_max_games > 0:
+            command.extend(["--run-max-games", str(run_max_games)])
         self._run_command(
             command,
             stdout_handle=stdout_handle,
@@ -260,7 +329,15 @@ class OrchestratorWorker:
         if not progress_path.exists():
             raise FileNotFoundError(f"label progress file not found: {progress_path}")
         progress = json.loads(progress_path.read_text(encoding="utf-8"))
-        if not bool(progress.get("completed")):
+        database_path = work_dir / "corpus.sqlite3"
+        if database_path.exists():
+            export_summary = export_unique_corpus_snapshot(work_dir)
+        else:
+            export_summary = {
+                "train_raw_path": str(work_dir / "train_raw.jsonl"),
+                "verify_raw_path": str(work_dir / "verify_raw.jsonl"),
+            }
+        if require_completed and not bool(progress.get("completed")):
             raise RuntimeError(
                 f"label campaign did not reach requested targets: {progress_path}"
             )
@@ -281,9 +358,13 @@ class OrchestratorWorker:
                 "train_raw_path": str(train_raw_path),
                 "verify_raw_path": str(verify_raw_path),
                 "progress": progress,
+                "export": export_summary,
             },
         )
         counts = dict(progress.get("counts") or {})
+        metadata: dict[str, Any] = {}
+        if allow_requeue and not bool(progress.get("completed")):
+            metadata["requeue_requested"] = True
         return TaskResult(
             summary_path=str(summary_path),
             artifacts=(
@@ -308,6 +389,45 @@ class OrchestratorWorker:
                 "verify_records": int(counts.get("verify", 0)),
                 "games_seen": int(progress.get("games_seen", 0)),
             },
+            metadata=metadata,
+        )
+
+    def _handle_phase5_raw_merge(self, task: TaskRow) -> TaskResult:
+        from scripts.merge_phase5_raw_corpora import RawCorpusSourceSpec, merge_phase5_raw_corpora
+
+        payload = dict(task.payload)
+        output_dir = resolve_repo_path(self._repo_root, Path(str(payload["output_dir"])))
+        source_specs = [
+            RawCorpusSourceSpec(
+                name=resolve_repo_path(self._repo_root, Path(str(source_dir))).name,
+                raw_dir=resolve_repo_path(self._repo_root, Path(str(source_dir))),
+            )
+            for source_dir in list(payload.get("source_dirs") or [])
+        ]
+        merge_phase5_raw_corpora(
+            source_specs=source_specs,
+            output_dir=output_dir,
+        )
+        summary_path = output_dir / "selection_summary.json"
+        return TaskResult(
+            summary_path=str(summary_path),
+            artifacts=(
+                self._artifact_ref(
+                    kind="raw_corpus_dir",
+                    path=output_dir,
+                    summary_path=summary_path,
+                ),
+                self._artifact_ref(
+                    kind="raw_train_jsonl",
+                    path=output_dir / "train_raw.jsonl",
+                    summary_path=summary_path,
+                ),
+                self._artifact_ref(
+                    kind="raw_verify_jsonl",
+                    path=output_dir / "verify_raw.jsonl",
+                    summary_path=summary_path,
+                ),
+            ),
         )
 
     def _handle_phase10_materialize(
@@ -378,6 +498,19 @@ class OrchestratorWorker:
             parent_task_id=task.id,
             campaign_id=task.campaign_id,
             model_id=int(payload["model_id"]),
+            config_path=Path(str(payload["config_path"])),
+        )
+        return TaskResult(
+            summary_path=str(expanded["summary_path"]),
+            created_task_keys=tuple(sorted(dict(expanded["created_task_ids"]).keys())),
+            metadata={"created_task_ids": dict(expanded["created_task_ids"])},
+        )
+
+    def _handle_phase10_artifact_workflow_prepare(self, task: TaskRow) -> TaskResult:
+        payload = dict(task.payload)
+        expanded = self._controller.expand_phase10_artifact_workflow(
+            parent_task_id=task.id,
+            campaign_id=task.campaign_id,
             config_path=Path(str(payload["config_path"])),
         )
         return TaskResult(
@@ -916,8 +1049,59 @@ class OrchestratorWorker:
             artifacts=(self._artifact_ref(kind="campaign_summary", path=summary_path, summary_path=summary_path),),
         )
 
+    def _handle_phase10_artifact_finalize(self, task: TaskRow) -> TaskResult:
+        payload = dict(task.payload)
+        summary_path = self._controller.write_phase10_artifact_summary(
+            config_path=Path(str(payload["config_path"])),
+        )
+        self._db.update_campaign_record(task.campaign_id, status="succeeded")
+        return TaskResult(
+            summary_path=str(summary_path),
+            artifacts=(
+                self._artifact_ref(
+                    kind="artifact_build_summary",
+                    path=summary_path,
+                    summary_path=summary_path,
+                ),
+            ),
+        )
+
+    def _before_execute(self, task: TaskRow) -> None:
+        campaign_status = self._campaign_status_for_task_start(task.task_type)
+        if campaign_status is not None:
+            self._db.update_campaign_record(task.campaign_id, status=campaign_status)
+
+    def _campaign_status_for_task_start(self, task_type: str) -> str | None:
+        if task_type in {
+            "label_pgn_corpus",
+            "label_pgn_corpus_idle_slice",
+            "phase5_raw_merge",
+            "phase10_materialize",
+            "phase10_workflow_prepare",
+            "phase10_artifact_workflow_prepare",
+            "phase10_workflow_chunk",
+            "phase10_workflow_finalize",
+            "phase10_selfplay_prepare",
+            "phase10_selfplay_shard",
+            "phase10_selfplay_finalize",
+        }:
+            return "running"
+        if task_type == "train_lapv1":
+            return "training"
+        if task_type == "verify_lapv1":
+            return "verifying"
+        if task_type in {
+            "phase10_arena_prepare",
+            "arena_match",
+            "arena_finalize",
+            "phase10_finalize",
+            "phase10_artifact_finalize",
+        }:
+            return "finalizing"
+        return None
+
     def _after_success(self, *, task: TaskRow, result: TaskResult) -> None:
-        if task.task_type == "phase10_finalize":
+        if task.task_type in {"phase10_finalize", "phase10_artifact_finalize"}:
             return
         if task.task_type == "label_pgn_corpus":
             self._db.update_campaign_record(task.campaign_id, status="succeeded")

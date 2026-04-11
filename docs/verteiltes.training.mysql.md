@@ -18,6 +18,10 @@ Bereits umgesetzt:
 - MySQL-Schema für Campaigns, Models, Tasks, Task-Attempts, Workers, Artefakte und Arena-Matches
 - Python-Orchestrator unter `python/train/orchestrator/`
 - CLI-Einstiege `python/scripts/ek_ctl.py`, `python/scripts/ek_worker.py` und `python/scripts/ek_master.py`
+- CherryPy-basierter HTTP-Steuerpfad für `ek_master.py`:
+  - JSON-API für Runtime, Spec und Ad-hoc-Submissions
+  - lokale Statusseite mit denselben Stellgrößen
+  - derselbe `OrchestratorMaster`, keine zweite Scheduler-Logik
 - Lease- und Heartbeat-Handling
 - Task-Claiming mit Requeue abgelaufener Leases
 - Master-Prozess für langlebige Lineages:
@@ -49,6 +53,19 @@ Bereits umgesetzt:
 - Workflow-Builder-Unterstützung für splitweise Ausführung über `--only-split`
 - Worker-seitige Thread-Drossel für verteilte Inferenz-/Workflow-Tasks über `--distributed-task-threads`
 - Lineage-Bootstrap für Generation 1 auf bereits fertigen Seed-Dataset-/Workflow-Artefakten über `bootstrap_generation_from_seed_artifacts=true` plus generiertes `reuse_existing_artifacts=true`
+- Campaign-Status-Update direkt beim Task-Start:
+  - lange `train_lapv1`-Tasks lassen die Campaign nicht mehr optisch auf `queued`
+- MySQL-gesteuerter Idle-Pfad für Pi-Worker:
+  - sharded `label_pgn_corpus_idle_slice`
+  - Merge der shardweisen Raw-Corpora
+  - Materialisierung der Phase-5-Tiers
+  - Workflow-Prepare/Chunk/Finalize
+  - finale `LAPv2 phase10`-Artefakte auf dem NAS, wie sie das Training konsumiert
+- schaltbare Master-Spec-Einträge über `enabled`:
+  - `label_jobs`
+  - `idle_phase10_jobs`
+  - `lineages`
+  - damit lassen sich künftige Läufe über denselben API-/UI-Pfad pausieren oder eingrenzen
 
 Bereits verifiziert:
 
@@ -155,6 +172,11 @@ Jeder Worker hat:
   - `arena`
   - `selfplay`
   - `aggregate`
+  - optional zusätzlich für Hintergrund-Artefaktbau während Training:
+    - `label_idle`
+    - `materialize_idle`
+    - `workflow_idle`
+    - `aggregate_idle`
 
 ## Die wichtigste Regel
 
@@ -205,6 +227,51 @@ Das ist wichtig, weil es zu den heutigen Repo-Mustern passt:
 - `summary.json`
 - wiederaufnahmefähige Outputs
 
+## HTTP-Steuerung des Masters
+
+Für künftige Läufe kann der Master zusätzlich mit lokalem HTTP-Server betrieben werden:
+
+```bash
+python3 python/scripts/ek_master.py \
+  --config /path/to/master_config.json \
+  --http-host 127.0.0.1 \
+  --http-port 8080
+```
+
+Dabei gilt ausdrücklich:
+
+- die Fachlogik bleibt in `OrchestratorMaster`
+- der HTTP-Server ist nur Transport- und UI-Schicht
+- die aktive Spec bleibt die Datei auf dem NAS oder lokalen Dateisystem
+- MySQL bleibt die Control Plane für Tasks, Worker, Leases und Status
+
+Der aktuelle API-v1-Vertrag ist:
+
+- `GET /api/v1/bootstrap`
+- `GET /api/v1/runtime`
+- `POST /api/v1/runtime/start|stop|pause|resume|reconcile|requeue_expired`
+- `GET /api/v1/spec`
+- `POST /api/v1/spec/patch`
+- `POST /api/v1/spec/lineages/<name>`
+- `POST /api/v1/spec/label_jobs/<name>`
+- `POST /api/v1/spec/idle_phase10_jobs/<name>`
+- `POST /api/v1/submit/phase10|label|idle_phase10`
+
+Die Statusseite unter `/` zeigt:
+
+- Runtime-Zustand
+- letzte Master-`summary.json`
+- aktuellen DB-Snapshot
+- Poll-Intervall
+- `enabled`-Flags und Kernparameter pro Lineage
+- Raw-Spec als Patch-/Kontrollansicht
+
+Wichtig für den Betrieb:
+
+- der HTTP-Pfad ist für spätere Läufe gedacht
+- er wird nicht mitten in einen schon laufenden Produktionslauf hinein ausgerollt
+- bestehende CLI-Pfade (`--once`, `--until-terminal`, `run_forever`) bleiben unverändert nutzbar
+
 ## Datenfluss als dauerhafte Pipeline
 
 Ein vollständiger Dauerbetrieb sieht so aus:
@@ -228,6 +295,10 @@ Wesentlich ist:
 - Selfplay ist ein zusätzlicher Datenzufluss, nicht der Scheduler selbst.
 - Das neue Pre-Verify-Selfplay ist bewusst ein eigener Zwischenschritt zwischen `train` und `verify`.
 - Selfplay- und Arena-Sessions werden generationweise als PGNs exportiert, vom `label`-Worker mit Stockfish gelabelt und vor der nächsten Generation in den Raw-Corpus zurückgeführt.
+- Für künftige Läufe können Pi-Worker während eines aktiven `train_lapv1` zusätzlich einen niedrig priorisierten Hintergrundpfad abarbeiten:
+  - `PGN -> shardweise Raw-Corpora -> Merge -> Materialize -> Workflow`
+  - dieser Pfad baut echte `LAPv2 phase10`-Artefakte, nicht nur Rohdaten
+  - sobald kein `train_lapv1` mehr geleast ist, claimen Worker keine `*_idle`-Tasks mehr und wechseln automatisch zurück auf `selfplay`, `verify`, `arena` und normale Aggregation
 
 ## Reell getesteter Master-Lauf
 

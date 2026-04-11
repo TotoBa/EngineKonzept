@@ -36,6 +36,9 @@ class UniqueCorpusConfig:
     verify_divisor: int = 1000
     progress_every: int = 1000
     max_games: int = 0
+    file_shard_index: int | None = None
+    file_shard_count: int | None = None
+    run_max_games: int = 0
     export_jsonl_on_complete: bool = True
     complete_at_eof: bool = False
 
@@ -58,6 +61,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--verify-divisor", type=int, default=1000)
     parser.add_argument("--progress-every", type=int, default=1000)
     parser.add_argument("--max-games", type=int, default=0)
+    parser.add_argument("--file-shard-index", type=int, default=None)
+    parser.add_argument("--file-shard-count", type=int, default=None)
+    parser.add_argument("--run-max-games", type=int, default=0)
     parser.add_argument(
         "--no-export-jsonl-on-complete",
         action="store_false",
@@ -81,11 +87,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         verify_divisor=args.verify_divisor,
         progress_every=args.progress_every,
         max_games=args.max_games,
+        file_shard_index=args.file_shard_index,
+        file_shard_count=args.file_shard_count,
+        run_max_games=args.run_max_games,
         export_jsonl_on_complete=args.export_jsonl_on_complete,
         complete_at_eof=args.complete_at_eof,
     )
 
     pgn_paths = sorted(path for path in args.pgn_root.glob(args.glob) if path.is_file())
+    pgn_paths = select_pgn_file_shard(
+        pgn_paths,
+        shard_index=args.file_shard_index,
+        shard_count=args.file_shard_count,
+    )
     if not pgn_paths:
         raise ValueError(f"no PGNs matched {args.glob!r} under {args.pgn_root}")
 
@@ -124,6 +138,7 @@ def build_unique_corpus_from_pgns(
         _write_progress(progress_path, progress)
 
         games_seen = int(progress["games_seen"])
+        invocation_games_seen = 0
         skipped_games = int(progress.get("skipped_games", 0))
         accepted_since_progress = 0
         for pgn_path in pgn_paths:
@@ -132,6 +147,8 @@ def build_unique_corpus_from_pgns(
             with pgn_path.open("r", encoding="utf-8", errors="replace") as handle:
                 while True:
                     if config.max_games > 0 and games_seen >= config.max_games:
+                        break
+                    if config.run_max_games > 0 and invocation_games_seen >= config.run_max_games:
                         break
                     if _targets_reached(connection, config=config):
                         break
@@ -143,6 +160,7 @@ def build_unique_corpus_from_pgns(
                     if game is None:
                         break
                     games_seen += 1
+                    invocation_games_seen += 1
                     try:
                         board = game.board()
                         result = _normalize_result(game.headers.get("Result"))
@@ -204,6 +222,8 @@ def build_unique_corpus_from_pgns(
                     except Exception:
                         skipped_games += 1
                         continue
+            if config.run_max_games > 0 and invocation_games_seen >= config.run_max_games:
+                break
         final_summary = _current_progress(
             connection,
             config=config,
@@ -464,6 +484,9 @@ def _current_progress(
         "threads": config.threads,
         "split_seed": config.split_seed,
         "verify_divisor": config.verify_divisor,
+        "file_shard_index": config.file_shard_index,
+        "file_shard_count": config.file_shard_count,
+        "run_max_games": config.run_max_games,
         "pgn_files": [str(path) for path in pgn_paths],
         "current_pgn": current_pgn,
         "games_seen": games_seen,
@@ -550,6 +573,28 @@ def _fen_hash_hex(fen: str) -> str:
 
 def _stable_hash(value: str) -> int:
     return int.from_bytes(hashlib.sha256(value.encode("utf-8")).digest()[:8], "big")
+
+
+def select_pgn_file_shard(
+    pgn_paths: Sequence[Path],
+    *,
+    shard_index: int | None,
+    shard_count: int | None,
+) -> list[Path]:
+    """Return the deterministic file subset for one 1-based shard selection."""
+    if shard_index is None and shard_count is None:
+        return list(pgn_paths)
+    if shard_index is None or shard_count is None:
+        raise ValueError("file sharding requires both shard_index and shard_count")
+    if shard_count <= 0:
+        raise ValueError("file shard_count must be positive")
+    if not 1 <= shard_index <= shard_count:
+        raise ValueError("file shard_index must be within [1, shard_count]")
+    return [
+        path
+        for index, path in enumerate(pgn_paths)
+        if index % shard_count == shard_index - 1
+    ]
 
 
 def _normalize_result(value: str | None) -> str | None:

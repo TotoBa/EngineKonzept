@@ -15,7 +15,9 @@ if str(PYTHON_ROOT) not in sys.path:
 
 from train.orchestrator.controller import OrchestratorController  # noqa: E402
 from train.orchestrator.db import OrchestratorDB  # noqa: E402
+from train.orchestrator.master_http import MasterHttpServer  # noqa: E402
 from train.orchestrator.master import OrchestratorMaster, load_master_spec  # noqa: E402
+from train.orchestrator.master_runtime import OrchestratorMasterRuntime  # noqa: E402
 from train.orchestrator.models import DEFAULT_MYSQL_PORT, MySQLConfig  # noqa: E402
 
 
@@ -27,7 +29,13 @@ def main() -> int:
     parser.add_argument("--once", action="store_true")
     parser.add_argument("--until-terminal", action="store_true")
     parser.add_argument("--max-cycles", type=int, default=1000)
+    parser.add_argument("--http-host", default=None)
+    parser.add_argument("--http-port", type=int, default=8080)
+    parser.add_argument("--http-start-paused", action="store_true")
     args = parser.parse_args()
+
+    if args.http_host and (args.once or args.until_terminal):
+        parser.error("--http-host cannot be combined with --once or --until-terminal")
 
     db = OrchestratorDB(_db_config_from_args(args))
     controller = OrchestratorController(db=db, repo_root=REPO_ROOT)
@@ -53,6 +61,24 @@ def main() -> int:
                 sort_keys=True,
             )
         )
+        return 0
+    if args.http_host:
+        runtime = OrchestratorMasterRuntime(master=master)
+        if args.poll_seconds is not None:
+            runtime.patch_spec({"poll_interval_seconds": float(args.poll_seconds)})
+        if not bool(args.http_start_paused):
+            runtime.start_loop()
+        server = MasterHttpServer(
+            runtime=runtime,
+            host=str(args.http_host),
+            port=int(args.http_port),
+        )
+        server.start()
+        try:
+            server.block()
+        finally:
+            runtime.stop_loop()
+            server.stop()
         return 0
     master.run_forever(poll_interval_seconds=args.poll_seconds)
     return 0

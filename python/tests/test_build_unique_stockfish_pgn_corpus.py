@@ -27,6 +27,7 @@ UniqueCorpusConfig = _MODULE.UniqueCorpusConfig
 build_unique_corpus_from_pgns = _MODULE.build_unique_corpus_from_pgns
 export_unique_corpus_snapshot = _MODULE.export_unique_corpus_snapshot
 main = _MODULE.main
+select_pgn_file_shard = _MODULE.select_pgn_file_shard
 
 
 class _FakePlayResult:
@@ -286,3 +287,65 @@ def test_build_unique_corpus_can_complete_at_eof(tmp_path: Path) -> None:
     assert summary["completion_reason"] == "eof"
     assert summary["counts"]["train"] > 0
     assert (config.work_dir / "train_raw.jsonl").exists()
+
+
+def test_select_pgn_file_shard_returns_deterministic_subset(tmp_path: Path) -> None:
+    pgn_paths = [tmp_path / f"sample_{index}.pgn" for index in range(1, 7)]
+
+    selected = select_pgn_file_shard(pgn_paths, shard_index=2, shard_count=3)
+
+    assert selected == [pgn_paths[1], pgn_paths[4]]
+
+
+def test_build_unique_corpus_run_max_games_stops_one_invocation(tmp_path: Path) -> None:
+    pgn_path = tmp_path / "sample.pgn"
+    pgn_path.write_text(
+        """
+[Event "Game 1"]
+[Site "?"]
+[Date "2026.04.11"]
+[Round "1"]
+[White "A"]
+[Black "B"]
+[Result "1-0"]
+
+1. e4 e5 2. Nf3 Nc6 1-0
+
+[Event "Game 2"]
+[Site "?"]
+[Date "2026.04.11"]
+[Round "2"]
+[White "C"]
+[Black "D"]
+[Result "0-1"]
+
+1. d4 d5 2. c4 e6 0-1
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    config = UniqueCorpusConfig(
+        engine_path=Path("/usr/games/stockfish18"),
+        work_dir=tmp_path / "work",
+        target_train_records=10,
+        target_verify_records=5,
+        min_ply=1,
+        max_ply=4,
+        ply_stride=1,
+        progress_every=1,
+        run_max_games=1,
+    )
+
+    real_connect = sqlite3.connect
+    with tempfile.TemporaryDirectory() as database_tmpdir:
+        database_path = Path(database_tmpdir) / "corpus.sqlite3"
+        with (
+            patch.object(_MODULE.chess.engine.SimpleEngine, "popen_uci", return_value=_FakeEngine()),
+            patch.object(_MODULE.sqlite3, "connect", side_effect=lambda _: real_connect(database_path)),
+        ):
+            summary = build_unique_corpus_from_pgns([pgn_path], config=config)
+
+    assert summary["completed"] is False
+    assert summary["completion_reason"] == "targets_not_reached"
+    assert summary["games_seen"] == 1

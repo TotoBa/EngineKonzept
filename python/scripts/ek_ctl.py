@@ -39,6 +39,20 @@ def main() -> int:
     submit_label.add_argument("--config", type=Path, required=True)
     submit_label.add_argument("--kind", default="label_pgn_corpus")
 
+    submit_idle_label = subparsers.add_parser(
+        "submit-idle-label",
+        help="submit one low-priority sharded PGN labeling campaign for idle workers",
+    )
+    submit_idle_label.add_argument("--config", type=Path, required=True)
+    submit_idle_label.add_argument("--kind", default="label_pgn_corpus_idle")
+
+    submit_idle_phase10 = subparsers.add_parser(
+        "submit-idle-phase10",
+        help="submit one low-priority PGN -> LAPv2 Phase-10 artifact campaign for idle workers",
+    )
+    submit_idle_phase10.add_argument("--config", type=Path, required=True)
+    submit_idle_phase10.add_argument("--kind", default="phase10_idle_artifacts")
+
     args = parser.parse_args()
     db = OrchestratorDB(_db_config_from_args(args))
     controller = OrchestratorController(db=db, repo_root=REPO_ROOT)
@@ -62,6 +76,20 @@ def main() -> int:
         return 0
     if args.command == "submit-label":
         result = controller.submit_label_pgn_corpus_campaign(
+            config_path=args.config,
+            kind=str(args.kind),
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+    if args.command == "submit-idle-label":
+        result = controller.submit_idle_label_pgn_corpus_campaign(
+            config_path=args.config,
+            kind=str(args.kind),
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+    if args.command == "submit-idle-phase10":
+        result = controller.submit_idle_phase10_artifact_campaign(
             config_path=args.config,
             kind=str(args.kind),
         )

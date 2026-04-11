@@ -319,6 +319,53 @@ class LabelPgnCorpusPayload:
 
 
 @dataclass(frozen=True)
+class LabelPgnCorpusIdleSlicePayload:
+    """Task payload for one low-priority PGN labeling slice used during train idle time."""
+
+    config_path: str
+    pgn_root: str
+    pgn_glob: str
+    engine_path: str
+    work_dir: str
+    target_train_records: int
+    target_verify_records: int
+    min_ply: int
+    max_ply: int
+    ply_stride: int
+    engine_nodes: int
+    hash_mb: int
+    threads: int
+    split_seed: str
+    verify_divisor: int
+    progress_every: int
+    max_games: int
+    file_shard_index: int
+    file_shard_count: int
+    run_max_games: int
+    export_jsonl_on_complete: bool = True
+    complete_at_eof: bool = False
+    schema_version: int = ORCHESTRATOR_SCHEMA_VERSION
+    task_kind: str = "label_pgn_corpus_idle_slice"
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class Phase5RawMergePayload:
+    """Task payload for merging multiple labeled raw shard corpora."""
+
+    config_path: str
+    output_dir: str
+    source_dirs: tuple[str, ...]
+    schema_version: int = ORCHESTRATOR_SCHEMA_VERSION
+    task_kind: str = "phase5_raw_merge"
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
 class Phase10MaterializePayload:
     """Task payload for the exact Phase-5 materialization stage."""
 
@@ -354,6 +401,18 @@ class Phase10WorkflowPreparePayload:
 
 
 @dataclass(frozen=True)
+class Phase10ArtifactWorkflowPreparePayload:
+    """Task payload for expanding the idle artifact-only workflow DAG."""
+
+    config_path: str
+    schema_version: int = ORCHESTRATOR_SCHEMA_VERSION
+    task_kind: str = "phase10_artifact_workflow_prepare"
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
 class Phase10WorkflowChunkPayload:
     """Task payload for one single workflow chunk."""
 
@@ -377,6 +436,18 @@ class Phase10WorkflowFinalizePayload:
     model_id: int
     schema_version: int = ORCHESTRATOR_SCHEMA_VERSION
     task_kind: str = "phase10_workflow_finalize"
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class Phase10ArtifactFinalizePayload:
+    """Task payload for writing the final idle artifact-build summary."""
+
+    config_path: str
+    schema_version: int = ORCHESTRATOR_SCHEMA_VERSION
+    task_kind: str = "phase10_artifact_finalize"
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

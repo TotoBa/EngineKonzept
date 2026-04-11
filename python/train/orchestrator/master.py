@@ -36,6 +36,7 @@ class LabelPgnCorpusJobSpec:
     name: str
     pgn_root: str
     work_dir: str
+    enabled: bool = True
     glob: str = "**/*.pgn"
     engine_path: str = "/usr/games/stockfish18"
     target_train_records: int = 10_000_000
@@ -72,6 +73,7 @@ class LabelPgnCorpusJobSpec:
             "name": self.name,
             "pgn_root": self.pgn_root,
             "work_dir": self.work_dir,
+            "enabled": self.enabled,
             "glob": self.glob,
             "engine_path": self.engine_path,
             "target_train_records": self.target_train_records,
@@ -96,6 +98,7 @@ class LabelPgnCorpusJobSpec:
             name=str(payload["name"]),
             pgn_root=str(payload["pgn_root"]),
             work_dir=str(payload["work_dir"]),
+            enabled=bool(payload.get("enabled", True)),
             glob=str(payload.get("glob", "**/*.pgn")),
             engine_path=str(payload.get("engine_path", "/usr/games/stockfish18")),
             target_train_records=int(payload.get("target_train_records", 10_000_000)),
@@ -112,6 +115,105 @@ class LabelPgnCorpusJobSpec:
             max_games=int(payload.get("max_games", 0)),
             export_jsonl_on_complete=bool(payload.get("export_jsonl_on_complete", True)),
             complete_at_eof=bool(payload.get("complete_at_eof", False)),
+        )
+
+
+@dataclass(frozen=True)
+class IdlePhase10ArtifactJobSpec:
+    """One low-priority PGN -> LAPv2 Phase-10 artifact build managed by the master."""
+
+    name: str
+    phase10_config_path: str
+    pgn_root: str
+    work_root: str
+    enabled: bool = True
+    glob: str = "**/*.pgn"
+    engine_path: str = "/usr/games/stockfish18"
+    target_train_records: int = 10_000_000
+    target_verify_records: int = 10_000
+    min_ply: int = 8
+    max_ply: int = 80
+    ply_stride: int = 2
+    engine_nodes: int = 1500
+    hash_mb: int = 32
+    threads: int = 1
+    split_seed: str = "phase5-stockfish-unique-v1"
+    verify_divisor: int = 1000
+    progress_every: int = 1000
+    max_games: int = 0
+    shard_count: int = 1
+    run_max_games: int = 0
+    complete_at_eof: bool = True
+
+    def __post_init__(self) -> None:
+        if not self.name:
+            raise ValueError("idle phase10 job name must be non-empty")
+        if not self.phase10_config_path:
+            raise ValueError("idle phase10 job phase10_config_path must be non-empty")
+        if not self.pgn_root:
+            raise ValueError("idle phase10 job pgn_root must be non-empty")
+        if not self.work_root:
+            raise ValueError("idle phase10 job work_root must be non-empty")
+        if self.target_train_records <= 0:
+            raise ValueError("idle phase10 job target_train_records must be positive")
+        if self.target_verify_records < 0:
+            raise ValueError("idle phase10 job target_verify_records must be non-negative")
+        if self.threads <= 0:
+            raise ValueError("idle phase10 job threads must be positive")
+        if self.shard_count <= 0:
+            raise ValueError("idle phase10 job shard_count must be positive")
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "phase10_config_path": self.phase10_config_path,
+            "pgn_root": self.pgn_root,
+            "work_root": self.work_root,
+            "enabled": self.enabled,
+            "glob": self.glob,
+            "engine_path": self.engine_path,
+            "target_train_records": self.target_train_records,
+            "target_verify_records": self.target_verify_records,
+            "min_ply": self.min_ply,
+            "max_ply": self.max_ply,
+            "ply_stride": self.ply_stride,
+            "engine_nodes": self.engine_nodes,
+            "hash_mb": self.hash_mb,
+            "threads": self.threads,
+            "split_seed": self.split_seed,
+            "verify_divisor": self.verify_divisor,
+            "progress_every": self.progress_every,
+            "max_games": self.max_games,
+            "shard_count": self.shard_count,
+            "run_max_games": self.run_max_games,
+            "complete_at_eof": self.complete_at_eof,
+        }
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, object]) -> "IdlePhase10ArtifactJobSpec":
+        return cls(
+            name=str(payload["name"]),
+            phase10_config_path=str(payload["phase10_config_path"]),
+            pgn_root=str(payload["pgn_root"]),
+            work_root=str(payload["work_root"]),
+            enabled=bool(payload.get("enabled", True)),
+            glob=str(payload.get("glob", "**/*.pgn")),
+            engine_path=str(payload.get("engine_path", "/usr/games/stockfish18")),
+            target_train_records=int(payload.get("target_train_records", 10_000_000)),
+            target_verify_records=int(payload.get("target_verify_records", 10_000)),
+            min_ply=int(payload.get("min_ply", 8)),
+            max_ply=int(payload.get("max_ply", 80)),
+            ply_stride=int(payload.get("ply_stride", 2)),
+            engine_nodes=int(payload.get("engine_nodes", 1500)),
+            hash_mb=int(payload.get("hash_mb", 32)),
+            threads=int(payload.get("threads", 1)),
+            split_seed=str(payload.get("split_seed", "phase5-stockfish-unique-v1")),
+            verify_divisor=int(payload.get("verify_divisor", 1000)),
+            progress_every=int(payload.get("progress_every", 1000)),
+            max_games=int(payload.get("max_games", 0)),
+            shard_count=int(payload.get("shard_count", 1)),
+            run_max_games=int(payload.get("run_max_games", 0)),
+            complete_at_eof=bool(payload.get("complete_at_eof", True)),
         )
 
 
@@ -243,6 +345,7 @@ class Phase10LineageSpec:
     name: str
     seed_phase10_config_path: str
     output_root: str
+    enabled: bool = True
     label_job_name: str | None = None
     bootstrap_generation_from_seed_artifacts: bool = False
     max_generations: int = 1
@@ -270,6 +373,7 @@ class Phase10LineageSpec:
             "name": self.name,
             "seed_phase10_config_path": self.seed_phase10_config_path,
             "output_root": self.output_root,
+            "enabled": self.enabled,
             "label_job_name": self.label_job_name,
             "bootstrap_generation_from_seed_artifacts": self.bootstrap_generation_from_seed_artifacts,
             "max_generations": self.max_generations,
@@ -285,6 +389,7 @@ class Phase10LineageSpec:
             name=str(payload["name"]),
             seed_phase10_config_path=str(payload["seed_phase10_config_path"]),
             output_root=str(payload["output_root"]),
+            enabled=bool(payload.get("enabled", True)),
             label_job_name=(
                 str(payload["label_job_name"]) if payload.get("label_job_name") is not None else None
             ),
@@ -310,6 +415,7 @@ class MasterSpec:
     name: str
     output_root: str
     label_jobs: tuple[LabelPgnCorpusJobSpec, ...] = ()
+    idle_phase10_jobs: tuple[IdlePhase10ArtifactJobSpec, ...] = ()
     lineages: tuple[Phase10LineageSpec, ...] = ()
     poll_interval_seconds: float = 30.0
     spec_version: int = MASTER_SPEC_VERSION
@@ -331,6 +437,7 @@ class MasterSpec:
             "output_root": self.output_root,
             "poll_interval_seconds": self.poll_interval_seconds,
             "label_jobs": [job.to_dict() for job in self.label_jobs],
+            "idle_phase10_jobs": [job.to_dict() for job in self.idle_phase10_jobs],
             "lineages": [lineage.to_dict() for lineage in self.lineages],
         }
 
@@ -344,6 +451,10 @@ class MasterSpec:
             label_jobs=tuple(
                 LabelPgnCorpusJobSpec.from_dict(dict(entry))
                 for entry in list(payload.get("label_jobs") or [])
+            ),
+            idle_phase10_jobs=tuple(
+                IdlePhase10ArtifactJobSpec.from_dict(dict(entry))
+                for entry in list(payload.get("idle_phase10_jobs") or [])
             ),
             lineages=tuple(
                 Phase10LineageSpec.from_dict(dict(entry))
@@ -389,6 +500,33 @@ class OrchestratorMaster:
     def spec(self) -> MasterSpec:
         return self._spec
 
+    @property
+    def db(self) -> OrchestratorDB:
+        return self._db
+
+    @property
+    def controller(self) -> OrchestratorController:
+        return self._controller
+
+    @property
+    def repo_root(self) -> Path:
+        return self._repo_root
+
+    @property
+    def spec_path(self) -> Path:
+        return self._spec_path
+
+    @property
+    def output_root(self) -> Path:
+        return self._output_root
+
+    def replace_spec(self, spec: MasterSpec, *, spec_path: Path | None = None) -> None:
+        """Replace the active master spec without rebuilding the process."""
+        self._spec = spec
+        if spec_path is not None:
+            self._spec_path = spec_path
+        self._output_root = resolve_repo_path(self._repo_root, Path(self._spec.output_root))
+
     def reconcile_once(self) -> dict[str, Any]:
         """Submit or evaluate whatever the master can advance in one pass."""
         self._output_root.mkdir(parents=True, exist_ok=True)
@@ -396,6 +534,10 @@ class OrchestratorMaster:
         label_states = {
             job.name: self._reconcile_label_job(job)
             for job in self._spec.label_jobs
+        }
+        idle_phase10_states = {
+            job.name: self._reconcile_idle_phase10_job(job)
+            for job in self._spec.idle_phase10_jobs
         }
         lineage_states = {
             lineage.name: self._reconcile_lineage(lineage, label_states=label_states)
@@ -406,10 +548,15 @@ class OrchestratorMaster:
             "spec_path": str(self._spec_path),
             "output_root": str(self._output_root),
             "label_jobs": label_states,
+            "idle_phase10_jobs": idle_phase10_states,
             "lineages": lineage_states,
             "all_terminal": all(
                 state.get("terminal", False)
-                for state in (*label_states.values(), *lineage_states.values())
+                for state in (
+                    *label_states.values(),
+                    *idle_phase10_states.values(),
+                    *lineage_states.values(),
+                )
             ),
             "timestamp": int(time.time()),
         }
@@ -449,6 +596,12 @@ class OrchestratorMaster:
         raise TimeoutError(f"master did not reach a terminal state after {max_cycles} cycles")
 
     def _reconcile_label_job(self, job: LabelPgnCorpusJobSpec) -> dict[str, Any]:
+        if not job.enabled:
+            return {
+                "status": "disabled",
+                "terminal": True,
+                "work_dir": str(job.work_dir),
+            }
         campaigns = self._matching_campaigns(master_job_type="label_job", job_name=job.name)
         latest = campaigns[-1] if campaigns else None
         completed_snapshot = _completed_label_snapshot(Path(job.work_dir))
@@ -498,12 +651,73 @@ class OrchestratorMaster:
             "config_path": latest.config_path,
         }
 
+    def _reconcile_idle_phase10_job(self, job: IdlePhase10ArtifactJobSpec) -> dict[str, Any]:
+        if not job.enabled:
+            return {
+                "status": "disabled",
+                "terminal": True,
+                "work_root": str(job.work_root),
+            }
+        campaigns = self._matching_campaigns(master_job_type="idle_phase10_job", job_name=job.name)
+        latest = campaigns[-1] if campaigns else None
+        summary_path = resolve_repo_path(self._repo_root, Path(job.work_root)) / "summary.json"
+        if latest is None and summary_path.exists():
+            return {
+                "status": "completed_external",
+                "terminal": True,
+                "work_root": job.work_root,
+                "summary_path": str(summary_path),
+            }
+        if latest is None:
+            config_path = self._write_idle_phase10_job_config(job)
+            submission = self._controller.submit_idle_phase10_artifact_campaign(
+                config_path=config_path,
+                campaign_metadata={
+                    "master_name": self._spec.name,
+                    "master_job_type": "idle_phase10_job",
+                    "job_name": job.name,
+                },
+            )
+            return {
+                "status": "submitted",
+                "terminal": False,
+                "campaign_id": int(submission["campaign_id"]),
+                "config_path": str(config_path),
+            }
+        if latest.status in TERMINAL_CAMPAIGN_STATES:
+            if latest.status == "succeeded":
+                return {
+                    "status": "completed",
+                    "terminal": True,
+                    "campaign_id": latest.id,
+                    "summary_path": str(summary_path),
+                    "work_root": job.work_root,
+                }
+            return {
+                "status": "failed",
+                "terminal": True,
+                "campaign_id": latest.id,
+                "config_path": latest.config_path,
+            }
+        return {
+            "status": latest.status,
+            "terminal": False,
+            "campaign_id": latest.id,
+            "config_path": latest.config_path,
+        }
+
     def _reconcile_lineage(
         self,
         lineage: Phase10LineageSpec,
         *,
         label_states: Mapping[str, Mapping[str, Any]],
     ) -> dict[str, Any]:
+        if not lineage.enabled:
+            return {
+                "status": "disabled",
+                "terminal": True,
+                "active_arena_opponents": [],
+            }
         label_work_dir: Path | None = None
         if lineage.label_job_name is not None:
             label_state = dict(label_states.get(lineage.label_job_name) or {})
@@ -1523,6 +1737,12 @@ class OrchestratorMaster:
 
     def _write_label_job_config(self, job: LabelPgnCorpusJobSpec) -> Path:
         config_path = self._output_root / "label_jobs" / job.name / "config.json"
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        config_path.write_text(json.dumps(job.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        return config_path
+
+    def _write_idle_phase10_job_config(self, job: IdlePhase10ArtifactJobSpec) -> Path:
+        config_path = self._output_root / "idle_phase10_jobs" / job.name / "config.json"
         config_path.parent.mkdir(parents=True, exist_ok=True)
         config_path.write_text(json.dumps(job.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
         return config_path

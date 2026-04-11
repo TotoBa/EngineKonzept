@@ -106,6 +106,7 @@ Reference configs in the repository currently cover:
 The current larger comparison summary lives at [stockfish_pgn_pi_10k_compare_v1.json](/home/torsten/EngineKonzept/artifacts/phase5/stockfish_pgn_pi_10k_compare_v1.json).
 
 Install the training dependency set with `pip install -e python[train,dev]` or equivalent before running the proposer training script.
+For the HTTP-controlled orchestrator master, also install the optional master dependency set with `pip install -e python[master]`.
 
 ## Distributed Orchestration
 
@@ -145,6 +146,29 @@ python3 python/scripts/ek_master.py \
 python3 python/scripts/ek_ctl.py status
 ```
 
+The master can now also expose a CherryPy-backed control API and status page:
+
+```bash
+python3 python/scripts/ek_master.py \
+  --config /path/to/master_config.json \
+  --http-host 127.0.0.1 \
+  --http-port 8080
+```
+
+In HTTP mode, the same `OrchestratorMaster` instance remains in charge of reconciliation. The web layer is only a transport and UI shell above that runtime. The main endpoints are:
+
+- `GET /api/v1/bootstrap`
+- `GET /api/v1/runtime`
+- `POST /api/v1/runtime/start|stop|pause|resume|reconcile|requeue_expired`
+- `GET /api/v1/spec`
+- `POST /api/v1/spec/patch`
+- `POST /api/v1/spec/lineages/<name>`
+- `POST /api/v1/spec/label_jobs/<name>`
+- `POST /api/v1/spec/idle_phase10_jobs/<name>`
+- `POST /api/v1/submit/phase10|label|idle_phase10`
+
+The status page lives at `/` and uses the same API. It is intentionally simple and local-first: runtime controls, current summary, DB snapshot, and a small set of master-spec controls.
+
 Design rules:
 
 - MySQL stores orchestration metadata only.
@@ -154,6 +178,12 @@ Design rules:
 - The current Phase-10 DAG can insert tracked-LAP pre-verify selfplay shards between `train` and `verify`.
 - The master can now recycle both pre-verify selfplay and arena sessions by exporting PGNs, relabeling them through `label_pgn_corpus`, and merging the resulting raw corpora into the next generation.
 - Arena progression is explicit: non-`LAPv1` historical arms and `vice` stay active until safely beaten, while `stockfish18` advances on its own skill ladder in parallel.
+- The master spec now supports explicit `enabled` flags on label jobs, idle Phase-10 jobs, and lineages, so future runs can be paused or narrowed through the same API/UI path that serves status.
 - `bootstrap_generation_from_seed_artifacts=true` on one lineage lets generation 1 skip materialize/workflow and train directly from the dataset/workflow artifacts referenced by the seed Phase-10 config.
 - `reuse_existing_artifacts=true` on the generated Phase-10 campaign config is the low-level switch that turns that direct-train bootstrap on.
 - Training is best kept on one strong `train` worker; shardable selfplay/verify/arena work is best spread over multiple narrow workers.
+- Campaign status now advances on task start, so a leased `train_lapv1` no longer leaves the parent campaign stuck at `queued`.
+- The control plane also supports a low-priority background artifact path via `ek_ctl.py submit-idle-phase10`:
+  - Pi-style workers can advertise `label_idle,materialize_idle,workflow_idle,aggregate_idle`
+  - while a real `train_lapv1` lease is active somewhere else, those workers may build sharded `LAPv2 phase10` artifacts on NAS from PGNs
+  - once no active training lease remains, workers automatically stop claiming `*_idle` tasks and switch back to normal `selfplay`, `verify`, `arena`, and aggregate work

@@ -2,17 +2,23 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import socket
+import time
+from urllib.request import Request, urlopen
 
 import chess
+import pytest
 
 from train.eval.agent_spec import SelfplayAgentSpec, write_selfplay_agent_spec
 from train.orchestrator.master import (
+    IdlePhase10ArtifactJobSpec,
     LabelPgnCorpusJobSpec,
     MasterSpec,
     OrchestratorMaster,
     Phase10LineageSpec,
     PromotionThresholds,
 )
+from train.orchestrator.master_runtime import OrchestratorMasterRuntime
 from train.orchestrator.models import CampaignRow, ModelRow
 
 
@@ -27,6 +33,7 @@ class _StubDB:
         self._models = list(models or [])
         self.updated_models: list[tuple[int, dict[str, object]]] = []
         self.updated_campaigns: list[tuple[int, dict[str, object]]] = []
+        self.requeue_calls = 0
 
     def list_campaign_records(self, *, limit: int = 1000, **_: object) -> list[CampaignRow]:
         return list(self._campaigns)[:limit]
@@ -40,11 +47,24 @@ class _StubDB:
     def update_campaign_record(self, campaign_id: int, **fields: object) -> None:
         self.updated_campaigns.append((campaign_id, dict(fields)))
 
+    def status_snapshot(self, *, limit: int = 20) -> dict[str, object]:
+        return {
+            "task_counts": {"queued": 1},
+            "campaigns": [campaign.to_dict() for campaign in self._campaigns[:limit]],
+            "tasks": [],
+            "workers": [],
+        }
+
+    def requeue_expired_tasks(self) -> dict[str, int]:
+        self.requeue_calls += 1
+        return {"requeued": 0, "failed": 0}
+
 
 class _StubController:
     def __init__(self) -> None:
         self.phase10_submissions: list[dict[str, object]] = []
         self.label_submissions: list[dict[str, object]] = []
+        self.idle_phase10_submissions: list[dict[str, object]] = []
 
     def submit_phase10_campaign(self, **kwargs: object) -> dict[str, object]:
         self.phase10_submissions.append(dict(kwargs))
@@ -57,6 +77,13 @@ class _StubController:
         self.label_submissions.append(dict(kwargs))
         return {
             "campaign_id": 2000 + len(self.label_submissions),
+            "config_path": str(kwargs["config_path"]),
+        }
+
+    def submit_idle_phase10_artifact_campaign(self, **kwargs: object) -> dict[str, object]:
+        self.idle_phase10_submissions.append(dict(kwargs))
+        return {
+            "campaign_id": 3000 + len(self.idle_phase10_submissions),
             "config_path": str(kwargs["config_path"]),
         }
 
@@ -413,6 +440,42 @@ def test_master_materializes_first_generation_from_completed_label_snapshot(tmp_
     assert generation_payload["name"] == "master_first_generation_test_lapv2_lineage_g0001"
     assert train_payload["output_dir"].startswith(str(tmp_path / "lineage" / "generation_0001"))
     assert "initial_checkpoint" not in train_payload
+
+
+def test_master_submits_idle_phase10_job(tmp_path: Path) -> None:
+    controller = _StubController()
+    seed_config_path = _write_seed_phase10_config(tmp_path)
+    master = OrchestratorMaster(
+        db=_StubDB(),
+        controller=controller,
+        repo_root=Path(__file__).resolve().parents[2],
+        spec=MasterSpec(
+            name="master_idle_phase10_submit_test",
+            output_root=str(tmp_path / "master"),
+            idle_phase10_jobs=(
+                IdlePhase10ArtifactJobSpec(
+                    name="idle_phase10",
+                    phase10_config_path=str(seed_config_path),
+                    pgn_root="/srv/schach/PGN_DATA/pgn",
+                    work_root=str(tmp_path / "idle_phase10"),
+                    target_train_records=32,
+                    target_verify_records=8,
+                    shard_count=3,
+                    run_max_games=100,
+                ),
+            ),
+        ),
+        spec_path=tmp_path / "master.json",
+    )
+
+    summary = master.reconcile_once()
+
+    assert summary["idle_phase10_jobs"]["idle_phase10"]["status"] == "submitted"
+    assert len(controller.idle_phase10_submissions) == 1
+    config_path = Path(str(controller.idle_phase10_submissions[0]["config_path"]))
+    payload = json.loads(config_path.read_text(encoding="utf-8"))
+    assert payload["phase10_config_path"] == str(seed_config_path)
+    assert payload["work_root"] == str(tmp_path / "idle_phase10")
 
 
 def test_master_rewrites_nested_stage2_workflow_paths_into_generation_output(tmp_path: Path) -> None:
@@ -1095,3 +1158,188 @@ def test_master_advances_stockfish_in_parallel_while_vice_stays_active(tmp_path:
     opponent_results = dict(summary["lineages"]["lapv2_lineage"]["opponent_results"])
     assert opponent_results["vice_v2"]["safely_beaten"] is False
     assert opponent_results["stockfish18_skill_00"]["safely_beaten"] is True
+
+
+def test_master_reports_disabled_jobs_and_lineages(tmp_path: Path) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    master = OrchestratorMaster(
+        db=_StubDB(),
+        controller=_StubController(),
+        repo_root=repo_root,
+        spec=MasterSpec(
+            name="master_disabled_test",
+            output_root=str(tmp_path / "master"),
+            label_jobs=(
+                LabelPgnCorpusJobSpec(
+                    name="disabled_label",
+                    pgn_root="/srv/schach/PGN_DATA/pgn",
+                    work_dir=str(tmp_path / "label"),
+                    enabled=False,
+                    target_train_records=1,
+                    target_verify_records=0,
+                ),
+            ),
+            idle_phase10_jobs=(
+                IdlePhase10ArtifactJobSpec(
+                    name="disabled_idle",
+                    phase10_config_path="python/configs/phase10_lapv2_stage2_native_arena_all_sources_v1.json",
+                    pgn_root="/srv/schach/PGN_DATA/pgn",
+                    work_root=str(tmp_path / "idle"),
+                    enabled=False,
+                    target_train_records=1,
+                    target_verify_records=0,
+                ),
+            ),
+            lineages=(
+                Phase10LineageSpec(
+                    name="disabled_lineage",
+                    seed_phase10_config_path="python/configs/phase10_lapv2_stage2_native_arena_all_sources_v1.json",
+                    output_root=str(tmp_path / "lineage"),
+                    enabled=False,
+                ),
+            ),
+        ),
+        spec_path=tmp_path / "master.json",
+    )
+
+    summary = master.reconcile_once()
+
+    assert summary["label_jobs"]["disabled_label"]["status"] == "disabled"
+    assert summary["idle_phase10_jobs"]["disabled_idle"]["status"] == "disabled"
+    assert summary["lineages"]["disabled_lineage"]["status"] == "disabled"
+    assert summary["all_terminal"] is True
+
+
+def test_master_runtime_can_patch_spec_and_control_loop(tmp_path: Path) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    db = _StubDB()
+    controller = _StubController()
+    master = OrchestratorMaster(
+        db=db,
+        controller=controller,
+        repo_root=repo_root,
+        spec=MasterSpec(
+            name="master_runtime_test",
+            output_root=str(tmp_path / "master"),
+            lineages=(
+                Phase10LineageSpec(
+                    name="runtime_lineage",
+                    seed_phase10_config_path="python/configs/phase10_lapv2_stage2_native_arena_all_sources_v1.json",
+                    output_root=str(tmp_path / "lineage"),
+                ),
+            ),
+        ),
+        spec_path=tmp_path / "master.json",
+    )
+    runtime = OrchestratorMasterRuntime(master=master)
+
+    patched = runtime.patch_spec({"poll_interval_seconds": 1.5})
+    assert patched["poll_interval_seconds"] == 1.5
+
+    updated_entry = runtime.update_named_spec_entry(
+        collection_name="lineages",
+        entry_name="runtime_lineage",
+        patch={
+            "enabled": False,
+            "max_generations": 3,
+            "promotion_thresholds": {"min_arena_score_rate": 0.6},
+            "arena_progression": {"safe_score_rate": 0.7},
+        },
+    )
+    assert updated_entry["enabled"] is False
+    assert updated_entry["max_generations"] == 3
+    persisted = json.loads(master.spec_path.read_text(encoding="utf-8"))
+    assert persisted["poll_interval_seconds"] == 1.5
+    assert persisted["lineages"][0]["enabled"] is False
+    assert persisted["lineages"][0]["promotion_thresholds"]["min_arena_score_rate"] == 0.6
+    assert persisted["lineages"][0]["arena_progression"]["safe_score_rate"] == 0.7
+
+    started = runtime.start_loop()
+    assert started["loop_running"] is True
+    paused = runtime.pause_loop()
+    assert paused["paused"] is True
+    resumed = runtime.resume_loop()
+    assert resumed["paused"] is False
+    stopped = runtime.stop_loop()
+    assert stopped["loop_running"] is False
+
+    requeue_result = runtime.requeue_expired_tasks()
+    assert requeue_result["requeued"] == 0
+    assert db.requeue_calls == 1
+
+
+def test_master_http_server_exposes_runtime_and_spec_controls(tmp_path: Path) -> None:
+    pytest.importorskip("cherrypy")
+    from train.orchestrator.master_http import MasterHttpServer
+
+    repo_root = Path(__file__).resolve().parents[2]
+    master = OrchestratorMaster(
+        db=_StubDB(),
+        controller=_StubController(),
+        repo_root=repo_root,
+        spec=MasterSpec(
+            name="master_http_test",
+            output_root=str(tmp_path / "master"),
+            lineages=(
+                Phase10LineageSpec(
+                    name="http_lineage",
+                    seed_phase10_config_path="python/configs/phase10_lapv2_stage2_native_arena_all_sources_v1.json",
+                    output_root=str(tmp_path / "lineage"),
+                ),
+            ),
+        ),
+        spec_path=tmp_path / "master.json",
+    )
+    runtime = OrchestratorMasterRuntime(master=master)
+    port = _free_port()
+    server = MasterHttpServer(runtime=runtime, host="127.0.0.1", port=port)
+
+    try:
+        server.start()
+        time.sleep(0.2)
+
+        bootstrap = _request_json(f"{server.base_url}/api/v1/bootstrap?limit=5")
+        assert bootstrap["runtime"]["loop_running"] is False
+        assert bootstrap["spec"]["lineages"][0]["name"] == "http_lineage"
+
+        reconcile_summary = _request_json(
+            f"{server.base_url}/api/v1/runtime/reconcile",
+            method="POST",
+            payload={},
+        )
+        assert reconcile_summary["lineages"]["http_lineage"]["status"] == "submitted_generation"
+
+        updated_entry = _request_json(
+            f"{server.base_url}/api/v1/spec/lineages/http_lineage",
+            method="POST",
+            payload={"enabled": False, "max_generations": 2},
+        )
+        assert updated_entry["enabled"] is False
+        assert updated_entry["max_generations"] == 2
+
+        spec = _request_json(f"{server.base_url}/api/v1/spec")
+        assert spec["lineages"][0]["enabled"] is False
+        assert "Master Control" in _request_text(f"{server.base_url}/")
+    finally:
+        server.stop()
+
+
+def _request_json(url: str, *, method: str = "GET", payload: dict[str, object] | None = None) -> dict[str, object]:
+    encoded = json.dumps(payload).encode("utf-8") if payload is not None else None
+    request = Request(url, data=encoded, method=method)
+    if payload is not None:
+        request.add_header("Content-Type", "application/json")
+    with urlopen(request, timeout=5) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
+def _request_text(url: str) -> str:
+    with urlopen(url, timeout=5) as response:
+        return response.read().decode("utf-8")
+
+
+def _free_port() -> int:
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        sock.listen(1)
+        return int(sock.getsockname()[1])

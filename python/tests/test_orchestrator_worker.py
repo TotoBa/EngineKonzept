@@ -6,16 +6,86 @@ import os
 
 import pytest
 
-from train.orchestrator.models import TaskRow, WorkerDescriptor
+from train.orchestrator.models import TaskResult, TaskRow, WorkerDescriptor
 from train.orchestrator.worker import OrchestratorWorker
 
 
 class _StubDB:
-    pass
+    def update_campaign_record(self, *args: object, **kwargs: object) -> None:
+        return None
+
+    def has_active_training_tasks(self) -> bool:
+        return False
 
 
 class _StubController:
     pass
+
+
+class _RunOnceDB:
+    def __init__(self, task: TaskRow, *, training_active: bool = False) -> None:
+        self._task = task
+        self._training_active = training_active
+        self.campaign_updates: list[tuple[int, dict[str, object]]] = []
+        self.requeued_task_ids: list[int] = []
+        self.succeeded_task_ids: list[int] = []
+        self.heartbeats: list[tuple[str, int | None]] = []
+
+    def register_worker(self, **_: object) -> None:
+        return None
+
+    def heartbeat_worker(
+        self,
+        *,
+        worker_id: str,
+        status: str,
+        current_task_id: int | None,
+        lease_seconds: int | None = None,
+        metadata: dict[str, object] | None = None,
+    ) -> None:
+        del worker_id, lease_seconds, metadata
+        self.heartbeats.append((status, current_task_id))
+
+    def requeue_expired_tasks(self) -> dict[str, int]:
+        return {"requeued": 0, "failed": 0}
+
+    def claim_tasks(
+        self,
+        *,
+        worker_id: str,
+        capabilities: tuple[str, ...],
+        lease_seconds: int,
+        limit: int = 1,
+    ) -> list[TaskRow]:
+        del worker_id, capabilities, lease_seconds, limit
+        if self._task is None:  # type: ignore[unreachable]
+            return []
+        task = self._task
+        self._task = None  # type: ignore[assignment]
+        return [task]
+
+    def record_task_attempt_start(self, **_: object) -> int:
+        return 1
+
+    def finish_task_attempt(self, **_: object) -> None:
+        return None
+
+    def requeue_task(self, *, task_id: int, result: TaskResult | None = None) -> None:
+        del result
+        self.requeued_task_ids.append(task_id)
+
+    def mark_task_succeeded(self, *, task_id: int, result: TaskResult, artifacts: tuple[object, ...]) -> None:
+        del result, artifacts
+        self.succeeded_task_ids.append(task_id)
+
+    def mark_task_failed(self, **_: object) -> None:
+        raise AssertionError("mark_task_failed should not be called in this test")
+
+    def update_campaign_record(self, campaign_id: int, **fields: object) -> None:
+        self.campaign_updates.append((campaign_id, dict(fields)))
+
+    def has_active_training_tasks(self) -> bool:
+        return self._training_active
 
 
 def test_run_command_inherits_repo_pythonpath(tmp_path: Path) -> None:
@@ -300,3 +370,153 @@ def test_handle_label_pgn_corpus_reads_progress_and_exports(tmp_path: Path) -> N
     assert Path(result.summary_path) == work_dir / "summary.json"
     assert result.metrics == {"train_records": 4, "verify_records": 2, "games_seen": 3}
     assert len(result.artifacts) == 3
+
+
+def test_claim_capabilities_filters_idle_when_training_not_active(tmp_path: Path) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    worker = OrchestratorWorker(
+        db=_RunOnceDB(
+            TaskRow(
+                id=1,
+                campaign_id=1,
+                model_id=None,
+                task_type="verify_lapv1",
+                capability="verify",
+                priority=0,
+                state="queued",
+                payload={},
+                result=None,
+                worker_id=None,
+                lease_until=None,
+                attempt_count=0,
+                max_attempts=1,
+                depends_on_count=0,
+                not_before=None,
+                created_at=None,
+                updated_at=None,
+            ),
+            training_active=False,
+        ),
+        controller=_StubController(),
+        descriptor=WorkerDescriptor(
+            worker_id="worker-test",
+            hostname="localhost",
+            capabilities=("verify", "label_idle", "workflow_idle"),
+            scratch_root=str(tmp_path / "scratch"),
+            version="test",
+        ),
+        repo_root=repo_root,
+        log_root=tmp_path / "logs",
+    )
+
+    assert worker._claim_capabilities() == ("verify",)
+
+
+def test_before_execute_sets_training_campaign_status(tmp_path: Path) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    db = _RunOnceDB(
+        TaskRow(
+            id=1,
+            campaign_id=7,
+            model_id=1,
+            task_type="train_lapv1",
+            capability="train",
+            priority=0,
+            state="leased",
+            payload={},
+            result=None,
+            worker_id="worker-test",
+            lease_until=None,
+            attempt_count=1,
+            max_attempts=1,
+            depends_on_count=0,
+            not_before=None,
+            created_at=None,
+            updated_at=None,
+        )
+    )
+    worker = OrchestratorWorker(
+        db=db,
+        controller=_StubController(),
+        descriptor=WorkerDescriptor(
+            worker_id="worker-test",
+            hostname="localhost",
+            capabilities=("train",),
+            scratch_root=str(tmp_path / "scratch"),
+            version="test",
+        ),
+        repo_root=repo_root,
+        log_root=tmp_path / "logs",
+    )
+
+    worker._before_execute(
+        TaskRow(
+            id=1,
+            campaign_id=7,
+            model_id=1,
+            task_type="train_lapv1",
+            capability="train",
+            priority=0,
+            state="leased",
+            payload={},
+            result=None,
+            worker_id="worker-test",
+            lease_until=None,
+            attempt_count=1,
+            max_attempts=1,
+            depends_on_count=0,
+            not_before=None,
+            created_at=None,
+            updated_at=None,
+        )
+    )
+
+    assert db.campaign_updates == [(7, {"status": "training"})]
+
+
+def test_run_once_requeues_task_when_result_requests_it(tmp_path: Path) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    task = TaskRow(
+        id=11,
+        campaign_id=5,
+        model_id=None,
+        task_type="label_pgn_corpus_idle_slice",
+        capability="label_idle",
+        priority=0,
+        state="leased",
+        payload={"config_path": str(tmp_path / "idle_label.json")},
+        result=None,
+        worker_id="worker-test",
+        lease_until=None,
+        attempt_count=1,
+        max_attempts=1000,
+        depends_on_count=0,
+        not_before=None,
+        created_at=None,
+        updated_at=None,
+    )
+    db = _RunOnceDB(task, training_active=True)
+    worker = OrchestratorWorker(
+        db=db,
+        controller=_StubController(),
+        descriptor=WorkerDescriptor(
+            worker_id="worker-test",
+            hostname="localhost",
+            capabilities=("label_idle",),
+            scratch_root=str(tmp_path / "scratch"),
+            version="test",
+        ),
+        repo_root=repo_root,
+        log_root=tmp_path / "logs",
+    )
+
+    worker._execute_task = lambda **_: TaskResult(  # type: ignore[method-assign]
+        summary_path=str(tmp_path / "summary.json"),
+        metadata={"requeue_requested": True},
+    )
+
+    claimed = worker.run_once()
+
+    assert claimed is True
+    assert db.requeued_task_ids == [11]
+    assert db.succeeded_task_ids == []

@@ -18,6 +18,7 @@ The new operator entry points are:
 - [ek_ctl.py](/home/persk/repos/EngineKonzept/python/scripts/ek_ctl.py)
 - [ek_worker.py](/home/persk/repos/EngineKonzept/python/scripts/ek_worker.py)
 - [ek_master.py](/home/persk/repos/EngineKonzept/python/scripts/ek_master.py)
+- [master-control-api.md](/home/persk/repos/EngineKonzept/docs/architecture/master-control-api.md)
 
 The corresponding Python modules live under:
 
@@ -80,6 +81,20 @@ The new master layer sits above that DAG:
 - evaluate the finished generation from `verify` and `arena` summaries
 - either stop, reject, or spawn the next warm-started generation
 
+For future runs, the same master can now also run behind a CherryPy HTTP server:
+
+- the runtime loop remains the same `OrchestratorMaster`
+- the API reads and writes the same master spec file
+- the status page at `/` is only a thin UI over the JSON API
+- direct DB/task status still comes from MySQL, not from browser-local state
+
+The first HTTP control surface exposes:
+
+- runtime lifecycle controls: start, stop, pause, resume, reconcile now, requeue expired leases
+- read-only snapshots: latest master summary, active spec, DB status snapshot
+- write controls: spec patching, per-lineage toggles, per-job toggles
+- ad-hoc submit endpoints mirroring the existing `ek_ctl.py` submission commands
+
 The pre-verify selfplay stage is intentionally limited to the tracked LAP runtime and reuses the
 opening FEN suite from the campaign spec. It is not a replacement for the later arena stage.
 
@@ -101,6 +116,8 @@ The same topology also worked in the first real master smoke run:
 - one `label,selfplay,arena` worker
 
 That run completed a real `label -> g0001 -> evaluate -> g0002` chain against MySQL.
+
+The new HTTP layer was intentionally kept outside the active production run. It is implemented for later runs and does not need to be rolled onto a live generation mid-flight.
 
 ## Why IPC First
 
