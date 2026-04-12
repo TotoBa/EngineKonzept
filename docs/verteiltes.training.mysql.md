@@ -112,8 +112,9 @@ Der aktuelle Repo-Stand ist für diesen Umbau günstig, weil die zentralen Domä
   - `python/train/eval/evolution_campaign.py`
 - Das PGN/Stockfish-Corpus ist bereits resumable, aber heute noch lokal-zentriert:
   - `python/scripts/build_unique_stockfish_pgn_corpus.py`
-  - nutzt `corpus.sqlite3`
-  - dokumentiert implizit, dass dessen Work-Dir lokal bleiben sollte
+  - nutzt jetzt einen MySQL-Label-Ledger statt SQLite
+  - `work_dir` ist das NAS-Exportziel für `progress.json`, `train_raw.jsonl`, `verify_raw.jsonl`
+  - Resume- und FEN-Dedup-Zustand liegt im selben MySQL-System wie die Control Plane
 
 Wichtig ist auch der aktuelle negative Befund:
 
@@ -160,7 +161,7 @@ Hier liegen alle großen Daten:
 Jeder Worker hat:
 
 - lokale SSD/NVMe oder lokales Dateisystem für Scratch
-- lokale temporäre SQLite/LMDB/JSONL-Arbeitszustände
+- lokale Logs und temporäre Dateiartefakte, falls einzelne Tasks sie brauchen
 - Zugriff auf MySQL
 - Zugriff auf das NAS
 - explizite Capabilities:
@@ -411,14 +412,14 @@ Die Reihenfolge ist daher bewusst:
 
 ## SQL- und Datensicherheitsregel
 
-Der bestehende PGN-Corpus-Builder nutzt heute SQLite. Das ist lokal gut, aber kein Zielmodell für Multi-Host-Schreiber auf einem Shared Mount.
+Der PGN-Corpus-Builder nutzt jetzt denselben MySQL-Server wie die übrige Control Plane.
 
 Daraus folgt:
 
-- kein Shared-SQLite als globaler Koordinator
-- lokales SQLite pro Worker-Task ist erlaubt
-- globaler Zustand liegt in MySQL
-- verteiltes Labeling arbeitet mit NAS-Shards plus Merge
+- kein SQLite mehr im verteilten Label-Pfad
+- Resume- und Dedup-Zustand für `label_pgn_corpus` liegt in MySQL
+- exportierte Rohkorpora und Folgeartefakte bleiben auf dem NAS
+- Secrets bleiben außerhalb des Repos und werden per Umgebung oder lokaler Env-Datei injiziert
 
 ## Observability, Wiederaufnahme und Debugbarkeit
 
@@ -677,9 +678,9 @@ Aufgabe:
 
 Wichtig:
 
-- kein globales Shared-SQLite
-- lokale Resume-Stati erlaubt
-- globale Dedup erfolgt im Merge-Schritt
+- kein SQLite-Sonderpfad mehr
+- Resume- und Dedup erfolgen im MySQL-Ledger des jeweiligen Label-Namespace
+- exportierte Shards werden weiter als NAS-Artefakte behandelt
 
 ### 2. Materialize-Worker
 
@@ -869,7 +870,7 @@ Akzeptanz:
 
 Ziel:
 
-- shard-basiertes PGN-Labeling statt globaler Shared-SQLite
+- shard-basiertes PGN-Labeling mit MySQL-Ledger statt SQLite
 
 Pflichten:
 
@@ -991,8 +992,8 @@ Die richtige Version des Plans ist:
 Und daraus folgt praktisch:
 
 - keine Filesystem-Queue mehr
-- kein Shared-SQLite für globale Koordination
-- keine großen Daten in MySQL
+- kein SQLite-Sonderpfad für Labeling
+- große finale Artefakte bleiben auf dem NAS, aber der resumable Label-Ledger liegt bewusst in MySQL
 - Arena, Workflow, Labeling, Selfplay, Training und Verify als DB-gesteuerte Jobs
 - bestehende `/srv/schach/engine_training/...`-Roots bleiben die Wahrheit für große Daten
 - der heutige native LAPv2-Lauf wird als erste Campaign auf den neuen Orchestrator gehoben, nicht neu erfunden

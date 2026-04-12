@@ -104,17 +104,17 @@ For larger background labeling runs that need global uniqueness guarantees acros
 
 This path is distinct from the smaller bounded sampler:
 
-- it stores canonical samples in `corpus.sqlite3`
+- it stores canonical samples in the MySQL label ledger
 - uniqueness is enforced by full-FEN hash across the whole corpus
 - `verify` rows are unique among themselves and also unique relative to `train`
-- interrupted runs can resume from the same work directory
+- interrupted runs can resume from the same work directory / ledger namespace
 - `train_raw.jsonl` and `verify_raw.jsonl` are exported only once the requested targets are complete
 
-The unique-corpus builder is meant for long-running offline jobs such as multi-million-position Stockfish labeling on a side host. Because it relies on SQLite locking semantics, its `--work-dir` should live on a normal local filesystem on that host rather than on an unreliable shared or lockless temporary mount.
+The unique-corpus builder is meant for long-running offline jobs such as multi-million-position Stockfish labeling on a side host. It now reads the ledger connection from `EK_MYSQL_*`, so its `--work-dir` only needs to be a reliable export path for `progress.json`, `train_raw.jsonl`, and `verify_raw.jsonl`.
 
 `build_unique_stockfish_dataset_pipeline.py` is the current orchestration path for those side-host jobs:
 
-- it can resume or snapshot-export the unique SQLite corpus
+- it can resume or snapshot-export the unique MySQL-backed corpus
 - it writes `train_raw.jsonl` and `verify_raw.jsonl`
 - it materializes the current dataset directories from those raw exports
 - it backfills the current standard artifact families on top:

@@ -10,6 +10,7 @@ from typing import Any, Mapping, Sequence
 import pymysql
 from pymysql.cursors import DictCursor
 
+from train.orchestrator.label_corpus_ledger import CREATE_LABEL_CORPUS_TABLES
 from train.orchestrator.models import (
     ArtifactRef,
     CampaignRow,
@@ -153,6 +154,7 @@ _CREATE_TABLES = (
         KEY idx_arena_matches_campaign (campaign_id)
     ) ENGINE=InnoDB
     """,
+    *CREATE_LABEL_CORPUS_TABLES,
 )
 
 

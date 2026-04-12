@@ -9,7 +9,12 @@ from pathlib import Path
 import sys
 from typing import Any, Sequence
 
-from train.datasets import (
+REPO_ROOT = Path(__file__).resolve().parents[2]
+PYTHON_ROOT = REPO_ROOT / "python"
+if str(PYTHON_ROOT) not in sys.path:
+    sys.path.insert(0, str(PYTHON_ROOT))
+
+from train.datasets import (  # noqa: E402
     SplitRatios,
     build_dataset,
     load_raw_records,
@@ -18,7 +23,7 @@ from train.datasets import (
     training_split_ratios,
     verification_split_ratios,
 )
-from train.datasets.io import write_dataset_artifacts
+from train.datasets.io import write_dataset_artifacts  # noqa: E402
 
 _UNIQUE_CORPUS_SCRIPT_PATH = Path(__file__).with_name("build_unique_stockfish_pgn_corpus.py")
 _UNIQUE_CORPUS_SPEC = importlib.util.spec_from_file_location(

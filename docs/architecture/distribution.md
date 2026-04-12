@@ -19,12 +19,13 @@ The new operator entry points are:
 - [ek_worker.py](/home/persk/repos/EngineKonzept/python/scripts/ek_worker.py)
 - [ek_master.py](/home/persk/repos/EngineKonzept/python/scripts/ek_master.py)
 - [master-control-api.md](/home/persk/repos/EngineKonzept/docs/architecture/master-control-api.md)
+- [mysql-label-ledger.md](/home/persk/repos/EngineKonzept/docs/architecture/mysql-label-ledger.md)
 
 The corresponding Python modules live under:
 
 - [train/orchestrator](/home/persk/repos/EngineKonzept/python/train/orchestrator)
 
-The control plane intentionally stores only small metadata:
+The control plane intentionally stores mostly metadata plus one resumable label ledger:
 
 - task payloads
 - task states
@@ -32,6 +33,7 @@ The control plane intentionally stores only small metadata:
 - worker heartbeats
 - compact result summaries
 - artifact paths and checksums
+- unique-corpus label rows for `label_pgn_corpus`
 
 Large payloads remain file-based:
 
@@ -72,6 +74,7 @@ The current Phase-10 DAG is:
 - optional `selfplay_prepare -> selfplay_shard* -> selfplay_finalize`
 - `verify -> arena_prepare -> arena_match* -> arena_finalize -> phase10_finalize`
 - `label_pgn_corpus` exists as a separate resumable campaign type for PGN/Stockfish corpus jobs
+  - its exported raw corpora live on NAS, while uniqueness and resume state now live in MySQL
 
 The new master layer sits above that DAG:
 

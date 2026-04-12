@@ -109,6 +109,7 @@ class OrchestratorWorker:
         result_summary_path: str | None = None
         details: dict[str, Any] = {"task_type": task.task_type}
         exit_code = 0
+        retry_allowed = False
         try:
             self._before_execute(task)
             stdout_path.parent.mkdir(parents=True, exist_ok=True)
@@ -142,6 +143,7 @@ class OrchestratorWorker:
                 self._after_success(task=task, result=result)
         except Exception as exc:
             exit_code = 1
+            retry_allowed = task.attempt_count < task.max_attempts
             details.update(
                 {
                     "error_type": type(exc).__name__,
@@ -151,9 +153,11 @@ class OrchestratorWorker:
             self._db.mark_task_failed(
                 task=task,
                 error_message=str(exc),
-                retry_allowed=task.attempt_count < task.max_attempts,
+                retry_allowed=retry_allowed,
                 details=details,
             )
+            if not retry_allowed:
+                self._db.update_campaign_record(task.campaign_id, status="failed")
         finally:
             self._db.finish_task_attempt(
                 attempt_id=attempt_id,
@@ -329,14 +333,7 @@ class OrchestratorWorker:
         if not progress_path.exists():
             raise FileNotFoundError(f"label progress file not found: {progress_path}")
         progress = json.loads(progress_path.read_text(encoding="utf-8"))
-        database_path = work_dir / "corpus.sqlite3"
-        if database_path.exists():
-            export_summary = export_unique_corpus_snapshot(work_dir)
-        else:
-            export_summary = {
-                "train_raw_path": str(work_dir / "train_raw.jsonl"),
-                "verify_raw_path": str(work_dir / "verify_raw.jsonl"),
-            }
+        export_summary = export_unique_corpus_snapshot(work_dir, db_config=self._db.config)
         if require_completed and not bool(progress.get("completed")):
             raise RuntimeError(
                 f"label campaign did not reach requested targets: {progress_path}"
@@ -354,6 +351,8 @@ class OrchestratorWorker:
                 "config_path": str(payload["config_path"]),
                 "pgn_root": str(payload["pgn_root"]),
                 "work_dir": str(work_dir),
+                "ledger_backend": "mysql",
+                "ledger_namespace": str(progress.get("ledger_namespace") or work_dir),
                 "progress_path": str(progress_path),
                 "train_raw_path": str(train_raw_path),
                 "verify_raw_path": str(verify_raw_path),

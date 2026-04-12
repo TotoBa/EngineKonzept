@@ -1,16 +1,28 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import os
+from pathlib import Path
 
 import pytest
 
-from train.orchestrator.models import TaskResult, TaskRow, WorkerDescriptor
+from train.orchestrator.models import MySQLConfig, TaskResult, TaskRow, WorkerDescriptor
 from train.orchestrator.worker import OrchestratorWorker
 
 
 class _StubDB:
+    def __init__(self) -> None:
+        self._config = MySQLConfig(
+            host="localhost",
+            user="user",
+            password="password",
+            database="chesstrainer",
+        )
+
+    @property
+    def config(self) -> MySQLConfig:
+        return self._config
+
     def update_campaign_record(self, *args: object, **kwargs: object) -> None:
         return None
 
@@ -26,10 +38,21 @@ class _RunOnceDB:
     def __init__(self, task: TaskRow, *, training_active: bool = False) -> None:
         self._task = task
         self._training_active = training_active
+        self._config = MySQLConfig(
+            host="localhost",
+            user="user",
+            password="password",
+            database="chesstrainer",
+        )
         self.campaign_updates: list[tuple[int, dict[str, object]]] = []
         self.requeued_task_ids: list[int] = []
         self.succeeded_task_ids: list[int] = []
+        self.failed_task_ids: list[int] = []
         self.heartbeats: list[tuple[str, int | None]] = []
+
+    @property
+    def config(self) -> MySQLConfig:
+        return self._config
 
     def register_worker(self, **_: object) -> None:
         return None
@@ -78,8 +101,8 @@ class _RunOnceDB:
         del result, artifacts
         self.succeeded_task_ids.append(task_id)
 
-    def mark_task_failed(self, **_: object) -> None:
-        raise AssertionError("mark_task_failed should not be called in this test")
+    def mark_task_failed(self, *, task: TaskRow, **_: object) -> None:
+        self.failed_task_ids.append(task.id)
 
     def update_campaign_record(self, campaign_id: int, **fields: object) -> None:
         self.campaign_updates.append((campaign_id, dict(fields)))
@@ -343,15 +366,20 @@ def test_handle_label_pgn_corpus_reads_progress_and_exports(tmp_path: Path) -> N
         created_at=None,
         updated_at=None,
     )
+    commands: list[list[str]] = []
 
     def fake_run_command(*args: object, **kwargs: object) -> None:
+        del kwargs
+        command = [str(value) for value in args[0]]
+        commands.append(command)
         work_dir.mkdir(parents=True, exist_ok=True)
         (work_dir / "progress.json").write_text(
             """
 {
   "completed": true,
   "counts": {"train": 4, "verify": 2},
-  "games_seen": 3
+  "games_seen": 3,
+  "ledger_namespace": "mysql://label/work"
 }
 """.strip()
             + "\n",
@@ -361,15 +389,136 @@ def test_handle_label_pgn_corpus_reads_progress_and_exports(tmp_path: Path) -> N
         (work_dir / "verify_raw.jsonl").write_text("{}\n", encoding="utf-8")
 
     worker._run_command = fake_run_command  # type: ignore[method-assign]
+    fake_export_summary = {
+        "train_raw_path": str(work_dir / "train_raw.jsonl"),
+        "verify_raw_path": str(work_dir / "verify_raw.jsonl"),
+        "counts": {"train": 4, "verify": 2},
+        "labeled_counts": {"train": 4, "verify": 2},
+    }
     with (
         stdout_path.open("w", encoding="utf-8") as stdout_handle,
         stderr_path.open("w", encoding="utf-8") as stderr_handle,
+        pytest.MonkeyPatch.context() as monkeypatch,
     ):
+        monkeypatch.setattr(
+            "scripts.build_unique_stockfish_pgn_corpus.export_unique_corpus_snapshot",
+            lambda *args, **kwargs: fake_export_summary,
+        )
         result = worker._handle_label_pgn_corpus(task, stdout_handle, stderr_handle)
 
     assert Path(result.summary_path) == work_dir / "summary.json"
     assert result.metrics == {"train_records": 4, "verify_records": 2, "games_seen": 3}
     assert len(result.artifacts) == 3
+    assert len(commands) == 1
+    assert "--state-dir" not in commands[0]
+    summary_payload = json.loads(Path(result.summary_path).read_text(encoding="utf-8"))
+    assert summary_payload["work_dir"] == str(work_dir)
+    assert summary_payload["ledger_backend"] == "mysql"
+    assert summary_payload["ledger_namespace"] == "mysql://label/work"
+
+
+def test_handle_label_pgn_corpus_exports_from_mysql_ledger(tmp_path: Path) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    worker = OrchestratorWorker(
+        db=_StubDB(),
+        controller=_StubController(),
+        descriptor=WorkerDescriptor(
+            worker_id="worker-test",
+            hostname="localhost",
+            capabilities=("label",),
+            scratch_root=str(tmp_path / "scratch"),
+            version="test",
+        ),
+        repo_root=repo_root,
+        log_root=tmp_path / "logs",
+    )
+    work_dir = tmp_path / "label_work"
+    stdout_path = tmp_path / "stdout-label.log"
+    stderr_path = tmp_path / "stderr-label.log"
+    task = TaskRow(
+        id=7,
+        campaign_id=1,
+        model_id=None,
+        task_type="label_pgn_corpus",
+        capability="label",
+        priority=0,
+        state="leased",
+        payload={
+            "config_path": str(tmp_path / "label.json"),
+            "pgn_root": "/srv/schach/PGN_DATA/pgn",
+            "pgn_glob": "**/*.pgn",
+            "engine_path": "/usr/games/stockfish18",
+            "work_dir": str(work_dir),
+            "target_train_records": 1,
+            "target_verify_records": 1,
+            "min_ply": 1,
+            "max_ply": 8,
+            "ply_stride": 1,
+            "engine_nodes": 64,
+            "hash_mb": 32,
+            "threads": 1,
+            "split_seed": "seed",
+            "verify_divisor": 2,
+            "progress_every": 1,
+            "max_games": 4,
+            "export_jsonl_on_complete": True,
+        },
+        result=None,
+        worker_id="worker-test",
+        lease_until=None,
+        attempt_count=1,
+        max_attempts=1,
+        depends_on_count=0,
+        not_before=None,
+        created_at=None,
+        updated_at=None,
+    )
+
+    def fake_run_command(*args: object, **kwargs: object) -> None:
+        del args, kwargs
+        work_dir.mkdir(parents=True, exist_ok=True)
+        (work_dir / "progress.json").write_text(
+            """
+{
+  "completed": true,
+  "counts": {"train": 1, "verify": 1},
+  "games_seen": 2,
+  "ledger_namespace": "mysql://feedback/g7"
+}
+""".strip()
+            + "\n",
+            encoding="utf-8",
+        )
+        (work_dir / "train_raw.jsonl").write_text(
+            '{"sample_id":"train:1"}\n',
+            encoding="utf-8",
+        )
+        (work_dir / "verify_raw.jsonl").write_text(
+            '{"sample_id":"verify:1"}\n',
+            encoding="utf-8",
+        )
+
+    worker._run_command = fake_run_command  # type: ignore[method-assign]
+    with (
+        stdout_path.open("w", encoding="utf-8") as stdout_handle,
+        stderr_path.open("w", encoding="utf-8") as stderr_handle,
+        pytest.MonkeyPatch.context() as monkeypatch,
+    ):
+        monkeypatch.setattr(
+            "scripts.build_unique_stockfish_pgn_corpus.export_unique_corpus_snapshot",
+            lambda *args, **kwargs: {
+                "train_raw_path": str(work_dir / "train_raw.jsonl"),
+                "verify_raw_path": str(work_dir / "verify_raw.jsonl"),
+                "counts": {"train": 1, "verify": 1},
+                "labeled_counts": {"train": 1, "verify": 1},
+            },
+        )
+        result = worker._handle_label_pgn_corpus(task, stdout_handle, stderr_handle)
+
+    assert Path(result.summary_path) == work_dir / "summary.json"
+    assert (work_dir / "train_raw.jsonl").exists()
+    assert (work_dir / "verify_raw.jsonl").exists()
+    assert not (work_dir / "corpus.sqlite3").exists()
 
 
 def test_claim_capabilities_filters_idle_when_training_not_active(tmp_path: Path) -> None:
@@ -520,3 +669,53 @@ def test_run_once_requeues_task_when_result_requests_it(tmp_path: Path) -> None:
     assert claimed is True
     assert db.requeued_task_ids == [11]
     assert db.succeeded_task_ids == []
+
+
+def test_run_once_marks_campaign_failed_after_final_task_failure(tmp_path: Path) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    task = TaskRow(
+        id=12,
+        campaign_id=8,
+        model_id=None,
+        task_type="label_pgn_corpus",
+        capability="label",
+        priority=0,
+        state="leased",
+        payload={"config_path": str(tmp_path / "label.json")},
+        result=None,
+        worker_id="worker-test",
+        lease_until=None,
+        attempt_count=1,
+        max_attempts=1,
+        depends_on_count=0,
+        not_before=None,
+        created_at=None,
+        updated_at=None,
+    )
+    db = _RunOnceDB(task)
+    worker = OrchestratorWorker(
+        db=db,
+        controller=_StubController(),
+        descriptor=WorkerDescriptor(
+            worker_id="worker-test",
+            hostname="localhost",
+            capabilities=("label",),
+            scratch_root=str(tmp_path / "scratch"),
+            version="test",
+        ),
+        repo_root=repo_root,
+        log_root=tmp_path / "logs",
+    )
+
+    def failing_execute(**_: object) -> TaskResult:
+        raise RuntimeError("label failed")
+
+    worker._execute_task = failing_execute  # type: ignore[method-assign]
+
+    claimed = worker.run_once()
+
+    assert claimed is True
+    assert db.failed_task_ids == [12]
+    assert db.succeeded_task_ids == []
+    assert db.requeued_task_ids == []
+    assert db.campaign_updates == [(8, {"status": "running"}), (8, {"status": "failed"})]
