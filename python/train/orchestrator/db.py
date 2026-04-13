@@ -24,6 +24,7 @@ from train.orchestrator.models import (
     TaskResult,
     TaskRow,
 )
+from train.orchestrator.training_data_usage_ledger import CREATE_TRAINING_DATA_USAGE_TABLES
 
 _CREATE_TABLES = (
     """
@@ -155,6 +156,7 @@ _CREATE_TABLES = (
     ) ENGINE=InnoDB
     """,
     *CREATE_LABEL_CORPUS_TABLES,
+    *CREATE_TRAINING_DATA_USAGE_TABLES,
 )
 
 

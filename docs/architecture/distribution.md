@@ -83,6 +83,8 @@ The new master layer sits above that DAG:
 - materialize one generation-specific Phase-10 config
 - evaluate the finished generation from `verify` and `arena` summaries
 - either stop, reject, or spawn the next warm-started generation
+- while one host trains, other hosts may keep feeding the lineage through low-priority idle shard exports
+- the master now tracks per-lineage FEN reuse in MySQL so future generations prefer unseen positions and only recycle the least-used positions when they need to refill the corpus
 
 For future runs, the same master can now also run behind a CherryPy HTTP server:
 

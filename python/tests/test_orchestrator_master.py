@@ -9,6 +9,7 @@ from urllib.request import Request, urlopen
 import chess
 import pytest
 
+from train.datasets.schema import RawPositionRecord
 from train.eval.agent_spec import SelfplayAgentSpec, write_selfplay_agent_spec
 from train.orchestrator.master import (
     IdlePhase10ArtifactJobSpec,
@@ -17,6 +18,7 @@ from train.orchestrator.master import (
     OrchestratorMaster,
     Phase10LineageSpec,
     PromotionThresholds,
+    _select_usage_balanced_records,
 )
 from train.orchestrator.master_runtime import OrchestratorMasterRuntime
 from train.orchestrator.models import CampaignRow, ModelRow
@@ -186,6 +188,35 @@ def _write_completed_raw_snapshot(
             sort_keys=True,
         )
         + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write_active_raw_snapshot(
+    work_dir: Path,
+    *,
+    train_rows: list[dict[str, object]],
+    verify_rows: list[dict[str, object]],
+) -> None:
+    work_dir.mkdir(parents=True, exist_ok=True)
+    (work_dir / "progress.json").write_text(
+        json.dumps(
+            {
+                "completed": False,
+                "counts": {"train": len(train_rows), "verify": len(verify_rows)},
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (work_dir / "train_raw.jsonl").write_text(
+        "".join(json.dumps(row, sort_keys=True) + "\n" for row in train_rows),
+        encoding="utf-8",
+    )
+    (work_dir / "verify_raw.jsonl").write_text(
+        "".join(json.dumps(row, sort_keys=True) + "\n" for row in verify_rows),
         encoding="utf-8",
     )
 
@@ -955,7 +986,7 @@ def test_master_submits_combined_feedback_label_job_for_selfplay_and_arena(tmp_p
     assert controller.phase10_submissions == []
 
 
-def test_master_merges_feedback_corpus_before_next_generation(tmp_path: Path) -> None:
+def test_master_prefers_fresh_feedback_before_reusing_base_corpus(tmp_path: Path) -> None:
     repo_root = Path(__file__).resolve().parents[2]
     controller = _StubController()
     base_label_work_dir = tmp_path / "label_work"
@@ -1065,12 +1096,208 @@ def test_master_merges_feedback_corpus_before_next_generation(tmp_path: Path) ->
     selection_summary = json.loads(
         (merged_raw_dir / "selection_summary.json").read_text(encoding="utf-8")
     )
-    assert selection_summary["train_records"] == 2
+    assert selection_summary["train_records"] == 1
+    assert selection_summary["train_summary"]["fresh_records"] == 1
+    assert selection_summary["train_summary"]["reused_records"] == 0
     train_rows = [
         json.loads(line)
         for line in (merged_raw_dir / "train_raw.jsonl").read_text(encoding="utf-8").splitlines()
     ]
-    assert {row["source"] for row in train_rows} == {"base", "feedback"}
+    assert {row["source"] for row in train_rows} == {"feedback"}
+
+
+def test_usage_balanced_selection_reuses_least_trained_records_first(tmp_path: Path) -> None:
+    master = OrchestratorMaster(
+        db=_StubDB(),
+        controller=_StubController(),
+        repo_root=Path(__file__).resolve().parents[2],
+        spec=MasterSpec(
+            name="master_usage_balanced_test",
+            output_root=str(tmp_path / "master"),
+        ),
+        spec_path=tmp_path / "master.json",
+    )
+    records = [
+        RawPositionRecord(
+            sample_id="sample_a",
+            fen="4k3/8/8/8/8/8/8/4K3 w - - 0 1",
+            source="base",
+        ),
+        RawPositionRecord(
+            sample_id="sample_b",
+            fen="4k3/8/8/8/8/8/8/3K4 w - - 0 1",
+            source="base",
+        ),
+        RawPositionRecord(
+            sample_id="sample_c",
+            fen="4k3/8/8/8/8/8/8/2K5 w - - 0 1",
+            source="base",
+        ),
+    ]
+    master.usage_ledger.record_generation_usage(
+        master_name="master_usage_balanced_test",
+        lineage_name="lapv2_lineage",
+        generation=1,
+        campaign_id=1,
+        model_id=1,
+        merged_raw_dir=str(tmp_path / "generation_0001"),
+        train_records=records,
+        verify_records=[],
+    )
+    master.usage_ledger.record_generation_usage(
+        master_name="master_usage_balanced_test",
+        lineage_name="lapv2_lineage",
+        generation=2,
+        campaign_id=2,
+        model_id=2,
+        merged_raw_dir=str(tmp_path / "generation_0002"),
+        train_records=[records[0]],
+        verify_records=[],
+    )
+
+    selected_records, summary = _select_usage_balanced_records(
+        records=records,
+        split_name="train",
+        desired_count=2,
+        generation=3,
+        master_name="master_usage_balanced_test",
+        lineage_name="lapv2_lineage",
+        usage_ledger=master.usage_ledger,
+    )
+
+    assert {record.sample_id for record in selected_records} == {"sample_b", "sample_c"}
+    assert summary["fresh_records"] == 0
+    assert summary["reused_records"] == 2
+    assert summary["usage_histogram_before_selection"] == {"1": 2, "2": 1}
+
+
+def test_master_ingests_idle_shard_snapshot_before_next_generation(tmp_path: Path) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    controller = _StubController()
+    base_label_work_dir = tmp_path / "label_work"
+    _write_completed_raw_snapshot(
+        base_label_work_dir,
+        train_rows=[
+            {
+                "sample_id": "base:train:1",
+                "fen": "4k3/8/8/8/8/8/8/4K3 w - - 0 1",
+                "source": "base",
+                "selected_move_uci": "e1e2",
+                "result": "1-0",
+                "metadata": {},
+            }
+        ],
+        verify_rows=[],
+    )
+    idle_work_root = tmp_path / "idle_phase10"
+    _write_active_raw_snapshot(
+        idle_work_root / "label_shards" / "shard_01",
+        train_rows=[
+            {
+                "sample_id": "idle:train:1",
+                "fen": "4k3/8/8/8/8/8/8/2K5 w - - 0 1",
+                "source": "idle",
+                "selected_move_uci": "c1c2",
+                "result": "1/2-1/2",
+                "metadata": {},
+            }
+        ],
+        verify_rows=[],
+    )
+    lineage = Phase10LineageSpec(
+        name="lapv2_lineage",
+        seed_phase10_config_path="python/configs/phase10_lapv2_stage2_native_arena_all_sources_v1.json",
+        output_root=str(tmp_path / "lineage"),
+        label_job_name="base_label",
+        max_generations=2,
+        on_accept="continue_training",
+        promotion_thresholds=PromotionThresholds(
+            min_verify_top1_accuracy=0.1,
+            min_arena_score_rate=0.5,
+        ),
+    )
+    db = _StubDB()
+    master = OrchestratorMaster(
+        db=db,
+        controller=controller,
+        repo_root=repo_root,
+        spec=MasterSpec(
+            name="master_idle_ingest_test",
+            output_root=str(tmp_path / "master"),
+            label_jobs=(
+                LabelPgnCorpusJobSpec(
+                    name="base_label",
+                    pgn_root="/srv/schach/PGN_DATA/pgn",
+                    work_dir=str(base_label_work_dir),
+                    target_train_records=1,
+                    target_verify_records=0,
+                ),
+            ),
+            idle_phase10_jobs=(
+                IdlePhase10ArtifactJobSpec(
+                    name="idle_phase10",
+                    phase10_config_path="python/configs/phase10_lapv2_stage2_native_arena_all_sources_v1.json",
+                    pgn_root="/srv/schach/PGN_DATA/pgn",
+                    work_root=str(idle_work_root),
+                    target_train_records=1,
+                    target_verify_records=0,
+                    shard_count=1,
+                ),
+            ),
+            lineages=(lineage,),
+        ),
+        spec_path=tmp_path / "master.json",
+    )
+    paths = master._materialize_generation_configs(  # type: ignore[attr-defined]
+        lineage=lineage,
+        generation=1,
+        parent_model=None,
+        warm_start_checkpoint=None,
+        label_work_dir=base_label_work_dir,
+    )
+    _install_completed_generation(
+        db=db,
+        master_name="master_idle_ingest_test",
+        lineage_name="lapv2_lineage",
+        paths=paths,
+        tmp_path=tmp_path,
+        arena_summary={
+            "metadata": {"lapv1_agent_names": ["tracked_lap"]},
+            "standings": {
+                "tracked_lap": {"games": 2, "score": 1.5},
+                "vice_v2": {"games": 2, "score": 0.5},
+            },
+            "matchups": [
+                {
+                    "white_agent": "tracked_lap",
+                    "black_agent": "vice_v2",
+                    "game_count": 2,
+                    "white_score": 1.5,
+                    "black_score": 0.5,
+                    "result_counts": {"1-0": 1, "1/2-1/2": 1},
+                    "termination_counts": {"checkmate": 1, "stalemate": 1},
+                }
+            ],
+        },
+    )
+
+    summary = master.reconcile_once()
+
+    assert summary["lineages"]["lapv2_lineage"]["status"] == "accepted_submitted_next"
+    next_payload = json.loads(
+        Path(str(controller.phase10_submissions[0]["config_path"])).read_text(encoding="utf-8")
+    )
+    merged_raw_dir = Path(str(next_payload["merged_raw_dir"]))
+    train_rows = [
+        json.loads(line)
+        for line in (merged_raw_dir / "train_raw.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert {row["source"] for row in train_rows} == {"idle"}
+    selection_summary = json.loads(
+        (merged_raw_dir / "selection_summary.json").read_text(encoding="utf-8")
+    )
+    assert selection_summary["train_summary"]["fresh_records"] == 1
+    assert summary["lineages"]["lapv2_lineage"]["training_data_usage"]["recorded_generations"] == [1]
 
 
 def test_master_advances_stockfish_in_parallel_while_vice_stays_active(tmp_path: Path) -> None:

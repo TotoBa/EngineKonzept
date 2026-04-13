@@ -439,7 +439,7 @@ def _current_progress(
 
 
 def _write_progress(path: Path, payload: dict[str, Any]) -> None:
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    _write_atomic_text(path, json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
 
 def _export_jsonl(
@@ -478,7 +478,8 @@ def _write_split_jsonl(
     output_path: Path,
 ) -> int:
     count = 0
-    with output_path.open("w", encoding="utf-8") as handle:
+    temp_path = output_path.with_name(f".{output_path.name}.tmp")
+    with temp_path.open("w", encoding="utf-8") as handle:
         for row in ledger.iter_labeled_samples(namespace, split=split):
             record = RawPositionRecord(
                 sample_id=row.sample_id,
@@ -503,7 +504,14 @@ def _write_split_jsonl(
                 + "\n"
             )
             count += 1
+    temp_path.replace(output_path)
     return count
+
+
+def _write_atomic_text(path: Path, content: str) -> None:
+    temp_path = path.with_name(f".{path.name}.tmp")
+    temp_path.write_text(content, encoding="utf-8")
+    temp_path.replace(path)
 
 
 def _fen_hash_hex(fen: str) -> str:

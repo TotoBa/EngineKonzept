@@ -300,6 +300,11 @@ Wesentlich ist:
   - `PGN -> shardweise Raw-Corpora -> Merge -> Materialize -> Workflow`
   - dieser Pfad baut echte `LAPv2 phase10`-Artefakte, nicht nur Rohdaten
   - sobald kein `train_lapv1` mehr geleast ist, claimen Worker keine `*_idle`-Tasks mehr und wechseln automatisch zurück auf `selfplay`, `verify`, `arena` und normale Aggregation
+- Folgegenerationen können diese Idle-Daten jetzt direkt vor `materialize` mitverwenden:
+  - der Master nimmt nicht nur fertige Idle-Campaign-Endartefakte, sondern bereits exportierte `label_shards/shard_*/train_raw.jsonl` und `verify_raw.jsonl`
+  - frische, noch nie trainierte FENs werden immer zuerst gezogen
+  - falls für die gewünschte Corpus-Größe Wiederholung nötig ist, werden die bislang am seltensten trainierten FENs bevorzugt
+  - der Trainingsnutzungszustand pro Lineage liegt in MySQL und nicht auf dem NAS
 
 ## Reell getesteter Master-Lauf
 

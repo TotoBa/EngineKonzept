@@ -187,3 +187,8 @@ Design rules:
   - Pi-style workers can advertise `label_idle,materialize_idle,workflow_idle,aggregate_idle`
   - while a real `train_lapv1` lease is active somewhere else, those workers may build sharded `LAPv2 phase10` artifacts on NAS from PGNs
   - once no active training lease remains, workers automatically stop claiming `*_idle` tasks and switch back to normal `selfplay`, `verify`, `arena`, and aggregate work
+- Lineages can now consume those idle shards directly for the next generation:
+  - if `idle_phase10_job_names` is omitted, the lineage considers all enabled idle Phase-10 jobs
+  - the master reads exported shard snapshots under `work_root/label_shards/shard_*` immediately, without waiting for the idle campaign to finish EOF
+  - MySQL tracks, per lineage and unique FEN, how many completed generations have already trained that position
+  - generation building prefers unseen FENs first and only tops up with the currently least-used positions when it must repeat data to hold corpus size

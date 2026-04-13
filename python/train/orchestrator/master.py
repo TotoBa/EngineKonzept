@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import hashlib
 import json
 from pathlib import Path
 import time
 from typing import Any, Mapping, Sequence
 
+from train.datasets import RawPositionRecord, load_raw_records
 from train.eval.agent_spec import SelfplayAgentSpec, load_selfplay_agent_spec, write_selfplay_agent_spec
 from train.eval.matrix import build_selfplay_arena_matrix
 from train.eval.phase10_campaign import (
@@ -19,6 +21,12 @@ from scripts.merge_phase5_raw_corpora import RawCorpusSourceSpec, merge_phase5_r
 from train.orchestrator.controller import OrchestratorController
 from train.orchestrator.db import OrchestratorDB
 from train.orchestrator.models import CampaignRow, ModelRow
+from train.orchestrator.training_data_usage_ledger import (
+    InMemoryLineageTrainingUsageLedger,
+    LineageSampleUsageState,
+    LineageTrainingUsageLedger,
+    MySQLLineageTrainingUsageLedger,
+)
 
 
 MASTER_SPEC_VERSION = 1
@@ -347,6 +355,7 @@ class Phase10LineageSpec:
     output_root: str
     enabled: bool = True
     label_job_name: str | None = None
+    idle_phase10_job_names: tuple[str, ...] | None = None
     bootstrap_generation_from_seed_artifacts: bool = False
     max_generations: int = 1
     on_accept: str = "continue_training"
@@ -375,6 +384,11 @@ class Phase10LineageSpec:
             "output_root": self.output_root,
             "enabled": self.enabled,
             "label_job_name": self.label_job_name,
+            "idle_phase10_job_names": (
+                None
+                if self.idle_phase10_job_names is None
+                else list(self.idle_phase10_job_names)
+            ),
             "bootstrap_generation_from_seed_artifacts": self.bootstrap_generation_from_seed_artifacts,
             "max_generations": self.max_generations,
             "on_accept": self.on_accept,
@@ -392,6 +406,12 @@ class Phase10LineageSpec:
             enabled=bool(payload.get("enabled", True)),
             label_job_name=(
                 str(payload["label_job_name"]) if payload.get("label_job_name") is not None else None
+            ),
+            idle_phase10_job_names=(
+                None
+                if "idle_phase10_job_names" not in payload
+                or payload.get("idle_phase10_job_names") is None
+                else tuple(str(entry) for entry in list(payload.get("idle_phase10_job_names") or []))
             ),
             bootstrap_generation_from_seed_artifacts=bool(
                 payload.get("bootstrap_generation_from_seed_artifacts", False)
@@ -488,6 +508,7 @@ class OrchestratorMaster:
         repo_root: Path,
         spec: MasterSpec,
         spec_path: Path,
+        usage_ledger: LineageTrainingUsageLedger | None = None,
     ) -> None:
         self._db = db
         self._controller = controller
@@ -495,6 +516,7 @@ class OrchestratorMaster:
         self._spec = spec
         self._spec_path = spec_path
         self._output_root = resolve_repo_path(repo_root, Path(spec.output_root))
+        self._usage_ledger = usage_ledger
 
     @property
     def spec(self) -> MasterSpec:
@@ -520,6 +542,17 @@ class OrchestratorMaster:
     def output_root(self) -> Path:
         return self._output_root
 
+    @property
+    def usage_ledger(self) -> LineageTrainingUsageLedger:
+        if self._usage_ledger is None:
+            db_config = getattr(self._db, "config", None)
+            self._usage_ledger = (
+                MySQLLineageTrainingUsageLedger(db_config)
+                if db_config is not None
+                else InMemoryLineageTrainingUsageLedger()
+            )
+        return self._usage_ledger
+
     def replace_spec(self, spec: MasterSpec, *, spec_path: Path | None = None) -> None:
         """Replace the active master spec without rebuilding the process."""
         self._spec = spec
@@ -530,6 +563,7 @@ class OrchestratorMaster:
     def reconcile_once(self) -> dict[str, Any]:
         """Submit or evaluate whatever the master can advance in one pass."""
         self._output_root.mkdir(parents=True, exist_ok=True)
+        self.usage_ledger.ensure_schema()
 
         label_states = {
             job.name: self._reconcile_label_job(job)
@@ -737,6 +771,11 @@ class OrchestratorMaster:
 
         campaigns = self._matching_campaigns(master_job_type="phase10_lineage", job_name=lineage.name)
         models = self._matching_models(lineage_name=lineage.name)
+        usage_state = self._backfill_lineage_generation_usage(
+            lineage=lineage,
+            campaigns=campaigns,
+            models=models,
+        )
         latest_campaign = campaigns[-1] if campaigns else None
         next_generation = 1 if latest_campaign is None else int(latest_generation(campaigns)) + 1
 
@@ -756,6 +795,7 @@ class OrchestratorMaster:
                 "campaign_id": int(submission["campaign_id"]),
                 "config_path": str(submission["config_path"]),
                 "active_arena_opponents": list(_active_registry_opponent_names(registry)),
+                "training_data_usage": usage_state,
             }
 
         latest_generation_value = int(latest_campaign.metadata.get("generation", 0) or 0)
@@ -766,6 +806,7 @@ class OrchestratorMaster:
                 "generation": latest_generation_value,
                 "campaign_id": latest_campaign.id,
                 "active_arena_opponents": list(_active_registry_opponent_names(registry)),
+                "training_data_usage": usage_state,
             }
 
         if latest_campaign.status == "failed":
@@ -774,6 +815,7 @@ class OrchestratorMaster:
                 "terminal": True,
                 "generation": latest_generation_value,
                 "campaign_id": latest_campaign.id,
+                "training_data_usage": usage_state,
             }
 
         current_model = _latest_model_for_campaign(models=models, campaign_id=latest_campaign.id)
@@ -800,6 +842,7 @@ class OrchestratorMaster:
             "generation": latest_generation_value,
             "campaign_id": latest_campaign.id,
             "arena_feedback": feedback_state,
+            "training_data_usage": usage_state,
         }
         if str(feedback_state.get("status")) == "failed":
             return {
@@ -1090,9 +1133,15 @@ class OrchestratorMaster:
                     "warm_start_checkpoint": warm_start_checkpoint,
                     "label_work_dir": str(label_work_dir) if label_work_dir is not None else None,
                     "merged_raw_dir": str(phase10_payload["merged_raw_dir"]),
+                    "merged_raw_selection_summary_path": str(
+                        Path(str(phase10_payload["merged_raw_dir"])) / "selection_summary.json"
+                    ),
                     "reuse_existing_artifacts": reuse_seed_artifacts,
                     "feedback_raw_dirs": [
                         str(path) for path in self._lineage_feedback_raw_dirs(lineage, generation=generation)
+                    ],
+                    "idle_raw_dirs": [
+                        str(path) for _name, path in self._lineage_idle_raw_dirs(lineage)
                     ],
                     "seed_phase10_config_path": str(seed_phase10_path),
                     "train_config_path": str(train_config_path),
@@ -1367,31 +1416,155 @@ class OrchestratorMaster:
         generation_root: Path,
         base_label_work_dir: Path | None,
     ) -> Path | None:
-        source_dirs: list[Path] = []
-        if base_label_work_dir is not None:
-            source_dirs.append(base_label_work_dir)
-        source_dirs.extend(self._lineage_feedback_raw_dirs(lineage, generation=generation))
-        unique_source_dirs: list[Path] = []
-        seen = set()
-        for path in source_dirs:
+        if generation == 1 and base_label_work_dir is not None:
+            return base_label_work_dir
+
+        source_dirs: list[tuple[str, Path]] = []
+        if base_label_work_dir is not None and _available_raw_snapshot(
+            base_label_work_dir,
+            require_completed=True,
+        ) is not None:
+            source_dirs.append(("base_label", base_label_work_dir))
+        source_dirs.extend(
+            (
+                f"feedback_generation_{index:04d}",
+                path,
+            )
+            for index, path in enumerate(
+                self._lineage_feedback_raw_dirs(lineage, generation=generation),
+                start=1,
+            )
+        )
+        source_dirs.extend(self._lineage_idle_raw_dirs(lineage))
+        unique_source_dirs: list[tuple[str, Path]] = []
+        seen: set[str] = set()
+        for name, path in source_dirs:
             normalized = str(path)
             if normalized in seen:
                 continue
             seen.add(normalized)
-            unique_source_dirs.append(path)
+            unique_source_dirs.append((name, path))
         if not unique_source_dirs:
-            return None
-        if len(unique_source_dirs) == 1:
-            return unique_source_dirs[0]
-        output_dir = generation_root / "inputs" / "raw_corpus_merged"
+            return self._previous_generation_merged_raw_dir(lineage, generation=generation)
+
+        candidate_dir = generation_root / "inputs" / "raw_corpus_candidates"
         merge_phase5_raw_corpora(
             source_specs=[
-                RawCorpusSourceSpec(name=f"source_{index:02d}_{path.name}", raw_dir=path)
-                for index, path in enumerate(unique_source_dirs, start=1)
+                RawCorpusSourceSpec(
+                    name=f"source_{index:02d}_{_safe_filename(name)}",
+                    raw_dir=path,
+                )
+                for index, (name, path) in enumerate(unique_source_dirs, start=1)
             ],
+            output_dir=candidate_dir,
+        )
+        target_counts = self._desired_generation_raw_counts(
+            lineage=lineage,
+            generation=generation,
+            base_label_work_dir=base_label_work_dir,
+        )
+        output_dir = generation_root / "inputs" / "raw_corpus_merged"
+        _materialize_usage_balanced_raw_corpus(
+            candidate_dir=candidate_dir,
             output_dir=output_dir,
+            master_name=self._spec.name,
+            lineage_name=lineage.name,
+            generation=generation,
+            desired_train_records=int(target_counts["train"]),
+            desired_verify_records=int(target_counts["verify"]),
+            usage_ledger=self.usage_ledger,
+            source_dirs=[path for _name, path in unique_source_dirs],
         )
         return output_dir
+
+    def _desired_generation_raw_counts(
+        self,
+        *,
+        lineage: Phase10LineageSpec,
+        generation: int,
+        base_label_work_dir: Path | None,
+    ) -> dict[str, int]:
+        previous_merged_raw_dir = self._previous_generation_merged_raw_dir(
+            lineage,
+            generation=generation,
+        )
+        if previous_merged_raw_dir is not None:
+            return _raw_corpus_counts(previous_merged_raw_dir)
+        if base_label_work_dir is not None:
+            return _raw_corpus_counts(base_label_work_dir)
+        return {"train": 0, "verify": 0}
+
+    def _previous_generation_merged_raw_dir(
+        self,
+        lineage: Phase10LineageSpec,
+        *,
+        generation: int,
+    ) -> Path | None:
+        if generation <= 1:
+            return None
+        summary_path = self._lineage_output_root(lineage) / f"generation_{generation - 1:04d}" / "summary.json"
+        if not summary_path.exists():
+            return None
+        summary = _load_json_object(summary_path)
+        merged_raw_dir = summary.get("merged_raw_dir")
+        if merged_raw_dir is None:
+            return None
+        resolved = resolve_repo_path(self._repo_root, Path(str(merged_raw_dir)))
+        if _available_raw_snapshot(resolved, require_completed=False) is None:
+            return None
+        return resolved
+
+    def _selected_idle_phase10_jobs(
+        self,
+        lineage: Phase10LineageSpec,
+    ) -> list[IdlePhase10ArtifactJobSpec]:
+        jobs_by_name = {job.name: job for job in self._spec.idle_phase10_jobs if job.enabled}
+        if lineage.idle_phase10_job_names is None:
+            return list(jobs_by_name.values())
+        selected: list[IdlePhase10ArtifactJobSpec] = []
+        for job_name in lineage.idle_phase10_job_names:
+            job = jobs_by_name.get(job_name)
+            if job is None:
+                raise ValueError(f"unknown or disabled idle phase10 job referenced by lineage: {job_name}")
+            selected.append(job)
+        return selected
+
+    def _lineage_idle_raw_dirs(
+        self,
+        lineage: Phase10LineageSpec,
+    ) -> list[tuple[str, Path]]:
+        raw_dirs: list[tuple[str, Path]] = []
+        for job in self._selected_idle_phase10_jobs(lineage):
+            work_root = resolve_repo_path(self._repo_root, Path(job.work_root))
+            label_shards_root = work_root / "label_shards"
+            shard_dirs: list[Path] = []
+            if label_shards_root.exists():
+                shard_dirs = [
+                    path
+                    for path in sorted(label_shards_root.glob("shard_*"))
+                    if _available_raw_snapshot(path, require_completed=False) is not None
+                ]
+            if shard_dirs:
+                raw_dirs.extend(
+                    (
+                        f"idle_{job.name}_{path.name}",
+                        path,
+                    )
+                    for path in shard_dirs
+                )
+                continue
+            summary_path = work_root / "summary.json"
+            if not summary_path.exists():
+                continue
+            summary = _load_json_object(summary_path)
+            merged_raw_dir = summary.get("merged_raw_dir")
+            if not merged_raw_dir:
+                continue
+            resolved = resolve_repo_path(self._repo_root, Path(str(merged_raw_dir)))
+            if _available_raw_snapshot(resolved, require_completed=False) is None:
+                continue
+            raw_dirs.append((f"idle_{job.name}_merged_raw", resolved))
+        return raw_dirs
 
     def _lineage_feedback_raw_dirs(
         self,
@@ -1747,6 +1920,77 @@ class OrchestratorMaster:
         config_path.write_text(json.dumps(job.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
         return config_path
 
+    def _backfill_lineage_generation_usage(
+        self,
+        *,
+        lineage: Phase10LineageSpec,
+        campaigns: Sequence[CampaignRow],
+        models: Sequence[ModelRow],
+    ) -> dict[str, Any]:
+        recorded_generations: list[int] = []
+        skipped_generations: list[int] = []
+        latest_recorded_generation = 0
+        for campaign in campaigns:
+            generation = int(campaign.metadata.get("generation", 0) or 0)
+            if generation <= 0 or campaign.status != "succeeded":
+                continue
+            existing = self.usage_ledger.generation_usage(
+                master_name=self._spec.name,
+                lineage_name=lineage.name,
+                generation=generation,
+            )
+            if existing is not None:
+                latest_recorded_generation = max(
+                    latest_recorded_generation,
+                    int(existing["generation"]),
+                )
+                continue
+            merged_raw_dir = self._campaign_merged_raw_dir(campaign)
+            if merged_raw_dir is None:
+                skipped_generations.append(generation)
+                continue
+            train_records = load_raw_records(
+                merged_raw_dir / "train_raw.jsonl",
+                "jsonl",
+                source_name=f"{lineage.name}:generation:{generation}:train",
+            )
+            verify_records = load_raw_records(
+                merged_raw_dir / "verify_raw.jsonl",
+                "jsonl",
+                source_name=f"{lineage.name}:generation:{generation}:verify",
+            )
+            model = _latest_model_for_campaign(models=models, campaign_id=campaign.id)
+            self.usage_ledger.record_generation_usage(
+                master_name=self._spec.name,
+                lineage_name=lineage.name,
+                generation=generation,
+                campaign_id=campaign.id,
+                model_id=(model.id if model is not None else None),
+                merged_raw_dir=str(merged_raw_dir),
+                train_records=train_records,
+                verify_records=verify_records,
+            )
+            recorded_generations.append(generation)
+            latest_recorded_generation = max(latest_recorded_generation, generation)
+        return {
+            "recorded_generations": recorded_generations,
+            "skipped_generations": skipped_generations,
+            "latest_recorded_generation": latest_recorded_generation,
+        }
+
+    def _campaign_merged_raw_dir(self, campaign: CampaignRow) -> Path | None:
+        config_path = resolve_repo_path(self._repo_root, Path(campaign.config_path))
+        if not config_path.exists():
+            return None
+        config_payload = _load_json_object(config_path)
+        merged_raw_dir = config_payload.get("merged_raw_dir")
+        if merged_raw_dir is None:
+            return None
+        resolved = resolve_repo_path(self._repo_root, Path(str(merged_raw_dir)))
+        if _available_raw_snapshot(resolved, require_completed=False) is None:
+            return None
+        return resolved
+
     def _matching_campaigns(self, *, master_job_type: str, job_name: str) -> list[CampaignRow]:
         campaigns = self._db.list_campaign_records(limit=5000)
         matching = [
@@ -2085,7 +2329,11 @@ def _tracked_arena_records(arena_summary: Mapping[str, Any]) -> list[dict[str, A
     return records
 
 
-def _completed_label_snapshot(work_dir: Path) -> dict[str, Path] | None:
+def _available_raw_snapshot(
+    work_dir: Path,
+    *,
+    require_completed: bool,
+) -> dict[str, Path] | None:
     progress_path = work_dir / "progress.json"
     train_raw_path = work_dir / "train_raw.jsonl"
     verify_raw_path = work_dir / "verify_raw.jsonl"
@@ -2093,7 +2341,7 @@ def _completed_label_snapshot(work_dir: Path) -> dict[str, Path] | None:
     if not progress_path.exists() or not train_raw_path.exists() or not verify_raw_path.exists():
         return None
     progress = _load_json_object(progress_path)
-    if not bool(progress.get("completed")):
+    if require_completed and not bool(progress.get("completed")):
         return None
     if not summary_path.exists():
         summary_path.write_text(
@@ -2112,8 +2360,219 @@ def _completed_label_snapshot(work_dir: Path) -> dict[str, Path] | None:
         )
     return {
         "progress_path": progress_path,
+        "train_raw_path": train_raw_path,
+        "verify_raw_path": verify_raw_path,
         "summary_path": summary_path,
     }
+
+
+def _completed_label_snapshot(work_dir: Path) -> dict[str, Path] | None:
+    snapshot = _available_raw_snapshot(work_dir, require_completed=True)
+    if snapshot is None:
+        return None
+    return {
+        "progress_path": snapshot["progress_path"],
+        "summary_path": snapshot["summary_path"],
+    }
+
+
+def _raw_corpus_counts(raw_dir: Path) -> dict[str, int]:
+    snapshot = _available_raw_snapshot(raw_dir, require_completed=False)
+    if snapshot is not None:
+        progress = _load_json_object(snapshot["progress_path"])
+        counts = dict(progress.get("counts") or {})
+        return {
+            "train": int(counts.get("train", 0)),
+            "verify": int(counts.get("verify", 0)),
+        }
+    selection_summary_path = raw_dir / "selection_summary.json"
+    if selection_summary_path.exists():
+        summary = _load_json_object(selection_summary_path)
+        return {
+            "train": int(summary.get("train_records", 0)),
+            "verify": int(summary.get("verify_records", 0)),
+        }
+    return {
+        "train": _count_nonempty_lines(raw_dir / "train_raw.jsonl"),
+        "verify": _count_nonempty_lines(raw_dir / "verify_raw.jsonl"),
+    }
+
+
+def _count_nonempty_lines(path: Path) -> int:
+    if not path.exists():
+        return 0
+    count = 0
+    with path.open("r", encoding="utf-8") as handle:
+        for raw_line in handle:
+            if raw_line.strip():
+                count += 1
+    return count
+
+
+def _materialize_usage_balanced_raw_corpus(
+    *,
+    candidate_dir: Path,
+    output_dir: Path,
+    master_name: str,
+    lineage_name: str,
+    generation: int,
+    desired_train_records: int,
+    desired_verify_records: int,
+    usage_ledger: LineageTrainingUsageLedger,
+    source_dirs: Sequence[Path],
+) -> dict[str, Any]:
+    train_records = load_raw_records(
+        candidate_dir / "train_raw.jsonl",
+        "jsonl",
+        source_name=f"{lineage_name}:generation:{generation}:candidate_train",
+    )
+    verify_records = load_raw_records(
+        candidate_dir / "verify_raw.jsonl",
+        "jsonl",
+        source_name=f"{lineage_name}:generation:{generation}:candidate_verify",
+    )
+    selected_train_records, train_summary = _select_usage_balanced_records(
+        records=train_records,
+        split_name="train",
+        desired_count=desired_train_records,
+        generation=generation,
+        master_name=master_name,
+        lineage_name=lineage_name,
+        usage_ledger=usage_ledger,
+    )
+    selected_verify_records, verify_summary = _select_usage_balanced_records(
+        records=verify_records,
+        split_name="verify",
+        desired_count=desired_verify_records,
+        generation=generation,
+        master_name=master_name,
+        lineage_name=lineage_name,
+        usage_ledger=usage_ledger,
+    )
+    output_dir.mkdir(parents=True, exist_ok=True)
+    _write_raw_records(output_dir / "train_raw.jsonl", selected_train_records)
+    _write_raw_records(output_dir / "verify_raw.jsonl", selected_verify_records)
+    summary = {
+        "selection_policy": "usage_balanced_generation_delta",
+        "master_name": master_name,
+        "lineage_name": lineage_name,
+        "generation": generation,
+        "candidate_dir": str(candidate_dir),
+        "source_dirs": [str(path) for path in source_dirs],
+        "desired_train_records": desired_train_records,
+        "desired_verify_records": desired_verify_records,
+        "train_records": len(selected_train_records),
+        "verify_records": len(selected_verify_records),
+        "train_summary": train_summary,
+        "verify_summary": verify_summary,
+        "train_raw_path": str(output_dir / "train_raw.jsonl"),
+        "verify_raw_path": str(output_dir / "verify_raw.jsonl"),
+    }
+    (output_dir / "selection_summary.json").write_text(
+        json.dumps(summary, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return summary
+
+
+def _select_usage_balanced_records(
+    *,
+    records: Sequence[RawPositionRecord],
+    split_name: str,
+    desired_count: int,
+    generation: int,
+    master_name: str,
+    lineage_name: str,
+    usage_ledger: LineageTrainingUsageLedger,
+) -> tuple[list[RawPositionRecord], dict[str, Any]]:
+    if not records:
+        return [], {
+            "candidate_records": 0,
+            "selected_records": 0,
+            "fresh_records": 0,
+            "reused_records": 0,
+            "max_usage_before_selection": 0,
+            "usage_histogram_before_selection": {},
+        }
+    desired = desired_count if desired_count > 0 else len(records)
+    by_hash = {hashlib.sha256(record.fen.encode("utf-8")).hexdigest(): record for record in records}
+    usage_state = usage_ledger.usage_state(
+        master_name=master_name,
+        lineage_name=lineage_name,
+        split_name=split_name,
+        fen_hashes=list(by_hash),
+    )
+    scored: list[tuple[int, int, int, str]] = []
+    usage_histogram: dict[str, int] = {}
+    for fen_hash, record in by_hash.items():
+        state = usage_state.get(fen_hash, LineageSampleUsageState())
+        usage_histogram[str(int(state.usage_count))] = (
+            usage_histogram.get(str(int(state.usage_count)), 0) + 1
+        )
+        scored.append(
+            (
+                int(state.usage_count),
+                int(state.last_generation),
+                _stable_generation_tiebreak(
+                    generation=generation,
+                    split_name=split_name,
+                    sample_id=record.sample_id,
+                    fen_hash=fen_hash,
+                ),
+                fen_hash,
+            )
+        )
+    scored.sort()
+    selected_hashes = [fen_hash for _usage_count, _last_generation, _tie, fen_hash in scored[:desired]]
+    selected_records = [by_hash[fen_hash] for fen_hash in selected_hashes]
+    fresh_records = sum(
+        1
+        for fen_hash in selected_hashes
+        if int(usage_state.get(fen_hash, LineageSampleUsageState()).usage_count) == 0
+    )
+    return selected_records, {
+        "candidate_records": len(records),
+        "selected_records": len(selected_records),
+        "fresh_records": fresh_records,
+        "reused_records": len(selected_records) - fresh_records,
+        "max_usage_before_selection": max(
+            [int(state.usage_count) for state in usage_state.values()],
+            default=0,
+        ),
+        "usage_histogram_before_selection": usage_histogram,
+    }
+
+
+def _stable_generation_tiebreak(
+    *,
+    generation: int,
+    split_name: str,
+    sample_id: str,
+    fen_hash: str,
+) -> int:
+    digest = hashlib.sha256(
+        f"{generation}:{split_name}:{sample_id}:{fen_hash}".encode("utf-8")
+    ).digest()
+    return int.from_bytes(digest[:8], "big")
+
+
+def _write_raw_records(path: Path, records: Sequence[RawPositionRecord]) -> None:
+    with path.open("w", encoding="utf-8") as handle:
+        for record in records:
+            handle.write(
+                json.dumps(
+                    {
+                        "sample_id": record.sample_id,
+                        "fen": record.fen,
+                        "source": record.source,
+                        "selected_move_uci": record.selected_move_uci,
+                        "result": record.result,
+                        "metadata": record.metadata,
+                    },
+                    sort_keys=True,
+                )
+                + "\n"
+            )
 
 
 def _replace_path_prefixes(payload: Any, *, replacements: Mapping[str, str]) -> Any:
