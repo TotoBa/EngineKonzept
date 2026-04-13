@@ -35,8 +35,8 @@ CREATE_TRAINING_DATA_USAGE_TABLES = (
         lineage_name VARCHAR(255) NOT NULL,
         sample_split VARCHAR(16) NOT NULL,
         fen_hash CHAR(64) NOT NULL,
-        sample_id VARCHAR(255) NOT NULL,
-        sample_source VARCHAR(255) NOT NULL,
+        sample_id VARCHAR(255) NOT NULL DEFAULT '',
+        sample_source VARCHAR(255) NOT NULL DEFAULT '',
         usage_count INT NOT NULL DEFAULT 0,
         first_generation INT NOT NULL,
         last_generation INT NOT NULL,
@@ -56,6 +56,14 @@ CREATE_TRAINING_DATA_USAGE_TABLES = (
     """,
 )
 
+TRAINING_DATA_USAGE_SCHEMA_MIGRATIONS = (
+    """
+    ALTER TABLE lineage_sample_usage
+        MODIFY COLUMN sample_id VARCHAR(255) NOT NULL DEFAULT '',
+        MODIFY COLUMN sample_source VARCHAR(255) NOT NULL DEFAULT ''
+    """,
+)
+
 _USAGE_BATCH_SIZE = 1000
 
 
@@ -65,8 +73,6 @@ class LineageSampleUsageState:
 
     usage_count: int = 0
     last_generation: int = 0
-    sample_id: str | None = None
-    sample_source: str | None = None
 
 
 class LineageTrainingUsageLedger(Protocol):
@@ -218,8 +224,6 @@ class InMemoryLineageTrainingUsageLedger:
             self._sample_rows[key] = LineageSampleUsageState(
                 usage_count=(0 if current is None else int(current.usage_count)) + 1,
                 last_generation=generation,
-                sample_id=record.sample_id,
-                sample_source=record.source,
             )
 
 
@@ -229,12 +233,18 @@ class MySQLLineageTrainingUsageLedger:
     def __init__(self, config: MySQLConfig) -> None:
         self._config = config
         self._connection: pymysql.connections.Connection | None = None
+        self._schema_ensured = False
 
     def ensure_schema(self) -> None:
+        if self._schema_ensured:
+            return
         with self._cursor() as cursor:
             for statement in CREATE_TRAINING_DATA_USAGE_TABLES:
                 cursor.execute(statement)
+            for statement in TRAINING_DATA_USAGE_SCHEMA_MIGRATIONS:
+                cursor.execute(statement)
         self._connection_or_raise().commit()
+        self._schema_ensured = True
 
     def generation_usage(
         self,
@@ -296,7 +306,7 @@ class MySQLLineageTrainingUsageLedger:
                 placeholders = ", ".join(["%s"] * len(batch))
                 cursor.execute(
                     f"""
-                    SELECT fen_hash, usage_count, last_generation, sample_id, sample_source
+                    SELECT fen_hash, usage_count, last_generation
                     FROM lineage_sample_usage
                     WHERE master_name = %s
                       AND lineage_name = %s
@@ -309,8 +319,6 @@ class MySQLLineageTrainingUsageLedger:
                     rows_by_hash[str(row["fen_hash"])] = LineageSampleUsageState(
                         usage_count=int(row["usage_count"]),
                         last_generation=int(row["last_generation"]),
-                        sample_id=str(row["sample_id"]),
-                        sample_source=str(row["sample_source"]),
                     )
         return rows_by_hash
 
@@ -411,11 +419,11 @@ class MySQLLineageTrainingUsageLedger:
         model_id: int | None,
         records: Sequence[RawPositionRecord],
     ) -> None:
-        unique_rows: dict[str, tuple[str, str]] = {}
+        unique_hashes: set[str] = set()
         for record in records:
             fen_hash = lineage_training_usage_fen_hash(record.fen)
-            unique_rows[fen_hash] = (record.sample_id, record.source)
-        if not unique_rows:
+            unique_hashes.add(fen_hash)
+        if not unique_hashes:
             return
         query = """
             INSERT INTO lineage_sample_usage (
@@ -423,18 +431,14 @@ class MySQLLineageTrainingUsageLedger:
                 lineage_name,
                 sample_split,
                 fen_hash,
-                sample_id,
-                sample_source,
                 usage_count,
                 first_generation,
                 last_generation,
                 last_campaign_id,
                 last_model_id
             )
-            VALUES (%s, %s, %s, %s, %s, %s, 1, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, 1, %s, %s, %s, %s)
             ON DUPLICATE KEY UPDATE
-                sample_id = VALUES(sample_id),
-                sample_source = VALUES(sample_source),
                 usage_count = usage_count + 1,
                 last_generation = VALUES(last_generation),
                 last_campaign_id = VALUES(last_campaign_id),
@@ -446,14 +450,12 @@ class MySQLLineageTrainingUsageLedger:
                 lineage_name,
                 split_name,
                 fen_hash,
-                sample_id,
-                source,
                 generation,
                 generation,
                 campaign_id,
                 model_id,
             )
-            for fen_hash, (sample_id, source) in unique_rows.items()
+            for fen_hash in sorted(unique_hashes)
         ]
         with self._cursor() as cursor:
             for offset in range(0, len(rows), _USAGE_BATCH_SIZE):

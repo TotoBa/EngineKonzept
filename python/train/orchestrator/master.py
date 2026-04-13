@@ -1940,6 +1940,7 @@ class OrchestratorMaster:
                 generation=generation,
             )
             if existing is not None:
+                recorded_generations.append(int(existing["generation"]))
                 latest_recorded_generation = max(
                     latest_recorded_generation,
                     int(existing["generation"]),

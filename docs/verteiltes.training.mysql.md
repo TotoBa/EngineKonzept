@@ -61,6 +61,10 @@ Bereits umgesetzt:
   - Materialisierung der Phase-5-Tiers
   - Workflow-Prepare/Chunk/Finalize
   - finale `LAPv2 phase10`-Artefakte auf dem NAS, wie sie das Training konsumiert
+- lineage-weites Trainingsdaten-Ledger in MySQL:
+  - pro `FEN` und Split wird nur die Wiederverwendungs-Metadaten gepflegt
+  - laufende Generationen schreiben dafür kompakte Hash-/Counter-Upserts statt voller Sample-Metadaten
+  - der schwere erste Backfill ist einmalig; spätere Generationen erhöhen nur die Zähler der neu trainierten Positionen
 - schaltbare Master-Spec-Einträge über `enabled`:
   - `label_jobs`
   - `idle_phase10_jobs`

@@ -192,3 +192,4 @@ Design rules:
   - the master reads exported shard snapshots under `work_root/label_shards/shard_*` immediately, without waiting for the idle campaign to finish EOF
   - MySQL tracks, per lineage and unique FEN, how many completed generations have already trained that position
   - generation building prefers unseen FENs first and only tops up with the currently least-used positions when it must repeat data to hold corpus size
+  - steady-state usage updates are hash-and-counter writes; the expensive full backfill is only needed once for already completed older generations

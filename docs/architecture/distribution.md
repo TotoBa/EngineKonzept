@@ -85,6 +85,9 @@ The new master layer sits above that DAG:
 - either stop, reject, or spawn the next warm-started generation
 - while one host trains, other hosts may keep feeding the lineage through low-priority idle shard exports
 - the master now tracks per-lineage FEN reuse in MySQL so future generations prefer unseen positions and only recycle the least-used positions when they need to refill the corpus
+- the usage-ledger write path is now hash-and-counter oriented:
+  - one-time historical backfills can still be large
+  - steady-state generations update only per-FEN counters and last-generation markers, not full sample metadata on every row
 
 For future runs, the same master can now also run behind a CherryPy HTTP server:
 

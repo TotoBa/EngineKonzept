@@ -1228,6 +1228,104 @@ def test_master_backfills_usage_from_generation_merged_raw_dir(tmp_path: Path) -
     assert resolved == raw_dir
 
 
+def test_master_reports_existing_recorded_usage_generations(tmp_path: Path) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    raw_dir = tmp_path / "generation_0001" / "inputs" / "raw_corpus_merged"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    (raw_dir / "train_raw.jsonl").write_text(
+        json.dumps(
+            {
+                "sample_id": "sample:train:1",
+                "fen": "4k3/8/8/8/8/8/8/4K3 w - - 0 1",
+                "source": "generated",
+                "selected_move_uci": "e1e2",
+                "result": "1-0",
+                "metadata": {},
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (raw_dir / "verify_raw.jsonl").write_text("", encoding="utf-8")
+    (raw_dir / "selection_summary.json").write_text(
+        json.dumps({"train_records": 1, "verify_records": 0}, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    config_path = tmp_path / "generation_0001" / "configs" / "campaign.json"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(
+        json.dumps({"merged_raw_dir": str(raw_dir)}, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    lineage = Phase10LineageSpec(
+        name="lapv2_lineage",
+        seed_phase10_config_path="python/configs/phase10_lapv2_stage2_native_arena_all_sources_v1.json",
+        output_root=str(tmp_path / "lineage"),
+        max_generations=2,
+        on_accept="continue_training",
+        promotion_thresholds=PromotionThresholds(
+            min_verify_top1_accuracy=0.1,
+            min_arena_score_rate=0.5,
+        ),
+    )
+    campaign = CampaignRow(
+        id=1,
+        name="generated_campaign",
+        kind="phase10_master",
+        status="succeeded",
+        config_path=str(config_path),
+        active_model_id=1,
+        metadata={
+            "master_name": "master_existing_usage_test",
+            "master_job_type": "phase10_lineage",
+            "job_name": "lapv2_lineage",
+            "generation": 1,
+        },
+        created_at=None,
+        updated_at=None,
+    )
+    db = _StubDB(campaigns=[campaign])
+    master = OrchestratorMaster(
+        db=db,
+        controller=_StubController(),
+        repo_root=repo_root,
+        spec=MasterSpec(
+            name="master_existing_usage_test",
+            output_root=str(tmp_path / "master"),
+            lineages=(lineage,),
+        ),
+        spec_path=tmp_path / "master.json",
+    )
+
+    master.usage_ledger.record_generation_usage(
+        master_name="master_existing_usage_test",
+        lineage_name="lapv2_lineage",
+        generation=1,
+        campaign_id=1,
+        model_id=1,
+        merged_raw_dir=str(raw_dir),
+        train_records=[
+            RawPositionRecord(
+                sample_id="sample:train:1",
+                fen="4k3/8/8/8/8/8/8/4K3 w - - 0 1",
+                source="generated",
+            )
+        ],
+        verify_records=[],
+    )
+
+    usage_state = master._backfill_lineage_generation_usage(  # type: ignore[attr-defined]
+        lineage=lineage,
+        campaigns=[campaign],
+        models=[],
+    )
+
+    assert usage_state["recorded_generations"] == [1]
+    assert usage_state["latest_recorded_generation"] == 1
+
+
 def test_master_ingests_idle_shard_snapshot_before_next_generation(tmp_path: Path) -> None:
     repo_root = Path(__file__).resolve().parents[2]
     controller = _StubController()
