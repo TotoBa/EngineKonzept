@@ -1510,7 +1510,7 @@ class OrchestratorMaster:
         if merged_raw_dir is None:
             return None
         resolved = resolve_repo_path(self._repo_root, Path(str(merged_raw_dir)))
-        if _available_raw_snapshot(resolved, require_completed=False) is None:
+        if not _raw_corpus_exists(resolved):
             return None
         return resolved
 
@@ -1561,7 +1561,7 @@ class OrchestratorMaster:
             if not merged_raw_dir:
                 continue
             resolved = resolve_repo_path(self._repo_root, Path(str(merged_raw_dir)))
-            if _available_raw_snapshot(resolved, require_completed=False) is None:
+            if not _raw_corpus_exists(resolved):
                 continue
             raw_dirs.append((f"idle_{job.name}_merged_raw", resolved))
         return raw_dirs
@@ -1987,7 +1987,7 @@ class OrchestratorMaster:
         if merged_raw_dir is None:
             return None
         resolved = resolve_repo_path(self._repo_root, Path(str(merged_raw_dir)))
-        if _available_raw_snapshot(resolved, require_completed=False) is None:
+        if not _raw_corpus_exists(resolved):
             return None
         return resolved
 
@@ -2396,6 +2396,10 @@ def _raw_corpus_counts(raw_dir: Path) -> dict[str, int]:
         "train": _count_nonempty_lines(raw_dir / "train_raw.jsonl"),
         "verify": _count_nonempty_lines(raw_dir / "verify_raw.jsonl"),
     }
+
+
+def _raw_corpus_exists(raw_dir: Path) -> bool:
+    return (raw_dir / "train_raw.jsonl").exists() and (raw_dir / "verify_raw.jsonl").exists()
 
 
 def _count_nonempty_lines(path: Path) -> int:

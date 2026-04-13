@@ -1171,6 +1171,63 @@ def test_usage_balanced_selection_reuses_least_trained_records_first(tmp_path: P
     assert summary["usage_histogram_before_selection"] == {"1": 2, "2": 1}
 
 
+def test_master_backfills_usage_from_generation_merged_raw_dir(tmp_path: Path) -> None:
+    master = OrchestratorMaster(
+        db=_StubDB(),
+        controller=_StubController(),
+        repo_root=Path(__file__).resolve().parents[2],
+        spec=MasterSpec(
+            name="master_backfill_usage_test",
+            output_root=str(tmp_path / "master"),
+        ),
+        spec_path=tmp_path / "master.json",
+    )
+    raw_dir = tmp_path / "generation_0002" / "inputs" / "raw_corpus_merged"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    (raw_dir / "train_raw.jsonl").write_text(
+        json.dumps(
+            {
+                "sample_id": "sample:train:1",
+                "fen": "4k3/8/8/8/8/8/8/4K3 w - - 0 1",
+                "source": "generated",
+                "selected_move_uci": "e1e2",
+                "result": "1-0",
+                "metadata": {},
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (raw_dir / "verify_raw.jsonl").write_text("", encoding="utf-8")
+    (raw_dir / "selection_summary.json").write_text(
+        json.dumps({"train_records": 1, "verify_records": 0}, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    config_path = tmp_path / "generation_0002" / "configs" / "campaign.json"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(
+        json.dumps({"merged_raw_dir": str(raw_dir)}, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    resolved = master._campaign_merged_raw_dir(  # type: ignore[attr-defined]
+        CampaignRow(
+            id=2,
+            name="generated_campaign",
+            kind="phase10_master",
+            status="succeeded",
+            config_path=str(config_path),
+            active_model_id=2,
+            metadata={"master_name": "master_backfill_usage_test", "generation": 2},
+            created_at=None,
+            updated_at=None,
+        )
+    )
+
+    assert resolved == raw_dir
+
+
 def test_master_ingests_idle_shard_snapshot_before_next_generation(tmp_path: Path) -> None:
     repo_root = Path(__file__).resolve().parents[2]
     controller = _StubController()
