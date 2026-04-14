@@ -65,6 +65,10 @@ Bereits umgesetzt:
   - pro `FEN` und Split wird nur die Wiederverwendungs-Metadaten gepflegt
   - laufende Generationen schreiben dafür kompakte Hash-/Counter-Upserts statt voller Sample-Metadaten
   - der schwere erste Backfill ist einmalig; spätere Generationen erhöhen nur die Zähler der neu trainierten Positionen
+- neuer Stamm-Start ist jetzt flexibler:
+  - `seed_warm_start_checkpoint` erlaubt Generation 1 direkt mit einem bereits akzeptierten Netz zu starten
+  - `seed_raw_dirs` erlaubt zusätzliche fertige Raw-Snapshots in Generation 1 einzumischen
+  - `use_all_available_labeled_positions=true` übernimmt die gesamte aktuell verfügbare gelabelte Kandidatenmenge statt nur die vorige Generationsgröße
 - schaltbare Master-Spec-Einträge über `enabled`:
   - `label_jobs`
   - `idle_phase10_jobs`

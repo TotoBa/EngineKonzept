@@ -193,3 +193,7 @@ Design rules:
   - MySQL tracks, per lineage and unique FEN, how many completed generations have already trained that position
   - generation building prefers unseen FENs first and only tops up with the currently least-used positions when it must repeat data to hold corpus size
   - steady-state usage updates are hash-and-counter writes; the expensive full backfill is only needed once for already completed older generations
+- A fresh lineage can now also start from an already trained checkpoint and a preassembled raw corpus:
+  - `seed_warm_start_checkpoint` seeds generation 1 with the current accepted network
+  - `seed_raw_dirs` injects additional completed raw snapshot directories into generation 1
+  - `use_all_available_labeled_positions=true` tells generation building to take the whole currently available labeled candidate corpus instead of shrinking back to the previous generation size

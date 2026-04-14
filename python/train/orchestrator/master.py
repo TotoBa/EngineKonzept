@@ -356,6 +356,9 @@ class Phase10LineageSpec:
     enabled: bool = True
     label_job_name: str | None = None
     idle_phase10_job_names: tuple[str, ...] | None = None
+    seed_raw_dirs: tuple[str, ...] = ()
+    seed_warm_start_checkpoint: str | None = None
+    use_all_available_labeled_positions: bool = False
     bootstrap_generation_from_seed_artifacts: bool = False
     max_generations: int = 1
     on_accept: str = "continue_training"
@@ -389,6 +392,9 @@ class Phase10LineageSpec:
                 if self.idle_phase10_job_names is None
                 else list(self.idle_phase10_job_names)
             ),
+            "seed_raw_dirs": list(self.seed_raw_dirs),
+            "seed_warm_start_checkpoint": self.seed_warm_start_checkpoint,
+            "use_all_available_labeled_positions": self.use_all_available_labeled_positions,
             "bootstrap_generation_from_seed_artifacts": self.bootstrap_generation_from_seed_artifacts,
             "max_generations": self.max_generations,
             "on_accept": self.on_accept,
@@ -412,6 +418,15 @@ class Phase10LineageSpec:
                 if "idle_phase10_job_names" not in payload
                 or payload.get("idle_phase10_job_names") is None
                 else tuple(str(entry) for entry in list(payload.get("idle_phase10_job_names") or []))
+            ),
+            seed_raw_dirs=tuple(str(entry) for entry in list(payload.get("seed_raw_dirs") or [])),
+            seed_warm_start_checkpoint=(
+                str(payload["seed_warm_start_checkpoint"])
+                if payload.get("seed_warm_start_checkpoint") is not None
+                else None
+            ),
+            use_all_available_labeled_positions=bool(
+                payload.get("use_all_available_labeled_positions", False)
             ),
             bootstrap_generation_from_seed_artifacts=bool(
                 payload.get("bootstrap_generation_from_seed_artifacts", False)
@@ -784,7 +799,7 @@ class OrchestratorMaster:
                 lineage=lineage,
                 generation=1,
                 parent_model=None,
-                warm_start_checkpoint=None,
+                warm_start_checkpoint=lineage.seed_warm_start_checkpoint,
                 label_work_dir=label_work_dir,
                 arena_registry=registry,
             )
@@ -1140,9 +1155,13 @@ class OrchestratorMaster:
                     "feedback_raw_dirs": [
                         str(path) for path in self._lineage_feedback_raw_dirs(lineage, generation=generation)
                     ],
+                    "seed_raw_dirs": [str(path) for path in self._lineage_seed_raw_dirs(lineage)],
                     "idle_raw_dirs": [
                         str(path) for _name, path in self._lineage_idle_raw_dirs(lineage)
                     ],
+                    "use_all_available_labeled_positions": (
+                        lineage.use_all_available_labeled_positions
+                    ),
                     "seed_phase10_config_path": str(seed_phase10_path),
                     "train_config_path": str(train_config_path),
                     "agent_spec_path": str(agent_spec_path),
@@ -1416,15 +1435,19 @@ class OrchestratorMaster:
         generation_root: Path,
         base_label_work_dir: Path | None,
     ) -> Path | None:
-        if generation == 1 and base_label_work_dir is not None:
-            return base_label_work_dir
-
         source_dirs: list[tuple[str, Path]] = []
         if base_label_work_dir is not None and _available_raw_snapshot(
             base_label_work_dir,
             require_completed=True,
         ) is not None:
             source_dirs.append(("base_label", base_label_work_dir))
+        source_dirs.extend(
+            (
+                f"seed_raw_{index:02d}",
+                path,
+            )
+            for index, path in enumerate(self._lineage_seed_raw_dirs(lineage), start=1)
+        )
         source_dirs.extend(
             (
                 f"feedback_generation_{index:04d}",
@@ -1444,6 +1467,15 @@ class OrchestratorMaster:
                 continue
             seen.add(normalized)
             unique_source_dirs.append((name, path))
+        if (
+            generation == 1
+            and base_label_work_dir is not None
+            and not lineage.seed_raw_dirs
+            and not lineage.use_all_available_labeled_positions
+            and len(unique_source_dirs) == 1
+            and unique_source_dirs[0][1] == base_label_work_dir
+        ):
+            return base_label_work_dir
         if not unique_source_dirs:
             return self._previous_generation_merged_raw_dir(lineage, generation=generation)
 
@@ -1458,10 +1490,14 @@ class OrchestratorMaster:
             ],
             output_dir=candidate_dir,
         )
-        target_counts = self._desired_generation_raw_counts(
-            lineage=lineage,
-            generation=generation,
-            base_label_work_dir=base_label_work_dir,
+        target_counts = (
+            _raw_corpus_counts(candidate_dir)
+            if lineage.use_all_available_labeled_positions
+            else self._desired_generation_raw_counts(
+                lineage=lineage,
+                generation=generation,
+                base_label_work_dir=base_label_work_dir,
+            )
         )
         output_dir = generation_root / "inputs" / "raw_corpus_merged"
         _materialize_usage_balanced_raw_corpus(
@@ -1476,6 +1512,15 @@ class OrchestratorMaster:
             source_dirs=[path for _name, path in unique_source_dirs],
         )
         return output_dir
+
+    def _lineage_seed_raw_dirs(self, lineage: Phase10LineageSpec) -> list[Path]:
+        raw_dirs: list[Path] = []
+        for raw_dir in lineage.seed_raw_dirs:
+            resolved = resolve_repo_path(self._repo_root, Path(raw_dir))
+            if not _raw_corpus_exists(resolved):
+                continue
+            raw_dirs.append(resolved)
+        return raw_dirs
 
     def _desired_generation_raw_counts(
         self,

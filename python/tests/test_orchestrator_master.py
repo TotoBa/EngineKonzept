@@ -473,6 +473,131 @@ def test_master_materializes_first_generation_from_completed_label_snapshot(tmp_
     assert "initial_checkpoint" not in train_payload
 
 
+def test_master_can_seed_first_generation_from_current_checkpoint_and_all_labeled_raw_dirs(
+    tmp_path: Path,
+) -> None:
+    label_work_dir = tmp_path / "base_label_work"
+    extra_raw_dir = tmp_path / "feedback_label_work"
+    _write_completed_raw_snapshot(
+        label_work_dir,
+        train_rows=[
+            {
+                "sample_id": "base:train:1",
+                "fen": "4k3/8/8/8/8/8/8/4K3 w - - 0 1",
+                "source": "base",
+                "selected_move_uci": "e1e2",
+                "result": "1-0",
+                "metadata": {},
+            }
+        ],
+        verify_rows=[
+            {
+                "sample_id": "base:verify:1",
+                "fen": "4k3/8/8/8/8/8/8/3K4 w - - 0 1",
+                "source": "base",
+                "selected_move_uci": "d1d2",
+                "result": "1/2-1/2",
+                "metadata": {},
+            }
+        ],
+    )
+    _write_completed_raw_snapshot(
+        extra_raw_dir,
+        train_rows=[
+            {
+                "sample_id": "feedback:train:1",
+                "fen": "4k3/8/8/8/8/8/8/2K5 w - - 0 1",
+                "source": "feedback",
+                "selected_move_uci": "c1c2",
+                "result": "1/2-1/2",
+                "metadata": {},
+            }
+        ],
+        verify_rows=[
+            {
+                "sample_id": "feedback:verify:1",
+                "fen": "4k3/8/8/8/8/8/8/1K6 w - - 0 1",
+                "source": "feedback",
+                "selected_move_uci": "b1b2",
+                "result": "0-1",
+                "metadata": {},
+            }
+        ],
+    )
+    current_checkpoint = tmp_path / "current_checkpoint.pt"
+    current_checkpoint.write_bytes(b"checkpoint")
+
+    controller = _StubController()
+    master = OrchestratorMaster(
+        db=_StubDB(),
+        controller=controller,
+        repo_root=Path(__file__).resolve().parents[2],
+        spec=MasterSpec(
+            name="master_full_seed_test",
+            output_root=str(tmp_path / "master"),
+            label_jobs=(
+                LabelPgnCorpusJobSpec(
+                    name="pgn_label",
+                    pgn_root="/srv/schach/PGN_DATA/pgn",
+                    work_dir=str(label_work_dir),
+                    target_train_records=8,
+                    target_verify_records=2,
+                ),
+            ),
+            lineages=(
+                Phase10LineageSpec(
+                    name="lapv2_lineage",
+                    seed_phase10_config_path="python/configs/phase10_lapv2_stage2_native_arena_all_sources_v1.json",
+                    output_root=str(tmp_path / "lineage"),
+                    label_job_name="pgn_label",
+                    seed_raw_dirs=(str(extra_raw_dir),),
+                    seed_warm_start_checkpoint=str(current_checkpoint),
+                    use_all_available_labeled_positions=True,
+                ),
+            ),
+        ),
+        spec_path=tmp_path / "master.json",
+    )
+
+    summary = master.reconcile_once()
+
+    assert summary["lineages"]["lapv2_lineage"]["status"] == "submitted_generation"
+    generation_config_path = Path(str(controller.phase10_submissions[0]["config_path"]))
+    generation_payload = json.loads(generation_config_path.read_text(encoding="utf-8"))
+    train_payload = json.loads(
+        Path(generation_payload["lapv1_config_path"]).read_text(encoding="utf-8")
+    )
+    selection_summary = json.loads(
+        (
+            Path(generation_payload["merged_raw_dir"]) / "selection_summary.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    train_rows = [
+        json.loads(line)
+        for line in (Path(generation_payload["merged_raw_dir"]) / "train_raw.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    verify_rows = [
+        json.loads(line)
+        for line in (Path(generation_payload["merged_raw_dir"]) / "verify_raw.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+
+    assert generation_payload["warm_start_source_checkpoint"] == str(current_checkpoint)
+    assert train_payload["initial_checkpoint"] == str(current_checkpoint)
+    assert {row["source"] for row in train_rows} == {"base", "feedback"}
+    assert {row["source"] for row in verify_rows} == {"base", "feedback"}
+    assert selection_summary["train_records"] == 2
+    assert selection_summary["verify_records"] == 2
+    assert selection_summary["desired_train_records"] == 2
+    assert selection_summary["desired_verify_records"] == 2
+    assert selection_summary["train_summary"]["fresh_records"] == 2
+    assert selection_summary["verify_summary"]["fresh_records"] == 2
+
+
 def test_master_submits_idle_phase10_job(tmp_path: Path) -> None:
     controller = _StubController()
     seed_config_path = _write_seed_phase10_config(tmp_path)
