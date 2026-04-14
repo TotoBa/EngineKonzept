@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import shlex
+import shutil
 import socket
 import subprocess
 from pathlib import Path
@@ -97,7 +98,18 @@ def _default_oracle_command(repo_root: Path) -> list[str]:
     built_binary = repo_root / "rust" / "target" / "debug" / "dataset-oracle"
     if built_binary.exists():
         return [str(built_binary)]
-    return ["cargo", "run", "--quiet", "-p", "tools", "--bin", "dataset-oracle"]
+    cargo_path = _resolve_cargo_path()
+    return [cargo_path, "run", "--quiet", "-p", "tools", "--bin", "dataset-oracle"]
+
+
+def _resolve_cargo_path() -> str:
+    cargo_path = shutil.which("cargo")
+    if cargo_path:
+        return cargo_path
+    home_cargo = Path.home() / ".cargo" / "bin" / "cargo"
+    if home_cargo.exists():
+        return str(home_cargo)
+    return "cargo"
 
 
 def _default_repo_root() -> Path:

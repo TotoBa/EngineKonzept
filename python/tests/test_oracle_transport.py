@@ -136,3 +136,27 @@ def test_default_oracle_command_honors_env_override(tmp_path: Path) -> None:
         command = _default_oracle_command(repo_root)
 
     assert command == ["python3", "oracle.py"]
+
+
+def test_default_oracle_command_falls_back_to_home_cargo_bin(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    cargo_bin = tmp_path / "home" / ".cargo" / "bin" / "cargo"
+    cargo_bin.parent.mkdir(parents=True)
+    cargo_bin.write_text("", encoding="utf-8")
+
+    with (
+        patch.dict(os.environ, {}, clear=True),
+        patch("train.datasets.oracle.shutil.which", return_value=None),
+        patch("train.datasets.oracle.Path.home", return_value=tmp_path / "home"),
+    ):
+        command = _default_oracle_command(repo_root)
+
+    assert command == [
+        str(cargo_bin),
+        "run",
+        "--quiet",
+        "-p",
+        "tools",
+        "--bin",
+        "dataset-oracle",
+    ]
