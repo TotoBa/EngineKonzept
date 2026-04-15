@@ -100,6 +100,53 @@ def test_build_phase10_reuse_existing_artifact_tasks_starts_with_train(tmp_path:
     assert tasks[1].depends_on == ("train",)
 
 
+def test_build_phase10_reuse_existing_artifact_tasks_can_seed_checkpoint_and_skip_train(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "python" / "configs" / "test_lapv1.json"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(
+        """
+{
+  "output_dir": "models/lapv1/test_run",
+  "evaluation": {"top_k": 5},
+  "export": {
+    "bundle_dir": "models/lapv1/test_run/bundle",
+    "checkpoint_name": "checkpoint.pt"
+  }
+}
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    warm_start_checkpoint = tmp_path / "seed" / "checkpoint.pt"
+    warm_start_checkpoint.parent.mkdir(parents=True, exist_ok=True)
+    warm_start_checkpoint.write_bytes(b"seed")
+    spec = Phase10Lapv1ArenaCampaignSpec(
+        **{
+            **_phase10_spec(tmp_path).__dict__,
+            "lapv1_config_path": str(config_path.relative_to(tmp_path)),
+            "reuse_existing_artifacts": True,
+            "skip_training": True,
+            "warm_start_source_checkpoint": str(warm_start_checkpoint),
+            "pre_verify_selfplay_games": 12,
+            "pre_verify_selfplay_games_per_task": 4,
+        }
+    )
+
+    tasks = build_phase10_reuse_existing_artifact_tasks(
+        spec_path=tmp_path / "phase10.json",
+        spec=spec,
+        model_id=11,
+        repo_root=tmp_path,
+    )
+
+    assert [task.key for task in tasks] == ["seed_checkpoint", "selfplay_prepare"]
+    assert tasks[0].task_type == "phase10_seed_checkpoint"
+    assert tasks[0].payload["source_checkpoint_path"] == str(warm_start_checkpoint)
+    assert tasks[1].depends_on == ("seed_checkpoint",)
+
+
 def test_build_label_pgn_corpus_tasks_has_single_label_task(tmp_path: Path) -> None:
     tasks = build_label_pgn_corpus_tasks(
         config_path=tmp_path / "label.json",

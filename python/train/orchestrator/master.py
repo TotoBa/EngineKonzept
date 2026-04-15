@@ -364,6 +364,7 @@ class Phase10LineageSpec:
     seed_warm_start_checkpoint: str | None = None
     use_all_available_labeled_positions: bool = False
     bootstrap_generation_from_seed_artifacts: bool = False
+    bootstrap_generation1_skip_training: bool = False
     max_generations: int = 1
     on_accept: str = "continue_training"
     on_reject: str = "stop"
@@ -400,6 +401,7 @@ class Phase10LineageSpec:
             "seed_warm_start_checkpoint": self.seed_warm_start_checkpoint,
             "use_all_available_labeled_positions": self.use_all_available_labeled_positions,
             "bootstrap_generation_from_seed_artifacts": self.bootstrap_generation_from_seed_artifacts,
+            "bootstrap_generation1_skip_training": self.bootstrap_generation1_skip_training,
             "max_generations": self.max_generations,
             "on_accept": self.on_accept,
             "on_reject": self.on_reject,
@@ -434,6 +436,9 @@ class Phase10LineageSpec:
             ),
             bootstrap_generation_from_seed_artifacts=bool(
                 payload.get("bootstrap_generation_from_seed_artifacts", False)
+            ),
+            bootstrap_generation1_skip_training=bool(
+                payload.get("bootstrap_generation1_skip_training", False)
             ),
             max_generations=int(payload.get("max_generations", 1)),
             on_accept=str(payload.get("on_accept", "continue_training")),
@@ -1144,6 +1149,9 @@ class OrchestratorMaster:
         phase10_payload["verify_dataset_dir"] = str(verify_dataset_dir)
         phase10_payload["workflow_output_root"] = str(workflow_output_root)
         phase10_payload["reuse_existing_artifacts"] = reuse_seed_artifacts
+        phase10_payload["skip_training"] = bool(
+            generation == 1 and lineage.bootstrap_generation1_skip_training
+        )
         phase10_payload["lapv1_config_path"] = str(train_config_path)
         phase10_payload["lapv1_agent_spec_path"] = str(agent_spec_path)
         phase10_payload["lapv1_verify_output_path"] = str(verify_output_path)

@@ -468,6 +468,22 @@ class TrainLapv1Payload:
 
 
 @dataclass(frozen=True)
+class Phase10SeedCheckpointPayload:
+    """Task payload for seeding one generation-local checkpoint without training."""
+
+    config_path: str
+    model_id: int
+    source_checkpoint_path: str
+    target_checkpoint_path: str
+    output_dir: str
+    schema_version: int = ORCHESTRATOR_SCHEMA_VERSION
+    task_kind: str = "phase10_seed_checkpoint"
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
 class Phase10SelfplayPreparePayload:
     """Task payload for resolving the tracked LAP agent and expanding selfplay shards."""
 

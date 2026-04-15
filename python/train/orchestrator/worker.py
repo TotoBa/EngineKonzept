@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 import socket
 import subprocess
 import sys
@@ -182,11 +183,7 @@ class OrchestratorWorker:
                 time.sleep(poll_interval_seconds)
 
     def _claim_capabilities(self) -> tuple[str, ...]:
-        if self._db.has_active_training_tasks():
-            return self._descriptor.capabilities
-        return tuple(
-            capability for capability in self._descriptor.capabilities if not capability.endswith("_idle")
-        )
+        return self._descriptor.capabilities
 
     def _execute_task(
         self,
@@ -214,6 +211,8 @@ class OrchestratorWorker:
             return self._handle_phase10_workflow_finalize(task, stdout_handle, stderr_handle)
         if task_type == "train_lapv1":
             return self._handle_train_lapv1(task, stdout_handle, stderr_handle)
+        if task_type == "phase10_seed_checkpoint":
+            return self._handle_phase10_seed_checkpoint(task)
         if task_type == "phase10_selfplay_prepare":
             return self._handle_phase10_selfplay_prepare(task)
         if task_type == "phase10_selfplay_shard":
@@ -810,6 +809,52 @@ class OrchestratorWorker:
             ),
         )
 
+    def _handle_phase10_seed_checkpoint(self, task: TaskRow) -> TaskResult:
+        payload = dict(task.payload)
+        source_checkpoint_path = Path(str(payload["source_checkpoint_path"]))
+        target_checkpoint_path = Path(str(payload["target_checkpoint_path"]))
+        output_dir = Path(str(payload["output_dir"]))
+        if not source_checkpoint_path.exists():
+            raise FileNotFoundError(f"seed checkpoint not found: {source_checkpoint_path}")
+        target_checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+        if target_checkpoint_path.exists() or target_checkpoint_path.is_symlink():
+            target_checkpoint_path.unlink()
+        try:
+            target_checkpoint_path.symlink_to(source_checkpoint_path)
+        except OSError:
+            shutil.copy2(source_checkpoint_path, target_checkpoint_path)
+        summary_path = self._write_json(
+            output_dir / "summary.json",
+            {
+                "seeded_from_checkpoint": str(source_checkpoint_path),
+                "checkpoint": str(target_checkpoint_path),
+                "summary_path": str(output_dir / "summary.json"),
+                "seeded_without_training": True,
+            },
+        )
+        self._db.update_model_record(
+            int(payload["model_id"]),
+            checkpoint_path=str(target_checkpoint_path),
+            bundle_path=str(target_checkpoint_path.parent),
+            status="seeded",
+        )
+        return TaskResult(
+            summary_path=str(summary_path),
+            artifacts=(
+                self._artifact_ref(
+                    kind="checkpoint",
+                    path=target_checkpoint_path,
+                    summary_path=summary_path,
+                ),
+                self._artifact_ref(
+                    kind="bundle_dir",
+                    path=target_checkpoint_path.parent,
+                    summary_path=summary_path,
+                ),
+            ),
+            metadata={"seeded_without_training": True},
+        )
+
     def _handle_phase10_selfplay_prepare(self, task: TaskRow) -> TaskResult:
         payload = dict(task.payload)
         config_path = Path(str(payload["config_path"]))
@@ -1105,6 +1150,7 @@ class OrchestratorWorker:
             "phase10_artifact_workflow_prepare",
             "phase10_workflow_chunk",
             "phase10_workflow_finalize",
+            "phase10_seed_checkpoint",
             "phase10_selfplay_prepare",
             "phase10_selfplay_shard",
             "phase10_selfplay_finalize",

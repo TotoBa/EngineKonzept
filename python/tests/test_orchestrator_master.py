@@ -731,6 +731,120 @@ def test_master_can_bootstrap_generation_one_from_seed_artifacts(tmp_path: Path)
     assert "generation_0001/outputs/workflow" not in train_payload["data"]["validation_path"]
 
 
+def test_master_can_mark_generation_one_as_skip_training_when_bootstrapped(
+    tmp_path: Path,
+) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    seed_config_path = _write_seed_phase10_config(tmp_path)
+    seed_payload = json.loads(seed_config_path.read_text(encoding="utf-8"))
+    seed_workflow_root = Path(str(seed_payload["workflow_output_root"]))
+    seed_train_dir = Path(str(seed_payload["train_dataset_dir"]))
+    seed_verify_dir = Path(str(seed_payload["verify_dataset_dir"]))
+    (seed_workflow_root / "summary.json").parent.mkdir(parents=True, exist_ok=True)
+    (seed_workflow_root / "summary.json").write_text("{}\n", encoding="utf-8")
+    (seed_train_dir / "summary.json").parent.mkdir(parents=True, exist_ok=True)
+    (seed_train_dir / "summary.json").write_text("{}\n", encoding="utf-8")
+    (seed_verify_dir / "summary.json").parent.mkdir(parents=True, exist_ok=True)
+    (seed_verify_dir / "summary.json").write_text("{}\n", encoding="utf-8")
+    warm_start_checkpoint = tmp_path / "seeded_model" / "checkpoint.pt"
+    warm_start_checkpoint.parent.mkdir(parents=True, exist_ok=True)
+    warm_start_checkpoint.write_bytes(b"checkpoint")
+
+    master = OrchestratorMaster(
+        db=_StubDB(),
+        controller=_StubController(),
+        repo_root=repo_root,
+        spec=MasterSpec(
+            name="master_stage2_seed_skip_train_test",
+            output_root=str(tmp_path / "master"),
+            lineages=(
+                Phase10LineageSpec(
+                    name="lapv2_lineage",
+                    seed_phase10_config_path=str(seed_config_path),
+                    output_root=str(tmp_path / "lineage"),
+                    bootstrap_generation_from_seed_artifacts=True,
+                    bootstrap_generation1_skip_training=True,
+                    seed_warm_start_checkpoint=str(warm_start_checkpoint),
+                ),
+            ),
+        ),
+        spec_path=tmp_path / "master.json",
+    )
+
+    paths = master._materialize_generation_configs(  # type: ignore[attr-defined]
+        lineage=master.spec.lineages[0],
+        generation=1,
+        parent_model=None,
+        warm_start_checkpoint=str(warm_start_checkpoint),
+        label_work_dir=None,
+    )
+    generation_payload = json.loads(paths["phase10_config_path"].read_text(encoding="utf-8"))
+
+    assert generation_payload["reuse_existing_artifacts"] is True
+    assert generation_payload["skip_training"] is True
+    assert generation_payload["warm_start_source_checkpoint"] == str(warm_start_checkpoint)
+
+
+def test_master_only_skips_training_for_generation_one(tmp_path: Path) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    seed_config_path = _write_seed_phase10_config(tmp_path)
+    warm_start_checkpoint = tmp_path / "seeded_model" / "checkpoint.pt"
+    warm_start_checkpoint.parent.mkdir(parents=True, exist_ok=True)
+    warm_start_checkpoint.write_bytes(b"checkpoint")
+    parent_checkpoint = tmp_path / "parent_model" / "checkpoint.pt"
+    parent_checkpoint.parent.mkdir(parents=True, exist_ok=True)
+    parent_checkpoint.write_bytes(b"parent")
+
+    master = OrchestratorMaster(
+        db=_StubDB(),
+        controller=_StubController(),
+        repo_root=repo_root,
+        spec=MasterSpec(
+            name="master_stage2_seed_skip_train_generation_two_test",
+            output_root=str(tmp_path / "master"),
+            lineages=(
+                Phase10LineageSpec(
+                    name="lapv2_lineage",
+                    seed_phase10_config_path=str(seed_config_path),
+                    output_root=str(tmp_path / "lineage"),
+                    bootstrap_generation_from_seed_artifacts=True,
+                    bootstrap_generation1_skip_training=True,
+                    seed_warm_start_checkpoint=str(warm_start_checkpoint),
+                ),
+            ),
+        ),
+        spec_path=tmp_path / "master.json",
+    )
+
+    paths = master._materialize_generation_configs(  # type: ignore[attr-defined]
+        lineage=master.spec.lineages[0],
+        generation=2,
+        parent_model=ModelRow(
+            id=5,
+            campaign_id=4,
+            parent_model_id=4,
+            generation=1,
+            train_config_path=None,
+            agent_spec_path=None,
+            checkpoint_path=str(parent_checkpoint),
+            bundle_path=str(parent_checkpoint.parent),
+            verify_json_path=None,
+            arena_summary_path=None,
+            status="trained",
+            promotion_score=None,
+            metadata={},
+            created_at=None,
+        ),
+        warm_start_checkpoint=str(parent_checkpoint),
+        label_work_dir=None,
+    )
+    generation_payload = json.loads(paths["phase10_config_path"].read_text(encoding="utf-8"))
+
+    assert generation_payload["reuse_existing_artifacts"] is False
+    assert generation_payload["skip_training"] is False
+    assert generation_payload["warm_start_source_checkpoint"] == str(parent_checkpoint)
+
+
 def test_master_accepts_generation_and_submits_followup_with_warm_start(tmp_path: Path) -> None:
     repo_root = Path(__file__).resolve().parents[2]
     controller = _StubController()

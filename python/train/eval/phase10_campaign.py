@@ -68,6 +68,7 @@ class Phase10Lapv1ArenaCampaignSpec:
     phase5_chunk_size: int = 5000
     phase5_log_every_chunks: int = 1
     reuse_existing_artifacts: bool = False
+    skip_training: bool = False
     workflow_output_root: str = ""
     proposer_checkpoint: str = ""
     teacher_engine_path: str = "/usr/games/stockfish18"
@@ -123,6 +124,7 @@ class Phase10Lapv1ArenaCampaignSpec:
             phase5_chunk_size=int(payload.get("phase5_chunk_size", 5000)),
             phase5_log_every_chunks=int(payload.get("phase5_log_every_chunks", 1)),
             reuse_existing_artifacts=bool(payload.get("reuse_existing_artifacts", False)),
+            skip_training=bool(payload.get("skip_training", False)),
             workflow_output_root=str(payload["workflow_output_root"]),
             proposer_checkpoint=str(payload["proposer_checkpoint"]),
             teacher_engine_path=str(payload.get("teacher_engine_path", "/usr/games/stockfish18")),

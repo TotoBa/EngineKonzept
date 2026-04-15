@@ -53,6 +53,10 @@ Bereits umgesetzt:
 - Workflow-Builder-Unterstützung für splitweise Ausführung über `--only-split`
 - Worker-seitige Thread-Drossel für verteilte Inferenz-/Workflow-Tasks über `--distributed-task-threads`
 - Lineage-Bootstrap für Generation 1 auf bereits fertigen Seed-Dataset-/Workflow-Artefakten über `bootstrap_generation_from_seed_artifacts=true` plus generiertes `reuse_existing_artifacts=true`
+- optionaler Gen1-Direktstart ohne Initialtraining über `bootstrap_generation1_skip_training=true`:
+  - der Master seeded nur den generationslokalen Checkpoint
+  - die DAG startet dann bei `selfplay -> verify -> arena`
+  - ab Generation 2 läuft wieder der normale Train-First-Pfad
 - Campaign-Status-Update direkt beim Task-Start:
   - lange `train_lapv1`-Tasks lassen die Campaign nicht mehr optisch auf `queued`
 - MySQL-gesteuerter Idle-Pfad für Pi-Worker:
@@ -61,6 +65,9 @@ Bereits umgesetzt:
   - Materialisierung der Phase-5-Tiers
   - Workflow-Prepare/Chunk/Finalize
   - finale `LAPv2 phase10`-Artefakte auf dem NAS, wie sie das Training konsumiert
+  - Pi-Worker advertisen dabei normale und `*_idle`-Capabilities gleichzeitig
+  - reale Lineage-Tasks gewinnen über Priorität; Idle-PGN-Export läuft nur in den Lücken
+  - weil Idle-Slices kurz resumable sind, blockieren sie den Rückweg zu `selfplay`/`verify`/`arena` nicht lange
 - lineage-weites Trainingsdaten-Ledger in MySQL:
   - pro `FEN` und Split wird nur die Wiederverwendungs-Metadaten gepflegt
   - laufende Generationen schreiben dafür kompakte Hash-/Counter-Upserts statt voller Sample-Metadaten
@@ -73,6 +80,7 @@ Bereits umgesetzt:
   - damit scheitern shardbare Tasks nicht mehr sofort an kurzzeitiger Dateisichtbarkeit
 - neuer Stamm-Start ist jetzt flexibler:
   - `seed_warm_start_checkpoint` erlaubt Generation 1 direkt mit einem bereits akzeptierten Netz zu starten
+  - `bootstrap_generation1_skip_training=true` erlaubt dabei, Generation 1 ohne erneutes Training direkt in `selfplay`, `verify` und `arena` zu schicken
   - `seed_raw_dirs` erlaubt zusätzliche fertige Raw-Snapshots in Generation 1 einzumischen
   - `use_all_available_labeled_positions=true` übernimmt die gesamte aktuell verfügbare gelabelte Kandidatenmenge statt nur die vorige Generationsgröße
 - schaltbare Master-Spec-Einträge über `enabled`:

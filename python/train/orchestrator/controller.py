@@ -28,6 +28,7 @@ from train.orchestrator.models import (
     Phase10FinalizePayload,
     Phase5RawMergePayload,
     Phase10MaterializePayload,
+    Phase10SeedCheckpointPayload,
     Phase10SelfplayFinalizePayload,
     Phase10SelfplayPreparePayload,
     Phase10SelfplayShardPayload,
@@ -608,20 +609,46 @@ def build_phase10_reuse_existing_artifact_tasks(
     """Return the train/eval DAG when dataset and workflow artifacts already exist."""
     train_config_path = resolve_repo_path(repo_root, Path(spec.lapv1_config_path))
     train_metadata = _load_lap_train_metadata(train_config_path)
-    tasks = [
-        PlannedTask(
-            key="train",
-            task_type="train_lapv1",
-            capability="train",
-            priority=40,
-            max_attempts=2,
-            payload=TrainLapv1Payload(
-                config_path=str(train_config_path),
-                model_id=model_id,
-                model_label=spec.model_label,
-            ).to_dict(),
-        )
-    ]
+    if spec.skip_training:
+        if spec.warm_start_source_checkpoint is None:
+            raise ValueError(
+                "phase10 config requested skip_training without warm_start_source_checkpoint"
+            )
+        entrypoint_key = "seed_checkpoint"
+        tasks = [
+            PlannedTask(
+                key=entrypoint_key,
+                task_type="phase10_seed_checkpoint",
+                capability="aggregate",
+                priority=45,
+                max_attempts=2,
+                payload=Phase10SeedCheckpointPayload(
+                    config_path=str(spec_path),
+                    model_id=model_id,
+                    source_checkpoint_path=str(
+                        resolve_repo_path(repo_root, Path(spec.warm_start_source_checkpoint))
+                    ),
+                    target_checkpoint_path=str(train_metadata["checkpoint_path"]),
+                    output_dir=str(train_metadata["output_dir"]),
+                ).to_dict(),
+            )
+        ]
+    else:
+        entrypoint_key = "train"
+        tasks = [
+            PlannedTask(
+                key=entrypoint_key,
+                task_type="train_lapv1",
+                capability="train",
+                priority=40,
+                max_attempts=2,
+                payload=TrainLapv1Payload(
+                    config_path=str(train_config_path),
+                    model_id=model_id,
+                    model_label=spec.model_label,
+                ).to_dict(),
+            )
+        ]
     if spec.pre_verify_selfplay_games > 0:
         tasks.append(
             PlannedTask(
@@ -630,7 +657,7 @@ def build_phase10_reuse_existing_artifact_tasks(
                 capability="aggregate",
                 priority=30,
                 max_attempts=2,
-                depends_on=("train",),
+                depends_on=(entrypoint_key,),
                 payload=Phase10SelfplayPreparePayload(
                     config_path=str(spec_path),
                     model_id=model_id,
@@ -645,7 +672,7 @@ def build_phase10_reuse_existing_artifact_tasks(
                 repo_root=repo_root,
                 train_config_path=train_config_path,
                 train_metadata=train_metadata,
-                verify_depends_on=("train",),
+                verify_depends_on=(entrypoint_key,),
                 spec_path=spec_path,
             )
         )

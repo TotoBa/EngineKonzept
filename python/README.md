@@ -179,14 +179,16 @@ Design rules:
 - The master can now recycle both pre-verify selfplay and arena sessions by exporting PGNs, relabeling them through `label_pgn_corpus`, and merging the resulting raw corpora into the next generation.
 - Arena progression is explicit: non-`LAPv1` historical arms and `vice` stay active until safely beaten, while `stockfish18` advances on its own skill ladder in parallel.
 - The master spec now supports explicit `enabled` flags on label jobs, idle Phase-10 jobs, and lineages, so future runs can be paused or narrowed through the same API/UI path that serves status.
-- `bootstrap_generation_from_seed_artifacts=true` on one lineage lets generation 1 skip materialize/workflow and train directly from the dataset/workflow artifacts referenced by the seed Phase-10 config.
-- `reuse_existing_artifacts=true` on the generated Phase-10 campaign config is the low-level switch that turns that direct-train bootstrap on.
+- `bootstrap_generation_from_seed_artifacts=true` on one lineage lets generation 1 skip materialize/workflow and reuse the dataset/workflow artifacts referenced by the seed Phase-10 config.
+- `bootstrap_generation1_skip_training=true` extends that bootstrap so generation 1 can start directly from a seeded checkpoint at `selfplay -> verify -> arena`, while later generations return to the normal train-first DAG.
+- `reuse_existing_artifacts=true` on the generated Phase-10 campaign config is the low-level switch that turns that artifact bootstrap on.
 - Training is best kept on one strong `train` worker; shardable selfplay/verify/arena work is best spread over multiple narrow workers.
 - Campaign status now advances on task start, so a leased `train_lapv1` no longer leaves the parent campaign stuck at `queued`.
 - The control plane also supports a low-priority background artifact path via `ek_ctl.py submit-idle-phase10`:
   - Pi-style workers can advertise `label_idle,materialize_idle,workflow_idle,aggregate_idle`
-  - while a real `train_lapv1` lease is active somewhere else, those workers may build sharded `LAPv2 phase10` artifacts on NAS from PGNs
-  - once no active training lease remains, workers automatically stop claiming `*_idle` tasks and switch back to normal `selfplay`, `verify`, `arena`, and aggregate work
+  - those workers always advertise both real-run and `*_idle` capabilities
+  - scheduler priority keeps real lineage work ahead of idle PGN export whenever both are queued
+  - idle work is sliced into short resumable chunks, so a Pi worker returns to queueing normal `selfplay`, `verify`, `arena`, or aggregate work after the current slice finishes
 - Lineages can now consume those idle shards directly for the next generation:
   - if `idle_phase10_job_names` is omitted, the lineage considers all enabled idle Phase-10 jobs
   - the master reads exported shard snapshots under `work_root/label_shards/shard_*` immediately, without waiting for the idle campaign to finish EOF

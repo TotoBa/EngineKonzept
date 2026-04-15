@@ -90,6 +90,7 @@ The new master layer sits above that DAG:
   - steady-state generations update only per-FEN counters and last-generation markers, not full sample metadata on every row
 - a fresh lineage can now be seeded from an already accepted checkpoint and extra raw snapshot dirs:
   - `seed_warm_start_checkpoint` bootstraps generation 1 from the current network
+  - `bootstrap_generation1_skip_training=true` lets that first generation skip the initial train step and begin directly at `selfplay -> verify -> arena`
   - `seed_raw_dirs` plus `use_all_available_labeled_positions=true` lets a new lineage consume the full currently labeled raw corpus immediately
 
 For future runs, the same master can now also run behind a CherryPy HTTP server:

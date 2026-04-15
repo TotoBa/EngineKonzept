@@ -603,7 +603,7 @@ def test_handle_label_pgn_corpus_exports_from_mysql_ledger(tmp_path: Path) -> No
     assert not (work_dir / "corpus.sqlite3").exists()
 
 
-def test_claim_capabilities_filters_idle_when_training_not_active(tmp_path: Path) -> None:
+def test_claim_capabilities_keeps_idle_capabilities_available(tmp_path: Path) -> None:
     repo_root = Path(__file__).resolve().parents[2]
     worker = OrchestratorWorker(
         db=_RunOnceDB(
@@ -640,7 +640,72 @@ def test_claim_capabilities_filters_idle_when_training_not_active(tmp_path: Path
         log_root=tmp_path / "logs",
     )
 
-    assert worker._claim_capabilities() == ("verify",)
+    assert worker._claim_capabilities() == ("verify", "label_idle", "workflow_idle")
+
+
+def test_handle_phase10_seed_checkpoint_links_or_copies_checkpoint(tmp_path: Path) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    db = _StubDB()
+    model_updates: list[tuple[int, dict[str, object]]] = []
+    db.update_model_record = lambda model_id, **fields: model_updates.append((model_id, dict(fields)))  # type: ignore[method-assign]
+    worker = OrchestratorWorker(
+        db=db,
+        controller=_StubController(),
+        descriptor=WorkerDescriptor(
+            worker_id="worker-test",
+            hostname="localhost",
+            capabilities=("aggregate",),
+            scratch_root=str(tmp_path / "scratch"),
+            version="test",
+        ),
+        repo_root=repo_root,
+        log_root=tmp_path / "logs",
+    )
+    source_checkpoint = tmp_path / "seed" / "checkpoint.pt"
+    source_checkpoint.parent.mkdir(parents=True, exist_ok=True)
+    source_checkpoint.write_bytes(b"seed-checkpoint")
+    output_dir = tmp_path / "model"
+    target_checkpoint = output_dir / "bundle" / "checkpoint.pt"
+    task = TaskRow(
+        id=21,
+        campaign_id=1,
+        model_id=7,
+        task_type="phase10_seed_checkpoint",
+        capability="aggregate",
+        priority=0,
+        state="leased",
+        payload={
+            "model_id": 7,
+            "source_checkpoint_path": str(source_checkpoint),
+            "target_checkpoint_path": str(target_checkpoint),
+            "output_dir": str(output_dir),
+        },
+        result=None,
+        worker_id="worker-test",
+        lease_until=None,
+        attempt_count=1,
+        max_attempts=1,
+        depends_on_count=0,
+        not_before=None,
+        created_at=None,
+        updated_at=None,
+    )
+
+    result = worker._handle_phase10_seed_checkpoint(task)
+
+    assert Path(result.summary_path) == output_dir / "summary.json"
+    assert target_checkpoint.exists()
+    assert target_checkpoint.read_bytes() == b"seed-checkpoint"
+    assert model_updates == [
+        (
+            7,
+            {
+                "checkpoint_path": str(target_checkpoint),
+                "bundle_path": str(target_checkpoint.parent),
+                "status": "seeded",
+            },
+        )
+    ]
 
 
 def test_before_execute_sets_training_campaign_status(tmp_path: Path) -> None:
