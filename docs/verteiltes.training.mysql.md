@@ -65,6 +65,12 @@ Bereits umgesetzt:
   - pro `FEN` und Split wird nur die Wiederverwendungs-Metadaten gepflegt
   - laufende Generationen schreiben dafür kompakte Hash-/Counter-Upserts statt voller Sample-Metadaten
   - der schwere erste Backfill ist einmalig; spätere Generationen erhöhen nur die Zähler der neu trainierten Positionen
+- robuste Master-Reconcile-Schicht gegen transiente MySQL-Verbindungsabbrüche:
+  - Fehler wie `MySQL server has gone away` im Usage-Ledger-/Backfill-Pfad beenden den Master nicht mehr sofort
+  - der Master loggt den transienten Fehler, wartet kurz und setzt die Reconcile-Schleife fort
+- Worker-seitige Retry-Schicht für kurzzeitig unsichtbare NAS-/`/srv`-Config-Dateien:
+  - Phase-10-Campaign-Configs, Train-Configs und Arena-Specs werden bei `FileNotFoundError` kurz erneut gelesen
+  - damit scheitern shardbare Tasks nicht mehr sofort an kurzzeitiger Dateisichtbarkeit
 - neuer Stamm-Start ist jetzt flexibler:
   - `seed_warm_start_checkpoint` erlaubt Generation 1 direkt mit einem bereits akzeptierten Netz zu starten
   - `seed_raw_dirs` erlaubt zusätzliche fertige Raw-Snapshots in Generation 1 einzumischen
@@ -84,6 +90,12 @@ Bereits verifiziert:
   `phase10_lapv2_stage2_native_arena_all_sources_v1`
 - echter lokaler MySQL-Smoke-Run mit `2` und danach `4` parallelen Workern unter `/srv/engine_training_temp/...`
 - echter Master-Smoke-Run mit einem dedizierten `label`-Worker und zwei vollständig durchgelaufenen Phase-10-Generationen
+- echter ultrakurzer lokaler Komplett-Smoke-Run unter
+  `/srv/engine_training_temp/mysql_master_finalization_smoke_20260415_run1`:
+  - bootstrapped `train -> selfplay -> verify -> arena -> phase10_finalize`
+  - danach automatisches Feedback-Labeling
+  - danach erfolgreicher Trainingsnutzungs-Backfill im Master
+  - Endzustand `all_terminal=true`, `status=completed`, `latest_recorded_generation=1`
 
 Bewusst noch nicht ausgeführt:
 

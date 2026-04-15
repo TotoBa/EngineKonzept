@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+import train.orchestrator.worker as worker_module
 from train.orchestrator.models import MySQLConfig, TaskResult, TaskRow, WorkerDescriptor
 from train.orchestrator.worker import OrchestratorWorker
 
@@ -308,6 +309,87 @@ def test_workflow_finalize_builds_hard_subsets(tmp_path: Path) -> None:
     assert summary_payload["hard_validation_path"] == str(
         workflow_root / "all_unique_validation_hard_v1" / "lapv1_validation_hard.jsonl"
     )
+
+
+def test_load_phase10_campaign_spec_retries_transient_missing_config(tmp_path: Path) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    worker = OrchestratorWorker(
+        db=_StubDB(),
+        controller=_StubController(),
+        descriptor=WorkerDescriptor(
+            worker_id="worker-test",
+            hostname="localhost",
+            capabilities=("workflow",),
+            scratch_root=str(tmp_path / "scratch"),
+            version="test",
+        ),
+        repo_root=repo_root,
+        log_root=tmp_path / "logs",
+    )
+    config_path = tmp_path / "campaign.json"
+    config_path.write_text("{}\n", encoding="utf-8")
+    calls = {"count": 0}
+    expected = object()
+
+    def flaky_loader(path: Path) -> object:
+        assert path == config_path
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise FileNotFoundError(str(path))
+        return expected
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(worker_module, "load_phase10_lapv1_arena_campaign_spec", flaky_loader)
+        monkeypatch.setattr(worker_module.time, "sleep", lambda _: None)
+        loaded = worker._load_phase10_campaign_spec(config_path)
+
+    assert loaded is expected
+    assert calls["count"] == 2
+
+
+def test_load_train_metadata_retries_transient_missing_config(tmp_path: Path) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    worker = OrchestratorWorker(
+        db=_StubDB(),
+        controller=_StubController(),
+        descriptor=WorkerDescriptor(
+            worker_id="worker-test",
+            hostname="localhost",
+            capabilities=("train",),
+            scratch_root=str(tmp_path / "scratch"),
+            version="test",
+        ),
+        repo_root=repo_root,
+        log_root=tmp_path / "logs",
+    )
+    config_path = tmp_path / "train_config.json"
+    payload = {
+        "output_dir": str(tmp_path / "model_output"),
+        "export": {
+            "bundle_dir": str(tmp_path / "bundle"),
+            "checkpoint_name": "checkpoint.pt",
+        },
+    }
+    config_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    original_read_text = Path.read_text
+    calls = {"count": 0}
+
+    def flaky_read_text(path: Path, *args: object, **kwargs: object) -> str:
+        if path == config_path:
+            calls["count"] += 1
+            if calls["count"] == 1:
+                raise FileNotFoundError(str(path))
+        return original_read_text(path, *args, **kwargs)
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(Path, "read_text", flaky_read_text)
+        monkeypatch.setattr(worker_module.time, "sleep", lambda _: None)
+        metadata = worker._load_train_metadata(config_path)
+
+    assert calls["count"] == 2
+    assert metadata["summary_path"] == str(tmp_path / "model_output" / "summary.json")
+    assert metadata["checkpoint_path"] == str(tmp_path / "bundle" / "checkpoint.pt")
+    assert metadata["bundle_dir"] == str(tmp_path / "bundle")
 
 
 def test_handle_label_pgn_corpus_reads_progress_and_exports(tmp_path: Path) -> None:

@@ -7,6 +7,7 @@ import time
 from urllib.request import Request, urlopen
 
 import chess
+import pymysql
 import pytest
 
 from train.datasets.schema import RawPositionRecord
@@ -1578,6 +1579,42 @@ def test_master_ingests_idle_shard_snapshot_before_next_generation(tmp_path: Pat
     )
     assert selection_summary["train_summary"]["fresh_records"] == 1
     assert summary["lineages"]["lapv2_lineage"]["training_data_usage"]["recorded_generations"] == [1]
+
+
+def test_master_run_until_terminal_retries_transient_mysql_disconnect(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    master = OrchestratorMaster(
+        db=_StubDB(),
+        controller=_StubController(),
+        repo_root=repo_root,
+        spec=MasterSpec(
+            name="master_transient_db_test",
+            output_root=str(tmp_path / "master"),
+        ),
+        spec_path=tmp_path / "master.json",
+    )
+    outcomes: list[object] = [
+        pymysql.err.OperationalError(2006, "MySQL server has gone away"),
+        {"all_terminal": True, "status": "done"},
+    ]
+    sleep_calls: list[float] = []
+
+    def reconcile_once() -> dict[str, object]:
+        outcome = outcomes.pop(0)
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return dict(outcome)
+
+    monkeypatch.setattr(master, "reconcile_once", reconcile_once)
+    monkeypatch.setattr("train.orchestrator.master.time.sleep", lambda seconds: sleep_calls.append(seconds))
+
+    summary = master.run_until_terminal(poll_interval_seconds=0.25, max_cycles=3)
+
+    assert summary["status"] == "done"
+    assert sleep_calls == [0.25]
 
 
 def test_master_advances_stockfish_in_parallel_while_vice_stays_active(tmp_path: Path) -> None:

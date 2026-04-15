@@ -11,7 +11,7 @@ import socket
 import subprocess
 import sys
 import time
-from typing import Any, IO, Sequence
+from typing import Any, Callable, IO, Sequence
 
 from train.eval.phase10_campaign import (
     load_phase10_lapv1_arena_campaign_spec,
@@ -29,6 +29,8 @@ class OrchestratorWorker:
     _HARD_TRAIN_MAX_EXAMPLES = 150_000
     _HARD_VALIDATION_MAX_EXAMPLES = 15_000
     _HARD_LOG_EVERY = 10_000
+    _CONFIG_READ_RETRY_ATTEMPTS = 8
+    _CONFIG_READ_RETRY_DELAY_SECONDS = 0.25
 
     def __init__(
         self,
@@ -493,11 +495,13 @@ class OrchestratorWorker:
 
     def _handle_phase10_workflow_prepare(self, task: TaskRow) -> TaskResult:
         payload = dict(task.payload)
+        config_path = Path(str(payload["config_path"]))
+        self._load_json_path(config_path, description="phase10 campaign config")
         expanded = self._controller.expand_phase10_workflow(
             parent_task_id=task.id,
             campaign_id=task.campaign_id,
             model_id=int(payload["model_id"]),
-            config_path=Path(str(payload["config_path"])),
+            config_path=config_path,
         )
         return TaskResult(
             summary_path=str(expanded["summary_path"]),
@@ -507,10 +511,12 @@ class OrchestratorWorker:
 
     def _handle_phase10_artifact_workflow_prepare(self, task: TaskRow) -> TaskResult:
         payload = dict(task.payload)
+        config_path = Path(str(payload["config_path"]))
+        self._load_json_path(config_path, description="phase10 artifact config")
         expanded = self._controller.expand_phase10_artifact_workflow(
             parent_task_id=task.id,
             campaign_id=task.campaign_id,
-            config_path=Path(str(payload["config_path"])),
+            config_path=config_path,
         )
         return TaskResult(
             summary_path=str(expanded["summary_path"]),
@@ -525,7 +531,7 @@ class OrchestratorWorker:
         stderr_handle: IO[str],
     ) -> TaskResult:
         payload = dict(task.payload)
-        spec = load_phase10_lapv1_arena_campaign_spec(Path(str(payload["config_path"])))
+        spec = self._load_phase10_campaign_spec(Path(str(payload["config_path"])))
         split_name = str(payload["split"])
         chunk_index = int(payload["chunk_index"])
         command = [
@@ -626,7 +632,7 @@ class OrchestratorWorker:
         stderr_handle: IO[str],
     ) -> TaskResult:
         payload = dict(task.payload)
-        spec = load_phase10_lapv1_arena_campaign_spec(Path(str(payload["config_path"])))
+        spec = self._load_phase10_campaign_spec(Path(str(payload["config_path"])))
         command = [
             sys.executable,
             "-u",
@@ -806,11 +812,13 @@ class OrchestratorWorker:
 
     def _handle_phase10_selfplay_prepare(self, task: TaskRow) -> TaskResult:
         payload = dict(task.payload)
+        config_path = Path(str(payload["config_path"]))
+        self._load_json_path(config_path, description="phase10 campaign config")
         expanded = self._controller.expand_phase10_selfplay(
             parent_task_id=task.id,
             campaign_id=task.campaign_id,
             model_id=int(payload["model_id"]),
-            config_path=Path(str(payload["config_path"])),
+            config_path=config_path,
         )
         return TaskResult(
             summary_path=str(expanded["summary_path"]),
@@ -833,7 +841,7 @@ class OrchestratorWorker:
         from train.eval.distributed_selfplay import run_phase10_pre_verify_selfplay_shard
 
         payload = dict(task.payload)
-        spec = load_phase10_lapv1_arena_campaign_spec(Path(str(payload["config_path"])))
+        spec = self._load_phase10_campaign_spec(Path(str(payload["config_path"])))
         output_root = Path(str(payload["output_root"]))
         with self._thread_budget(self._distributed_task_threads):
             summary = run_phase10_pre_verify_selfplay_shard(
@@ -944,11 +952,13 @@ class OrchestratorWorker:
 
     def _handle_phase10_arena_prepare(self, task: TaskRow) -> TaskResult:
         payload = dict(task.payload)
+        config_path = Path(str(payload["config_path"]))
+        self._load_json_path(config_path, description="phase10 campaign config")
         expanded = self._controller.expand_phase10_arena(
             parent_task_id=task.id,
             campaign_id=task.campaign_id,
             model_id=int(payload["model_id"]),
-            config_path=Path(str(payload["config_path"])),
+            config_path=config_path,
         )
         return TaskResult(
             summary_path=str(expanded["summary_path"]),
@@ -971,7 +981,11 @@ class OrchestratorWorker:
 
         payload = dict(task.payload)
         resolved_spec_path = Path(str(payload["resolved_arena_spec_path"]))
-        spec = load_selfplay_arena_spec(resolved_spec_path)
+        spec = self._with_path_retry(
+            path=resolved_spec_path,
+            description="arena spec",
+            operation=lambda: load_selfplay_arena_spec(resolved_spec_path),
+        )
         output_root = Path(str(payload["output_root"]))
         with self._thread_budget(self._distributed_task_threads):
             summary = run_selfplay_arena_matchup(
@@ -1003,7 +1017,12 @@ class OrchestratorWorker:
         from train.eval.matrix import build_selfplay_arena_matrix, write_selfplay_arena_matrix
 
         payload = dict(task.payload)
-        spec = load_selfplay_arena_spec(Path(str(payload["resolved_arena_spec_path"])))
+        resolved_spec_path = Path(str(payload["resolved_arena_spec_path"]))
+        spec = self._with_path_retry(
+            path=resolved_spec_path,
+            description="arena spec",
+            operation=lambda: load_selfplay_arena_spec(resolved_spec_path),
+        )
         output_root = Path(str(payload["output_root"]))
         summary = rebuild_selfplay_arena_summary(spec=spec, output_root=output_root)
         matrix = build_selfplay_arena_matrix(summary)
@@ -1033,9 +1052,13 @@ class OrchestratorWorker:
 
     def _handle_phase10_finalize(self, task: TaskRow) -> TaskResult:
         payload = dict(task.payload)
+        config_path = Path(str(payload["config_path"]))
+        resolved_arena_spec_path = Path(str(payload["resolved_arena_spec_path"]))
+        self._load_json_path(config_path, description="phase10 campaign config")
+        self._load_json_path(resolved_arena_spec_path, description="arena spec")
         summary_path = self._controller.write_phase10_summary(
-            config_path=Path(str(payload["config_path"])),
-            resolved_arena_spec_path=Path(str(payload["resolved_arena_spec_path"])),
+            config_path=config_path,
+            resolved_arena_spec_path=resolved_arena_spec_path,
         )
         self._db.update_model_record(int(payload["model_id"]), status="completed")
         self._db.update_campaign_record(
@@ -1050,8 +1073,10 @@ class OrchestratorWorker:
 
     def _handle_phase10_artifact_finalize(self, task: TaskRow) -> TaskResult:
         payload = dict(task.payload)
+        config_path = Path(str(payload["config_path"]))
+        self._load_json_path(config_path, description="phase10 artifact config")
         summary_path = self._controller.write_phase10_artifact_summary(
-            config_path=Path(str(payload["config_path"])),
+            config_path=config_path,
         )
         self._db.update_campaign_record(task.campaign_id, status="succeeded")
         return TaskResult(
@@ -1221,8 +1246,22 @@ class OrchestratorWorker:
         path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         return path
 
+    def _load_phase10_campaign_spec(self, config_path: Path) -> Any:
+        return self._with_path_retry(
+            path=config_path,
+            description="phase10 campaign config",
+            operation=lambda: load_phase10_lapv1_arena_campaign_spec(config_path),
+        )
+
+    def _load_json_path(self, path: Path, *, description: str) -> dict[str, Any]:
+        return self._with_path_retry(
+            path=path,
+            description=description,
+            operation=lambda: json.loads(path.read_text(encoding="utf-8")),
+        )
+
     def _load_train_metadata(self, config_path: Path) -> dict[str, Any]:
-        payload = json.loads(config_path.read_text(encoding="utf-8"))
+        payload = self._load_json_path(config_path, description="train config")
         output_dir = resolve_repo_path(self._repo_root, Path(str(payload["output_dir"])))
         bundle_dir = resolve_repo_path(self._repo_root, Path(str(payload["export"]["bundle_dir"])))
         checkpoint_path = bundle_dir / str(payload["export"]["checkpoint_name"])
@@ -1231,6 +1270,32 @@ class OrchestratorWorker:
             "checkpoint_path": str(checkpoint_path),
             "bundle_dir": str(bundle_dir),
         }
+
+    def _with_path_retry(
+        self,
+        *,
+        path: Path,
+        description: str,
+        operation: Callable[[], Any],
+    ) -> Any:
+        last_error: FileNotFoundError | None = None
+        for attempt in range(1, self._CONFIG_READ_RETRY_ATTEMPTS + 1):
+            try:
+                return operation()
+            except FileNotFoundError as exc:
+                last_error = exc
+                if attempt >= self._CONFIG_READ_RETRY_ATTEMPTS:
+                    break
+                print(
+                    "transient missing "
+                    f"{description}: {path} "
+                    f"(attempt {attempt}/{self._CONFIG_READ_RETRY_ATTEMPTS}), retrying",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                time.sleep(self._CONFIG_READ_RETRY_DELAY_SECONDS)
+        assert last_error is not None
+        raise last_error
 
 
 def build_default_worker_descriptor(

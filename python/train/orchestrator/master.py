@@ -6,8 +6,11 @@ from dataclasses import dataclass, field
 import hashlib
 import json
 from pathlib import Path
+import sys
 import time
 from typing import Any, Mapping, Sequence
+
+import pymysql
 
 from train.datasets import RawPositionRecord, load_raw_records
 from train.eval.agent_spec import SelfplayAgentSpec, load_selfplay_agent_spec, write_selfplay_agent_spec
@@ -35,6 +38,7 @@ ACTIVE_CAMPAIGN_STATES = {"queued", "running", "training", "verifying", "finaliz
 ACCEPT_POLICIES = {"continue_training", "stop"}
 REJECT_POLICIES = {"stop", "restart_from_seed"}
 ARENA_PROGRESS_POLICY_VERSION = 1
+_TRANSIENT_MYSQL_ERROR_CODES = {2006, 2013, 2055}
 
 
 @dataclass(frozen=True)
@@ -621,7 +625,10 @@ class OrchestratorMaster:
             else self._spec.poll_interval_seconds
         )
         while True:
-            self.reconcile_once()
+            summary = self._reconcile_with_transient_db_guard()
+            if summary is None:
+                time.sleep(min(sleep_seconds, 5.0))
+                continue
             time.sleep(sleep_seconds)
 
     def run_until_terminal(
@@ -638,11 +645,33 @@ class OrchestratorMaster:
         )
         summary: dict[str, Any] = {}
         for _cycle_index in range(max_cycles):
-            summary = self.reconcile_once()
+            guarded_summary = self._reconcile_with_transient_db_guard()
+            if guarded_summary is None:
+                time.sleep(min(sleep_seconds, 5.0))
+                continue
+            summary = guarded_summary
             if bool(summary.get("all_terminal")):
                 return summary
             time.sleep(sleep_seconds)
         raise TimeoutError(f"master did not reach a terminal state after {max_cycles} cycles")
+
+    def _reconcile_with_transient_db_guard(self) -> dict[str, Any] | None:
+        try:
+            return self.reconcile_once()
+        except (
+            pymysql.err.InterfaceError,
+            pymysql.err.InternalError,
+            pymysql.err.OperationalError,
+        ) as exc:
+            error_code = int(exc.args[0]) if exc.args else 0
+            if error_code not in _TRANSIENT_MYSQL_ERROR_CODES:
+                raise
+            print(
+                f"[ek-master][warn] transient MySQL error during reconcile: {exc}",
+                file=sys.stderr,
+                flush=True,
+            )
+            return None
 
     def _reconcile_label_job(self, job: LabelPgnCorpusJobSpec) -> dict[str, Any]:
         if not job.enabled:
