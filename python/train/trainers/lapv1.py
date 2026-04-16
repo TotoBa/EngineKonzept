@@ -533,6 +533,8 @@ class LAPv1Metrics:
     frontier_stable_rate: float
     frontier_unique_coverage: float
     final_top1_frontier_coverage: float
+    frontier_state_drift: float
+    frontier_memory_norm: float
     examples_per_second: float
 
     def to_dict(self) -> dict[str, object]:
@@ -627,6 +629,8 @@ class LAPv1Metrics:
                 self.final_top1_frontier_coverage,
                 6,
             ),
+            "frontier_state_drift": round(self.frontier_state_drift, 6),
+            "frontier_memory_norm": round(self.frontier_memory_norm, 6),
             "examples_per_second": round(self.examples_per_second, 3),
         }
 
@@ -1219,6 +1223,8 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
                 f"frontier_turnover={validation_metrics.frontier_turnover_rate:.4f} "
                 f"frontier_unique={validation_metrics.frontier_unique_coverage:.4f} "
                 f"frontier_top1_cov={validation_metrics.final_top1_frontier_coverage:.4f} "
+                f"frontier_state_drift={validation_metrics.frontier_state_drift:.4f} "
+                f"frontier_memory_norm={validation_metrics.frontier_memory_norm:.4f} "
                 f"selection_source={selection_source} "
                 f"selection_top1={selection_reference.root_top1_accuracy:.4f} "
                 f"selection_mrr={selection_reference.teacher_root_mean_reciprocal_rank:.4f} "
@@ -1376,7 +1382,13 @@ def _load_lapv1_model_state(
     checkpoint_path: Path,
 ) -> None:
     effective_state_dict = _expand_legacy_phase_moe_state_dict(model, state_dict)
-    compatible_missing_prefixes = ["deliberation_loop.cell.candidate_delta_network."]
+    compatible_missing_prefixes = [
+        "deliberation_loop.cell.candidate_delta_network.",
+        "deliberation_loop.cell.frontier_context_projection.",
+        "deliberation_loop.cell.candidate_frontier_state_projection.",
+        "deliberation_loop.cell.candidate_frontier_memory_projection.",
+        "deliberation_loop.cell.candidate_frontier_delta_network.",
+    ]
     compatible_unexpected_prefixes: list[str] = []
     lapv2_fresh_init_prefixes = list(_lapv2_fresh_init_prefixes(model))
     if model.config.lapv2.enabled and model.config.lapv2.shared_opponent_readout:
@@ -1806,6 +1818,8 @@ def _run_epoch(
         "top1_hit_count": 0.0,
         "top1_total": 0.0,
     }
+    frontier_state_drift_sum = 0.0
+    frontier_memory_norm_sum = 0.0
 
     order = list(range(len(examples)))
     if training:
@@ -2150,6 +2164,8 @@ def _run_epoch(
             )
             for key, value in batch_frontier_stats.items():
                 frontier_stats[key] += value
+            frontier_state_drift_sum += float(outputs["frontier_state_drift"].sum().item())
+            frontier_memory_norm_sum += float(outputs["frontier_memory_norm"].sum().item())
             total_examples += len(batch_examples)
             total_loss += float(loss.item()) * len(batch_examples)
             total_value_wdl += float(value_wdl_loss.item()) * len(batch_examples)
@@ -2364,6 +2380,8 @@ def _run_epoch(
             if frontier_stats["top1_total"] == 0.0
             else frontier_stats["top1_hit_count"] / frontier_stats["top1_total"]
         ),
+        frontier_state_drift=frontier_state_drift_sum / total_examples,
+        frontier_memory_norm=frontier_memory_norm_sum / total_examples,
         examples_per_second=total_examples / duration,
     )
 

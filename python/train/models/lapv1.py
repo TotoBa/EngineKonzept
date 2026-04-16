@@ -1148,6 +1148,14 @@ if torch is not None and nn is not None:
                 "frontier_unique_candidate_counts": deliberation_outputs[
                     "frontier_unique_candidate_counts"
                 ],
+                "candidate_frontier_states": deliberation_outputs[
+                    "candidate_frontier_states"
+                ],
+                "candidate_frontier_memory": deliberation_outputs[
+                    "candidate_frontier_memory"
+                ],
+                "frontier_state_drift": deliberation_outputs["frontier_state_drift"],
+                "frontier_memory_norm": deliberation_outputs["frontier_memory_norm"],
                 "piece_intentions": piece_intentions,
                 "z_root": z_root,
                 "accumulator_cache_stats": accumulator_cache_stats,

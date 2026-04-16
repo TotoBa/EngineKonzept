@@ -194,6 +194,10 @@ def test_lapv1_forward_pass_produces_expected_shapes() -> None:
     assert "root_candidate_scores" in outputs
     assert "frontier_visit_counts" in outputs
     assert "frontier_unique_candidate_counts" in outputs
+    assert "candidate_frontier_states" in outputs
+    assert "candidate_frontier_memory" in outputs
+    assert "frontier_state_drift" in outputs
+    assert "frontier_memory_norm" in outputs
 
 
 def test_lapv1_trace_length_respects_max_inner_steps() -> None:

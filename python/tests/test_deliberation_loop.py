@@ -269,6 +269,30 @@ def test_candidate_selector_trades_revisit_for_novelty_under_uncertainty() -> No
     assert high_uncertainty[0, 0].item() == 1
 
 
+def test_candidate_selector_can_use_frontier_state_and_memory_signal() -> None:
+    selector = CandidateSelector(
+        top_k=1,
+        revisit_bonus=0.0,
+        exploration_bonus=0.0,
+    )
+    candidate_mask = torch.tensor([[True, True, True]], dtype=torch.bool)
+    candidate_frontier_states = torch.zeros((1, 3, 512), dtype=torch.float32)
+    candidate_frontier_states[0, 1, :] = 4.0
+    candidate_frontier_memory = torch.zeros((1, 3, 256), dtype=torch.float32)
+    candidate_frontier_memory[0, 1, :] = 3.0
+
+    indices = selector(
+        torch.zeros((1, 512), dtype=torch.float32),
+        torch.tensor([[0.5, 0.5, 0.5]], dtype=torch.float32),
+        torch.tensor([[10.0]], dtype=torch.float32),
+        candidate_mask,
+        candidate_frontier_states=candidate_frontier_states,
+        candidate_frontier_memory=candidate_frontier_memory,
+    )
+
+    assert indices[0, 0].item() == 1
+
+
 def test_deliberation_loop_tracks_frontier_masks_and_visit_counts() -> None:
     loop = DeliberationLoop(
         max_inner_steps=2,
@@ -286,3 +310,9 @@ def test_deliberation_loop_tracks_frontier_masks_and_visit_counts() -> None:
         outputs["root_candidate_scores"].shape
     )
     assert tuple(outputs["frontier_unique_candidate_counts"].shape) == (2,)
+    assert tuple(outputs["candidate_frontier_states"].shape) == (2, 4, 512)
+    assert tuple(outputs["candidate_frontier_memory"].shape) == (2, 4, 256)
+    assert tuple(outputs["frontier_state_drift"].shape) == (2,)
+    assert tuple(outputs["frontier_memory_norm"].shape) == (2,)
+    assert torch.all(outputs["frontier_state_drift"] >= 0.0)
+    assert torch.all(outputs["frontier_memory_norm"] >= 0.0)

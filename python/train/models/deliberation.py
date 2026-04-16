@@ -69,8 +69,16 @@ if torch is not None and nn is not None:
             self.state_cell = nn.GRUCell(state_dim * 3, state_dim)
             self.memory_update = nn.Linear(state_dim + memory_dim, memory_dim)
             self.state_norm = nn.LayerNorm(state_dim)
+            self.frontier_context_projection = nn.Linear(state_dim * 2, state_dim)
+            self.candidate_frontier_state_projection = nn.Linear(state_dim, state_dim)
+            self.candidate_frontier_memory_projection = nn.Linear(memory_dim, state_dim)
             self.candidate_delta_network = nn.Sequential(
                 nn.Linear(state_dim * 2 + 3, state_dim),
+                nn.GELU(),
+                nn.Linear(state_dim, 1),
+            )
+            self.candidate_frontier_delta_network = nn.Sequential(
+                nn.Linear(state_dim * 4 + 3, state_dim),
                 nn.GELU(),
                 nn.Linear(state_dim, 1),
             )
@@ -84,6 +92,8 @@ if torch is not None and nn is not None:
             refined_reply_signals: torch.Tensor,
             candidate_update_mask: torch.Tensor,
             candidate_mask: torch.Tensor,
+            candidate_frontier_states: torch.Tensor,
+            candidate_frontier_memory: torch.Tensor,
         ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
             """Update latent root, rolling memory slots, and residual candidate deltas."""
             memory_summary = M_t.mean(dim=1)
@@ -99,10 +109,35 @@ if torch is not None and nn is not None:
             )
             candidate_summary = candidate_scores.sum(dim=1, keepdim=True) / valid_candidate_count
             reply_summary = refined_reply_signals.sum(dim=1, keepdim=True) / update_count
+            masked_candidate_frontier_states = candidate_frontier_states.masked_fill(
+                ~candidate_mask.unsqueeze(2),
+                0.0,
+            )
+            masked_candidate_frontier_memory = candidate_frontier_memory.masked_fill(
+                ~candidate_mask.unsqueeze(2),
+                0.0,
+            )
+            frontier_state_summary = (
+                masked_candidate_frontier_states.sum(dim=1) / valid_candidate_count
+            )
+            frontier_memory_summary = (
+                masked_candidate_frontier_memory.sum(dim=1) / valid_candidate_count
+            )
+            frontier_context = self.frontier_context_projection(
+                torch.cat(
+                    [
+                        frontier_state_summary,
+                        self.candidate_frontier_memory_projection(
+                            frontier_memory_summary
+                        ),
+                    ],
+                    dim=1,
+                )
+            )
             state_input = torch.cat(
                 [
                     z_t,
-                    self.memory_projection(memory_summary),
+                    self.memory_projection(memory_summary) + frontier_context,
                     torch.cat(
                         [
                             candidate_summary.expand(-1, self.state_dim // 2),
@@ -121,6 +156,12 @@ if torch is not None and nn is not None:
             expanded_state = z_next.unsqueeze(1).expand(-1, root_scores.shape[1], -1)
             expanded_memory = self.memory_projection(memory_summary).unsqueeze(1).expand_as(
                 expanded_state
+            )
+            projected_candidate_frontier_state = self.candidate_frontier_state_projection(
+                candidate_frontier_states
+            )
+            projected_candidate_frontier_memory = self.candidate_frontier_memory_projection(
+                candidate_frontier_memory
             )
             candidate_inputs = torch.cat(
                 [
@@ -143,7 +184,32 @@ if torch is not None and nn is not None:
                 * candidate_update_mask.to(delta_update.dtype)
                 * self.candidate_update_scale
             )
-            delta_next = delta_scores + delta_update
+            candidate_frontier_inputs = torch.cat(
+                [
+                    expanded_state,
+                    expanded_memory,
+                    projected_candidate_frontier_state,
+                    projected_candidate_frontier_memory,
+                    torch.stack(
+                        [
+                            candidate_scores,
+                            delta_scores.masked_fill(~candidate_mask, 0.0),
+                            refined_reply_signals,
+                        ],
+                        dim=2,
+                    ),
+                ],
+                dim=2,
+            )
+            frontier_delta_update = self.candidate_frontier_delta_network(
+                candidate_frontier_inputs
+            ).squeeze(2)
+            frontier_delta_update = (
+                frontier_delta_update
+                * candidate_update_mask.to(frontier_delta_update.dtype)
+                * self.candidate_update_scale
+            )
+            delta_next = delta_scores + delta_update + frontier_delta_update
             return z_next, M_next, delta_next
 
 
@@ -181,9 +247,10 @@ if torch is not None and nn is not None:
             *,
             previous_selected_mask: torch.Tensor | None = None,
             selection_counts: torch.Tensor | None = None,
+            candidate_frontier_states: torch.Tensor | None = None,
+            candidate_frontier_memory: torch.Tensor | None = None,
         ) -> torch.Tensor:
             """Return per-batch candidate indices ordered by current score."""
-            del z_t
             if previous_selected_mask is None:
                 previous_selected_mask = torch.zeros_like(candidate_mask)
             if selection_counts is None:
@@ -200,6 +267,19 @@ if torch is not None and nn is not None:
                 selection_counts.to(C_t.dtype) + 1.0
             ).pow(self.exploration_decay)
             frontier_scores = C_t + revisit_term + novelty_term
+            if candidate_frontier_states is not None:
+                root_state = z_t.unsqueeze(1).expand_as(candidate_frontier_states)
+                state_drift = torch.linalg.vector_norm(
+                    candidate_frontier_states - root_state,
+                    dim=2,
+                ) / (float(candidate_frontier_states.shape[2]) ** 0.5)
+                frontier_scores = frontier_scores + (0.05 * uncertainty * state_drift)
+            if candidate_frontier_memory is not None:
+                memory_norm = torch.linalg.vector_norm(
+                    candidate_frontier_memory,
+                    dim=2,
+                ) / (float(candidate_frontier_memory.shape[2]) ** 0.5)
+                frontier_scores = frontier_scores + (0.05 * uncertainty * memory_norm)
             masked_scores = frontier_scores.masked_fill(
                 ~candidate_mask,
                 MASKED_CANDIDATE_SCORE_VALUE,
@@ -402,6 +482,20 @@ if torch is not None and nn is not None:
                 raise ValueError("candidate_mask must align with candidate_action_indices")
 
             legal_counts = candidate_mask.sum(dim=1)
+            initial_candidate_frontier_states = z_root.unsqueeze(1).expand(
+                -1,
+                candidate_action_indices.shape[1],
+                -1,
+            ).clone()
+            initial_candidate_frontier_memory = torch.zeros(
+                (
+                    z_root.shape[0],
+                    candidate_action_indices.shape[1],
+                    self.memory_dim,
+                ),
+                dtype=z_root.dtype,
+                device=z_root.device,
+            )
             if single_legal_move or bool(torch.all(legal_counts <= 1)) or self.max_inner_steps == 0:
                 masked_scores = initial_candidate_scores.masked_fill(
                     ~candidate_mask,
@@ -440,6 +534,18 @@ if torch is not None and nn is not None:
                         dtype=z_root.dtype,
                         device=z_root.device,
                     ),
+                    "candidate_frontier_states": initial_candidate_frontier_states,
+                    "candidate_frontier_memory": initial_candidate_frontier_memory,
+                    "frontier_state_drift": torch.zeros(
+                        (z_root.shape[0],),
+                        dtype=z_root.dtype,
+                        device=z_root.device,
+                    ),
+                    "frontier_memory_norm": torch.zeros(
+                        (z_root.shape[0],),
+                        dtype=z_root.dtype,
+                        device=z_root.device,
+                    ),
                     "frontier_visit_counts": torch.zeros_like(masked_scores),
                     "frontier_unique_candidate_counts": torch.zeros(
                         (z_root.shape[0],),
@@ -454,6 +560,8 @@ if torch is not None and nn is not None:
                 dtype=z_root.dtype,
                 device=z_root.device,
             )
+            candidate_frontier_states = initial_candidate_frontier_states
+            candidate_frontier_memory = initial_candidate_frontier_memory
             root_scores = initial_candidate_scores.masked_fill(
                 ~candidate_mask,
                 MASKED_CANDIDATE_SCORE_VALUE,
@@ -523,6 +631,8 @@ if torch is not None and nn is not None:
                     candidate_mask,
                     previous_selected_mask=previous_selected_mask,
                     selection_counts=frontier_visit_counts,
+                    candidate_frontier_states=candidate_frontier_states,
+                    candidate_frontier_memory=candidate_frontier_memory,
                 )
                 selected_mask = torch.zeros_like(candidate_mask)
                 selected_mask.scatter_(
@@ -556,6 +666,10 @@ if torch is not None and nn is not None:
                     previous_selected_mask,
                 )
                 selected_action_indices = candidate_action_indices.gather(1, selected_indices)
+                selected_frontier_memory = candidate_frontier_memory.gather(
+                    1,
+                    selected_indices.unsqueeze(2).expand(-1, -1, self.memory_dim),
+                )
                 transitioned_latents = self.transition(z_t, selected_action_indices)
                 reply_diagnostics: dict[str, torch.Tensor | None] | None = None
                 if hasattr(self.reply_signal_projector, "predict"):
@@ -584,6 +698,18 @@ if torch is not None and nn is not None:
                     selected_reply_signals,
                     torch.zeros_like(selected_reply_signals),
                 )
+                proposed_frontier_memory = torch.tanh(
+                    self.cell.memory_update(
+                        torch.cat(
+                            [
+                                selected_frontier_memory,
+                                transitioned_latents
+                                + selected_reply_signals.unsqueeze(2),
+                            ],
+                            dim=2,
+                        )
+                    )
+                )
                 refined_reply_signals = torch.zeros_like(current_scores)
                 refined_reply_signals.scatter_(1, selected_indices, selected_reply_signals)
                 candidate_update_mask = torch.zeros_like(candidate_mask)
@@ -591,6 +717,16 @@ if torch is not None and nn is not None:
                     1,
                     selected_indices,
                     step_active_mask.unsqueeze(1).expand(-1, selected_indices.shape[1]),
+                )
+                candidate_frontier_states_step = _scatter_candidate_updates(
+                    base=candidate_frontier_states,
+                    indices=selected_indices,
+                    updates=transitioned_latents,
+                )
+                candidate_frontier_memory_step = _scatter_candidate_updates(
+                    base=candidate_frontier_memory,
+                    indices=selected_indices,
+                    updates=proposed_frontier_memory,
                 )
 
                 z_next, M_next, delta_next = self.cell(
@@ -601,6 +737,8 @@ if torch is not None and nn is not None:
                     refined_reply_signals,
                     candidate_update_mask,
                     candidate_mask,
+                    candidate_frontier_states_step,
+                    candidate_frontier_memory_step,
                 )
                 C_next = (root_scores + delta_next).masked_fill(
                     ~candidate_mask,
@@ -629,6 +767,29 @@ if torch is not None and nn is not None:
                 rollback_delta_scores = delta_scores - rollback_penalties
                 z_t = torch.where(accept_mask.unsqueeze(1), z_next, z_t)
                 M_t = torch.where(accept_mask.view(-1, 1, 1), M_next, M_t)
+                accepted_transitioned_latents = torch.where(
+                    accept_mask.view(-1, 1, 1),
+                    transitioned_latents,
+                    candidate_frontier_states.gather(
+                        1,
+                        selected_indices.unsqueeze(2).expand(-1, -1, self.state_dim),
+                    ),
+                )
+                accepted_frontier_memory = torch.where(
+                    accept_mask.view(-1, 1, 1),
+                    proposed_frontier_memory,
+                    selected_frontier_memory,
+                )
+                candidate_frontier_states = _scatter_candidate_updates(
+                    base=candidate_frontier_states,
+                    indices=selected_indices,
+                    updates=accepted_transitioned_latents,
+                )
+                candidate_frontier_memory = _scatter_candidate_updates(
+                    base=candidate_frontier_memory,
+                    indices=selected_indices,
+                    updates=accepted_frontier_memory,
+                )
                 delta_scores = torch.where(
                     accept_mask.unsqueeze(1),
                     delta_next,
@@ -717,6 +878,7 @@ if torch is not None and nn is not None:
                 1,
                 final_top1_indices.unsqueeze(1),
             ).squeeze(1)
+            visited_candidate_mask = frontier_visit_counts > 0
             return {
                 "final_candidate_scores": final_scores,
                 "refined_top1_action_index": final_top1_actions,
@@ -752,6 +914,16 @@ if torch is not None and nn is not None:
                 "final_candidate_deltas": delta_scores,
                 "final_z": z_t,
                 "final_memory": M_t,
+                "candidate_frontier_states": candidate_frontier_states,
+                "candidate_frontier_memory": candidate_frontier_memory,
+                "frontier_state_drift": _masked_candidate_mean_norm(
+                    tensor=candidate_frontier_states - z_root.unsqueeze(1),
+                    mask=visited_candidate_mask,
+                ),
+                "frontier_memory_norm": _masked_candidate_mean_norm(
+                    tensor=candidate_frontier_memory,
+                    mask=visited_candidate_mask,
+                ),
                 "frontier_visit_counts": frontier_visit_counts,
                 "frontier_unique_candidate_counts": frontier_visited_mask.sum(dim=1),
             }
@@ -785,6 +957,32 @@ else:  # pragma: no cover - exercised when torch is absent
             raise RuntimeError(
                 "PyTorch is required for DeliberationLoop. Install the 'train' extra or torch."
             )
+
+
+def _scatter_candidate_updates(
+    *,
+    base: torch.Tensor,
+    indices: torch.Tensor,
+    updates: torch.Tensor,
+) -> torch.Tensor:
+    updated = base.clone()
+    updated.scatter_(
+        1,
+        indices.unsqueeze(2).expand(-1, -1, base.shape[2]),
+        updates,
+    )
+    return updated
+
+
+def _masked_candidate_mean_norm(
+    *,
+    tensor: torch.Tensor,
+    mask: torch.Tensor,
+) -> torch.Tensor:
+    norms = torch.linalg.vector_norm(tensor, dim=2)
+    masked_norms = norms * mask.to(norms.dtype)
+    counts = mask.sum(dim=1).clamp(min=1).to(norms.dtype)
+    return masked_norms.sum(dim=1) / counts
 
 
 def _build_pv_scratch(

@@ -100,10 +100,14 @@ Das sind brauchbare MCTS-Prinzipien ohne Suchbaum.
    - vorige Frontier
    - Besuchszähler
    - Frontier-Wechsel
-4. Frontier-Metriken im Modellvertrag und Trainer auswertbar machen.
-5. Validation-/Train-Logs um Frontier-Kennzahlen ergänzen.
-6. Tests für Selector, Loop, Modellvertrag und Trainer-Metriken ergänzen.
-7. Architektur-Doku für LAPv1 nachziehen.
+4. Echte per-candidate Frontier-Zustände und Frontier-Memory ergänzen:
+   - kandidatenspezifische Latents
+   - kandidatenspezifische Memory-Summaries
+   - additive Frontier-Delta-Updates ohne Suchbaum
+5. Frontier-Metriken im Modellvertrag und Trainer auswertbar machen.
+6. Validation-/Train-Logs um Frontier-Kennzahlen ergänzen.
+7. Tests für Selector, Loop, Modellvertrag und Trainer-Metriken ergänzen.
+8. Architektur-Doku für LAPv1 nachziehen.
 
 ## Tests
 

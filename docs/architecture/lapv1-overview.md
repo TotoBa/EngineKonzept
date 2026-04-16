@@ -273,8 +273,13 @@ bounded frontier instead of just an implementation detail:
 
 - low uncertainty biases the selector toward revisiting the previous frontier
 - high uncertainty increases pressure toward less-visited candidates
+- selected candidates now keep their own latent frontier state and a small
+  candidate-local memory summary
+- the inner loop can therefore accumulate opponent-conditioned per-candidate
+  state instead of only root-level score deltas
 - training now records frontier turnover, revisit rate, stability, unique
-  coverage, and how often the final winner was already inside the frontier
+  coverage, how often the final winner was already inside the frontier, plus
+  frontier state drift and frontier memory norm
 
 This is still not a search tree. It is a root-only latent frontier controller
 whose value must be visible first in train/validation metrics before it earns a

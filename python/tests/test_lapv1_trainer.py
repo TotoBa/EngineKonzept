@@ -647,6 +647,8 @@ def test_lapv2_epoch_diagnostics_are_recorded_and_logged(
     assert 0.0 <= validation_metrics["frontier_stable_rate"] <= 1.0
     assert 0.0 <= validation_metrics["frontier_unique_coverage"] <= 1.0
     assert 0.0 <= validation_metrics["final_top1_frontier_coverage"] <= 1.0
+    assert validation_metrics["frontier_state_drift"] >= 0.0
+    assert validation_metrics["frontier_memory_norm"] >= 0.0
 
     captured = capsys.readouterr()
     assert "phase_usage=" in captured.out
@@ -657,6 +659,8 @@ def test_lapv2_epoch_diagnostics_are_recorded_and_logged(
     assert "frontier_turnover=" in captured.out
     assert "frontier_unique=" in captured.out
     assert "frontier_top1_cov=" in captured.out
+    assert "frontier_state_drift=" in captured.out
+    assert "frontier_memory_norm=" in captured.out
 
 
 def test_train_lapv1_accepts_older_checkpoint_missing_residual_delta_net(
@@ -697,7 +701,15 @@ def test_train_lapv1_accepts_older_checkpoint_missing_residual_delta_net(
     model = LAPv1Model(model_config)
     legacy_state_dict = dict(model.state_dict())
     for key in list(legacy_state_dict):
-        if key.startswith("deliberation_loop.cell.candidate_delta_network."):
+        if key.startswith(
+            (
+                "deliberation_loop.cell.candidate_delta_network.",
+                "deliberation_loop.cell.frontier_context_projection.",
+                "deliberation_loop.cell.candidate_frontier_state_projection.",
+                "deliberation_loop.cell.candidate_frontier_memory_projection.",
+                "deliberation_loop.cell.candidate_frontier_delta_network.",
+            )
+        ):
             del legacy_state_dict[key]
     torch.save(
         {
