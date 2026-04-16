@@ -37,8 +37,8 @@ The repository now covers Phase 8 foundations plus prepared LAPv1 scaffolding:
 
 It still does **not** implement:
 
-- full planner-driven runtime inference
-- any search or evaluation runtime
+- full LAPv1/LAPv2 runtime inference in Rust
+- any classical search or evaluation runtime
 - any classical engine/search machinery
 
 ## Phase 5 Snapshot
@@ -106,6 +106,19 @@ The first architecture-extension notes beyond the flat MLP live in [docs/arch.id
 The newer proposer comparison now extends beyond the first three factorized decoder baselines. `factorized_v6` is the current best learned-legality arm on the `10k` corpus by a clear margin, while `relational_v1` improves policy over the earlier factorized runs without taking the policy lead from the old learned-legality default. There is also an explicit checkpoint-selection comparison for `factorized_v5`, showing the expected tradeoff between legality-first and balanced selection. The `symbolic_v1` arm goes one step further and removes learned legality entirely in favor of exact legal-candidate generation; on the current `10k` corpus it is the strongest proposer result so far, and it now carries the official proposer export/runtime contract.
 
 The current `engine-app` binary will use that symbolic proposer bundle automatically when it can find [stockfish_pgn_symbolic_v1_v1](/home/torsten/EngineKonzept/models/proposer/stockfish_pgn_symbolic_v1_v1). Override the bundle location with `ENGINEKONZEPT_PROPOSER_BUNDLE=/path/to/bundle` when needed.
+
+On top of that bundle contract, the Rust runtime now also has a bounded
+frontier-deliberation `go` path over exact legal candidates. The most relevant
+runtime knobs are:
+
+- `ENGINEKONZEPT_FRONTIER_ROOT_TOP_K`
+- `ENGINEKONZEPT_FRONTIER_BEAM_WIDTH`
+- `ENGINEKONZEPT_FRONTIER_MIN_INNER_STEPS`
+- `ENGINEKONZEPT_FRONTIER_MAX_INNER_STEPS`
+
+This remains intentionally distinct from alpha-beta and MCTS. It is a
+root-only bounded deliberation layer that prepares the Rust UCI path for a
+later full LAP runtime export contract.
 
 Phase 9 now also has a first end-to-end teacher-retrain probe on top of the arena stack: after a completed selfplay batch, `/usr/games/stockfish18` can review non-external moves at depth `5`, write per-agent correction sets, and immediately warm-start the affected planner checkpoint for the next batch. The versioned probe entry point is [phase9_teacher_retrain_cycle_active_vs_vice_probe_v1.json](/home/torsten/EngineKonzept/python/configs/phase9_teacher_retrain_cycle_active_vs_vice_probe_v1.json) with launcher [run_phase9_teacher_retrain_cycle_longrun.sh](/home/torsten/EngineKonzept/python/scripts/run_phase9_teacher_retrain_cycle_longrun.sh).
 

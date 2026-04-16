@@ -815,13 +815,13 @@ fn label_dataset_input_impl(
 ) -> Result<DatasetOracleOutput, DatasetOracleError> {
     let started = Instant::now();
     let position = Position::from_fen(&input.fen).map_err(DatasetOracleError::InvalidFen)?;
-    if let Some(profile) = profile.as_deref_mut() {
+    if let Some(profile) = profile.as_mut() {
         profile.fen_parse += started.elapsed();
     }
 
     let started = Instant::now();
     let (legal, legal_profile) = legal_moves_profiled(&position);
-    if let Some(profile) = profile.as_deref_mut() {
+    if let Some(profile) = profile.as_mut() {
         profile.legal_generation += started.elapsed();
         profile.pseudo_legal_generation += legal_profile.pseudo_legal_generation;
         profile.self_check_filter += legal_profile.self_check_filter;
@@ -837,7 +837,7 @@ fn label_dataset_input_impl(
     let started = Instant::now();
     let legal_move_strings: Vec<String> =
         legal.iter().map(|candidate| candidate.to_uci()).collect();
-    if let Some(profile) = profile.as_deref_mut() {
+    if let Some(profile) = profile.as_mut() {
         profile.legal_move_uci += started.elapsed();
     }
 
@@ -856,7 +856,7 @@ fn label_dataset_input_impl(
         .into_iter()
         .map(action_encoding_array)
         .collect();
-    if let Some(profile) = profile.as_deref_mut() {
+    if let Some(profile) = profile.as_mut() {
         profile.legal_action_encode += legal_action_encode;
         profile.legal_action_sort += legal_action_sort;
         profile.legal_action_encoding += legal_action_encode + legal_action_sort;
@@ -876,7 +876,7 @@ fn label_dataset_input_impl(
                 .ok_or_else(|| DatasetOracleError::InvalidSelectedMove(chess_move.clone()))
         })
         .transpose()?;
-    if let Some(profile) = profile.as_deref_mut() {
+    if let Some(profile) = profile.as_mut() {
         profile.selected_move_resolution += started.elapsed();
     }
 
@@ -887,7 +887,7 @@ fn label_dataset_input_impl(
                 .map_err(DatasetOracleError::MoveApplication)
         })
         .transpose()?;
-    if let Some(profile) = profile.as_deref_mut() {
+    if let Some(profile) = profile.as_mut() {
         profile.selected_move_apply += started.elapsed();
     }
 
@@ -896,13 +896,13 @@ fn label_dataset_input_impl(
         .map(|candidate| encode_move(candidate).map(action_encoding_array))
         .transpose()
         .map_err(DatasetOracleError::ActionEncoding)?;
-    if let Some(profile) = profile.as_deref_mut() {
+    if let Some(profile) = profile.as_mut() {
         profile.selected_action_encoding += started.elapsed();
     }
 
     let started = Instant::now();
     let position_encoding = encode_position(&position);
-    if let Some(profile) = profile.as_deref_mut() {
+    if let Some(profile) = profile.as_mut() {
         profile.position_encoding += started.elapsed();
     }
 
@@ -948,7 +948,7 @@ fn label_dataset_input_impl(
             .as_ref()
             .map(|next| is_in_check(next, next.side_to_move())),
     };
-    if let Some(profile) = profile.as_deref_mut() {
+    if let Some(profile) = profile.as_mut() {
         profile.annotations += started.elapsed();
     }
 

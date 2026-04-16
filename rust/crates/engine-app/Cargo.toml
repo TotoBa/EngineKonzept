@@ -14,6 +14,7 @@ path = "src/main.rs"
 
 [dependencies]
 inference = { path = "../inference" }
+planner = { path = "../planner" }
 position = { path = "../position" }
 rules = { path = "../rules" }
 uci-protocol = { path = "../uci-protocol" }

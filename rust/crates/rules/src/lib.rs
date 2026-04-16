@@ -133,7 +133,7 @@ fn is_square_attacked_on_board_profiled(
         let file = square_file + file_delta;
         if let Some(source_index) = board_index(file, pawn_source_rank) {
             if board[source_index] == Some(pawn) {
-                if let Some(profile) = profile.as_deref_mut() {
+                if let Some(profile) = profile.as_mut() {
                     profile.pawn += pawn_started.elapsed();
                     profile.local += local_started.elapsed();
                 }
@@ -141,7 +141,7 @@ fn is_square_attacked_on_board_profiled(
             }
         }
     }
-    if let Some(profile) = profile.as_deref_mut() {
+    if let Some(profile) = profile.as_mut() {
         profile.pawn += pawn_started.elapsed();
     }
 
@@ -151,7 +151,7 @@ fn is_square_attacked_on_board_profiled(
         let rank = square_rank + rank_delta;
         if let Some(source_index) = board_index(file, rank) {
             if board[source_index] == Some(knight) {
-                if let Some(profile) = profile.as_deref_mut() {
+                if let Some(profile) = profile.as_mut() {
                     profile.knight += knight_started.elapsed();
                     profile.local += local_started.elapsed();
                 }
@@ -159,7 +159,7 @@ fn is_square_attacked_on_board_profiled(
             }
         }
     }
-    if let Some(profile) = profile.as_deref_mut() {
+    if let Some(profile) = profile.as_mut() {
         profile.knight += knight_started.elapsed();
     }
 
@@ -169,7 +169,7 @@ fn is_square_attacked_on_board_profiled(
         let rank = square_rank + rank_delta;
         if let Some(source_index) = board_index(file, rank) {
             if board[source_index] == Some(king) {
-                if let Some(profile) = profile.as_deref_mut() {
+                if let Some(profile) = profile.as_mut() {
                     profile.king += king_started.elapsed();
                     profile.local += local_started.elapsed();
                 }
@@ -177,7 +177,7 @@ fn is_square_attacked_on_board_profiled(
             }
         }
     }
-    if let Some(profile) = profile.as_deref_mut() {
+    if let Some(profile) = profile.as_mut() {
         profile.king += king_started.elapsed();
         profile.local += local_started.elapsed();
     }
@@ -186,14 +186,14 @@ fn is_square_attacked_on_board_profiled(
     let bishop_started = Instant::now();
     let bishop_attacked =
         is_attacked_by_slider_on_board(board, square, attacker, &BISHOP_DIRECTIONS, true);
-    if let Some(profile) = profile.as_deref_mut() {
+    if let Some(profile) = profile.as_mut() {
         profile.bishop_ray += bishop_started.elapsed();
     }
     let rook_started = Instant::now();
     let rook_attacked = !bishop_attacked
         && is_attacked_by_slider_on_board(board, square, attacker, &ROOK_DIRECTIONS, false);
     let attacked = bishop_attacked || rook_attacked;
-    if let Some(profile) = profile.as_deref_mut() {
+    if let Some(profile) = profile.as_mut() {
         profile.rook_ray += rook_started.elapsed();
         profile.slider += slider_started.elapsed();
     }

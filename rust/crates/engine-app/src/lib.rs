@@ -11,6 +11,7 @@ use std::sync::Arc;
 use inference::{
     build_symbolic_proposer_inputs, load_symbolic_proposer_runtime, SymbolicProposerRuntime,
 };
+use planner::{choose_move, FrontierPlannerConfig, PlannerCandidate};
 use position::Position;
 use rules::{apply_move, legal_moves, MoveError};
 use uci_protocol::{parse_command, ParseError, PositionSpec, UciCommand, UciResponse};
@@ -46,6 +47,7 @@ pub struct EngineSession {
     current_position: Position,
     debug_enabled: bool,
     proposer_runtime: Option<Arc<SymbolicProposerRuntime>>,
+    planner_config: FrontierPlannerConfig,
 }
 
 impl Default for EngineSession {
@@ -61,15 +63,25 @@ impl EngineSession {
             current_position: Position::startpos(),
             debug_enabled: false,
             proposer_runtime: default_proposer_runtime().map(Arc::new),
+            planner_config: default_frontier_planner_config(),
         }
     }
 
     #[must_use]
     pub fn with_proposer_runtime(proposer_runtime: Option<Arc<SymbolicProposerRuntime>>) -> Self {
+        Self::with_runtime_components(proposer_runtime, default_frontier_planner_config())
+    }
+
+    #[must_use]
+    pub fn with_runtime_components(
+        proposer_runtime: Option<Arc<SymbolicProposerRuntime>>,
+        planner_config: FrontierPlannerConfig,
+    ) -> Self {
         Self {
             current_position: Position::startpos(),
             debug_enabled: false,
             proposer_runtime,
+            planner_config,
         }
     }
 
@@ -114,13 +126,22 @@ impl EngineSession {
                 SessionOutcome::default()
             }
             UciCommand::Position { position, moves } => self.handle_position(position, &moves),
-            UciCommand::Go { args } => SessionOutcome {
-                responses: vec![UciResponse::BestMove {
-                    bestmove: self.stub_bestmove(&args),
+            UciCommand::Go { args } => {
+                let result = self.select_bestmove(&args);
+                let mut responses = result
+                    .info_strings
+                    .into_iter()
+                    .map(UciResponse::InfoString)
+                    .collect::<Vec<_>>();
+                responses.push(UciResponse::BestMove {
+                    bestmove: result.bestmove,
                     ponder: None,
-                }],
-                quit: false,
-            },
+                });
+                SessionOutcome {
+                    responses,
+                    quit: false,
+                }
+            }
             UciCommand::Stop => SessionOutcome::default(),
             UciCommand::Quit => SessionOutcome {
                 responses: Vec::new(),
@@ -139,32 +160,18 @@ impl EngineSession {
         }
     }
 
-    fn stub_bestmove(&self, go_args: &[String]) -> String {
+    fn select_bestmove(&self, go_args: &[String]) -> SelectedMoveResult {
         let searchmoves = searchmoves_from_args(go_args);
         if let Some(runtime) = &self.proposer_runtime {
             if let Ok(scored) = runtime.score_position(&self.current_position) {
-                if let Some(best) = scored
-                    .into_iter()
-                    .filter(|candidate| match &searchmoves {
-                        Some(searchmoves) => searchmoves.contains(&candidate.candidate.move_uci),
-                        None => true,
-                    })
-                    .max_by(|left, right| {
-                        left.policy_score
-                            .total_cmp(&right.policy_score)
-                            .then_with(|| {
-                                right
-                                    .candidate
-                                    .action_index
-                                    .cmp(&left.candidate.action_index)
-                            })
-                    })
+                if let Some(result) =
+                    self.select_planner_bestmove_from_scored(scored, searchmoves.as_ref(), go_args)
                 {
-                    return best.candidate.move_uci;
+                    return result;
                 }
             }
         }
-        build_symbolic_proposer_inputs(&self.current_position)
+        let bestmove = build_symbolic_proposer_inputs(&self.current_position)
             .map(|inputs| inputs.candidates)
             .unwrap_or_else(|_| {
                 legal_moves(&self.current_position)
@@ -184,7 +191,47 @@ impl EngineSession {
                 None => true,
             })
             .min()
-            .unwrap_or_else(|| "0000".to_string())
+            .unwrap_or_else(|| "0000".to_string());
+        SelectedMoveResult {
+            bestmove,
+            info_strings: Vec::new(),
+        }
+    }
+
+    fn select_planner_bestmove_from_scored(
+        &self,
+        scored: Vec<inference::SymbolicScoredCandidate>,
+        searchmoves: Option<&BTreeSet<String>>,
+        go_args: &[String],
+    ) -> Option<SelectedMoveResult> {
+        let candidates = scored
+            .into_iter()
+            .filter(|candidate| match searchmoves {
+                Some(searchmoves) => searchmoves.contains(&candidate.candidate.move_uci),
+                None => true,
+            })
+            .map(|candidate| PlannerCandidate {
+                move_uci: candidate.candidate.move_uci,
+                action_index: candidate.candidate.action_index,
+                policy_score: candidate.policy_score,
+                features: candidate.candidate.features,
+            })
+            .collect::<Vec<_>>();
+        if candidates.is_empty() {
+            return None;
+        }
+
+        let config = planner_config_for_go_args(&self.planner_config, go_args);
+        let decision = choose_move(&candidates, &config).ok()?;
+        let mut info_strings = vec![decision.info_summary()];
+        if self.debug_enabled {
+            info_strings.extend(decision.info_trace_strings());
+        }
+
+        Some(SelectedMoveResult {
+            bestmove: decision.bestmove,
+            info_strings,
+        })
     }
 
     fn handle_error(&self, error: impl fmt::Display) -> SessionOutcome {
@@ -197,6 +244,12 @@ impl EngineSession {
             SessionOutcome::default()
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SelectedMoveResult {
+    bestmove: String,
+    info_strings: Vec<String>,
 }
 
 /// Runs the UCI loop on arbitrary buffered I/O.
@@ -274,6 +327,87 @@ fn is_go_option_keyword(token: &str) -> bool {
     GO_OPTION_KEYWORDS.contains(&token)
 }
 
+fn planner_config_for_go_args(
+    base: &FrontierPlannerConfig,
+    go_args: &[String],
+) -> FrontierPlannerConfig {
+    let mut config = base.clone();
+
+    if let Some(depth_cap) =
+        go_option_value(go_args, "depth").and_then(|value| value.parse::<usize>().ok())
+    {
+        if depth_cap > 0 {
+            config.max_inner_steps = config.max_inner_steps.min(depth_cap);
+        }
+    }
+    if let Some(movetime_ms) =
+        go_option_value(go_args, "movetime").and_then(|value| value.parse::<u64>().ok())
+    {
+        let budget_cap = match movetime_ms {
+            0..=25 => 1,
+            26..=75 => 2,
+            76..=150 => 3,
+            _ => config.max_inner_steps,
+        };
+        config.max_inner_steps = config.max_inner_steps.min(budget_cap);
+    }
+    config.min_inner_steps = config.min_inner_steps.min(config.max_inner_steps);
+    if config.max_inner_steps == 0 {
+        config.max_inner_steps = 1;
+        config.min_inner_steps = 1;
+    }
+    config
+}
+
+fn go_option_value<'a>(go_args: &'a [String], option_name: &str) -> Option<&'a str> {
+    let option_index = go_args.iter().position(|token| token == option_name)?;
+    go_args.get(option_index + 1).map(String::as_str)
+}
+
+fn default_frontier_planner_config() -> FrontierPlannerConfig {
+    let mut config = FrontierPlannerConfig::default();
+    if let Some(root_top_k) = env_usize("ENGINEKONZEPT_FRONTIER_ROOT_TOP_K") {
+        config.root_top_k = root_top_k.max(1);
+    }
+    if let Some(beam_width) = env_usize("ENGINEKONZEPT_FRONTIER_BEAM_WIDTH") {
+        config.beam_width = beam_width.max(1);
+    }
+    if let Some(min_inner_steps) = env_usize("ENGINEKONZEPT_FRONTIER_MIN_INNER_STEPS") {
+        config.min_inner_steps = min_inner_steps;
+    }
+    if let Some(max_inner_steps) = env_usize("ENGINEKONZEPT_FRONTIER_MAX_INNER_STEPS") {
+        config.max_inner_steps = max_inner_steps.max(1);
+    }
+    if let Some(stable_margin) = env_f32("ENGINEKONZEPT_FRONTIER_STABLE_MARGIN") {
+        config.stable_margin = stable_margin.max(0.0);
+    }
+    if let Some(scale) = env_f32("ENGINEKONZEPT_FRONTIER_TACTICAL_PRESSURE_SCALE") {
+        config.tactical_pressure_scale = scale.max(0.0);
+    }
+    if let Some(scale) = env_f32("ENGINEKONZEPT_FRONTIER_EXPLORATION_SCALE") {
+        config.exploration_scale = scale.max(0.0);
+    }
+    if let Some(scale) = env_f32("ENGINEKONZEPT_FRONTIER_REVISIT_PENALTY_SCALE") {
+        config.revisit_penalty_scale = scale.max(0.0);
+    }
+    if let Some(steps) = env_usize("ENGINEKONZEPT_FRONTIER_STABILITY_HYSTERESIS") {
+        config.stability_hysteresis_steps = steps.max(1);
+    }
+    if config.validate().is_err() {
+        FrontierPlannerConfig::default()
+    } else {
+        config
+    }
+}
+
+fn env_usize(name: &str) -> Option<usize> {
+    env::var(name).ok()?.parse::<usize>().ok()
+}
+
+fn env_f32(name: &str) -> Option<f32> {
+    env::var(name).ok()?.parse::<f32>().ok()
+}
+
 fn default_proposer_runtime() -> Option<SymbolicProposerRuntime> {
     proposer_bundle_candidates()
         .into_iter()
@@ -295,9 +429,9 @@ fn proposer_bundle_candidates() -> Vec<PathBuf> {
 
 fn repo_root_from_manifest() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
+        .join("../../..")
         .canonicalize()
-        .unwrap_or_else(|_| Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."))
+        .unwrap_or_else(|_| Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.."))
 }
 
 /// Recoverable session error surfaced only through debug logging.
@@ -343,9 +477,10 @@ impl From<ParseError> for SessionError {
 mod tests {
     use std::io::BufReader;
 
+    use inference::{SymbolicProposerCandidate, SymbolicScoredCandidate};
     use rules::legal_moves;
 
-    use super::{run_uci_loop, EngineSession};
+    use super::{run_uci_loop, EngineSession, FrontierPlannerConfig};
 
     #[test]
     fn position_startpos_moves_reconstructs_expected_state() {
@@ -423,5 +558,76 @@ mod tests {
         let outcome = session.handle_line("position startpos moves e2e5");
         assert_eq!(outcome.responses.len(), 1);
         assert!(outcome.responses[0].to_string().starts_with("info string "));
+    }
+
+    #[test]
+    fn proposer_bundle_candidates_include_repo_models_path() {
+        let candidates = super::proposer_bundle_candidates();
+        assert!(candidates
+            .iter()
+            .any(|path| path.ends_with("models/proposer/stockfish_pgn_symbolic_v1_v1")));
+    }
+
+    #[test]
+    fn planner_helper_respects_searchmoves_filter() {
+        let position = position::Position::startpos();
+        let legal = legal_moves(&position);
+        let scored = legal
+            .into_iter()
+            .take(3)
+            .enumerate()
+            .map(|(index, chess_move)| SymbolicScoredCandidate {
+                candidate: SymbolicProposerCandidate {
+                    move_uci: chess_move.to_uci(),
+                    action_index: index as u32,
+                    chess_move,
+                    features: [0.0; planner::FRONTIER_CANDIDATE_FEATURE_DIM],
+                },
+                policy_score: 10.0 - index as f32,
+            })
+            .collect::<Vec<_>>();
+        let searchmoves = std::iter::once(scored[2].candidate.move_uci.clone()).collect();
+        let session =
+            EngineSession::with_runtime_components(None, FrontierPlannerConfig::default());
+
+        let result = session
+            .select_planner_bestmove_from_scored(scored.clone(), Some(&searchmoves), &[])
+            .expect("planner chooses one filtered move");
+        assert_eq!(result.bestmove, scored[2].candidate.move_uci);
+    }
+
+    #[test]
+    fn planner_helper_emits_summary_and_trace_in_debug_mode() {
+        let position = position::Position::startpos();
+        let legal = legal_moves(&position);
+        let scored = legal
+            .into_iter()
+            .take(2)
+            .enumerate()
+            .map(|(index, chess_move)| SymbolicScoredCandidate {
+                candidate: SymbolicProposerCandidate {
+                    move_uci: chess_move.to_uci(),
+                    action_index: index as u32,
+                    chess_move,
+                    features: [0.0; planner::FRONTIER_CANDIDATE_FEATURE_DIM],
+                },
+                policy_score: if index == 0 { 0.55 } else { 0.50 },
+            })
+            .collect::<Vec<_>>();
+        let mut session =
+            EngineSession::with_runtime_components(None, FrontierPlannerConfig::default());
+        session.debug_enabled = true;
+
+        let result = session
+            .select_planner_bestmove_from_scored(scored, None, &[])
+            .expect("planner returns move");
+        assert!(result
+            .info_strings
+            .iter()
+            .any(|line| line.contains("planner mode=frontier")));
+        assert!(result
+            .info_strings
+            .iter()
+            .any(|line| line.contains("planner step=")));
     }
 }

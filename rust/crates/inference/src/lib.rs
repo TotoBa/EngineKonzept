@@ -1746,7 +1746,7 @@ mod tests {
             "version": 1,
             "candidate_context_version": 2,
             "feature_dim": TRANSITION_CONTEXT_V1_ORDER.len(),
-            "feature_order": TRANSITION_CONTEXT_V1_ORDER.iter().copied().collect::<Vec<_>>(),
+            "feature_order": TRANSITION_CONTEXT_V1_ORDER.to_vec(),
             "post_move_feature_order": [
                 "opponent_in_check_after_move",
                 "destination_attacked_after_move",

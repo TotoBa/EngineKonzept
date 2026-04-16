@@ -48,6 +48,7 @@ name = "engine-app"
 version = "0.1.0"
 dependencies = [
  "inference",
+ "planner",
  "position",
  "rules",
  "uci-protocol",

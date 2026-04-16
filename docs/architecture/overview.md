@@ -48,8 +48,18 @@ That core is the correctness floor for later planner-oriented phases, not a conv
 
 ## Phase 2 Status
 
-The repository now additionally exposes a minimal UCI shell under `uci-protocol` and `engine-app`.
-That shell can reconstruct exact positions and emit deterministic legal stub moves, but it still contains no search, evaluation, or planner logic.
+The repository now additionally exposes a UCI shell under `uci-protocol` and `engine-app`.
+That shell still reconstructs exact positions from symbolic legality, but it is
+no longer only a lexicographic stub: when a Rust-loadable runtime bundle is
+available, `go` now runs a bounded frontier-deliberation selector over exact
+legal root candidates.
+
+This remains intentionally distinct from classical search:
+
+- no alpha-beta
+- no MCTS / PUCT
+- no board-tree expansion
+- bounded root-only deliberation with visible diagnostics
 
 ## Phase 3 Status
 
