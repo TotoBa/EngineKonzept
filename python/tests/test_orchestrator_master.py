@@ -19,6 +19,7 @@ from train.orchestrator.master import (
     OrchestratorMaster,
     Phase10LineageSpec,
     PromotionThresholds,
+    _estimated_train_split_count,
     _select_usage_balanced_records,
 )
 from train.orchestrator.master_runtime import OrchestratorMasterRuntime
@@ -843,6 +844,68 @@ def test_master_only_skips_training_for_generation_one(tmp_path: Path) -> None:
     assert generation_payload["reuse_existing_artifacts"] is False
     assert generation_payload["skip_training"] is False
     assert generation_payload["warm_start_source_checkpoint"] == str(parent_checkpoint)
+
+
+def test_master_caps_stage2_epoch_examples_to_available_generation_data(
+    tmp_path: Path,
+) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    seed_config_path = _write_seed_phase10_config(tmp_path)
+    base_label_work_dir = tmp_path / "label_work"
+    _write_completed_raw_snapshot(
+        base_label_work_dir,
+        train_rows=[
+            {
+                "sample_id": f"base:train:{index}",
+                "fen": f"4k3/8/8/8/8/8/8/{index % 8 + 1}K6 w - - 0 1",
+                "source": "base",
+                "selected_move_uci": "a1a2",
+                "result": "1-0",
+                "metadata": {},
+            }
+            for index in range(10)
+        ],
+        verify_rows=[],
+    )
+
+    master = OrchestratorMaster(
+        db=_StubDB(),
+        controller=_StubController(),
+        repo_root=repo_root,
+        spec=MasterSpec(
+            name="master_stage2_cap_test",
+            output_root=str(tmp_path / "master"),
+            lineages=(
+                Phase10LineageSpec(
+                    name="lapv2_lineage",
+                    seed_phase10_config_path=str(seed_config_path),
+                    output_root=str(tmp_path / "lineage"),
+                    use_all_available_labeled_positions=True,
+                ),
+            ),
+        ),
+        spec_path=tmp_path / "master.json",
+    )
+
+    paths = master._materialize_generation_configs(  # type: ignore[attr-defined]
+        lineage=master.spec.lineages[0],
+        generation=1,
+        parent_model=None,
+        warm_start_checkpoint=None,
+        label_work_dir=base_label_work_dir,
+    )
+    train_payload = json.loads(paths["train_config_path"].read_text(encoding="utf-8"))
+    generation_summary = json.loads(
+        (tmp_path / "lineage" / "generation_0001" / "summary.json").read_text(encoding="utf-8")
+    )
+    merged_raw_summary = json.loads(
+        Path(str(generation_summary["merged_raw_selection_summary_path"])).read_text(encoding="utf-8")
+    )
+    expected_examples = _estimated_train_split_count(int(merged_raw_summary["train_records"]))
+
+    assert [
+        phase["train_epoch_examples"] for phase in train_payload["stage2"]["phases"]
+    ] == [expected_examples, expected_examples, expected_examples]
 
 
 def test_master_accepts_generation_and_submits_followup_with_warm_start(tmp_path: Path) -> None:

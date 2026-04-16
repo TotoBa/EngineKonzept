@@ -1099,6 +1099,15 @@ class OrchestratorMaster:
         )
         train_payload["output_dir"] = str(model_output_dir)
         train_payload["export"]["bundle_dir"] = str(bundle_dir)
+        if (
+            not reuse_seed_artifacts
+            and lineage.use_all_available_labeled_positions
+            and merged_raw_dir is not None
+        ):
+            _cap_stage2_train_epoch_examples(
+                train_payload,
+                raw_train_records=_raw_corpus_counts(merged_raw_dir)["train"],
+            )
         if warm_start_checkpoint is not None:
             train_payload["initial_checkpoint"] = str(warm_start_checkpoint)
         else:
@@ -2483,6 +2492,57 @@ def _raw_corpus_counts(raw_dir: Path) -> dict[str, int]:
 
 def _raw_corpus_exists(raw_dir: Path) -> bool:
     return (raw_dir / "train_raw.jsonl").exists() and (raw_dir / "verify_raw.jsonl").exists()
+
+
+def _cap_stage2_train_epoch_examples(
+    train_payload: dict[str, Any],
+    *,
+    raw_train_records: int,
+) -> None:
+    if raw_train_records <= 0:
+        return
+    stage2_payload = train_payload.get("stage2")
+    if not isinstance(stage2_payload, dict):
+        return
+    phases = stage2_payload.get("phases")
+    if not isinstance(phases, list):
+        return
+    capped_examples = _estimated_train_split_count(raw_train_records)
+    if capped_examples <= 0:
+        return
+    for phase_payload in phases:
+        if not isinstance(phase_payload, dict):
+            continue
+        train_epoch_examples = phase_payload.get("train_epoch_examples")
+        if train_epoch_examples is None:
+            phase_payload["train_epoch_examples"] = capped_examples
+            continue
+        phase_payload["train_epoch_examples"] = min(int(train_epoch_examples), capped_examples)
+
+
+def _estimated_train_split_count(raw_train_records: int) -> int:
+    if raw_train_records <= 0:
+        return 0
+    exact_train = raw_train_records * 0.9
+    exact_validation = raw_train_records * 0.1
+    floor_train = int(exact_train)
+    floor_validation = int(exact_validation)
+    remainder = raw_train_records - floor_train - floor_validation
+    if remainder <= 0:
+        return floor_train
+    fractional_order = sorted(
+        (
+            ("train", exact_train - floor_train),
+            ("validation", exact_validation - floor_validation),
+            ("test", 0.0),
+        ),
+        key=lambda item: (item[1], item[0] == "train"),
+        reverse=True,
+    )
+    for split_name, _fraction in fractional_order[:remainder]:
+        if split_name == "train":
+            floor_train += 1
+    return floor_train
 
 
 def _count_nonempty_lines(path: Path) -> int:
