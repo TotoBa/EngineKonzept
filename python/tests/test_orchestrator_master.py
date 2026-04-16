@@ -908,6 +908,132 @@ def test_master_caps_stage2_epoch_examples_to_available_generation_data(
     ] == [expected_examples, expected_examples, expected_examples]
 
 
+def test_master_overrides_lower_seed_stage2_epoch_examples_with_available_generation_data(
+    tmp_path: Path,
+) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    seed_config_path = _write_seed_phase10_config(tmp_path)
+    seed_payload = json.loads(seed_config_path.read_text(encoding="utf-8"))
+    source_seed_train_config_path = Path(str(seed_payload["lapv1_config_path"]))
+    seed_train_config_path = tmp_path / "seed_train_config.json"
+    seed_train_payload = json.loads(source_seed_train_config_path.read_text(encoding="utf-8"))
+    for phase in seed_train_payload["stage2"]["phases"]:
+        phase["train_epoch_examples"] = 3
+    seed_train_config_path.write_text(
+        json.dumps(seed_train_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    seed_payload["lapv1_config_path"] = str(seed_train_config_path)
+    seed_config_path.write_text(json.dumps(seed_payload, indent=2, sort_keys=True) + "\n")
+
+    base_label_work_dir = tmp_path / "label_work"
+    _write_completed_raw_snapshot(
+        base_label_work_dir,
+        train_rows=[
+            {
+                "sample_id": f"base:train:{index}",
+                "fen": f"4k3/8/8/8/8/8/8/{index % 8 + 1}K6 w - - 0 1",
+                "source": "base",
+                "selected_move_uci": "a1a2",
+                "result": "1-0",
+                "metadata": {},
+            }
+            for index in range(10)
+        ],
+        verify_rows=[],
+    )
+
+    master = OrchestratorMaster(
+        db=_StubDB(),
+        controller=_StubController(),
+        repo_root=repo_root,
+        spec=MasterSpec(
+            name="master_stage2_override_test",
+            output_root=str(tmp_path / "master"),
+            lineages=(
+                Phase10LineageSpec(
+                    name="lapv2_lineage",
+                    seed_phase10_config_path=str(seed_config_path),
+                    output_root=str(tmp_path / "lineage"),
+                    use_all_available_labeled_positions=True,
+                ),
+            ),
+        ),
+        spec_path=tmp_path / "master.json",
+    )
+
+    paths = master._materialize_generation_configs(  # type: ignore[attr-defined]
+        lineage=master.spec.lineages[0],
+        generation=1,
+        parent_model=None,
+        warm_start_checkpoint=None,
+        label_work_dir=base_label_work_dir,
+    )
+    train_payload = json.loads(paths["train_config_path"].read_text(encoding="utf-8"))
+    generation_summary = json.loads(
+        (tmp_path / "lineage" / "generation_0001" / "summary.json").read_text(encoding="utf-8")
+    )
+    merged_raw_summary = json.loads(
+        Path(str(generation_summary["merged_raw_selection_summary_path"])).read_text(encoding="utf-8")
+    )
+    expected_examples = _estimated_train_split_count(int(merged_raw_summary["train_records"]))
+
+    assert expected_examples > 3
+    assert [
+        phase["train_epoch_examples"] for phase in train_payload["stage2"]["phases"]
+    ] == [expected_examples, expected_examples, expected_examples]
+
+
+def test_master_removes_seed_initial_checkpoint_when_no_warm_start_requested(
+    tmp_path: Path,
+) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    seed_config_path = _write_seed_phase10_config(tmp_path)
+    seed_payload = json.loads(seed_config_path.read_text(encoding="utf-8"))
+    source_seed_train_config_path = Path(str(seed_payload["lapv1_config_path"]))
+    seed_train_config_path = tmp_path / "seed_train_config.json"
+    seed_train_payload = json.loads(source_seed_train_config_path.read_text(encoding="utf-8"))
+    fake_checkpoint = tmp_path / "seeded_model" / "checkpoint.pt"
+    fake_checkpoint.parent.mkdir(parents=True, exist_ok=True)
+    fake_checkpoint.write_bytes(b"checkpoint")
+    seed_train_payload["initial_checkpoint"] = str(fake_checkpoint)
+    seed_train_config_path.write_text(
+        json.dumps(seed_train_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    seed_payload["lapv1_config_path"] = str(seed_train_config_path)
+    seed_config_path.write_text(json.dumps(seed_payload, indent=2, sort_keys=True) + "\n")
+
+    master = OrchestratorMaster(
+        db=_StubDB(),
+        controller=_StubController(),
+        repo_root=repo_root,
+        spec=MasterSpec(
+            name="master_random_init_test",
+            output_root=str(tmp_path / "master"),
+            lineages=(
+                Phase10LineageSpec(
+                    name="lapv2_lineage",
+                    seed_phase10_config_path=str(seed_config_path),
+                    output_root=str(tmp_path / "lineage"),
+                ),
+            ),
+        ),
+        spec_path=tmp_path / "master.json",
+    )
+
+    paths = master._materialize_generation_configs(  # type: ignore[attr-defined]
+        lineage=master.spec.lineages[0],
+        generation=1,
+        parent_model=None,
+        warm_start_checkpoint=None,
+        label_work_dir=None,
+    )
+    train_payload = json.loads(paths["train_config_path"].read_text(encoding="utf-8"))
+
+    assert "initial_checkpoint" not in train_payload
+
+
 def test_master_accepts_generation_and_submits_followup_with_warm_start(tmp_path: Path) -> None:
     repo_root = Path(__file__).resolve().parents[2]
     controller = _StubController()

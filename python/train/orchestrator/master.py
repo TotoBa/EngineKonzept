@@ -1104,21 +1104,14 @@ class OrchestratorMaster:
             and lineage.use_all_available_labeled_positions
             and merged_raw_dir is not None
         ):
-            _cap_stage2_train_epoch_examples(
+            _set_stage2_train_epoch_examples(
                 train_payload,
                 raw_train_records=_raw_corpus_counts(merged_raw_dir)["train"],
             )
         if warm_start_checkpoint is not None:
             train_payload["initial_checkpoint"] = str(warm_start_checkpoint)
         else:
-            initial_checkpoint = train_payload.get("initial_checkpoint")
-            if initial_checkpoint is not None:
-                initial_checkpoint_path = resolve_repo_path(
-                    self._repo_root,
-                    Path(str(initial_checkpoint)),
-                )
-                if not initial_checkpoint_path.exists():
-                    train_payload.pop("initial_checkpoint", None)
+            train_payload.pop("initial_checkpoint", None)
 
         agent_spec = SelfplayAgentSpec(
             **{
@@ -2494,7 +2487,7 @@ def _raw_corpus_exists(raw_dir: Path) -> bool:
     return (raw_dir / "train_raw.jsonl").exists() and (raw_dir / "verify_raw.jsonl").exists()
 
 
-def _cap_stage2_train_epoch_examples(
+def _set_stage2_train_epoch_examples(
     train_payload: dict[str, Any],
     *,
     raw_train_records: int,
@@ -2513,11 +2506,7 @@ def _cap_stage2_train_epoch_examples(
     for phase_payload in phases:
         if not isinstance(phase_payload, dict):
             continue
-        train_epoch_examples = phase_payload.get("train_epoch_examples")
-        if train_epoch_examples is None:
-            phase_payload["train_epoch_examples"] = capped_examples
-            continue
-        phase_payload["train_epoch_examples"] = min(int(train_epoch_examples), capped_examples)
+        phase_payload["train_epoch_examples"] = capped_examples
 
 
 def _estimated_train_split_count(raw_train_records: int) -> int:
