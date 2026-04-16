@@ -528,6 +528,11 @@ class LAPv1Metrics:
     ft_drift: float | None
     adapter_cosine_distance: float | None
     reply_consistency: float | None
+    frontier_revisit_rate: float
+    frontier_turnover_rate: float
+    frontier_stable_rate: float
+    frontier_unique_coverage: float
+    final_top1_frontier_coverage: float
     examples_per_second: float
 
     def to_dict(self) -> dict[str, object]:
@@ -613,6 +618,14 @@ class LAPv1Metrics:
                 None
                 if self.reply_consistency is None
                 else round(self.reply_consistency, 6)
+            ),
+            "frontier_revisit_rate": round(self.frontier_revisit_rate, 6),
+            "frontier_turnover_rate": round(self.frontier_turnover_rate, 6),
+            "frontier_stable_rate": round(self.frontier_stable_rate, 6),
+            "frontier_unique_coverage": round(self.frontier_unique_coverage, 6),
+            "final_top1_frontier_coverage": round(
+                self.final_top1_frontier_coverage,
+                6,
             ),
             "examples_per_second": round(self.examples_per_second, 3),
         }
@@ -1203,6 +1216,9 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
                 f"rollbacks={validation_metrics.rollbacks} "
                 f"rollback_hit_rate={validation_metrics.rollback_hit_rate:.4f} "
                 f"rollback_example_rate={validation_metrics.rollback_example_rate:.4f} "
+                f"frontier_turnover={validation_metrics.frontier_turnover_rate:.4f} "
+                f"frontier_unique={validation_metrics.frontier_unique_coverage:.4f} "
+                f"frontier_top1_cov={validation_metrics.final_top1_frontier_coverage:.4f} "
                 f"selection_source={selection_source} "
                 f"selection_top1={selection_reference.root_top1_accuracy:.4f} "
                 f"selection_mrr={selection_reference.teacher_root_mean_reciprocal_rank:.4f} "
@@ -1780,6 +1796,16 @@ def _run_epoch(
         "sum_teacher_sq": 0.0,
         "sum_product": 0.0,
     }
+    frontier_stats = {
+        "transition_count": 0.0,
+        "turnover_sum": 0.0,
+        "revisit_sum": 0.0,
+        "stable_count": 0.0,
+        "coverage_count": 0.0,
+        "unique_coverage_sum": 0.0,
+        "top1_hit_count": 0.0,
+        "top1_total": 0.0,
+    }
 
     order = list(range(len(examples)))
     if training:
@@ -2116,6 +2142,14 @@ def _run_epoch(
                     teacher_reply_logits=teacher_reply_logits,
                     step_active_mask=step_active_mask,
                 )
+            batch_frontier_stats = _summarize_frontier_activity(
+                step_selected_candidate_tensors=outputs["step_selected_candidate_tensors"],
+                step_active_masks=step_active_masks,
+                final_top1_indices=top1_indices,
+                candidate_count=batch["candidate_mask"].shape[1],
+            )
+            for key, value in batch_frontier_stats.items():
+                frontier_stats[key] += value
             total_examples += len(batch_examples)
             total_loss += float(loss.item()) * len(batch_examples)
             total_value_wdl += float(value_wdl_loss.item()) * len(batch_examples)
@@ -2305,6 +2339,31 @@ def _run_epoch(
         ft_drift=_lapv2_ft_drift(model),
         adapter_cosine_distance=_lapv2_adapter_cosine_distance(model),
         reply_consistency=_finalize_reply_consistency(reply_consistency_stats),
+        frontier_revisit_rate=(
+            0.0
+            if frontier_stats["transition_count"] == 0.0
+            else frontier_stats["revisit_sum"] / frontier_stats["transition_count"]
+        ),
+        frontier_turnover_rate=(
+            0.0
+            if frontier_stats["transition_count"] == 0.0
+            else frontier_stats["turnover_sum"] / frontier_stats["transition_count"]
+        ),
+        frontier_stable_rate=(
+            0.0
+            if frontier_stats["transition_count"] == 0.0
+            else frontier_stats["stable_count"] / frontier_stats["transition_count"]
+        ),
+        frontier_unique_coverage=(
+            0.0
+            if frontier_stats["coverage_count"] == 0.0
+            else frontier_stats["unique_coverage_sum"] / frontier_stats["coverage_count"]
+        ),
+        final_top1_frontier_coverage=(
+            0.0
+            if frontier_stats["top1_total"] == 0.0
+            else frontier_stats["top1_hit_count"] / frontier_stats["top1_total"]
+        ),
         examples_per_second=total_examples / duration,
     )
 
@@ -2709,6 +2768,109 @@ def _lapv2_adapter_cosine_distance(model: LAPv1Model) -> float | None:
     if not distances:
         return None
     return sum(distances) / len(distances)
+
+
+def _summarize_frontier_activity(
+    *,
+    step_selected_candidate_tensors: Sequence[torch.Tensor],
+    step_active_masks: Sequence[torch.Tensor],
+    final_top1_indices: torch.Tensor,
+    candidate_count: int,
+) -> dict[str, float]:
+    if candidate_count <= 0:
+        raise ValueError("candidate_count must be positive")
+    if len(step_selected_candidate_tensors) != len(step_active_masks):
+        raise ValueError(
+            "step_selected_candidate_tensors and step_active_masks must align"
+        )
+    if not step_selected_candidate_tensors:
+        return {
+            "transition_count": 0.0,
+            "turnover_sum": 0.0,
+            "revisit_sum": 0.0,
+            "stable_count": 0.0,
+            "coverage_count": 0.0,
+            "unique_coverage_sum": 0.0,
+            "top1_hit_count": 0.0,
+            "top1_total": 0.0,
+        }
+
+    batch_size = final_top1_indices.shape[0]
+    previous_selected_mask = torch.zeros(
+        (batch_size, candidate_count),
+        dtype=torch.bool,
+        device=final_top1_indices.device,
+    )
+    visited_mask = torch.zeros_like(previous_selected_mask)
+    total_selected = torch.zeros((batch_size,), dtype=torch.float32, device=final_top1_indices.device)
+    unique_selected = torch.zeros_like(total_selected)
+    examples_with_steps = torch.zeros((batch_size,), dtype=torch.bool, device=final_top1_indices.device)
+    transition_count = 0.0
+    turnover_sum = 0.0
+    revisit_sum = 0.0
+    stable_count = 0.0
+    top1_hit_count = 0.0
+    top1_total = 0.0
+
+    for selected_indices, step_active_mask in zip(
+        step_selected_candidate_tensors,
+        step_active_masks,
+        strict=True,
+    ):
+        selected_mask = torch.zeros_like(previous_selected_mask)
+        selected_mask.scatter_(
+            1,
+            selected_indices,
+            step_active_mask.unsqueeze(1).expand(-1, selected_indices.shape[1]),
+        )
+        examples_with_steps |= step_active_mask
+        selected_counts = selected_mask.sum(dim=1).to(torch.float32)
+        total_selected += selected_counts
+        new_selected_mask = selected_mask & ~visited_mask
+        unique_selected += new_selected_mask.sum(dim=1).to(torch.float32)
+        visited_mask = visited_mask | selected_mask
+        top1_hit_mask = (
+            selected_mask.gather(1, final_top1_indices.unsqueeze(1)).squeeze(1)
+            & step_active_mask
+        )
+        top1_hit_count += float(top1_hit_mask.sum().item())
+        top1_total += float(step_active_mask.sum().item())
+        comparable_mask = step_active_mask & previous_selected_mask.any(dim=1)
+        if bool(comparable_mask.any().item()):
+            overlap = (selected_mask & previous_selected_mask).sum(dim=1).to(torch.float32)
+            revisit_rate = overlap / selected_counts.clamp(min=1.0)
+            turnover_rate = 1.0 - revisit_rate
+            stable_mask = comparable_mask & (
+                selected_mask == previous_selected_mask
+            ).all(dim=1)
+            transition_count += float(comparable_mask.sum().item())
+            revisit_sum += float(revisit_rate[comparable_mask].sum().item())
+            turnover_sum += float(turnover_rate[comparable_mask].sum().item())
+            stable_count += float(stable_mask.sum().item())
+        previous_selected_mask = torch.where(
+            step_active_mask.unsqueeze(1),
+            selected_mask,
+            previous_selected_mask,
+        )
+
+    coverage_mask = examples_with_steps & (total_selected > 0.0)
+    if bool(coverage_mask.any().item()):
+        unique_coverage = unique_selected / total_selected.clamp(min=1.0)
+        coverage_count = float(coverage_mask.sum().item())
+        unique_coverage_sum = float(unique_coverage[coverage_mask].sum().item())
+    else:
+        coverage_count = 0.0
+        unique_coverage_sum = 0.0
+    return {
+        "transition_count": transition_count,
+        "turnover_sum": turnover_sum,
+        "revisit_sum": revisit_sum,
+        "stable_count": stable_count,
+        "coverage_count": coverage_count,
+        "unique_coverage_sum": unique_coverage_sum,
+        "top1_hit_count": top1_hit_count,
+        "top1_total": top1_total,
+    }
 
 
 def _update_reply_consistency_stats(

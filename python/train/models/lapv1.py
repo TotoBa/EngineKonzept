@@ -1105,9 +1105,21 @@ if torch is not None and nn is not None:
                 "step_selected_candidate_tensors": deliberation_outputs[
                     "step_selected_candidate_tensors"
                 ],
+                "step_selected_candidate_masks": deliberation_outputs[
+                    "step_selected_candidate_masks"
+                ],
                 "step_phase_indices": deliberation_outputs["step_phase_indices"],
                 "step_active_masks": deliberation_outputs["step_active_masks"],
                 "step_rollback_masks": deliberation_outputs["step_rollback_masks"],
+                "step_frontier_turnover_tensors": deliberation_outputs[
+                    "step_frontier_turnover_tensors"
+                ],
+                "step_frontier_revisit_tensors": deliberation_outputs[
+                    "step_frontier_revisit_tensors"
+                ],
+                "step_frontier_stable_masks": deliberation_outputs[
+                    "step_frontier_stable_masks"
+                ],
                 "step_rollback_flags": deliberation_outputs["step_rollback_flags"],
                 "step_student_reply_logits_tensors": deliberation_outputs[
                     "step_student_reply_logits_tensors"
@@ -1131,6 +1143,10 @@ if torch is not None and nn is not None:
                 "root_sharpness": root_sharpness,
                 "refined_top1_action_index": deliberation_outputs[
                     "refined_top1_action_index"
+                ],
+                "frontier_visit_counts": deliberation_outputs["frontier_visit_counts"],
+                "frontier_unique_candidate_counts": deliberation_outputs[
+                    "frontier_unique_candidate_counts"
                 ],
                 "piece_intentions": piece_intentions,
                 "z_root": z_root,

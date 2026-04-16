@@ -31,6 +31,9 @@ class DeliberationTraceStep:
     top1_value_cp: list[float]
     sharpness: list[float]
     uncertainty: list[float]
+    frontier_turnover: list[float]
+    frontier_revisit: list[float]
+    frontier_stable: list[bool]
     pv_scratch_uci: list[list[str]]
     rollback_fired: bool
 
@@ -147,11 +150,27 @@ if torch is not None and nn is not None:
     class CandidateSelector(nn.Module):
         """Pick the bounded top-K candidates to refine at one deliberation step."""
 
-        def __init__(self, *, top_k: int = 3) -> None:
+        def __init__(
+            self,
+            *,
+            top_k: int = 3,
+            revisit_bonus: float = 0.15,
+            exploration_bonus: float = 0.25,
+            exploration_decay: float = 1.0,
+        ) -> None:
             super().__init__()
             if top_k <= 0:
                 raise ValueError("top_k must be positive")
+            if revisit_bonus < 0.0:
+                raise ValueError("revisit_bonus must be non-negative")
+            if exploration_bonus < 0.0:
+                raise ValueError("exploration_bonus must be non-negative")
+            if exploration_decay < 0.0:
+                raise ValueError("exploration_decay must be non-negative")
             self.top_k = top_k
+            self.revisit_bonus = revisit_bonus
+            self.exploration_bonus = exploration_bonus
+            self.exploration_decay = exploration_decay
 
         def forward(
             self,
@@ -159,10 +178,32 @@ if torch is not None and nn is not None:
             C_t: torch.Tensor,
             sigma_t: torch.Tensor,
             candidate_mask: torch.Tensor,
+            *,
+            previous_selected_mask: torch.Tensor | None = None,
+            selection_counts: torch.Tensor | None = None,
         ) -> torch.Tensor:
             """Return per-batch candidate indices ordered by current score."""
-            del z_t, sigma_t
-            masked_scores = C_t.masked_fill(~candidate_mask, MASKED_CANDIDATE_SCORE_VALUE)
+            del z_t
+            if previous_selected_mask is None:
+                previous_selected_mask = torch.zeros_like(candidate_mask)
+            if selection_counts is None:
+                selection_counts = torch.zeros_like(C_t)
+            uncertainty = sigma_t.reshape(C_t.shape[0], -1)[:, :1].to(C_t.dtype)
+            uncertainty = uncertainty / (1.0 + uncertainty)
+            uncertainty = uncertainty.expand_as(C_t)
+            revisit_term = (
+                previous_selected_mask.to(C_t.dtype)
+                * self.revisit_bonus
+                * (1.0 - uncertainty)
+            )
+            novelty_term = self.exploration_bonus * uncertainty / (
+                selection_counts.to(C_t.dtype) + 1.0
+            ).pow(self.exploration_decay)
+            frontier_scores = C_t + revisit_term + novelty_term
+            masked_scores = frontier_scores.masked_fill(
+                ~candidate_mask,
+                MASKED_CANDIDATE_SCORE_VALUE,
+            )
             selected_count = min(self.top_k, masked_scores.shape[1])
             return torch.topk(masked_scores, k=selected_count, dim=1).indices
 
@@ -377,9 +418,13 @@ if torch is not None and nn is not None:
                     "step_sharpness_tensors": (),
                     "step_candidate_score_tensors": (),
                     "step_selected_candidate_tensors": (),
+                    "step_selected_candidate_masks": (),
                     "step_phase_indices": (),
                     "step_active_masks": (),
                     "step_rollback_masks": (),
+                    "step_frontier_turnover_tensors": (),
+                    "step_frontier_revisit_tensors": (),
+                    "step_frontier_stable_masks": (),
                     "step_rollback_flags": (),
                     "step_student_reply_logits_tensors": (),
                     "step_student_pressure_tensors": (),
@@ -393,6 +438,12 @@ if torch is not None and nn is not None:
                     "final_memory": torch.zeros(
                         (z_root.shape[0], self.memory_slots, self.memory_dim),
                         dtype=z_root.dtype,
+                        device=z_root.device,
+                    ),
+                    "frontier_visit_counts": torch.zeros_like(masked_scores),
+                    "frontier_unique_candidate_counts": torch.zeros(
+                        (z_root.shape[0],),
+                        dtype=torch.long,
                         device=z_root.device,
                     ),
                 }
@@ -413,9 +464,13 @@ if torch is not None and nn is not None:
             step_sharpness_tensors: list[torch.Tensor] = []
             step_candidate_score_tensors: list[torch.Tensor] = []
             step_selected_candidate_tensors: list[torch.Tensor] = []
+            step_selected_candidate_masks: list[torch.Tensor] = []
             step_phase_indices: list[torch.Tensor] = []
             step_active_masks: list[torch.Tensor] = []
             step_rollback_masks: list[torch.Tensor] = []
+            step_frontier_turnover_tensors: list[torch.Tensor] = []
+            step_frontier_revisit_tensors: list[torch.Tensor] = []
+            step_frontier_stable_masks: list[torch.Tensor] = []
             step_rollback_flags: list[bool] = []
             step_student_reply_logits_tensors: list[torch.Tensor] = []
             step_student_pressure_tensors: list[torch.Tensor] = []
@@ -425,6 +480,9 @@ if torch is not None and nn is not None:
             step_teacher_uncertainty_tensors: list[torch.Tensor] = []
             top1_history: list[list[int]] = []
             active_mask = legal_counts > 1
+            previous_selected_mask = torch.zeros_like(candidate_mask)
+            frontier_visit_counts = torch.zeros_like(root_scores)
+            frontier_visited_mask = torch.zeros_like(candidate_mask)
 
             for step_index in range(self.max_inner_steps):
                 current_scores = (root_scores + delta_scores).masked_fill(
@@ -463,6 +521,39 @@ if torch is not None and nn is not None:
                     current_scores,
                     uncertainty.unsqueeze(1),
                     candidate_mask,
+                    previous_selected_mask=previous_selected_mask,
+                    selection_counts=frontier_visit_counts,
+                )
+                selected_mask = torch.zeros_like(candidate_mask)
+                selected_mask.scatter_(
+                    1,
+                    selected_indices,
+                    step_active_mask.unsqueeze(1).expand(-1, selected_indices.shape[1]),
+                )
+                frontier_overlap_counts = (selected_mask & previous_selected_mask).sum(dim=1)
+                selected_counts = selected_mask.sum(dim=1).clamp(min=1)
+                has_previous_frontier = step_active_mask & previous_selected_mask.any(dim=1)
+                frontier_revisit = torch.where(
+                    has_previous_frontier,
+                    frontier_overlap_counts.to(value_cp.dtype) / selected_counts.to(value_cp.dtype),
+                    torch.zeros_like(value_cp),
+                )
+                frontier_turnover = torch.where(
+                    has_previous_frontier,
+                    1.0 - frontier_revisit,
+                    torch.zeros_like(frontier_revisit),
+                )
+                frontier_stable_mask = has_previous_frontier & (
+                    selected_mask == previous_selected_mask
+                ).all(dim=1)
+                frontier_visit_counts = frontier_visit_counts + selected_mask.to(
+                    frontier_visit_counts.dtype
+                )
+                frontier_visited_mask = frontier_visited_mask | selected_mask
+                previous_selected_mask = torch.where(
+                    step_active_mask.unsqueeze(1),
+                    selected_mask,
+                    previous_selected_mask,
                 )
                 selected_action_indices = candidate_action_indices.gather(1, selected_indices)
                 transitioned_latents = self.transition(z_t, selected_action_indices)
@@ -573,6 +664,9 @@ if torch is not None and nn is not None:
                         top1_value_cp=value_cp.tolist(),
                         sharpness=sharpness.tolist(),
                         uncertainty=uncertainty.tolist(),
+                        frontier_turnover=frontier_turnover.tolist(),
+                        frontier_revisit=frontier_revisit.tolist(),
+                        frontier_stable=[bool(value) for value in frontier_stable_mask.tolist()],
                         pv_scratch_uci=pv_scratch,
                         rollback_fired=rollback_fired,
                     )
@@ -581,10 +675,14 @@ if torch is not None and nn is not None:
                 step_sharpness_tensors.append(sharpness.clone())
                 step_candidate_score_tensors.append(final_scores.clone())
                 step_selected_candidate_tensors.append(selected_indices.clone())
+                step_selected_candidate_masks.append(selected_mask.clone())
                 if phase_idx is not None:
                     step_phase_indices.append(phase_idx.clone())
                 step_active_masks.append(step_active_mask.clone())
                 step_rollback_masks.append(rollback_mask.clone())
+                step_frontier_turnover_tensors.append(frontier_turnover.clone())
+                step_frontier_revisit_tensors.append(frontier_revisit.clone())
+                step_frontier_stable_masks.append(frontier_stable_mask.clone())
                 step_rollback_flags.append(rollback_fired)
                 if reply_diagnostics is not None:
                     assert reply_diagnostics["student_reply_logits"] is not None
@@ -628,9 +726,13 @@ if torch is not None and nn is not None:
                 "step_sharpness_tensors": tuple(step_sharpness_tensors),
                 "step_candidate_score_tensors": tuple(step_candidate_score_tensors),
                 "step_selected_candidate_tensors": tuple(step_selected_candidate_tensors),
+                "step_selected_candidate_masks": tuple(step_selected_candidate_masks),
                 "step_phase_indices": tuple(step_phase_indices),
                 "step_active_masks": tuple(step_active_masks),
                 "step_rollback_masks": tuple(step_rollback_masks),
+                "step_frontier_turnover_tensors": tuple(step_frontier_turnover_tensors),
+                "step_frontier_revisit_tensors": tuple(step_frontier_revisit_tensors),
+                "step_frontier_stable_masks": tuple(step_frontier_stable_masks),
                 "step_rollback_flags": tuple(step_rollback_flags),
                 "step_student_reply_logits_tensors": tuple(
                     step_student_reply_logits_tensors
@@ -650,7 +752,39 @@ if torch is not None and nn is not None:
                 "final_candidate_deltas": delta_scores,
                 "final_z": z_t,
                 "final_memory": M_t,
+                "frontier_visit_counts": frontier_visit_counts,
+                "frontier_unique_candidate_counts": frontier_visited_mask.sum(dim=1),
             }
+
+
+else:  # pragma: no cover - exercised when torch is absent
+
+    class DeliberationCell:  # type: ignore[no-redef]
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+            raise RuntimeError(
+                "PyTorch is required for DeliberationCell. Install the 'train' extra or torch."
+            )
+
+
+    class CandidateSelector:  # type: ignore[no-redef]
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+            raise RuntimeError(
+                "PyTorch is required for CandidateSelector. Install the 'train' extra or torch."
+            )
+
+
+    class LatentTransition:  # type: ignore[no-redef]
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+            raise RuntimeError(
+                "PyTorch is required for LatentTransition. Install the 'train' extra or torch."
+            )
+
+
+    class DeliberationLoop:  # type: ignore[no-redef]
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+            raise RuntimeError(
+                "PyTorch is required for DeliberationLoop. Install the 'train' extra or torch."
+            )
 
 
 def _build_pv_scratch(

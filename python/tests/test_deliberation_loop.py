@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import pytest
 
+pytest.importorskip("torch")
+
 from train.models.deliberation import (
     CandidateSelector,
     DeliberationLoop,
@@ -232,3 +234,55 @@ def test_candidate_selector_returns_top_k_indices() -> None:
     )
 
     assert tuple(indices[0].tolist()) == (1, 2)
+
+
+def test_candidate_selector_trades_revisit_for_novelty_under_uncertainty() -> None:
+    selector = CandidateSelector(
+        top_k=1,
+        revisit_bonus=0.2,
+        exploration_bonus=0.3,
+        exploration_decay=1.0,
+    )
+    scores = torch.tensor([[0.90, 0.89, 0.88]], dtype=torch.float32)
+    previous_selected_mask = torch.tensor([[True, False, False]], dtype=torch.bool)
+    selection_counts = torch.tensor([[3.0, 0.0, 0.0]], dtype=torch.float32)
+    candidate_mask = torch.tensor([[True, True, True]], dtype=torch.bool)
+
+    low_uncertainty = selector(
+        torch.zeros((1, 512), dtype=torch.float32),
+        scores,
+        torch.tensor([[0.0]], dtype=torch.float32),
+        candidate_mask,
+        previous_selected_mask=previous_selected_mask,
+        selection_counts=selection_counts,
+    )
+    high_uncertainty = selector(
+        torch.zeros((1, 512), dtype=torch.float32),
+        scores,
+        torch.tensor([[10.0]], dtype=torch.float32),
+        candidate_mask,
+        previous_selected_mask=previous_selected_mask,
+        selection_counts=selection_counts,
+    )
+
+    assert low_uncertainty[0, 0].item() == 0
+    assert high_uncertainty[0, 0].item() == 1
+
+
+def test_deliberation_loop_tracks_frontier_masks_and_visit_counts() -> None:
+    loop = DeliberationLoop(
+        max_inner_steps=2,
+        min_inner_steps=2,
+        sharpness_projector=ConstantSharpness(1.0),
+    )
+
+    outputs = loop(*_sample_inputs())
+
+    assert len(outputs["step_selected_candidate_masks"]) == outputs["step_count"] == 2
+    assert len(outputs["step_frontier_turnover_tensors"]) == outputs["step_count"]
+    assert len(outputs["step_frontier_revisit_tensors"]) == outputs["step_count"]
+    assert len(outputs["step_frontier_stable_masks"]) == outputs["step_count"]
+    assert tuple(outputs["frontier_visit_counts"].shape) == tuple(
+        outputs["root_candidate_scores"].shape
+    )
+    assert tuple(outputs["frontier_unique_candidate_counts"].shape) == (2,)

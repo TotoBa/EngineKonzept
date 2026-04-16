@@ -268,6 +268,19 @@ Stage-T2 diagnostics now explicitly compare root vs final behavior:
 That makes later UCI-side trace work much easier because the training summary now
 already exposes whether deeper budgets actually helped.
 
+The next Phase-8-aligned refinement now treats the selected Top-K set as a real
+bounded frontier instead of just an implementation detail:
+
+- low uncertainty biases the selector toward revisiting the previous frontier
+- high uncertainty increases pressure toward less-visited candidates
+- training now records frontier turnover, revisit rate, stability, unique
+  coverage, and how often the final winner was already inside the frontier
+
+This is still not a search tree. It is a root-only latent frontier controller
+whose value must be visible first in train/validation metrics before it earns a
+larger architectural expansion. The implementation plan for that path lives in
+[lap-frontier-deliberation.md](/home/persk/repos/EngineKonzept/docs/architecture/lap-frontier-deliberation.md).
+
 Stage-T2 checkpoint selection is now also allowed to use a separate common
 holdout that is fixed across phases. That is important once some phases validate
 on hard subsets and others validate on the full corpus; otherwise `best_epoch`

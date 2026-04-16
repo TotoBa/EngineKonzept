@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+pytest.importorskip("torch")
+
 from train.config import (
     PlannerDataConfig,
     PlannerEvaluationConfig,
@@ -44,6 +46,7 @@ from train.trainers.lapv1 import (
     _opponent_distill_loss,
     _policy_margin_loss,
     _prepare_example,
+    _summarize_frontier_activity,
     _trace_policy_ce_loss,
 )
 
@@ -132,6 +135,30 @@ def test_train_and_evaluate_lapv1_stage1_on_tiny_cpu_dataset(tmp_path: Path) -> 
     assert 0.0 <= metrics.root_top1_accuracy <= 1.0
     assert 0.0 <= metrics.root_top3_accuracy <= 1.0
     assert metrics.total_loss >= 0.0
+
+
+def test_summarize_frontier_activity_reports_turnover_and_coverage() -> None:
+    stats = _summarize_frontier_activity(
+        step_selected_candidate_tensors=(
+            torch.tensor([[0, 1], [0, 1]], dtype=torch.long),
+            torch.tensor([[0, 2], [0, 1]], dtype=torch.long),
+        ),
+        step_active_masks=(
+            torch.tensor([True, True], dtype=torch.bool),
+            torch.tensor([True, True], dtype=torch.bool),
+        ),
+        final_top1_indices=torch.tensor([2, 1], dtype=torch.long),
+        candidate_count=4,
+    )
+
+    assert stats["transition_count"] == pytest.approx(2.0)
+    assert stats["turnover_sum"] == pytest.approx(0.5)
+    assert stats["revisit_sum"] == pytest.approx(1.5)
+    assert stats["stable_count"] == pytest.approx(1.0)
+    assert stats["coverage_count"] == pytest.approx(2.0)
+    assert stats["unique_coverage_sum"] == pytest.approx(1.25)
+    assert stats["top1_hit_count"] == pytest.approx(3.0)
+    assert stats["top1_total"] == pytest.approx(4.0)
 
 
 def test_train_lapv1_accepts_matching_initial_checkpoint(tmp_path: Path) -> None:
@@ -615,6 +642,11 @@ def test_lapv2_epoch_diagnostics_are_recorded_and_logged(
     assert validation_metrics["adapter_cosine_distance"] >= 0.0
     assert validation_metrics["reply_consistency"] is not None
     assert -1.0 <= validation_metrics["reply_consistency"] <= 1.0
+    assert 0.0 <= validation_metrics["frontier_revisit_rate"] <= 1.0
+    assert 0.0 <= validation_metrics["frontier_turnover_rate"] <= 1.0
+    assert 0.0 <= validation_metrics["frontier_stable_rate"] <= 1.0
+    assert 0.0 <= validation_metrics["frontier_unique_coverage"] <= 1.0
+    assert 0.0 <= validation_metrics["final_top1_frontier_coverage"] <= 1.0
 
     captured = capsys.readouterr()
     assert "phase_usage=" in captured.out
@@ -622,6 +654,9 @@ def test_lapv2_epoch_diagnostics_are_recorded_and_logged(
     assert "phase_policy_loss=" in captured.out
     assert "ft_drift=" in captured.out
     assert "reply_consistency=" in captured.out
+    assert "frontier_turnover=" in captured.out
+    assert "frontier_unique=" in captured.out
+    assert "frontier_top1_cov=" in captured.out
 
 
 def test_train_lapv1_accepts_older_checkpoint_missing_residual_delta_net(

@@ -6,6 +6,8 @@ from pathlib import Path
 import pytest
 import chess
 
+pytest.importorskip("torch")
+
 from train.config import load_planner_train_config
 from train.datasets.contracts import candidate_context_feature_dim
 from train.datasets.move_delta import halfka_delta, is_king_move, move_type_hash
@@ -185,7 +187,13 @@ def test_lapv1_forward_pass_produces_expected_shapes() -> None:
     assert "step_candidate_score_tensors" in outputs
     assert "step_active_masks" in outputs
     assert "step_rollback_masks" in outputs
+    assert "step_selected_candidate_masks" in outputs
+    assert "step_frontier_turnover_tensors" in outputs
+    assert "step_frontier_revisit_tensors" in outputs
+    assert "step_frontier_stable_masks" in outputs
     assert "root_candidate_scores" in outputs
+    assert "frontier_visit_counts" in outputs
+    assert "frontier_unique_candidate_counts" in outputs
 
 
 def test_lapv1_trace_length_respects_max_inner_steps() -> None:
