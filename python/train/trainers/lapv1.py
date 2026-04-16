@@ -538,6 +538,7 @@ class LAPv1Metrics:
     frontier_update_gate_mean: float
     frontier_reply_pressure_mean: float
     frontier_reply_uncertainty_mean: float
+    frontier_interaction_norm_mean: float
     examples_per_second: float
 
     def to_dict(self) -> dict[str, object]:
@@ -641,6 +642,10 @@ class LAPv1Metrics:
             ),
             "frontier_reply_uncertainty_mean": round(
                 self.frontier_reply_uncertainty_mean,
+                6,
+            ),
+            "frontier_interaction_norm_mean": round(
+                self.frontier_interaction_norm_mean,
                 6,
             ),
             "examples_per_second": round(self.examples_per_second, 3),
@@ -1240,6 +1245,7 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
                 f"frontier_gate={validation_metrics.frontier_update_gate_mean:.4f} "
                 f"frontier_pressure={validation_metrics.frontier_reply_pressure_mean:.4f} "
                 f"frontier_reply_uncertainty={validation_metrics.frontier_reply_uncertainty_mean:.4f} "
+                f"frontier_interaction={validation_metrics.frontier_interaction_norm_mean:.4f} "
                 f"selection_source={selection_source} "
                 f"selection_top1={selection_reference.root_top1_accuracy:.4f} "
                 f"selection_mrr={selection_reference.teacher_root_mean_reciprocal_rank:.4f} "
@@ -1402,7 +1408,9 @@ def _load_lapv1_model_state(
         "deliberation_loop.cell.frontier_context_projection.",
         "deliberation_loop.cell.candidate_frontier_state_projection.",
         "deliberation_loop.cell.candidate_frontier_memory_projection.",
+        "deliberation_loop.cell.candidate_frontier_gate_network.",
         "deliberation_loop.cell.candidate_frontier_delta_network.",
+        "deliberation_loop.cell.candidate_interaction_network.",
     ]
     compatible_unexpected_prefixes: list[str] = []
     lapv2_fresh_init_prefixes = list(_lapv2_fresh_init_prefixes(model))
@@ -1432,6 +1440,12 @@ def _load_lapv1_model_state(
             flush=True,
         )
     compatible_missing_prefixes = tuple(compatible_missing_prefixes)
+    effective_state_dict = _drop_compatible_mismatched_model_state_keys(
+        model,
+        effective_state_dict,
+        checkpoint_path=checkpoint_path,
+        compatible_missing_prefixes=compatible_missing_prefixes,
+    )
     incompatible_missing_keys = [
         key
         for key in model.state_dict().keys()
@@ -1464,6 +1478,35 @@ def _load_lapv1_model_state(
             f"{checkpoint_path}: incompatible LAPv1 checkpoint is missing unsupported keys: "
             + ", ".join(sorted(remaining_missing))
         )
+
+
+def _drop_compatible_mismatched_model_state_keys(
+    model: LAPv1Model,
+    state_dict: Mapping[str, Any],
+    *,
+    checkpoint_path: Path,
+    compatible_missing_prefixes: tuple[str, ...],
+) -> dict[str, Any]:
+    model_state = model.state_dict()
+    filtered_state_dict = dict(state_dict)
+    dropped_keys: list[str] = []
+    for key, value in list(filtered_state_dict.items()):
+        if key not in model_state or not isinstance(value, torch.Tensor):
+            continue
+        if tuple(value.shape) == tuple(model_state[key].shape):
+            continue
+        if not key.startswith(compatible_missing_prefixes):
+            continue
+        filtered_state_dict.pop(key)
+        dropped_keys.append(key)
+    if dropped_keys:
+        print(
+            "[lapv1-train][warn] "
+            f"{checkpoint_path}: skipping incompatible checkpoint tensors for "
+            + ", ".join(sorted(dropped_keys)),
+            flush=True,
+        )
+    return filtered_state_dict
 
 
 def _lapv2_fresh_init_prefixes(model: LAPv1Model) -> tuple[str, ...]:
@@ -1838,6 +1881,7 @@ def _run_epoch(
     frontier_update_gate_sum = 0.0
     frontier_reply_pressure_sum = 0.0
     frontier_reply_uncertainty_sum = 0.0
+    frontier_interaction_norm_sum = 0.0
 
     order = list(range(len(examples)))
     if training:
@@ -2191,6 +2235,9 @@ def _run_epoch(
             frontier_reply_uncertainty_sum += float(
                 outputs["frontier_reply_uncertainty_mean"].sum().item()
             )
+            frontier_interaction_norm_sum += float(
+                outputs["frontier_interaction_norm_mean"].sum().item()
+            )
             total_examples += len(batch_examples)
             total_loss += float(loss.item()) * len(batch_examples)
             total_value_wdl += float(value_wdl_loss.item()) * len(batch_examples)
@@ -2411,6 +2458,9 @@ def _run_epoch(
         frontier_reply_pressure_mean=frontier_reply_pressure_sum / total_examples,
         frontier_reply_uncertainty_mean=(
             frontier_reply_uncertainty_sum / total_examples
+        ),
+        frontier_interaction_norm_mean=(
+            frontier_interaction_norm_sum / total_examples
         ),
         examples_per_second=total_examples / duration,
     )

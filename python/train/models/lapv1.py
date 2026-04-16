@@ -1129,6 +1129,9 @@ if torch is not None and nn is not None:
                 "step_frontier_uncertainty_tensors": deliberation_outputs[
                     "step_frontier_uncertainty_tensors"
                 ],
+                "step_frontier_interaction_tensors": deliberation_outputs[
+                    "step_frontier_interaction_tensors"
+                ],
                 "step_rollback_flags": deliberation_outputs["step_rollback_flags"],
                 "step_student_reply_logits_tensors": deliberation_outputs[
                     "step_student_reply_logits_tensors"
@@ -1173,6 +1176,9 @@ if torch is not None and nn is not None:
                 ],
                 "frontier_reply_uncertainty_mean": deliberation_outputs[
                     "frontier_reply_uncertainty_mean"
+                ],
+                "frontier_interaction_norm_mean": deliberation_outputs[
+                    "frontier_interaction_norm_mean"
                 ],
                 "piece_intentions": piece_intentions,
                 "z_root": z_root,

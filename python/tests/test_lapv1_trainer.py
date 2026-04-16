@@ -652,6 +652,7 @@ def test_lapv2_epoch_diagnostics_are_recorded_and_logged(
     assert 0.0 <= validation_metrics["frontier_update_gate_mean"] <= 1.0
     assert validation_metrics["frontier_reply_pressure_mean"] >= 0.0
     assert validation_metrics["frontier_reply_uncertainty_mean"] >= 0.0
+    assert validation_metrics["frontier_interaction_norm_mean"] >= 0.0
 
     captured = capsys.readouterr()
     assert "phase_usage=" in captured.out
@@ -667,6 +668,7 @@ def test_lapv2_epoch_diagnostics_are_recorded_and_logged(
     assert "frontier_gate=" in captured.out
     assert "frontier_pressure=" in captured.out
     assert "frontier_reply_uncertainty=" in captured.out
+    assert "frontier_interaction=" in captured.out
 
 
 def test_train_lapv1_accepts_older_checkpoint_missing_residual_delta_net(
@@ -713,7 +715,9 @@ def test_train_lapv1_accepts_older_checkpoint_missing_residual_delta_net(
                 "deliberation_loop.cell.frontier_context_projection.",
                 "deliberation_loop.cell.candidate_frontier_state_projection.",
                 "deliberation_loop.cell.candidate_frontier_memory_projection.",
+                "deliberation_loop.cell.candidate_frontier_gate_network.",
                 "deliberation_loop.cell.candidate_frontier_delta_network.",
+                "deliberation_loop.cell.candidate_interaction_network.",
             )
         ):
             del legacy_state_dict[key]
@@ -749,6 +753,111 @@ def test_train_lapv1_accepts_older_checkpoint_missing_residual_delta_net(
     run = train_lapv1(config, repo_root=tmp_path)
 
     assert Path(run.export_paths["checkpoint"]).exists()
+
+
+def test_load_lapv1_drops_compatible_mismatched_frontier_tensors(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    model_config = LAPv1Config.from_mapping(
+        {
+            "deliberation": {"max_inner_steps": 0, "min_inner_steps": 0},
+            "opponent_head": {
+                "architecture": "set_v2",
+                "hidden_dim": 64,
+                "hidden_layers": 1,
+                "action_embedding_dim": 16,
+                "dropout": 0.0,
+            },
+            "value_head": {"hidden_dim": 1024},
+            "policy_head": {
+                "hidden_dim": 512,
+                "action_embedding_dim": 32,
+                "feedforward_dim": 1024,
+            },
+            "state_embedder": {"feedforward_dim": 1024},
+            "intention_encoder": {"feedforward_dim": 1024},
+        }
+    )
+    checkpoint_path = tmp_path / "initial_checkpoint_mismatched_frontier.pt"
+    model = LAPv1Model(model_config)
+    legacy_state_dict = dict(model.state_dict())
+    state_dim = model.deliberation_loop.cell.candidate_frontier_state_projection.out_features
+    old_frontier_context_shape = (
+        legacy_state_dict["deliberation_loop.cell.frontier_context_projection.weight"].shape[0],
+        legacy_state_dict["deliberation_loop.cell.frontier_context_projection.weight"].shape[1]
+        - state_dim,
+    )
+    old_frontier_gate_shape = (
+        legacy_state_dict["deliberation_loop.cell.candidate_frontier_gate_network.0.weight"].shape[0],
+        legacy_state_dict["deliberation_loop.cell.candidate_frontier_gate_network.0.weight"].shape[1]
+        - state_dim,
+    )
+    old_frontier_delta_shape = (
+        legacy_state_dict["deliberation_loop.cell.candidate_frontier_delta_network.0.weight"].shape[0],
+        legacy_state_dict["deliberation_loop.cell.candidate_frontier_delta_network.0.weight"].shape[1]
+        - state_dim,
+    )
+    legacy_state_dict["deliberation_loop.cell.frontier_context_projection.weight"] = torch.randn(
+        old_frontier_context_shape,
+        dtype=torch.float32,
+    )
+    legacy_state_dict[
+        "deliberation_loop.cell.candidate_frontier_gate_network.0.weight"
+    ] = torch.randn(
+        old_frontier_gate_shape,
+        dtype=torch.float32,
+    )
+    legacy_state_dict[
+        "deliberation_loop.cell.candidate_frontier_delta_network.0.weight"
+    ] = torch.randn(
+        old_frontier_delta_shape,
+        dtype=torch.float32,
+    )
+    for key in list(legacy_state_dict):
+        if key.startswith("deliberation_loop.cell.candidate_interaction_network."):
+            del legacy_state_dict[key]
+    torch.save(
+        {
+            "model_name": LAPV1_MODEL_NAME,
+            "model_state_dict": legacy_state_dict,
+        },
+        checkpoint_path,
+    )
+
+    _load_lapv1_model_state(
+        model,
+        legacy_state_dict,
+        checkpoint_path=checkpoint_path,
+    )
+
+    batch = _collate_examples(
+        [
+            lapv1_training_example_from_planner_head(
+                _planner_example(
+                    "legacy-frontier-load",
+                    teacher_index=0,
+                    teacher_cp=30.0,
+                    teacher_gap=20.0,
+                )
+            )
+        ]
+    )
+    with torch.inference_mode():
+        outputs = model(
+            batch["piece_tokens"],
+            batch["square_tokens"],
+            batch["state_context_global"],
+            batch["reachability_edges"],
+            batch["candidate_features"],
+            batch["candidate_action_indices"],
+            batch["candidate_mask"],
+        )
+
+    captured = capsys.readouterr()
+    assert "skipping incompatible checkpoint tensors" in captured.out
+    assert "deliberation_loop.cell.frontier_context_projection.weight" in captured.out
+    assert "frontier_interaction_norm_mean" in outputs
 
 
 def test_train_lapv1_accepts_older_checkpoint_missing_shared_opponent_readout(

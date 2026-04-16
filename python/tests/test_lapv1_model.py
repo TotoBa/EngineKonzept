@@ -201,9 +201,11 @@ def test_lapv1_forward_pass_produces_expected_shapes() -> None:
     assert "step_frontier_gate_tensors" in outputs
     assert "step_frontier_pressure_tensors" in outputs
     assert "step_frontier_uncertainty_tensors" in outputs
+    assert "step_frontier_interaction_tensors" in outputs
     assert "frontier_update_gate_mean" in outputs
     assert "frontier_reply_pressure_mean" in outputs
     assert "frontier_reply_uncertainty_mean" in outputs
+    assert "frontier_interaction_norm_mean" in outputs
 
 
 def test_lapv1_trace_length_respects_max_inner_steps() -> None:

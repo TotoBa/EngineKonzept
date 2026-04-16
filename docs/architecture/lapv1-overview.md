@@ -208,6 +208,13 @@ training path deliberately stays on the old vectorized scorer so step-12
 does not change optimization behavior while the cache contract is still
 being hardened.
 
+The current bounded deliberation path now also tracks a small frontier of
+root candidates explicitly. Besides revisit, turnover, gate, pressure, and
+uncertainty signals, the loop now maintains a learned candidate-to-candidate
+interaction term. Each candidate sees a score-weighted frontier summary and
+can update against that shared context without expanding a board tree or
+switching to classical search.
+
 ### Bounded Recurrent Deliberation Loop
 
 The deliberation loop is the central runtime mechanism.

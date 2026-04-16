@@ -107,10 +107,14 @@ Das sind brauchbare MCTS-Prinzipien ohne Suchbaum.
 5. Opponent-conditioned Update-Gates ergänzen:
    - Gate sieht Reply-Signal, Pressure und Uncertainty
    - Gate steuert, wie stark ein Kandidatenzustand wirklich überschrieben wird
-6. Frontier-Metriken im Modellvertrag und Trainer auswertbar machen.
-7. Validation-/Train-Logs um Frontier-Kennzahlen ergänzen.
-8. Tests für Selector, Loop, Modellvertrag und Trainer-Metriken ergänzen.
-9. Architektur-Doku für LAPv1 nachziehen.
+6. Frontier-Kandidaten explizit miteinander koppeln:
+   - jeder Kandidat sieht eine score-gewichtete Frontier-Zusammenfassung
+   - das Update kann Konkurrenz und Konsens zwischen Kandidaten ausdrücken
+   - die Kopplung bleibt root-only und bounded
+7. Frontier-Metriken im Modellvertrag und Trainer auswertbar machen.
+8. Validation-/Train-Logs um Frontier-Kennzahlen ergänzen.
+9. Tests für Selector, Loop, Modellvertrag und Trainer-Metriken ergänzen.
+10. Architektur-Doku für LAPv1 nachziehen.
 
 ## Tests
 
@@ -132,5 +136,6 @@ Das sind brauchbare MCTS-Prinzipien ohne Suchbaum.
 - zu aggressive Frontier-Novelty kann die guten Root-Priors zerstören
 - zu konservative Revisit-Boni bringen kaum Veränderung gegenüber dem Ist-Zustand
 - Frontier-Metriken können gut aussehen, ohne Arena-Stärke zu verbessern
+- Kandidaten-Interaktion kann zu frühem Konsens führen und Frontier-Diversität drücken
 - echte Mehrpfad-Latentzustände bleiben weiterhin ein separater, größerer
   Architektur-Schritt
