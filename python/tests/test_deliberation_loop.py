@@ -314,5 +314,13 @@ def test_deliberation_loop_tracks_frontier_masks_and_visit_counts() -> None:
     assert tuple(outputs["candidate_frontier_memory"].shape) == (2, 4, 256)
     assert tuple(outputs["frontier_state_drift"].shape) == (2,)
     assert tuple(outputs["frontier_memory_norm"].shape) == (2,)
+    assert len(outputs["step_frontier_gate_tensors"]) == outputs["step_count"]
+    assert len(outputs["step_frontier_pressure_tensors"]) == outputs["step_count"]
+    assert len(outputs["step_frontier_uncertainty_tensors"]) == outputs["step_count"]
+    assert tuple(outputs["frontier_update_gate_mean"].shape) == (2,)
+    assert tuple(outputs["frontier_reply_pressure_mean"].shape) == (2,)
+    assert tuple(outputs["frontier_reply_uncertainty_mean"].shape) == (2,)
     assert torch.all(outputs["frontier_state_drift"] >= 0.0)
     assert torch.all(outputs["frontier_memory_norm"] >= 0.0)
+    assert torch.all(outputs["frontier_update_gate_mean"] >= 0.0)
+    assert torch.all(outputs["frontier_update_gate_mean"] <= 1.0)

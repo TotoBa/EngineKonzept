@@ -72,6 +72,16 @@ if torch is not None and nn is not None:
             self.frontier_context_projection = nn.Linear(state_dim * 2, state_dim)
             self.candidate_frontier_state_projection = nn.Linear(state_dim, state_dim)
             self.candidate_frontier_memory_projection = nn.Linear(memory_dim, state_dim)
+            self.candidate_frontier_condition_projection = nn.Linear(3, state_dim)
+            self.candidate_frontier_gate_network = nn.Sequential(
+                nn.Linear(state_dim * 2 + memory_dim + 3, state_dim),
+                nn.GELU(),
+                nn.Linear(state_dim, 1),
+            )
+            self.candidate_frontier_memory_update = nn.Linear(
+                state_dim + memory_dim,
+                memory_dim,
+            )
             self.candidate_delta_network = nn.Sequential(
                 nn.Linear(state_dim * 2 + 3, state_dim),
                 nn.GELU(),
@@ -211,6 +221,52 @@ if torch is not None and nn is not None:
             )
             delta_next = delta_scores + delta_update + frontier_delta_update
             return z_next, M_next, delta_next
+
+        def update_candidate_frontier(
+            self,
+            *,
+            selected_frontier_states: torch.Tensor,
+            selected_frontier_memory: torch.Tensor,
+            transitioned_latents: torch.Tensor,
+            selected_reply_signals: torch.Tensor,
+            selected_reply_pressure: torch.Tensor,
+            selected_reply_uncertainty: torch.Tensor,
+        ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+            condition_inputs = torch.stack(
+                [
+                    selected_reply_signals,
+                    selected_reply_pressure,
+                    selected_reply_uncertainty,
+                ],
+                dim=2,
+            )
+            gate_logits = self.candidate_frontier_gate_network(
+                torch.cat(
+                    [
+                        transitioned_latents,
+                        selected_frontier_states,
+                        selected_frontier_memory,
+                        condition_inputs,
+                    ],
+                    dim=2,
+                )
+            ).squeeze(2)
+            update_gate = torch.sigmoid(gate_logits)
+            conditioned_state = transitioned_latents + self.candidate_frontier_condition_projection(
+                condition_inputs
+            )
+            updated_frontier_states = selected_frontier_states + update_gate.unsqueeze(2) * (
+                conditioned_state - selected_frontier_states
+            )
+            memory_candidate = torch.tanh(
+                self.candidate_frontier_memory_update(
+                    torch.cat([selected_frontier_memory, conditioned_state], dim=2)
+                )
+            )
+            updated_frontier_memory = selected_frontier_memory + update_gate.unsqueeze(2) * (
+                memory_candidate - selected_frontier_memory
+            )
+            return updated_frontier_states, updated_frontier_memory, update_gate
 
 
     class CandidateSelector(nn.Module):
@@ -519,6 +575,9 @@ if torch is not None and nn is not None:
                     "step_frontier_turnover_tensors": (),
                     "step_frontier_revisit_tensors": (),
                     "step_frontier_stable_masks": (),
+                    "step_frontier_gate_tensors": (),
+                    "step_frontier_pressure_tensors": (),
+                    "step_frontier_uncertainty_tensors": (),
                     "step_rollback_flags": (),
                     "step_student_reply_logits_tensors": (),
                     "step_student_pressure_tensors": (),
@@ -542,6 +601,21 @@ if torch is not None and nn is not None:
                         device=z_root.device,
                     ),
                     "frontier_memory_norm": torch.zeros(
+                        (z_root.shape[0],),
+                        dtype=z_root.dtype,
+                        device=z_root.device,
+                    ),
+                    "frontier_update_gate_mean": torch.zeros(
+                        (z_root.shape[0],),
+                        dtype=z_root.dtype,
+                        device=z_root.device,
+                    ),
+                    "frontier_reply_pressure_mean": torch.zeros(
+                        (z_root.shape[0],),
+                        dtype=z_root.dtype,
+                        device=z_root.device,
+                    ),
+                    "frontier_reply_uncertainty_mean": torch.zeros(
                         (z_root.shape[0],),
                         dtype=z_root.dtype,
                         device=z_root.device,
@@ -579,6 +653,9 @@ if torch is not None and nn is not None:
             step_frontier_turnover_tensors: list[torch.Tensor] = []
             step_frontier_revisit_tensors: list[torch.Tensor] = []
             step_frontier_stable_masks: list[torch.Tensor] = []
+            step_frontier_gate_tensors: list[torch.Tensor] = []
+            step_frontier_pressure_tensors: list[torch.Tensor] = []
+            step_frontier_uncertainty_tensors: list[torch.Tensor] = []
             step_rollback_flags: list[bool] = []
             step_student_reply_logits_tensors: list[torch.Tensor] = []
             step_student_pressure_tensors: list[torch.Tensor] = []
@@ -591,6 +668,10 @@ if torch is not None and nn is not None:
             previous_selected_mask = torch.zeros_like(candidate_mask)
             frontier_visit_counts = torch.zeros_like(root_scores)
             frontier_visited_mask = torch.zeros_like(candidate_mask)
+            frontier_gate_sums = torch.zeros((z_root.shape[0],), dtype=z_root.dtype, device=z_root.device)
+            frontier_gate_counts = torch.zeros_like(frontier_gate_sums)
+            frontier_pressure_sums = torch.zeros_like(frontier_gate_sums)
+            frontier_uncertainty_sums = torch.zeros_like(frontier_gate_sums)
 
             for step_index in range(self.max_inner_steps):
                 current_scores = (root_scores + delta_scores).masked_fill(
@@ -684,6 +765,7 @@ if torch is not None and nn is not None:
                         collect_distill_targets=collect_reply_diagnostics,
                     )
                 else:
+                    reply_diagnostics = None
                     selected_reply_signals = self.reply_signal_projector(
                         transitioned_latents,
                         z_t=z_t,
@@ -698,18 +780,49 @@ if torch is not None and nn is not None:
                     selected_reply_signals,
                     torch.zeros_like(selected_reply_signals),
                 )
-                proposed_frontier_memory = torch.tanh(
-                    self.cell.memory_update(
-                        torch.cat(
-                            [
-                                selected_frontier_memory,
-                                transitioned_latents
-                                + selected_reply_signals.unsqueeze(2),
-                            ],
-                            dim=2,
-                        )
+                if reply_diagnostics is not None:
+                    assert reply_diagnostics["student_pressure"] is not None
+                    assert reply_diagnostics["student_uncertainty"] is not None
+                    selected_reply_pressure = torch.where(
+                        step_active_mask.unsqueeze(1),
+                        reply_diagnostics["student_pressure"],
+                        torch.zeros_like(reply_diagnostics["student_pressure"]),
                     )
+                    selected_reply_uncertainty = torch.where(
+                        step_active_mask.unsqueeze(1),
+                        reply_diagnostics["student_uncertainty"],
+                        torch.zeros_like(reply_diagnostics["student_uncertainty"]),
+                    )
+                else:
+                    selected_reply_pressure = torch.zeros_like(selected_reply_signals)
+                    selected_reply_uncertainty = torch.zeros_like(selected_reply_signals)
+                (
+                    proposed_frontier_states,
+                    proposed_frontier_memory,
+                    frontier_update_gate,
+                ) = self.cell.update_candidate_frontier(
+                    selected_frontier_states=candidate_frontier_states.gather(
+                        1,
+                        selected_indices.unsqueeze(2).expand(-1, -1, self.state_dim),
+                    ),
+                    selected_frontier_memory=selected_frontier_memory,
+                    transitioned_latents=transitioned_latents,
+                    selected_reply_signals=selected_reply_signals,
+                    selected_reply_pressure=selected_reply_pressure,
+                    selected_reply_uncertainty=selected_reply_uncertainty,
                 )
+                frontier_gate_sums = frontier_gate_sums + (
+                    frontier_update_gate * step_active_mask.unsqueeze(1).to(z_root.dtype)
+                ).sum(dim=1)
+                frontier_gate_counts = frontier_gate_counts + step_active_mask.to(z_root.dtype) * float(
+                    selected_indices.shape[1]
+                )
+                frontier_pressure_sums = frontier_pressure_sums + (
+                    selected_reply_pressure * step_active_mask.unsqueeze(1).to(z_root.dtype)
+                ).sum(dim=1)
+                frontier_uncertainty_sums = frontier_uncertainty_sums + (
+                    selected_reply_uncertainty * step_active_mask.unsqueeze(1).to(z_root.dtype)
+                ).sum(dim=1)
                 refined_reply_signals = torch.zeros_like(current_scores)
                 refined_reply_signals.scatter_(1, selected_indices, selected_reply_signals)
                 candidate_update_mask = torch.zeros_like(candidate_mask)
@@ -721,7 +834,7 @@ if torch is not None and nn is not None:
                 candidate_frontier_states_step = _scatter_candidate_updates(
                     base=candidate_frontier_states,
                     indices=selected_indices,
-                    updates=transitioned_latents,
+                    updates=proposed_frontier_states,
                 )
                 candidate_frontier_memory_step = _scatter_candidate_updates(
                     base=candidate_frontier_memory,
@@ -769,7 +882,7 @@ if torch is not None and nn is not None:
                 M_t = torch.where(accept_mask.view(-1, 1, 1), M_next, M_t)
                 accepted_transitioned_latents = torch.where(
                     accept_mask.view(-1, 1, 1),
-                    transitioned_latents,
+                    proposed_frontier_states,
                     candidate_frontier_states.gather(
                         1,
                         selected_indices.unsqueeze(2).expand(-1, -1, self.state_dim),
@@ -844,6 +957,9 @@ if torch is not None and nn is not None:
                 step_frontier_turnover_tensors.append(frontier_turnover.clone())
                 step_frontier_revisit_tensors.append(frontier_revisit.clone())
                 step_frontier_stable_masks.append(frontier_stable_mask.clone())
+                step_frontier_gate_tensors.append(frontier_update_gate.clone())
+                step_frontier_pressure_tensors.append(selected_reply_pressure.clone())
+                step_frontier_uncertainty_tensors.append(selected_reply_uncertainty.clone())
                 step_rollback_flags.append(rollback_fired)
                 if reply_diagnostics is not None:
                     assert reply_diagnostics["student_reply_logits"] is not None
@@ -895,6 +1011,11 @@ if torch is not None and nn is not None:
                 "step_frontier_turnover_tensors": tuple(step_frontier_turnover_tensors),
                 "step_frontier_revisit_tensors": tuple(step_frontier_revisit_tensors),
                 "step_frontier_stable_masks": tuple(step_frontier_stable_masks),
+                "step_frontier_gate_tensors": tuple(step_frontier_gate_tensors),
+                "step_frontier_pressure_tensors": tuple(step_frontier_pressure_tensors),
+                "step_frontier_uncertainty_tensors": tuple(
+                    step_frontier_uncertainty_tensors
+                ),
                 "step_rollback_flags": tuple(step_rollback_flags),
                 "step_student_reply_logits_tensors": tuple(
                     step_student_reply_logits_tensors
@@ -924,6 +1045,9 @@ if torch is not None and nn is not None:
                     tensor=candidate_frontier_memory,
                     mask=visited_candidate_mask,
                 ),
+                "frontier_update_gate_mean": frontier_gate_sums / frontier_gate_counts.clamp_min(1.0),
+                "frontier_reply_pressure_mean": frontier_pressure_sums / frontier_gate_counts.clamp_min(1.0),
+                "frontier_reply_uncertainty_mean": frontier_uncertainty_sums / frontier_gate_counts.clamp_min(1.0),
                 "frontier_visit_counts": frontier_visit_counts,
                 "frontier_unique_candidate_counts": frontier_visited_mask.sum(dim=1),
             }

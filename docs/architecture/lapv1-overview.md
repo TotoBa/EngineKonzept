@@ -277,9 +277,12 @@ bounded frontier instead of just an implementation detail:
   candidate-local memory summary
 - the inner loop can therefore accumulate opponent-conditioned per-candidate
   state instead of only root-level score deltas
+- frontier-state updates are now gated directly by reply signal, pressure, and
+  uncertainty instead of always accepting the full candidate-local rewrite
 - training now records frontier turnover, revisit rate, stability, unique
   coverage, how often the final winner was already inside the frontier, plus
-  frontier state drift and frontier memory norm
+  frontier state drift, frontier memory norm, and the average opponent-gated
+  update strength
 
 This is still not a search tree. It is a root-only latent frontier controller
 whose value must be visible first in train/validation metrics before it earns a

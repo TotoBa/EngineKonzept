@@ -649,6 +649,9 @@ def test_lapv2_epoch_diagnostics_are_recorded_and_logged(
     assert 0.0 <= validation_metrics["final_top1_frontier_coverage"] <= 1.0
     assert validation_metrics["frontier_state_drift"] >= 0.0
     assert validation_metrics["frontier_memory_norm"] >= 0.0
+    assert 0.0 <= validation_metrics["frontier_update_gate_mean"] <= 1.0
+    assert validation_metrics["frontier_reply_pressure_mean"] >= 0.0
+    assert validation_metrics["frontier_reply_uncertainty_mean"] >= 0.0
 
     captured = capsys.readouterr()
     assert "phase_usage=" in captured.out
@@ -661,6 +664,9 @@ def test_lapv2_epoch_diagnostics_are_recorded_and_logged(
     assert "frontier_top1_cov=" in captured.out
     assert "frontier_state_drift=" in captured.out
     assert "frontier_memory_norm=" in captured.out
+    assert "frontier_gate=" in captured.out
+    assert "frontier_pressure=" in captured.out
+    assert "frontier_reply_uncertainty=" in captured.out
 
 
 def test_train_lapv1_accepts_older_checkpoint_missing_residual_delta_net(

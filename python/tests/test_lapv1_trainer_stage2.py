@@ -123,6 +123,9 @@ def test_train_lapv1_stage2_logs_monotonicity_and_rollback_stats(tmp_path: Path)
     assert "final_top1_frontier_coverage" in first_epoch["validation"]
     assert "frontier_state_drift" in first_epoch["validation"]
     assert "frontier_memory_norm" in first_epoch["validation"]
+    assert "frontier_update_gate_mean" in first_epoch["validation"]
+    assert "frontier_reply_pressure_mean" in first_epoch["validation"]
+    assert "frontier_reply_uncertainty_mean" in first_epoch["validation"]
     assert first_epoch["train"]["rollback_hit_rate"] >= 0.0
     assert first_epoch["validation"]["deliberation_monotonicity_loss"] >= 0.0
 

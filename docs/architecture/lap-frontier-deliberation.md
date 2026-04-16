@@ -104,10 +104,13 @@ Das sind brauchbare MCTS-Prinzipien ohne Suchbaum.
    - kandidatenspezifische Latents
    - kandidatenspezifische Memory-Summaries
    - additive Frontier-Delta-Updates ohne Suchbaum
-5. Frontier-Metriken im Modellvertrag und Trainer auswertbar machen.
-6. Validation-/Train-Logs um Frontier-Kennzahlen ergänzen.
-7. Tests für Selector, Loop, Modellvertrag und Trainer-Metriken ergänzen.
-8. Architektur-Doku für LAPv1 nachziehen.
+5. Opponent-conditioned Update-Gates ergänzen:
+   - Gate sieht Reply-Signal, Pressure und Uncertainty
+   - Gate steuert, wie stark ein Kandidatenzustand wirklich überschrieben wird
+6. Frontier-Metriken im Modellvertrag und Trainer auswertbar machen.
+7. Validation-/Train-Logs um Frontier-Kennzahlen ergänzen.
+8. Tests für Selector, Loop, Modellvertrag und Trainer-Metriken ergänzen.
+9. Architektur-Doku für LAPv1 nachziehen.
 
 ## Tests
 

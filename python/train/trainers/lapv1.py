@@ -535,6 +535,9 @@ class LAPv1Metrics:
     final_top1_frontier_coverage: float
     frontier_state_drift: float
     frontier_memory_norm: float
+    frontier_update_gate_mean: float
+    frontier_reply_pressure_mean: float
+    frontier_reply_uncertainty_mean: float
     examples_per_second: float
 
     def to_dict(self) -> dict[str, object]:
@@ -631,6 +634,15 @@ class LAPv1Metrics:
             ),
             "frontier_state_drift": round(self.frontier_state_drift, 6),
             "frontier_memory_norm": round(self.frontier_memory_norm, 6),
+            "frontier_update_gate_mean": round(self.frontier_update_gate_mean, 6),
+            "frontier_reply_pressure_mean": round(
+                self.frontier_reply_pressure_mean,
+                6,
+            ),
+            "frontier_reply_uncertainty_mean": round(
+                self.frontier_reply_uncertainty_mean,
+                6,
+            ),
             "examples_per_second": round(self.examples_per_second, 3),
         }
 
@@ -1225,6 +1237,9 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
                 f"frontier_top1_cov={validation_metrics.final_top1_frontier_coverage:.4f} "
                 f"frontier_state_drift={validation_metrics.frontier_state_drift:.4f} "
                 f"frontier_memory_norm={validation_metrics.frontier_memory_norm:.4f} "
+                f"frontier_gate={validation_metrics.frontier_update_gate_mean:.4f} "
+                f"frontier_pressure={validation_metrics.frontier_reply_pressure_mean:.4f} "
+                f"frontier_reply_uncertainty={validation_metrics.frontier_reply_uncertainty_mean:.4f} "
                 f"selection_source={selection_source} "
                 f"selection_top1={selection_reference.root_top1_accuracy:.4f} "
                 f"selection_mrr={selection_reference.teacher_root_mean_reciprocal_rank:.4f} "
@@ -1820,6 +1835,9 @@ def _run_epoch(
     }
     frontier_state_drift_sum = 0.0
     frontier_memory_norm_sum = 0.0
+    frontier_update_gate_sum = 0.0
+    frontier_reply_pressure_sum = 0.0
+    frontier_reply_uncertainty_sum = 0.0
 
     order = list(range(len(examples)))
     if training:
@@ -2166,6 +2184,13 @@ def _run_epoch(
                 frontier_stats[key] += value
             frontier_state_drift_sum += float(outputs["frontier_state_drift"].sum().item())
             frontier_memory_norm_sum += float(outputs["frontier_memory_norm"].sum().item())
+            frontier_update_gate_sum += float(outputs["frontier_update_gate_mean"].sum().item())
+            frontier_reply_pressure_sum += float(
+                outputs["frontier_reply_pressure_mean"].sum().item()
+            )
+            frontier_reply_uncertainty_sum += float(
+                outputs["frontier_reply_uncertainty_mean"].sum().item()
+            )
             total_examples += len(batch_examples)
             total_loss += float(loss.item()) * len(batch_examples)
             total_value_wdl += float(value_wdl_loss.item()) * len(batch_examples)
@@ -2382,6 +2407,11 @@ def _run_epoch(
         ),
         frontier_state_drift=frontier_state_drift_sum / total_examples,
         frontier_memory_norm=frontier_memory_norm_sum / total_examples,
+        frontier_update_gate_mean=frontier_update_gate_sum / total_examples,
+        frontier_reply_pressure_mean=frontier_reply_pressure_sum / total_examples,
+        frontier_reply_uncertainty_mean=(
+            frontier_reply_uncertainty_sum / total_examples
+        ),
         examples_per_second=total_examples / duration,
     )
 

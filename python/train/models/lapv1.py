@@ -1120,6 +1120,15 @@ if torch is not None and nn is not None:
                 "step_frontier_stable_masks": deliberation_outputs[
                     "step_frontier_stable_masks"
                 ],
+                "step_frontier_gate_tensors": deliberation_outputs[
+                    "step_frontier_gate_tensors"
+                ],
+                "step_frontier_pressure_tensors": deliberation_outputs[
+                    "step_frontier_pressure_tensors"
+                ],
+                "step_frontier_uncertainty_tensors": deliberation_outputs[
+                    "step_frontier_uncertainty_tensors"
+                ],
                 "step_rollback_flags": deliberation_outputs["step_rollback_flags"],
                 "step_student_reply_logits_tensors": deliberation_outputs[
                     "step_student_reply_logits_tensors"
@@ -1156,6 +1165,15 @@ if torch is not None and nn is not None:
                 ],
                 "frontier_state_drift": deliberation_outputs["frontier_state_drift"],
                 "frontier_memory_norm": deliberation_outputs["frontier_memory_norm"],
+                "frontier_update_gate_mean": deliberation_outputs[
+                    "frontier_update_gate_mean"
+                ],
+                "frontier_reply_pressure_mean": deliberation_outputs[
+                    "frontier_reply_pressure_mean"
+                ],
+                "frontier_reply_uncertainty_mean": deliberation_outputs[
+                    "frontier_reply_uncertainty_mean"
+                ],
                 "piece_intentions": piece_intentions,
                 "z_root": z_root,
                 "accumulator_cache_stats": accumulator_cache_stats,
