@@ -112,6 +112,7 @@
     "policy_kl_weight": 0.25,
     "policy_margin_weight": 0.1,
     "policy_rank_weight": 0.1,
+    "curriculum_priority_weight": 0.25,
     "intention_aux_weight": 0.05,
     "deliberation_monotonicity_weight": 0.05,
     "deliberation_step_policy_weight": 0.25,

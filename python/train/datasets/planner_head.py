@@ -6,7 +6,7 @@ from dataclasses import dataclass, replace
 import math
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import TYPE_CHECKING, Any, Mapping, Sequence
 
 from train.datasets import (
     build_symbolic_proposer_example,
@@ -54,6 +54,16 @@ PLANNER_CURRICULUM_STRATEGIES = ("uniform", "linear_ramp", "sqrt_ramp")
 _PLANNER_CURRICULUM_VALUE_SPREAD_CAP_CP = 512.0
 _PLANNER_CURRICULUM_AGREEMENT_GAP_CAP_CP = 128.0
 _PLANNER_CURRICULUM_WEIGHT_FLOOR = 1e-3
+_EXTERNAL_BENCHMARK_ARENA_LABEL = "external_arena_feedback"
+_EXTERNAL_BENCHMARK_NONWIN_LABEL = "external_benchmark_nonwin"
+_EXTERNAL_BENCHMARK_LOSS_LABEL = "external_benchmark_loss_recovery"
+_EXTERNAL_BENCHMARK_PRIORITY_BOOST = 0.75
+_EXTERNAL_BENCHMARK_LOSS_PRIORITY_BOOST = 1.5
+_EXTERNAL_BENCHMARK_DRAW_PRIORITY_BOOST = 0.5
+_EXTERNAL_BENCHMARK_OPPONENT_PRIORITY_BOOSTS = {
+    "stockfish18_skill_": 2.0,
+    "vice_": 1.5,
+}
 
 
 @dataclass(frozen=True)
@@ -478,6 +488,12 @@ def build_planner_head_examples(
         teacher_top1_root_index = teacher_example.candidate_action_indices.index(
             teacher_top1_action_index
         )
+        curriculum_bucket_labels, curriculum_priority = (
+            _planner_curriculum_focus_from_dataset_example(
+                dataset_example=dataset_example,
+                curriculum_example=curriculum_example,
+            )
+        )
         considered_indices = _select_root_candidate_indices(
             root_scores,
             required_root_indices=(teacher_top1_root_index,),
@@ -546,16 +562,8 @@ def build_planner_head_examples(
                 ],
                 pressures=[row["pressure"] for row in candidate_rows],
                 uncertainties=[row["uncertainty"] for row in candidate_rows],
-                curriculum_bucket_labels=(
-                    list(curriculum_example.bucket_labels)
-                    if curriculum_example is not None
-                    else []
-                ),
-                curriculum_priority=(
-                    float(curriculum_example.curriculum_priority)
-                    if curriculum_example is not None
-                    else 0.0
-                ),
+                curriculum_bucket_labels=curriculum_bucket_labels,
+                curriculum_priority=curriculum_priority,
                 teacher_top1_action_index=teacher_top1_action_index,
                 teacher_top1_candidate_index=teacher_top1_candidate_index,
                 teacher_policy=teacher_policy,
@@ -570,6 +578,70 @@ def build_planner_head_examples(
             )
         )
     return built
+
+
+def _planner_curriculum_focus_from_dataset_example(
+    *,
+    dataset_example: DatasetExample,
+    curriculum_example: Any | None,
+) -> tuple[list[str], float]:
+    bucket_labels = (
+        list(curriculum_example.bucket_labels)
+        if curriculum_example is not None
+        else []
+    )
+    priority = (
+        float(curriculum_example.curriculum_priority)
+        if curriculum_example is not None
+        else 0.0
+    )
+    metadata = dict(dataset_example.metadata or {})
+    event_name = str(metadata.get("event") or "")
+    if "arena_feedback" not in event_name:
+        return bucket_labels, priority
+
+    opponent_name = _external_benchmark_opponent_name(metadata)
+    if opponent_name is None:
+        return bucket_labels, priority
+
+    bucket_labels.extend(
+        (
+            _EXTERNAL_BENCHMARK_ARENA_LABEL,
+            f"external_benchmark:{opponent_name}",
+        )
+    )
+    priority += _EXTERNAL_BENCHMARK_PRIORITY_BOOST
+    priority += _external_benchmark_opponent_priority_boost(opponent_name)
+
+    if dataset_example.wdl_target is not None:
+        if dataset_example.wdl_target.loss == 1:
+            bucket_labels.append(_EXTERNAL_BENCHMARK_LOSS_LABEL)
+            bucket_labels.append(_EXTERNAL_BENCHMARK_NONWIN_LABEL)
+            priority += _EXTERNAL_BENCHMARK_LOSS_PRIORITY_BOOST
+        elif dataset_example.wdl_target.draw == 1:
+            bucket_labels.append(_EXTERNAL_BENCHMARK_NONWIN_LABEL)
+            priority += _EXTERNAL_BENCHMARK_DRAW_PRIORITY_BOOST
+
+    return list(dict.fromkeys(bucket_labels)), round(priority, 6)
+
+
+def _external_benchmark_opponent_name(metadata: Mapping[str, Any]) -> str | None:
+    for key in ("white", "black"):
+        candidate = str(metadata.get(key) or "")
+        if not candidate:
+            continue
+        if candidate.startswith("stockfish18_skill_"):
+            return candidate
+        if candidate.startswith("vice_"):
+            return candidate
+    return None
+
+
+def _external_benchmark_opponent_priority_boost(opponent_name: str) -> float:
+    for prefix, boost in _EXTERNAL_BENCHMARK_OPPONENT_PRIORITY_BOOSTS.items():
+        if opponent_name.startswith(prefix):
+            return boost
+    return 0.0
 
 
 def build_planner_head_examples_from_replay(

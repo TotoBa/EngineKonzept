@@ -296,6 +296,14 @@ whose value must be visible first in train/validation metrics before it earns a
 larger architectural expansion. The implementation plan for that path lives in
 [lap-frontier-deliberation.md](/home/persk/repos/EngineKonzept/docs/architecture/lap-frontier-deliberation.md).
 
+Phase-10 training now also applies explicit curriculum pressure to external
+arena feedback. Positions from arena feedback games against
+`stockfish18_skill_*` and `vice_*` get stronger bucket labels and higher
+`curriculum_priority`, and the LAP trainer now consumes that priority as an
+actual sample weight. The goal is to keep optimization pressure on the external
+benchmark bottleneck instead of letting those rows disappear inside the merged
+full-corpus mix.
+
 Stage-T2 checkpoint selection is now also allowed to use a separate common
 holdout that is fixed across phases. That is important once some phases validate
 on hard subsets and others validate on the full corpus; otherwise `best_epoch`

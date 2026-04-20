@@ -93,6 +93,10 @@ def main() -> int:
         curriculum_examples_override=curriculum_examples,
     )
     write_planner_head_artifact(output_path, examples)
+    bucket_counts: dict[str, int] = {}
+    for example in examples:
+        for label in example.curriculum_bucket_labels:
+            bucket_counts[label] = bucket_counts.get(label, 0) + 1
     summary = {
         "dataset_dir": str(dataset_dir),
         "split": args.split,
@@ -107,6 +111,7 @@ def main() -> int:
         "max_examples": args.max_examples,
         "output_path": str(output_path),
         "example_count": len(examples),
+        "bucket_counts": bucket_counts,
         "mean_curriculum_priority": round(
             sum(example.curriculum_priority for example in examples) / len(examples),
             6,

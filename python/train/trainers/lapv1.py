@@ -65,6 +65,7 @@ class LAPv1OptimizationConfig:
     policy_kl_weight: float = 0.25
     policy_margin_weight: float = 0.0
     policy_rank_weight: float = 0.0
+    curriculum_priority_weight: float = 0.1
     intention_aux_weight: float = 0.0
     sharpness_target_loss_weight: float = 0.0
     deliberation_monotonicity_weight: float = 0.0
@@ -92,6 +93,7 @@ class LAPv1OptimizationConfig:
             "policy_kl_weight",
             "policy_margin_weight",
             "policy_rank_weight",
+            "curriculum_priority_weight",
             "intention_aux_weight",
             "sharpness_target_loss_weight",
             "deliberation_monotonicity_weight",
@@ -1985,36 +1987,42 @@ def _run_epoch(
                     and model.config.lapv2.enabled
                 ),
             )
+            example_weights = _lapv1_example_weights(
+                batch["curriculum_priorities"],
+                phase_weights=phase_weights,
+                curriculum_priority_weight=optimization.curriculum_priority_weight,
+            )
 
             value_wdl_per_example = torch.nn.functional.cross_entropy(
                 wdl_logits,
                 batch["teacher_wdl_target"],
                 reduction="none",
             )
-            value_wdl_loss = _phase_weighted_mean(value_wdl_per_example, phase_weights)
+            value_wdl_loss = _weighted_mean(value_wdl_per_example, example_weights)
             value_cp_per_example = torch.nn.functional.mse_loss(
                 cp_score / _CP_TARGET_SCALE,
                 batch["teacher_root_value_cp"] / _CP_TARGET_SCALE,
                 reduction="none",
             )
-            value_cp_loss = _phase_weighted_mean(value_cp_per_example, phase_weights)
+            value_cp_loss = _weighted_mean(value_cp_per_example, example_weights)
             sharpness_per_example = torch.nn.functional.binary_cross_entropy(
                 sharpness,
                 batch["sharpness_target"],
                 reduction="none",
             )
-            sharpness_loss = _phase_weighted_mean(sharpness_per_example, phase_weights)
+            sharpness_loss = _weighted_mean(sharpness_per_example, example_weights)
             sharpness_target_loss = _trace_sharpness_target_loss(
                 step_sharpness_tensors,
                 batch["sharpness_target"],
                 step_active_masks,
+                example_weights=example_weights,
             )
             policy_ce_per_example = torch.nn.functional.cross_entropy(
                 logits,
                 batch["teacher_top1_candidate_index"],
                 reduction="none",
             )
-            policy_ce_loss = _phase_weighted_mean(policy_ce_per_example, phase_weights)
+            policy_ce_loss = _weighted_mean(policy_ce_per_example, example_weights)
             log_probs = torch.nn.functional.log_softmax(logits, dim=1)
             policy_kl_per_example = torch.sum(
                 batch["teacher_policy"]
@@ -2024,7 +2032,7 @@ def _run_epoch(
                 ),
                 dim=1,
             )
-            policy_kl_loss = _phase_weighted_mean(policy_kl_per_example, phase_weights)
+            policy_kl_loss = _weighted_mean(policy_kl_per_example, example_weights)
             policy_margin_loss = _policy_margin_loss(
                 logits,
                 batch["candidate_mask"],
@@ -2045,6 +2053,7 @@ def _run_epoch(
                     step_value_cp_tensors,
                     step_active_masks,
                     step_rollback_masks,
+                    example_weights=example_weights,
                 )
             else:
                 deliberation_monotonicity_loss = torch.zeros(
@@ -2056,6 +2065,7 @@ def _run_epoch(
                 step_candidate_score_tensors,
                 batch["teacher_top1_candidate_index"],
                 step_active_masks,
+                example_weights=example_weights,
             )
             if stage == "T2" and stage2 is not None:
                 deliberation_improvement_loss = _improvement_over_root_loss(
@@ -2065,6 +2075,7 @@ def _run_epoch(
                     candidate_mask=batch["candidate_mask"],
                     step_candidate_score_tensors=step_candidate_score_tensors,
                     step_active_masks=step_active_masks,
+                    example_weights=example_weights,
                 )
             else:
                 deliberation_improvement_loss = torch.zeros(
@@ -2094,6 +2105,7 @@ def _run_epoch(
                     reply_weight=model.config.lapv2.distill_reply_weight,
                     pressure_weight=model.config.lapv2.distill_pressure_weight,
                     uncertainty_weight=model.config.lapv2.distill_uncertainty_weight,
+                    example_weights=example_weights,
                 )
             else:
                 opponent_distill_loss = torch.zeros(
@@ -2723,6 +2735,10 @@ def _collate_examples(examples: Sequence[_PreparedLAPv1Example]) -> dict[str, to
             dtype=torch.float32,
         ),
         "teacher_candidate_rank_bucket_targets": teacher_rank_targets,
+        "curriculum_priorities": torch.tensor(
+            [example.curriculum_priority for example in examples],
+            dtype=torch.float32,
+        ),
         "piece_role_targets": piece_role_targets,
     }
 
@@ -2803,6 +2819,53 @@ def _phase_weighted_mean(
     if phase_weights.shape != per_example_loss.shape:
         raise ValueError("phase_weights must align with per_example_loss")
     return torch.sum(per_example_loss * phase_weights) / phase_weights.sum().clamp_min(1e-6)
+
+
+def _weighted_mean(
+    per_example_loss: torch.Tensor,
+    weights: torch.Tensor,
+) -> torch.Tensor:
+    if per_example_loss.ndim != 1:
+        raise ValueError("per_example_loss must be rank-1 for weighting")
+    if weights.shape != per_example_loss.shape:
+        raise ValueError("weights must align with per_example_loss")
+    return torch.sum(per_example_loss * weights) / weights.sum().clamp_min(1e-6)
+
+
+def _lapv1_example_weights(
+    curriculum_priorities: torch.Tensor,
+    *,
+    phase_weights: torch.Tensor,
+    curriculum_priority_weight: float,
+) -> torch.Tensor:
+    if curriculum_priorities.shape != phase_weights.shape:
+        raise ValueError("curriculum_priorities and phase_weights must align")
+    weights = phase_weights.to(dtype=torch.float32)
+    if curriculum_priority_weight > 0.0:
+        curriculum_weights = 1.0 + curriculum_priority_weight * torch.log1p(
+            curriculum_priorities.clamp_min(0.0)
+        )
+        curriculum_weights = curriculum_weights / curriculum_weights.mean().clamp_min(1e-6)
+        weights = weights * curriculum_weights
+    return weights / weights.mean().clamp_min(1e-6)
+
+
+def _masked_weighted_mean(
+    per_example: torch.Tensor,
+    mask: torch.Tensor,
+    *,
+    example_weights: torch.Tensor | None,
+) -> torch.Tensor:
+    if per_example.ndim != 1:
+        raise ValueError("per_example must be rank-1")
+    if mask.shape != per_example.shape:
+        raise ValueError("mask must align with per_example")
+    if example_weights is None:
+        return per_example[mask].mean()
+    if example_weights.shape != per_example.shape:
+        raise ValueError("example_weights must align with per_example")
+    masked_weights = example_weights[mask]
+    return torch.sum(per_example[mask] * masked_weights) / masked_weights.sum().clamp_min(1e-6)
 
 
 def _phase_index_name(phase_index: int) -> str:
@@ -3080,6 +3143,8 @@ def _trace_policy_ce_loss(
     step_candidate_score_tensors: Sequence[torch.Tensor],
     teacher_top1_candidate_index: torch.Tensor,
     step_active_masks: Sequence[torch.Tensor],
+    *,
+    example_weights: torch.Tensor | None = None,
 ) -> torch.Tensor:
     if not step_candidate_score_tensors:
         return torch.zeros(
@@ -3100,7 +3165,13 @@ def _trace_policy_ce_loss(
             teacher_top1_candidate_index,
             reduction="none",
         )
-        losses.append(per_example[step_active].mean())
+        losses.append(
+            _masked_weighted_mean(
+                per_example,
+                step_active,
+                example_weights=example_weights,
+            )
+        )
     if not losses:
         return torch.zeros(
             (),
@@ -3119,6 +3190,7 @@ def _improvement_over_root_loss(
     step_candidate_score_tensors: Sequence[torch.Tensor],
     step_active_masks: Sequence[torch.Tensor],
     target_ce_margin: float = 0.05,
+    example_weights: torch.Tensor | None = None,
 ) -> torch.Tensor:
     if target_ce_margin < 0.0:
         raise ValueError("target_ce_margin must be non-negative")
@@ -3143,7 +3215,11 @@ def _improvement_over_root_loss(
         reduction="none",
     )
     losses.append(
-        torch.nn.functional.relu(final_ce - required_final_ce)[root_incorrect_mask].mean()
+        _masked_weighted_mean(
+            torch.nn.functional.relu(final_ce - required_final_ce),
+            root_incorrect_mask,
+            example_weights=example_weights,
+        )
     )
     for step_logits, step_active_mask in zip(
         step_candidate_score_tensors,
@@ -3159,9 +3235,11 @@ def _improvement_over_root_loss(
             reduction="none",
         )
         losses.append(
-            torch.nn.functional.relu(step_ce - required_final_ce)[
-                active_incorrect_mask
-            ].mean()
+            _masked_weighted_mean(
+                torch.nn.functional.relu(step_ce - required_final_ce),
+                active_incorrect_mask,
+                example_weights=example_weights,
+            )
         )
     return torch.stack(losses).mean()
 
@@ -3194,6 +3272,7 @@ def _opponent_distill_loss(
     reply_weight: float,
     pressure_weight: float,
     uncertainty_weight: float,
+    example_weights: torch.Tensor | None = None,
 ) -> torch.Tensor:
     if not step_student_reply_logits_tensors:
         return torch.zeros((), dtype=torch.float32)
@@ -3226,7 +3305,14 @@ def _opponent_distill_loss(
                 teacher_reply * (torch.log(teacher_reply.clamp_min(1e-8)) - student_log_reply),
                 dim=2,
             ).mean(dim=1)
-            step_losses.append(reply_weight * per_example_reply[step_active_mask].mean())
+            step_losses.append(
+                reply_weight
+                * _masked_weighted_mean(
+                    per_example_reply,
+                    step_active_mask,
+                    example_weights=example_weights,
+                )
+            )
         if pressure_weight > 0.0:
             per_example_pressure = torch.nn.functional.mse_loss(
                 student_pressure,
@@ -3234,7 +3320,12 @@ def _opponent_distill_loss(
                 reduction="none",
             ).mean(dim=1)
             step_losses.append(
-                pressure_weight * per_example_pressure[step_active_mask].mean()
+                pressure_weight
+                * _masked_weighted_mean(
+                    per_example_pressure,
+                    step_active_mask,
+                    example_weights=example_weights,
+                )
             )
         if uncertainty_weight > 0.0:
             per_example_uncertainty = torch.nn.functional.mse_loss(
@@ -3243,7 +3334,12 @@ def _opponent_distill_loss(
                 reduction="none",
             ).mean(dim=1)
             step_losses.append(
-                uncertainty_weight * per_example_uncertainty[step_active_mask].mean()
+                uncertainty_weight
+                * _masked_weighted_mean(
+                    per_example_uncertainty,
+                    step_active_mask,
+                    example_weights=example_weights,
+                )
             )
         if step_losses:
             losses.append(torch.stack(step_losses).sum())
@@ -3257,6 +3353,8 @@ def _trace_sharpness_target_loss(
     step_sharpness_tensors: Sequence[torch.Tensor],
     sharpness_target: torch.Tensor,
     step_active_masks: Sequence[torch.Tensor],
+    *,
+    example_weights: torch.Tensor | None = None,
 ) -> torch.Tensor:
     if not step_sharpness_tensors:
         return torch.zeros((), dtype=sharpness_target.dtype, device=sharpness_target.device)
@@ -3273,7 +3371,13 @@ def _trace_sharpness_target_loss(
             sharpness_target,
             reduction="none",
         )
-        losses.append(per_example[step_active].mean())
+        losses.append(
+            _masked_weighted_mean(
+                per_example,
+                step_active,
+                example_weights=example_weights,
+            )
+        )
     if not losses:
         return torch.zeros((), dtype=sharpness_target.dtype, device=sharpness_target.device)
     return torch.stack(losses).mean()
@@ -3283,6 +3387,8 @@ def _deliberation_monotonicity_loss(
     step_value_cp_tensors: Sequence[torch.Tensor],
     step_active_masks: Sequence[torch.Tensor],
     step_rollback_masks: Sequence[torch.Tensor],
+    *,
+    example_weights: torch.Tensor | None = None,
 ) -> torch.Tensor:
     if not step_value_cp_tensors:
         raise ValueError("deliberation_monotonicity_loss requires at least one trace tensor")
@@ -3302,8 +3408,12 @@ def _deliberation_monotonicity_loss(
         if not bool(valid_mask.any().item()):
             continue
         penalties.append(
-            torch.nn.functional.relu(previous_values - current_values)[valid_mask].mean()
-            / _GAP_TARGET_SCALE
+            _masked_weighted_mean(
+                torch.nn.functional.relu(previous_values - current_values)
+                / _GAP_TARGET_SCALE,
+                valid_mask,
+                example_weights=example_weights,
+            )
         )
     if not penalties:
         reference = step_value_cp_tensors[0]

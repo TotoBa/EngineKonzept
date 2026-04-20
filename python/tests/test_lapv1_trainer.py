@@ -39,6 +39,7 @@ from train.trainers.lapv1 import (
     _build_lazy_dataset,
     _collate_examples,
     _improvement_over_root_loss,
+    _lapv1_example_weights,
     _lapv2_phase_gate_should_mean_pull,
     _lapv2_phase_gate_stage,
     _normalize_lapv2_shared_loss,
@@ -1172,6 +1173,55 @@ def test_trace_policy_ce_loss_averages_over_step_logits() -> None:
         ]
     ).mean()
     assert torch.allclose(loss, expected)
+
+
+def test_trace_policy_ce_loss_respects_example_weights() -> None:
+    assert torch is not None
+
+    step_logits = (
+        torch.tensor(
+            [
+                [2.0, 1.0],
+                [0.5, 2.5],
+            ],
+            dtype=torch.float32,
+        ),
+    )
+    step_active_masks = (torch.tensor([True, True], dtype=torch.bool),)
+    teacher_top1 = torch.tensor([0, 0], dtype=torch.long)
+    example_weights = torch.tensor([1.0, 3.0], dtype=torch.float32)
+
+    loss = _trace_policy_ce_loss(
+        step_logits,
+        teacher_top1,
+        step_active_masks,
+        example_weights=example_weights,
+    )
+
+    per_example = torch.nn.functional.cross_entropy(
+        step_logits[0],
+        teacher_top1,
+        reduction="none",
+    )
+    expected = (per_example * example_weights).sum() / example_weights.sum()
+    assert torch.allclose(loss, expected)
+
+
+def test_lapv1_example_weights_combine_phase_and_curriculum_weights() -> None:
+    assert torch is not None
+
+    phase_weights = torch.tensor([1.0, 2.0], dtype=torch.float32)
+    curriculum_priorities = torch.tensor([0.0, 8.0], dtype=torch.float32)
+
+    weights = _lapv1_example_weights(
+        curriculum_priorities,
+        phase_weights=phase_weights,
+        curriculum_priority_weight=0.25,
+    )
+
+    assert weights.shape == phase_weights.shape
+    assert weights[1] > weights[0]
+    assert torch.allclose(weights.mean(), torch.tensor(1.0, dtype=torch.float32))
 
 
 def test_lapv1_lazy_dataset_indexes_multiple_jsonl_files(tmp_path: Path) -> None:
