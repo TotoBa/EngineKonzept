@@ -335,6 +335,13 @@ when deeper steps degrade the teacher move. Training summaries expose
 so deeper compute is measured as rank progress, not just as more recurrent
 activity.
 
+The same depth-alignment path now also trains step sharpness against realized
+utility. `deliberation_step_utility_loss` derives a continuation target from
+whether the executed inner step reduced teacher cross-entropy relative to the
+best earlier step. Summaries report both `step_utility_continue_rate` and
+`step_utility_predicted_continue_rate`, making it visible when the halting signal
+keeps requesting compute that does not actually help.
+
 The Stage-T2 trainer can now also apply an explicit phase load balancer.
 When `stage2.phase_load_balance` is enabled, the trainer computes empirical
 phase weights from the current batch and reweights the per-example root

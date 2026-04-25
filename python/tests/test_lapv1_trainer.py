@@ -48,8 +48,10 @@ from train.trainers.lapv1 import (
     _policy_margin_loss,
     _prepare_example,
     _step_rank_progress_loss,
+    _summarize_step_utility_targets,
     _summarize_step_rank_progress,
     _summarize_frontier_activity,
+    _trace_step_utility_loss,
     _trace_policy_ce_loss,
 )
 
@@ -1061,6 +1063,14 @@ def test_lapv1_optimization_config_validates_rank_progress_weight() -> None:
         LAPv1OptimizationConfig(deliberation_rank_progress_weight=-0.1)
 
 
+def test_lapv1_optimization_config_validates_step_utility_weight() -> None:
+    config = LAPv1OptimizationConfig(deliberation_step_utility_weight=0.25)
+    assert config.deliberation_step_utility_weight == 0.25
+
+    with pytest.raises(ValueError, match="deliberation_step_utility_weight"):
+        LAPv1OptimizationConfig(deliberation_step_utility_weight=-0.1)
+
+
 def test_lapv1_collate_clips_extreme_root_value_targets() -> None:
     example = _planner_example(
         "mate-like",
@@ -1236,6 +1246,56 @@ def test_summarize_step_rank_progress_reports_improvement_and_degradation() -> N
     assert stats["improved_count"] == 1
     assert stats["degraded_count"] == 1
     assert stats["rank_delta_sum"] == 1.0
+
+
+def test_trace_step_utility_loss_trains_sharpness_from_realized_improvement() -> None:
+    assert torch is not None
+
+    initial_logits = torch.tensor([[0.0, 1.0], [2.0, 0.0]], dtype=torch.float32)
+    step_logits = (torch.tensor([[3.0, 0.0], [0.0, 2.0]], dtype=torch.float32),)
+    step_sharpness = (torch.tensor([0.9, 0.9], dtype=torch.float32),)
+    teacher_top1 = torch.tensor([0, 0], dtype=torch.long)
+    candidate_mask = torch.tensor([[True, True], [True, True]], dtype=torch.bool)
+    step_active_masks = (torch.tensor([True, True], dtype=torch.bool),)
+
+    loss = _trace_step_utility_loss(
+        step_sharpness_tensors=step_sharpness,
+        initial_logits=initial_logits,
+        teacher_top1_candidate_index=teacher_top1,
+        candidate_mask=candidate_mask,
+        step_candidate_score_tensors=step_logits,
+        step_active_masks=step_active_masks,
+    )
+
+    expected = torch.nn.functional.binary_cross_entropy(
+        step_sharpness[0],
+        torch.tensor([1.0, 0.0], dtype=torch.float32),
+    )
+    assert torch.allclose(loss, expected)
+
+
+def test_summarize_step_utility_targets_reports_continue_rates() -> None:
+    assert torch is not None
+
+    initial_logits = torch.tensor([[0.0, 1.0], [2.0, 0.0]], dtype=torch.float32)
+    step_logits = (torch.tensor([[3.0, 0.0], [0.0, 2.0]], dtype=torch.float32),)
+    step_sharpness = (torch.tensor([0.9, 0.2], dtype=torch.float32),)
+    teacher_top1 = torch.tensor([0, 0], dtype=torch.long)
+    candidate_mask = torch.tensor([[True, True], [True, True]], dtype=torch.bool)
+    step_active_masks = (torch.tensor([True, True], dtype=torch.bool),)
+
+    stats = _summarize_step_utility_targets(
+        step_sharpness_tensors=step_sharpness,
+        initial_logits=initial_logits,
+        teacher_top1_candidate_index=teacher_top1,
+        candidate_mask=candidate_mask,
+        step_candidate_score_tensors=step_logits,
+        step_active_masks=step_active_masks,
+    )
+
+    assert stats["step_count"] == 2
+    assert stats["continue_count"] == 1
+    assert stats["predicted_continue_sum"] == pytest.approx(1.1)
 
 
 def test_trace_policy_ce_loss_averages_over_step_logits() -> None:

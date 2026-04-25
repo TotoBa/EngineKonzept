@@ -12,6 +12,13 @@ Step 1 is implemented in the trainer:
 - `step_rank_degraded_rate`
 - `mean_step_rank_delta`
 
+Step 2 is implemented in the trainer:
+
+- `optimization.deliberation_step_utility_weight`
+- `deliberation_step_utility_loss`
+- `step_utility_continue_rate`
+- `step_utility_predicted_continue_rate`
+
 The current external-focus runs show a consistent pattern: internal LAPv2
 metrics keep improving, but arena strength against `stockfish18_skill_00` and
 `vice_v2` does not move reliably. The next work therefore targets the learned
@@ -48,7 +55,7 @@ eventually moves the external arena numbers.
    - Penalize root-correct examples when deeper steps degrade the teacher move.
    - Emit train/validation metrics so bad depth behavior is visible immediately.
 
-2. Train halting against realized step value.
+2. Train halting against realized step value. **Implemented.**
    - Derive a continuation target from whether the next step improved teacher
      rank or avoided degradation.
    - Make sharpness/halting learn "continue because the next step helps", not

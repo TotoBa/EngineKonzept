@@ -72,6 +72,7 @@ class LAPv1OptimizationConfig:
     deliberation_step_policy_weight: float = 0.0
     deliberation_improvement_weight: float = 0.0
     deliberation_rank_progress_weight: float = 0.1
+    deliberation_step_utility_weight: float = 0.05
 
     def __post_init__(self) -> None:
         if self.epochs <= 0:
@@ -101,6 +102,7 @@ class LAPv1OptimizationConfig:
             "deliberation_step_policy_weight",
             "deliberation_improvement_weight",
             "deliberation_rank_progress_weight",
+            "deliberation_step_utility_weight",
         ):
             if getattr(self, name) < 0.0:
                 raise ValueError(f"optimization.{name} must be non-negative")
@@ -506,6 +508,7 @@ class LAPv1Metrics:
     deliberation_step_policy_loss: float
     deliberation_improvement_loss: float
     deliberation_rank_progress_loss: float
+    deliberation_step_utility_loss: float
     opponent_distill_loss: float
     root_top1_accuracy: float
     root_top3_accuracy: float
@@ -524,6 +527,8 @@ class LAPv1Metrics:
     teacher_rank_degraded_rate: float
     step_rank_improved_rate: float
     step_rank_degraded_rate: float
+    step_utility_continue_rate: float
+    step_utility_predicted_continue_rate: float
     root_incorrect_improvement_rate: float
     root_correct_degraded_rate: float
     mean_teacher_rank_delta: float
@@ -579,6 +584,10 @@ class LAPv1Metrics:
                 self.deliberation_rank_progress_loss,
                 6,
             ),
+            "deliberation_step_utility_loss": round(
+                self.deliberation_step_utility_loss,
+                6,
+            ),
             "opponent_distill_loss": round(self.opponent_distill_loss, 6),
             "root_top1_accuracy": round(self.root_top1_accuracy, 6),
             "root_top3_accuracy": round(self.root_top3_accuracy, 6),
@@ -606,6 +615,14 @@ class LAPv1Metrics:
             "teacher_rank_degraded_rate": round(self.teacher_rank_degraded_rate, 6),
             "step_rank_improved_rate": round(self.step_rank_improved_rate, 6),
             "step_rank_degraded_rate": round(self.step_rank_degraded_rate, 6),
+            "step_utility_continue_rate": round(
+                self.step_utility_continue_rate,
+                6,
+            ),
+            "step_utility_predicted_continue_rate": round(
+                self.step_utility_predicted_continue_rate,
+                6,
+            ),
             "root_incorrect_improvement_rate": round(
                 self.root_incorrect_improvement_rate,
                 6,
@@ -1248,6 +1265,8 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
                 f"rank_gain={validation_metrics.mean_teacher_rank_delta:.4f} "
                 f"step_rank_gain={validation_metrics.mean_step_rank_delta:.4f} "
                 f"step_rank_degrade={validation_metrics.step_rank_degraded_rate:.4f} "
+                f"step_utility={validation_metrics.step_utility_continue_rate:.4f} "
+                f"sharp_continue={validation_metrics.step_utility_predicted_continue_rate:.4f} "
                 f"root_incorrect_gain={validation_metrics.root_incorrect_improvement_rate:.4f} "
                 f"root_correct_degrade={validation_metrics.root_correct_degraded_rate:.4f} "
                 f"mean_steps={validation_metrics.mean_inner_steps_executed:.4f} "
@@ -1852,6 +1871,7 @@ def _run_epoch(
     total_step_policy = 0.0
     total_improvement = 0.0
     total_rank_progress = 0.0
+    total_step_utility = 0.0
     total_opponent_distill = 0.0
     correct_top1 = 0
     correct_topk = 0
@@ -1871,6 +1891,9 @@ def _run_epoch(
     step_rank_improved_count = 0
     step_rank_degraded_count = 0
     step_rank_delta_sum = 0.0
+    step_utility_count = 0
+    step_utility_continue_count = 0
+    step_utility_predicted_continue_sum = 0.0
     root_incorrect_examples = 0
     root_incorrect_improvement_count = 0
     root_correct_examples = 0
@@ -2106,6 +2129,15 @@ def _run_epoch(
                     step_active_masks=step_active_masks,
                     example_weights=example_weights,
                 )
+                deliberation_step_utility_loss = _trace_step_utility_loss(
+                    step_sharpness_tensors=step_sharpness_tensors,
+                    initial_logits=initial_logits,
+                    teacher_top1_candidate_index=batch["teacher_top1_candidate_index"],
+                    candidate_mask=batch["candidate_mask"],
+                    step_candidate_score_tensors=step_candidate_score_tensors,
+                    step_active_masks=step_active_masks,
+                    example_weights=example_weights,
+                )
             else:
                 deliberation_improvement_loss = torch.zeros(
                     (),
@@ -2113,6 +2145,11 @@ def _run_epoch(
                     device=logits.device,
                 )
                 deliberation_rank_progress_loss = torch.zeros(
+                    (),
+                    dtype=logits.dtype,
+                    device=logits.device,
+                )
+                deliberation_step_utility_loss = torch.zeros(
                     (),
                     dtype=logits.dtype,
                     device=logits.device,
@@ -2203,6 +2240,7 @@ def _run_epoch(
                 + optimization.deliberation_step_policy_weight * deliberation_step_policy_loss
                 + optimization.deliberation_improvement_weight * deliberation_improvement_loss
                 + optimization.deliberation_rank_progress_weight * deliberation_rank_progress_loss
+                + optimization.deliberation_step_utility_weight * deliberation_step_utility_loss
                 + opponent_distill_loss
                 + adapter_decoupling_loss
             )
@@ -2246,6 +2284,14 @@ def _run_epoch(
             step_rank_progress = _summarize_step_rank_progress(
                 initial_logits=initial_logits,
                 final_logits=logits,
+                teacher_top1_candidate_index=batch["teacher_top1_candidate_index"],
+                candidate_mask=batch["candidate_mask"],
+                step_candidate_score_tensors=step_candidate_score_tensors,
+                step_active_masks=step_active_masks,
+            )
+            step_utility = _summarize_step_utility_targets(
+                step_sharpness_tensors=step_sharpness_tensors,
+                initial_logits=initial_logits,
                 teacher_top1_candidate_index=batch["teacher_top1_candidate_index"],
                 candidate_mask=batch["candidate_mask"],
                 step_candidate_score_tensors=step_candidate_score_tensors,
@@ -2308,6 +2354,7 @@ def _run_epoch(
             total_step_policy += float(deliberation_step_policy_loss.item()) * len(batch_examples)
             total_improvement += float(deliberation_improvement_loss.item()) * len(batch_examples)
             total_rank_progress += float(deliberation_rank_progress_loss.item()) * len(batch_examples)
+            total_step_utility += float(deliberation_step_utility_loss.item()) * len(batch_examples)
             total_opponent_distill += float(opponent_distill_loss.item()) * len(batch_examples)
             correct_top1 += int(
                 torch.sum(top1_indices == batch["teacher_top1_candidate_index"]).item()
@@ -2361,6 +2408,11 @@ def _run_epoch(
             step_rank_improved_count += int(step_rank_progress["improved_count"])
             step_rank_degraded_count += int(step_rank_progress["degraded_count"])
             step_rank_delta_sum += float(step_rank_progress["rank_delta_sum"])
+            step_utility_count += int(step_utility["step_count"])
+            step_utility_continue_count += int(step_utility["continue_count"])
+            step_utility_predicted_continue_sum += float(
+                step_utility["predicted_continue_sum"]
+            )
             if stage == "T2" and stage2 is not None:
                 batch_rollbacks = sum(
                     int(mask.sum().item())
@@ -2447,6 +2499,7 @@ def _run_epoch(
         deliberation_step_policy_loss=total_step_policy / total_examples,
         deliberation_improvement_loss=total_improvement / total_examples,
         deliberation_rank_progress_loss=total_rank_progress / total_examples,
+        deliberation_step_utility_loss=total_step_utility / total_examples,
         opponent_distill_loss=total_opponent_distill / total_examples,
         root_top1_accuracy=correct_top1 / total_examples,
         root_top3_accuracy=correct_topk / total_examples,
@@ -2478,6 +2531,16 @@ def _run_epoch(
             0.0
             if step_rank_transition_count == 0
             else step_rank_degraded_count / step_rank_transition_count
+        ),
+        step_utility_continue_rate=(
+            0.0
+            if step_utility_count == 0
+            else step_utility_continue_count / step_utility_count
+        ),
+        step_utility_predicted_continue_rate=(
+            0.0
+            if step_utility_count == 0
+            else step_utility_predicted_continue_sum / step_utility_count
         ),
         root_incorrect_improvement_rate=(
             0.0
@@ -3444,6 +3507,139 @@ def _summarize_step_rank_progress(
         "degraded_count": degraded_count,
         "rank_delta_sum": rank_delta_sum,
     }
+
+
+def _trace_step_utility_loss(
+    *,
+    step_sharpness_tensors: Sequence[torch.Tensor],
+    initial_logits: torch.Tensor,
+    teacher_top1_candidate_index: torch.Tensor,
+    candidate_mask: torch.Tensor,
+    step_candidate_score_tensors: Sequence[torch.Tensor],
+    step_active_masks: Sequence[torch.Tensor],
+    target_ce_margin: float = 0.01,
+    example_weights: torch.Tensor | None = None,
+) -> torch.Tensor:
+    """Train step sharpness as a realized continuation-utility predictor."""
+    if not step_sharpness_tensors:
+        return torch.zeros((), dtype=initial_logits.dtype, device=initial_logits.device)
+    if target_ce_margin < 0.0:
+        raise ValueError("target_ce_margin must be non-negative")
+    targets = _step_utility_targets(
+        initial_logits=initial_logits,
+        teacher_top1_candidate_index=teacher_top1_candidate_index,
+        candidate_mask=candidate_mask,
+        step_candidate_score_tensors=step_candidate_score_tensors,
+        step_active_masks=step_active_masks,
+        target_ce_margin=target_ce_margin,
+    )
+    losses: list[torch.Tensor] = []
+    for sharpness, target, active in zip(
+        step_sharpness_tensors,
+        targets,
+        step_active_masks,
+        strict=True,
+    ):
+        if not bool(active.any().item()):
+            continue
+        per_example = torch.nn.functional.binary_cross_entropy(
+            sharpness.clamp(1e-6, 1.0 - 1e-6),
+            target,
+            reduction="none",
+        )
+        losses.append(
+            _masked_weighted_mean(
+                per_example,
+                active,
+                example_weights=example_weights,
+            )
+        )
+    if not losses:
+        return torch.zeros((), dtype=initial_logits.dtype, device=initial_logits.device)
+    return torch.stack(losses).mean()
+
+
+def _summarize_step_utility_targets(
+    *,
+    step_sharpness_tensors: Sequence[torch.Tensor],
+    initial_logits: torch.Tensor,
+    teacher_top1_candidate_index: torch.Tensor,
+    candidate_mask: torch.Tensor,
+    step_candidate_score_tensors: Sequence[torch.Tensor],
+    step_active_masks: Sequence[torch.Tensor],
+    target_ce_margin: float = 0.01,
+) -> dict[str, float | int]:
+    if not step_sharpness_tensors:
+        return {
+            "step_count": 0,
+            "continue_count": 0,
+            "predicted_continue_sum": 0.0,
+        }
+    targets = _step_utility_targets(
+        initial_logits=initial_logits,
+        teacher_top1_candidate_index=teacher_top1_candidate_index,
+        candidate_mask=candidate_mask,
+        step_candidate_score_tensors=step_candidate_score_tensors,
+        step_active_masks=step_active_masks,
+        target_ce_margin=target_ce_margin,
+    )
+    step_count = 0
+    continue_count = 0
+    predicted_continue_sum = 0.0
+    for sharpness, target, active in zip(
+        step_sharpness_tensors,
+        targets,
+        step_active_masks,
+        strict=True,
+    ):
+        if not bool(active.any().item()):
+            continue
+        step_count += int(active.sum().item())
+        continue_count += int(target[active].sum().item())
+        predicted_continue_sum += float(sharpness.detach()[active].sum().item())
+    return {
+        "step_count": step_count,
+        "continue_count": continue_count,
+        "predicted_continue_sum": predicted_continue_sum,
+    }
+
+
+def _step_utility_targets(
+    *,
+    initial_logits: torch.Tensor,
+    teacher_top1_candidate_index: torch.Tensor,
+    candidate_mask: torch.Tensor,
+    step_candidate_score_tensors: Sequence[torch.Tensor],
+    step_active_masks: Sequence[torch.Tensor],
+    target_ce_margin: float,
+) -> tuple[torch.Tensor, ...]:
+    valid_mask = candidate_mask.sum(dim=1) > 1
+    best_ce_so_far = torch.nn.functional.cross_entropy(
+        initial_logits,
+        teacher_top1_candidate_index,
+        reduction="none",
+    ).detach()
+    targets: list[torch.Tensor] = []
+    for step_logits, step_active_mask in zip(
+        step_candidate_score_tensors,
+        step_active_masks,
+        strict=True,
+    ):
+        active = step_active_mask & valid_mask
+        step_ce = torch.nn.functional.cross_entropy(
+            step_logits,
+            teacher_top1_candidate_index,
+            reduction="none",
+        ).detach()
+        target = ((best_ce_so_far - step_ce) > target_ce_margin).to(step_logits.dtype)
+        target = torch.where(active, target, torch.zeros_like(target))
+        targets.append(target)
+        best_ce_so_far = torch.where(
+            active,
+            torch.minimum(best_ce_so_far, step_ce),
+            best_ce_so_far,
+        )
+    return tuple(targets)
 
 
 def _should_apply_opponent_distill(
