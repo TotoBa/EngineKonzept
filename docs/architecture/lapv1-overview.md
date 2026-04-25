@@ -228,6 +228,13 @@ a small minimum-entropy pressure over candidate scores. Once the teacher move is
 top-ranked, the pressure turns off, leaving rank-progress and policy losses to
 consolidate rather than flatten a correct frontier.
 
+Validation summaries now split out external-hard arena rows. LAPv1 training
+artifacts preserve curriculum bucket labels, while older artifacts are
+recognized through stable `stockfish18_skill_*` and `vice_*` sample-id markers.
+Checkpoint selection can prefer the external-hard top-1/MRR key, but only after
+`stage2.external_hard_selection_min_examples` rows are available in the
+selection metric, so tiny noisy slices do not drive promotion.
+
 ### Bounded Recurrent Deliberation Loop
 
 The deliberation loop is the central runtime mechanism.

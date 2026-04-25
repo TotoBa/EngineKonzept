@@ -30,6 +30,7 @@ from train.models.intention_encoder import torch
 from train.trainers import evaluate_lapv1_checkpoint, train_lapv1
 from train.trainers.lapv1 import (
     LAPv1OptimizationConfig,
+    LAPv1Metrics,
     LAPv1Stage2Config,
     LAPv1Stage2PhaseConfig,
     LAPv1TrainConfig,
@@ -40,6 +41,8 @@ from train.trainers.lapv1 import (
     _collate_examples,
     _frontier_diversity_loss,
     _improvement_over_root_loss,
+    _is_better_validation,
+    _is_external_hard_example,
     _lapv1_example_weights,
     _lapv2_phase_gate_should_mean_pull,
     _lapv2_phase_gate_stage,
@@ -636,7 +639,19 @@ def test_lapv2_epoch_diagnostics_are_recorded_and_logged(
     )
     _write_examples(
         validation_path,
-        [_planner_example("validation-1", teacher_index=0, teacher_cp=50.0, teacher_gap=30.0)],
+        [
+            _planner_example(
+                "validation-model_vs_stockfish18_skill_00-1",
+                teacher_index=0,
+                teacher_cp=50.0,
+                teacher_gap=30.0,
+                curriculum_bucket_labels=[
+                    "lapv1_test",
+                    "external_arena_feedback",
+                    "external_benchmark:stockfish18_skill_00",
+                ],
+            )
+        ],
     )
 
     config = LAPv1TrainConfig(
@@ -721,6 +736,11 @@ def test_lapv2_epoch_diagnostics_are_recorded_and_logged(
     assert 0.0 <= validation_metrics["frontier_diversity_pressure_rate"] <= 1.0
     assert 0.0 <= validation_metrics["frontier_low_diversity_rate"] <= 1.0
     assert validation_metrics["frontier_score_entropy"] >= 0.0
+    assert validation_metrics["external_hard_examples"] == 1
+    assert 0.0 <= validation_metrics["external_hard_top1_accuracy"] <= 1.0
+    assert 0.0 <= validation_metrics["external_hard_initial_top1_accuracy"] <= 1.0
+    assert 0.0 <= validation_metrics["external_hard_teacher_mrr"] <= 1.0
+    assert validation_metrics["external_hard_mean_inner_steps"] >= 0.0
 
     captured = capsys.readouterr()
     assert "phase_usage=" in captured.out
@@ -740,6 +760,9 @@ def test_lapv2_epoch_diagnostics_are_recorded_and_logged(
     assert "frontier_div_pressure=" in captured.out
     assert "frontier_low_div=" in captured.out
     assert "frontier_entropy=" in captured.out
+    assert "external_hard_n=" in captured.out
+    assert "external_hard_top1=" in captured.out
+    assert "external_hard_mrr=" in captured.out
 
 
 def test_train_lapv1_accepts_older_checkpoint_missing_residual_delta_net(
@@ -1144,6 +1167,52 @@ def test_lapv1_optimization_config_validates_frontier_diversity_weight() -> None
 
     with pytest.raises(ValueError, match="deliberation_frontier_diversity_weight"):
         LAPv1OptimizationConfig(deliberation_frontier_diversity_weight=-0.1)
+
+
+def test_lapv1_stage2_config_validates_external_hard_selection_threshold() -> None:
+    config = LAPv1Stage2Config(external_hard_selection_min_examples=128)
+    assert config.external_hard_selection_min_examples == 128
+
+    with pytest.raises(ValueError, match="external_hard_selection_min_examples"):
+        LAPv1Stage2Config(external_hard_selection_min_examples=-1)
+
+
+def test_validation_selection_uses_external_hard_key_only_after_threshold() -> None:
+    best = _selection_metrics(
+        top1=0.80,
+        mrr=0.85,
+        total_loss=0.5,
+        external_examples=64,
+        external_top1=0.20,
+        external_mrr=0.30,
+    )
+    current = _selection_metrics(
+        top1=0.79,
+        mrr=0.84,
+        total_loss=0.4,
+        external_examples=64,
+        external_top1=0.30,
+        external_mrr=0.40,
+    )
+    noisy_current = _selection_metrics(
+        top1=0.79,
+        mrr=0.84,
+        total_loss=0.4,
+        external_examples=8,
+        external_top1=1.0,
+        external_mrr=1.0,
+    )
+
+    assert _is_better_validation(
+        current,
+        best,
+        external_hard_selection_min_examples=64,
+    )
+    assert not _is_better_validation(
+        noisy_current,
+        best,
+        external_hard_selection_min_examples=64,
+    )
 
 
 def test_lapv1_collate_clips_extreme_root_value_targets() -> None:
@@ -1577,7 +1646,17 @@ def test_train_lapv1_stage1_on_precomputed_lapv1_artifact(tmp_path: Path) -> Non
 
 def test_lapv1_training_artifact_roundtrip(tmp_path: Path) -> None:
     source_example = lapv1_training_example_from_planner_head(
-        _planner_example("roundtrip", teacher_index=0, teacher_cp=25.0, teacher_gap=15.0)
+        _planner_example(
+            "roundtrip",
+            teacher_index=0,
+            teacher_cp=25.0,
+            teacher_gap=15.0,
+            curriculum_bucket_labels=[
+                "lapv1_test",
+                "external_arena_feedback",
+                "external_benchmark:stockfish18_skill_00",
+            ],
+        )
     )
     artifact_path = tmp_path / "lapv1_train.jsonl"
     write_lapv1_training_artifact(artifact_path, [source_example])
@@ -1587,6 +1666,21 @@ def test_lapv1_training_artifact_roundtrip(tmp_path: Path) -> None:
     assert len(loaded) == 1
     assert loaded[0].sample_id == "roundtrip"
     assert loaded[0].candidate_action_indices == source_example.candidate_action_indices
+    assert "external_arena_feedback" in loaded[0].curriculum_bucket_labels
+    assert _is_external_hard_example(loaded[0])
+
+
+def test_external_hard_detection_falls_back_to_sample_id_marker() -> None:
+    example = lapv1_training_example_from_planner_head(
+        _planner_example(
+            "stockfish-unique:model_vs_vice_v2:12:34:abcd",
+            teacher_index=0,
+            teacher_cp=25.0,
+            teacher_gap=15.0,
+        )
+    )
+
+    assert _is_external_hard_example(example)
 
 
 def test_train_lapv1_stage1_emits_batch_progress_logs(
@@ -2596,6 +2690,90 @@ def test_phase_nnue_value_on_runs_training_step(tmp_path: Path) -> None:
     assert Path(run.export_paths["checkpoint"]).exists()
 
 
+def _selection_metrics(
+    *,
+    top1: float,
+    mrr: float,
+    total_loss: float,
+    external_examples: int = 0,
+    external_top1: float = 0.0,
+    external_mrr: float = 0.0,
+) -> LAPv1Metrics:
+    return LAPv1Metrics(
+        total_examples=100,
+        supervised_examples=100,
+        total_loss=total_loss,
+        value_wdl_loss=0.0,
+        value_cp_loss=0.0,
+        sharpness_loss=0.0,
+        sharpness_target_loss=0.0,
+        policy_ce_loss=0.0,
+        policy_kl_loss=0.0,
+        policy_margin_loss=0.0,
+        policy_rank_loss=0.0,
+        intention_aux_loss=0.0,
+        deliberation_monotonicity_loss=0.0,
+        deliberation_step_policy_loss=0.0,
+        deliberation_improvement_loss=0.0,
+        deliberation_rank_progress_loss=0.0,
+        deliberation_step_utility_loss=0.0,
+        deliberation_frontier_diversity_loss=0.0,
+        opponent_distill_loss=0.0,
+        root_top1_accuracy=top1,
+        root_top3_accuracy=top1,
+        teacher_root_mean_reciprocal_rank=mrr,
+        teacher_root_mean_probability=0.0,
+        rollbacks=0,
+        rollback_examples=0,
+        mean_rollback_step=0.0,
+        rollback_hit_rate=0.0,
+        rollback_example_rate=0.0,
+        initial_root_top1_accuracy=top1,
+        initial_root_top3_accuracy=top1,
+        initial_teacher_root_mean_reciprocal_rank=mrr,
+        top1_changed_rate=0.0,
+        teacher_rank_improved_rate=0.0,
+        teacher_rank_degraded_rate=0.0,
+        step_rank_improved_rate=0.0,
+        step_rank_degraded_rate=0.0,
+        step_utility_continue_rate=0.0,
+        step_utility_predicted_continue_rate=0.0,
+        frontier_diversity_pressure_rate=0.0,
+        frontier_low_diversity_rate=0.0,
+        frontier_score_entropy=0.0,
+        external_hard_examples=external_examples,
+        external_hard_top1_accuracy=external_top1,
+        external_hard_initial_top1_accuracy=external_top1,
+        external_hard_teacher_mrr=external_mrr,
+        external_hard_mean_rank_delta=0.0,
+        external_hard_mean_inner_steps=0.0,
+        root_incorrect_improvement_rate=0.0,
+        root_correct_degraded_rate=0.0,
+        mean_teacher_rank_delta=0.0,
+        mean_step_rank_delta=0.0,
+        mean_inner_steps_executed=0.0,
+        step_histogram={},
+        phase_usage={},
+        phase_value_loss={},
+        phase_policy_loss={},
+        ft_drift=None,
+        adapter_cosine_distance=None,
+        reply_consistency=None,
+        frontier_revisit_rate=0.0,
+        frontier_turnover_rate=0.0,
+        frontier_stable_rate=0.0,
+        frontier_unique_coverage=0.0,
+        final_top1_frontier_coverage=0.0,
+        frontier_state_drift=0.0,
+        frontier_memory_norm=0.0,
+        frontier_update_gate_mean=0.0,
+        frontier_reply_pressure_mean=0.0,
+        frontier_reply_uncertainty_mean=0.0,
+        frontier_interaction_norm_mean=0.0,
+        examples_per_second=0.0,
+    )
+
+
 def _write_examples(path: Path, examples: list[PlannerHeadExample]) -> None:
     path.write_text(
         "".join(json.dumps(example.to_dict()) + "\n" for example in examples),
@@ -2609,6 +2787,7 @@ def _planner_example(
     teacher_index: int,
     teacher_cp: float,
     teacher_gap: float,
+    curriculum_bucket_labels: list[str] | None = None,
 ) -> PlannerHeadExample:
     feature_vector = pack_position_features(
         PositionEncoding(
@@ -2639,7 +2818,7 @@ def _planner_example(
         reply_peak_probabilities=[0.5, 0.4],
         pressures=[0.2, 0.3],
         uncertainties=[0.3, 0.4],
-        curriculum_bucket_labels=["lapv1_test"],
+        curriculum_bucket_labels=curriculum_bucket_labels or ["lapv1_test"],
         curriculum_priority=1.0,
         teacher_top1_action_index=teacher_index + 1,
         teacher_top1_candidate_index=teacher_index,

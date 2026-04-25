@@ -32,6 +32,13 @@ Step 4 is implemented in the trainer:
 - `frontier_low_diversity_rate`
 - `frontier_score_entropy`
 
+Step 5 is implemented in the trainer:
+
+- LAPv1 artifacts preserve `curriculum_bucket_labels`
+- validation reports `external_hard_*` metrics for external arena rows
+- checkpoint selection uses external-hard top-1/MRR only after
+  `stage2.external_hard_selection_min_examples` rows are present
+
 The current external-focus runs show a consistent pattern: internal LAPv2
 metrics keep improving, but arena strength against `stockfish18_skill_00` and
 `vice_v2` does not move reliably. The next work therefore targets the learned
@@ -89,11 +96,13 @@ eventually moves the external arena numbers.
      teacher move is not ranked first, so root-correct examples are not
      flattened.
 
-5. Add an external-hard validation slice.
+5. Add an external-hard validation slice. **Implemented.**
    - Report external/arena-origin rows separately from the blended validation
      set.
    - Use those metrics for model selection only after they are stable enough not
      to amplify noise.
+   - Existing artifacts without labels are still classified through stable
+     sample-id markers for `stockfish18_skill_*` and `vice_*` arena rows.
 
 ## Implementation Discipline
 

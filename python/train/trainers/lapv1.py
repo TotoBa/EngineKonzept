@@ -46,6 +46,16 @@ _PHASE_NAMES = (
     "late_middlegame",
     "endgame",
 )
+_EXTERNAL_HARD_LABEL_PREFIXES = (
+    "external_arena_feedback",
+    "external_benchmark",
+)
+_EXTERNAL_HARD_SAMPLE_MARKERS = (
+    "_vs_stockfish18_skill_",
+    "_vs_vice_",
+    ":stockfish18_skill_",
+    ":vice_",
+)
 
 
 @dataclass(frozen=True)
@@ -217,6 +227,7 @@ class LAPv1Stage2Config:
     selection_validation_paths: tuple[str, ...] = ()
     selection_min_inner_steps: int | None = None
     selection_max_inner_steps: int | None = None
+    external_hard_selection_min_examples: int = 64
 
     def __post_init__(self) -> None:
         if not self.max_inner_steps_schedule:
@@ -252,6 +263,10 @@ class LAPv1Stage2Config:
             raise ValueError(
                 "stage2.selection_min_inner_steps must not exceed "
                 "stage2.selection_max_inner_steps"
+            )
+        if self.external_hard_selection_min_examples < 0:
+            raise ValueError(
+                "stage2.external_hard_selection_min_examples must be non-negative"
             )
 
 
@@ -452,6 +467,12 @@ class LAPv1TrainConfig:
                         if dict(payload["stage2"]).get("selection_max_inner_steps") is not None
                         else None
                     ),
+                    external_hard_selection_min_examples=int(
+                        dict(payload["stage2"]).get(
+                            "external_hard_selection_min_examples",
+                            64,
+                        )
+                    ),
                 )
             ),
             data=PlannerDataConfig(
@@ -535,6 +556,12 @@ class LAPv1Metrics:
     frontier_diversity_pressure_rate: float
     frontier_low_diversity_rate: float
     frontier_score_entropy: float
+    external_hard_examples: int
+    external_hard_top1_accuracy: float
+    external_hard_initial_top1_accuracy: float
+    external_hard_teacher_mrr: float
+    external_hard_mean_rank_delta: float
+    external_hard_mean_inner_steps: float
     root_incorrect_improvement_rate: float
     root_correct_degraded_rate: float
     mean_teacher_rank_delta: float
@@ -642,6 +669,24 @@ class LAPv1Metrics:
                 6,
             ),
             "frontier_score_entropy": round(self.frontier_score_entropy, 6),
+            "external_hard_examples": self.external_hard_examples,
+            "external_hard_top1_accuracy": round(
+                self.external_hard_top1_accuracy,
+                6,
+            ),
+            "external_hard_initial_top1_accuracy": round(
+                self.external_hard_initial_top1_accuracy,
+                6,
+            ),
+            "external_hard_teacher_mrr": round(self.external_hard_teacher_mrr, 6),
+            "external_hard_mean_rank_delta": round(
+                self.external_hard_mean_rank_delta,
+                6,
+            ),
+            "external_hard_mean_inner_steps": round(
+                self.external_hard_mean_inner_steps,
+                6,
+            ),
             "root_incorrect_improvement_rate": round(
                 self.root_incorrect_improvement_rate,
                 6,
@@ -1289,6 +1334,10 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
                 f"frontier_div_pressure={validation_metrics.frontier_diversity_pressure_rate:.4f} "
                 f"frontier_low_div={validation_metrics.frontier_low_diversity_rate:.4f} "
                 f"frontier_entropy={validation_metrics.frontier_score_entropy:.4f} "
+                f"external_hard_n={validation_metrics.external_hard_examples} "
+                f"external_hard_top1={validation_metrics.external_hard_top1_accuracy:.4f} "
+                f"external_hard_mrr={validation_metrics.external_hard_teacher_mrr:.4f} "
+                f"external_hard_rank_gain={validation_metrics.external_hard_mean_rank_delta:.4f} "
                 f"root_incorrect_gain={validation_metrics.root_incorrect_improvement_rate:.4f} "
                 f"root_correct_degrade={validation_metrics.root_correct_degraded_rate:.4f} "
                 f"mean_steps={validation_metrics.mean_inner_steps_executed:.4f} "
@@ -1319,6 +1368,11 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
             if best_validation is None or _is_better_validation(
                 selection_reference,
                 best_validation,
+                external_hard_selection_min_examples=(
+                    config.stage2.external_hard_selection_min_examples
+                    if config.stage2 is not None
+                    else 0
+                ),
             ):
                 best_epoch = epoch
                 best_validation = selection_reference
@@ -1922,6 +1976,12 @@ def _run_epoch(
     frontier_diversity_pressure_count = 0
     frontier_low_diversity_count = 0
     frontier_score_entropy_sum = 0.0
+    external_hard_examples = 0
+    external_hard_correct_top1 = 0
+    external_hard_initial_correct_top1 = 0
+    external_hard_reciprocal_rank_sum = 0.0
+    external_hard_rank_delta_sum = 0.0
+    external_hard_step_sum = 0.0
     root_incorrect_examples = 0
     root_incorrect_improvement_count = 0
     root_correct_examples = 0
@@ -2457,6 +2517,34 @@ def _run_epoch(
             teacher_rank_delta_sum += float(
                 torch.sum((initial_teacher_ranks - teacher_ranks).float()).item()
             )
+            external_hard_mask = torch.tensor(
+                [_is_external_hard_example(example) for example in batch_examples],
+                dtype=torch.bool,
+                device=logits.device,
+            )
+            if bool(external_hard_mask.any().item()):
+                external_hard_examples += int(external_hard_mask.sum().item())
+                external_hard_correct_top1 += int(
+                    torch.sum(
+                        (top1_indices == batch["teacher_top1_candidate_index"])
+                        & external_hard_mask
+                    ).item()
+                )
+                external_hard_initial_correct_top1 += int(
+                    torch.sum(
+                        (initial_top1_indices == batch["teacher_top1_candidate_index"])
+                        & external_hard_mask
+                    ).item()
+                )
+                external_hard_reciprocal_rank_sum += float(
+                    (1.0 / teacher_ranks.float())[external_hard_mask].sum().item()
+                )
+                external_hard_rank_delta_sum += float(
+                    (initial_teacher_ranks - teacher_ranks)
+                    .float()[external_hard_mask]
+                    .sum()
+                    .item()
+                )
             step_rank_transition_count += int(step_rank_progress["transition_count"])
             step_rank_improved_count += int(step_rank_progress["improved_count"])
             step_rank_degraded_count += int(step_rank_progress["degraded_count"])
@@ -2504,6 +2592,10 @@ def _run_epoch(
             for step_count in batch_step_counts.tolist():
                 histogram_key = str(int(step_count))
                 step_histogram[histogram_key] = step_histogram.get(histogram_key, 0) + 1
+            if bool(external_hard_mask.any().item()):
+                external_hard_step_sum += float(
+                    batch_step_counts.to(logits.device)[external_hard_mask].sum().item()
+                )
             if batch_index % progress_interval == 0 or batch_index == total_batches:
                 elapsed = max(time.perf_counter() - start_time, 1e-9)
                 print(
@@ -2616,6 +2708,32 @@ def _run_epoch(
             0.0
             if frontier_diversity_pressure_count == 0
             else frontier_score_entropy_sum / frontier_diversity_pressure_count
+        ),
+        external_hard_examples=external_hard_examples,
+        external_hard_top1_accuracy=(
+            0.0
+            if external_hard_examples == 0
+            else external_hard_correct_top1 / external_hard_examples
+        ),
+        external_hard_initial_top1_accuracy=(
+            0.0
+            if external_hard_examples == 0
+            else external_hard_initial_correct_top1 / external_hard_examples
+        ),
+        external_hard_teacher_mrr=(
+            0.0
+            if external_hard_examples == 0
+            else external_hard_reciprocal_rank_sum / external_hard_examples
+        ),
+        external_hard_mean_rank_delta=(
+            0.0
+            if external_hard_examples == 0
+            else external_hard_rank_delta_sum / external_hard_examples
+        ),
+        external_hard_mean_inner_steps=(
+            0.0
+            if external_hard_examples == 0
+            else external_hard_step_sum / external_hard_examples
         ),
         root_incorrect_improvement_rate=(
             0.0
@@ -3074,6 +3192,17 @@ def _phase_index_name(phase_index: int) -> str:
     if 0 <= phase_index < len(_PHASE_NAMES):
         return _PHASE_NAMES[phase_index]
     return f"phase_{phase_index}"
+
+
+def _is_external_hard_example(example: _PreparedLAPv1Example) -> bool:
+    labels = getattr(example, "curriculum_bucket_labels", ())
+    if any(
+        str(label).startswith(_EXTERNAL_HARD_LABEL_PREFIXES)
+        for label in labels
+    ):
+        return True
+    sample_id = example.sample_id.lower()
+    return any(marker in sample_id for marker in _EXTERNAL_HARD_SAMPLE_MARKERS)
 
 
 def _format_phase_metric_map(
@@ -4290,7 +4419,35 @@ def _teacher_ranks(
     return torch.tensor(ranks, dtype=torch.long, device=teacher_top1_candidate_index.device)
 
 
-def _is_better_validation(current: LAPv1Metrics, best: LAPv1Metrics) -> bool:
+def _is_better_validation(
+    current: LAPv1Metrics,
+    best: LAPv1Metrics,
+    *,
+    external_hard_selection_min_examples: int = 0,
+) -> bool:
+    if external_hard_selection_min_examples < 0:
+        raise ValueError("external_hard_selection_min_examples must be non-negative")
+    use_external_hard_key = (
+        external_hard_selection_min_examples > 0
+        and current.external_hard_examples >= external_hard_selection_min_examples
+        and best.external_hard_examples >= external_hard_selection_min_examples
+    )
+    if use_external_hard_key:
+        current_key = (
+            current.external_hard_top1_accuracy,
+            current.external_hard_teacher_mrr,
+            current.root_top1_accuracy,
+            current.teacher_root_mean_reciprocal_rank,
+            -current.total_loss,
+        )
+        best_key = (
+            best.external_hard_top1_accuracy,
+            best.external_hard_teacher_mrr,
+            best.root_top1_accuracy,
+            best.teacher_root_mean_reciprocal_rank,
+            -best.total_loss,
+        )
+        return current_key > best_key
     current_key = (
         current.root_top1_accuracy,
         current.teacher_root_mean_reciprocal_rank,

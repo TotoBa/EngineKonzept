@@ -71,6 +71,7 @@ class LAPv1TrainingExample:
     sharpness_target: float
     teacher_top1_minus_top2_cp: float | None
     teacher_candidate_rank_bucket_targets: list[int] | None
+    curriculum_bucket_labels: list[str]
     curriculum_priority: float
 
     def to_dict(self) -> dict[str, object]:
@@ -106,6 +107,7 @@ class LAPv1TrainingExample:
             "sharpness_target": self.sharpness_target,
             "teacher_top1_minus_top2_cp": self.teacher_top1_minus_top2_cp,
             "teacher_candidate_rank_bucket_targets": self.teacher_candidate_rank_bucket_targets,
+            "curriculum_bucket_labels": self.curriculum_bucket_labels,
             "curriculum_priority": self.curriculum_priority,
         }
 
@@ -232,6 +234,10 @@ class LAPv1TrainingExample:
                 if payload.get("teacher_candidate_rank_bucket_targets") is None
                 else [int(value) for value in list(payload["teacher_candidate_rank_bucket_targets"])]
             ),
+            curriculum_bucket_labels=[
+                str(value)
+                for value in list(payload.get("curriculum_bucket_labels") or [])
+            ],
             curriculum_priority=float(payload["curriculum_priority"]),
         )
 
@@ -367,6 +373,7 @@ def lapv1_training_example_from_planner_head(
             if example.teacher_candidate_rank_bucket_targets is None
             else list(example.teacher_candidate_rank_bucket_targets)
         ),
+        curriculum_bucket_labels=list(example.curriculum_bucket_labels),
         curriculum_priority=example.curriculum_priority,
     )
 
