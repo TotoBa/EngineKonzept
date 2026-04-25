@@ -38,6 +38,7 @@ from train.trainers.lapv1 import (
     _load_lapv1_model_state,
     _build_lazy_dataset,
     _collate_examples,
+    _frontier_diversity_loss,
     _improvement_over_root_loss,
     _lapv1_example_weights,
     _lapv2_phase_gate_should_mean_pull,
@@ -51,6 +52,7 @@ from train.trainers.lapv1 import (
     _summarize_step_utility_targets,
     _summarize_step_rank_progress,
     _summarize_frontier_activity,
+    _summarize_frontier_diversity,
     _trace_step_utility_loss,
     _trace_policy_ce_loss,
 )
@@ -164,6 +166,64 @@ def test_summarize_frontier_activity_reports_turnover_and_coverage() -> None:
     assert stats["unique_coverage_sum"] == pytest.approx(1.25)
     assert stats["top1_hit_count"] == pytest.approx(3.0)
     assert stats["top1_total"] == pytest.approx(4.0)
+
+
+def test_frontier_diversity_loss_penalizes_collapsed_hard_step() -> None:
+    initial_logits = torch.tensor([[0.0, 5.0, 4.0, 3.0]], dtype=torch.float32)
+    step_logits = (torch.tensor([[0.0, 8.0, -2.0, -3.0]], dtype=torch.float32),)
+    teacher_top1 = torch.tensor([0], dtype=torch.long)
+    candidate_mask = torch.tensor([[True, True, True, True]], dtype=torch.bool)
+    step_active_masks = (torch.tensor([True], dtype=torch.bool),)
+
+    loss = _frontier_diversity_loss(
+        initial_logits=initial_logits,
+        teacher_top1_candidate_index=teacher_top1,
+        candidate_mask=candidate_mask,
+        step_candidate_score_tensors=step_logits,
+        step_active_masks=step_active_masks,
+        target_entropy_fraction=0.55,
+    )
+    stats = _summarize_frontier_diversity(
+        initial_logits=initial_logits,
+        teacher_top1_candidate_index=teacher_top1,
+        candidate_mask=candidate_mask,
+        step_candidate_score_tensors=step_logits,
+        step_active_masks=step_active_masks,
+        target_entropy_fraction=0.55,
+    )
+
+    assert loss > 0.0
+    assert stats["active_count"] == 1
+    assert stats["pressure_count"] == 1
+    assert stats["low_diversity_count"] == 1
+    assert 0.0 <= stats["entropy_sum"] < 0.55
+
+
+def test_frontier_diversity_loss_does_not_pressure_teacher_top1() -> None:
+    initial_logits = torch.tensor([[8.0, 1.0, 0.0, -1.0]], dtype=torch.float32)
+    step_logits = (torch.tensor([[9.0, 0.0, -1.0, -2.0]], dtype=torch.float32),)
+    teacher_top1 = torch.tensor([0], dtype=torch.long)
+    candidate_mask = torch.tensor([[True, True, True, True]], dtype=torch.bool)
+    step_active_masks = (torch.tensor([True], dtype=torch.bool),)
+
+    loss = _frontier_diversity_loss(
+        initial_logits=initial_logits,
+        teacher_top1_candidate_index=teacher_top1,
+        candidate_mask=candidate_mask,
+        step_candidate_score_tensors=step_logits,
+        step_active_masks=step_active_masks,
+    )
+    stats = _summarize_frontier_diversity(
+        initial_logits=initial_logits,
+        teacher_top1_candidate_index=teacher_top1,
+        candidate_mask=candidate_mask,
+        step_candidate_score_tensors=step_logits,
+        step_active_masks=step_active_masks,
+    )
+
+    assert torch.allclose(loss, torch.zeros((), dtype=torch.float32))
+    assert stats["active_count"] == 1
+    assert stats["pressure_count"] == 0
 
 
 def test_train_lapv1_accepts_matching_initial_checkpoint(tmp_path: Path) -> None:
@@ -658,6 +718,9 @@ def test_lapv2_epoch_diagnostics_are_recorded_and_logged(
     assert validation_metrics["frontier_reply_pressure_mean"] >= 0.0
     assert validation_metrics["frontier_reply_uncertainty_mean"] >= 0.0
     assert validation_metrics["frontier_interaction_norm_mean"] >= 0.0
+    assert 0.0 <= validation_metrics["frontier_diversity_pressure_rate"] <= 1.0
+    assert 0.0 <= validation_metrics["frontier_low_diversity_rate"] <= 1.0
+    assert validation_metrics["frontier_score_entropy"] >= 0.0
 
     captured = capsys.readouterr()
     assert "phase_usage=" in captured.out
@@ -674,6 +737,9 @@ def test_lapv2_epoch_diagnostics_are_recorded_and_logged(
     assert "frontier_pressure=" in captured.out
     assert "frontier_reply_uncertainty=" in captured.out
     assert "frontier_interaction=" in captured.out
+    assert "frontier_div_pressure=" in captured.out
+    assert "frontier_low_div=" in captured.out
+    assert "frontier_entropy=" in captured.out
 
 
 def test_train_lapv1_accepts_older_checkpoint_missing_residual_delta_net(
@@ -1070,6 +1136,14 @@ def test_lapv1_optimization_config_validates_step_utility_weight() -> None:
 
     with pytest.raises(ValueError, match="deliberation_step_utility_weight"):
         LAPv1OptimizationConfig(deliberation_step_utility_weight=-0.1)
+
+
+def test_lapv1_optimization_config_validates_frontier_diversity_weight() -> None:
+    config = LAPv1OptimizationConfig(deliberation_frontier_diversity_weight=0.25)
+    assert config.deliberation_frontier_diversity_weight == 0.25
+
+    with pytest.raises(ValueError, match="deliberation_frontier_diversity_weight"):
+        LAPv1OptimizationConfig(deliberation_frontier_diversity_weight=-0.1)
 
 
 def test_lapv1_collate_clips_extreme_root_value_targets() -> None:

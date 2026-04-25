@@ -24,6 +24,14 @@ Step 3 is implemented in the deliberation model:
 - `DeliberationCell.depth_condition_projection`
 - per-step normalized depth-position and remaining-budget features
 
+Step 4 is implemented in the trainer:
+
+- `optimization.deliberation_frontier_diversity_weight`
+- `deliberation_frontier_diversity_loss`
+- `frontier_diversity_pressure_rate`
+- `frontier_low_diversity_rate`
+- `frontier_score_entropy`
+
 The current external-focus runs show a consistent pattern: internal LAPv2
 metrics keep improving, but arena strength against `stockfish18_skill_00` and
 `vice_v2` does not move reliably. The next work therefore targets the learned
@@ -73,10 +81,13 @@ eventually moves the external arena numbers.
    - Keep checkpoint loading compatible by treating the new depth projection as
      a fresh-initialized LAPv2-compatible prefix.
 
-4. Make frontier diversity a guarded objective.
+4. Make frontier diversity a guarded objective. **Implemented.**
    - Penalize premature collapse when all frontier slots chase the same move.
    - Keep a small amount of novelty pressure only when teacher rank is not yet
      good.
+   - Apply the pressure to score entropy only for active T2 steps where the
+     teacher move is not ranked first, so root-correct examples are not
+     flattened.
 
 5. Add an external-hard validation slice.
    - Report external/arena-origin rows separately from the blended validation

@@ -222,6 +222,12 @@ steps can learn exploratory corrections while late steps can learn
 consolidation, instead of forcing all step roles to be inferred from memory
 state alone.
 
+Training now adds a guarded frontier-diversity objective for Stage-T2. When an
+active inner step still does not rank the teacher move first, the trainer applies
+a small minimum-entropy pressure over candidate scores. Once the teacher move is
+top-ranked, the pressure turns off, leaving rank-progress and policy losses to
+consolidate rather than flatten a correct frontier.
+
 ### Bounded Recurrent Deliberation Loop
 
 The deliberation loop is the central runtime mechanism.

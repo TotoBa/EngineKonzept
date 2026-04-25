@@ -73,6 +73,7 @@ class LAPv1OptimizationConfig:
     deliberation_improvement_weight: float = 0.0
     deliberation_rank_progress_weight: float = 0.1
     deliberation_step_utility_weight: float = 0.05
+    deliberation_frontier_diversity_weight: float = 0.02
 
     def __post_init__(self) -> None:
         if self.epochs <= 0:
@@ -103,6 +104,7 @@ class LAPv1OptimizationConfig:
             "deliberation_improvement_weight",
             "deliberation_rank_progress_weight",
             "deliberation_step_utility_weight",
+            "deliberation_frontier_diversity_weight",
         ):
             if getattr(self, name) < 0.0:
                 raise ValueError(f"optimization.{name} must be non-negative")
@@ -509,6 +511,7 @@ class LAPv1Metrics:
     deliberation_improvement_loss: float
     deliberation_rank_progress_loss: float
     deliberation_step_utility_loss: float
+    deliberation_frontier_diversity_loss: float
     opponent_distill_loss: float
     root_top1_accuracy: float
     root_top3_accuracy: float
@@ -529,6 +532,9 @@ class LAPv1Metrics:
     step_rank_degraded_rate: float
     step_utility_continue_rate: float
     step_utility_predicted_continue_rate: float
+    frontier_diversity_pressure_rate: float
+    frontier_low_diversity_rate: float
+    frontier_score_entropy: float
     root_incorrect_improvement_rate: float
     root_correct_degraded_rate: float
     mean_teacher_rank_delta: float
@@ -588,6 +594,10 @@ class LAPv1Metrics:
                 self.deliberation_step_utility_loss,
                 6,
             ),
+            "deliberation_frontier_diversity_loss": round(
+                self.deliberation_frontier_diversity_loss,
+                6,
+            ),
             "opponent_distill_loss": round(self.opponent_distill_loss, 6),
             "root_top1_accuracy": round(self.root_top1_accuracy, 6),
             "root_top3_accuracy": round(self.root_top3_accuracy, 6),
@@ -623,6 +633,15 @@ class LAPv1Metrics:
                 self.step_utility_predicted_continue_rate,
                 6,
             ),
+            "frontier_diversity_pressure_rate": round(
+                self.frontier_diversity_pressure_rate,
+                6,
+            ),
+            "frontier_low_diversity_rate": round(
+                self.frontier_low_diversity_rate,
+                6,
+            ),
+            "frontier_score_entropy": round(self.frontier_score_entropy, 6),
             "root_incorrect_improvement_rate": round(
                 self.root_incorrect_improvement_rate,
                 6,
@@ -1267,6 +1286,9 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
                 f"step_rank_degrade={validation_metrics.step_rank_degraded_rate:.4f} "
                 f"step_utility={validation_metrics.step_utility_continue_rate:.4f} "
                 f"sharp_continue={validation_metrics.step_utility_predicted_continue_rate:.4f} "
+                f"frontier_div_pressure={validation_metrics.frontier_diversity_pressure_rate:.4f} "
+                f"frontier_low_div={validation_metrics.frontier_low_diversity_rate:.4f} "
+                f"frontier_entropy={validation_metrics.frontier_score_entropy:.4f} "
                 f"root_incorrect_gain={validation_metrics.root_incorrect_improvement_rate:.4f} "
                 f"root_correct_degrade={validation_metrics.root_correct_degraded_rate:.4f} "
                 f"mean_steps={validation_metrics.mean_inner_steps_executed:.4f} "
@@ -1873,6 +1895,7 @@ def _run_epoch(
     total_improvement = 0.0
     total_rank_progress = 0.0
     total_step_utility = 0.0
+    total_frontier_diversity = 0.0
     total_opponent_distill = 0.0
     correct_top1 = 0
     correct_topk = 0
@@ -1895,6 +1918,10 @@ def _run_epoch(
     step_utility_count = 0
     step_utility_continue_count = 0
     step_utility_predicted_continue_sum = 0.0
+    frontier_diversity_active_count = 0
+    frontier_diversity_pressure_count = 0
+    frontier_low_diversity_count = 0
+    frontier_score_entropy_sum = 0.0
     root_incorrect_examples = 0
     root_incorrect_improvement_count = 0
     root_correct_examples = 0
@@ -2139,6 +2166,14 @@ def _run_epoch(
                     step_active_masks=step_active_masks,
                     example_weights=example_weights,
                 )
+                deliberation_frontier_diversity_loss = _frontier_diversity_loss(
+                    initial_logits=initial_logits,
+                    teacher_top1_candidate_index=batch["teacher_top1_candidate_index"],
+                    candidate_mask=batch["candidate_mask"],
+                    step_candidate_score_tensors=step_candidate_score_tensors,
+                    step_active_masks=step_active_masks,
+                    example_weights=example_weights,
+                )
             else:
                 deliberation_improvement_loss = torch.zeros(
                     (),
@@ -2151,6 +2186,11 @@ def _run_epoch(
                     device=logits.device,
                 )
                 deliberation_step_utility_loss = torch.zeros(
+                    (),
+                    dtype=logits.dtype,
+                    device=logits.device,
+                )
+                deliberation_frontier_diversity_loss = torch.zeros(
                     (),
                     dtype=logits.dtype,
                     device=logits.device,
@@ -2242,6 +2282,8 @@ def _run_epoch(
                 + optimization.deliberation_improvement_weight * deliberation_improvement_loss
                 + optimization.deliberation_rank_progress_weight * deliberation_rank_progress_loss
                 + optimization.deliberation_step_utility_weight * deliberation_step_utility_loss
+                + optimization.deliberation_frontier_diversity_weight
+                * deliberation_frontier_diversity_loss
                 + opponent_distill_loss
                 + adapter_decoupling_loss
             )
@@ -2292,6 +2334,13 @@ def _run_epoch(
             )
             step_utility = _summarize_step_utility_targets(
                 step_sharpness_tensors=step_sharpness_tensors,
+                initial_logits=initial_logits,
+                teacher_top1_candidate_index=batch["teacher_top1_candidate_index"],
+                candidate_mask=batch["candidate_mask"],
+                step_candidate_score_tensors=step_candidate_score_tensors,
+                step_active_masks=step_active_masks,
+            )
+            frontier_diversity = _summarize_frontier_diversity(
                 initial_logits=initial_logits,
                 teacher_top1_candidate_index=batch["teacher_top1_candidate_index"],
                 candidate_mask=batch["candidate_mask"],
@@ -2356,6 +2405,9 @@ def _run_epoch(
             total_improvement += float(deliberation_improvement_loss.item()) * len(batch_examples)
             total_rank_progress += float(deliberation_rank_progress_loss.item()) * len(batch_examples)
             total_step_utility += float(deliberation_step_utility_loss.item()) * len(batch_examples)
+            total_frontier_diversity += (
+                float(deliberation_frontier_diversity_loss.item()) * len(batch_examples)
+            )
             total_opponent_distill += float(opponent_distill_loss.item()) * len(batch_examples)
             correct_top1 += int(
                 torch.sum(top1_indices == batch["teacher_top1_candidate_index"]).item()
@@ -2414,6 +2466,10 @@ def _run_epoch(
             step_utility_predicted_continue_sum += float(
                 step_utility["predicted_continue_sum"]
             )
+            frontier_diversity_active_count += int(frontier_diversity["active_count"])
+            frontier_diversity_pressure_count += int(frontier_diversity["pressure_count"])
+            frontier_low_diversity_count += int(frontier_diversity["low_diversity_count"])
+            frontier_score_entropy_sum += float(frontier_diversity["entropy_sum"])
             if stage == "T2" and stage2 is not None:
                 batch_rollbacks = sum(
                     int(mask.sum().item())
@@ -2501,6 +2557,9 @@ def _run_epoch(
         deliberation_improvement_loss=total_improvement / total_examples,
         deliberation_rank_progress_loss=total_rank_progress / total_examples,
         deliberation_step_utility_loss=total_step_utility / total_examples,
+        deliberation_frontier_diversity_loss=(
+            total_frontier_diversity / total_examples
+        ),
         opponent_distill_loss=total_opponent_distill / total_examples,
         root_top1_accuracy=correct_top1 / total_examples,
         root_top3_accuracy=correct_topk / total_examples,
@@ -2542,6 +2601,21 @@ def _run_epoch(
             0.0
             if step_utility_count == 0
             else step_utility_predicted_continue_sum / step_utility_count
+        ),
+        frontier_diversity_pressure_rate=(
+            0.0
+            if frontier_diversity_active_count == 0
+            else frontier_diversity_pressure_count / frontier_diversity_active_count
+        ),
+        frontier_low_diversity_rate=(
+            0.0
+            if frontier_diversity_pressure_count == 0
+            else frontier_low_diversity_count / frontier_diversity_pressure_count
+        ),
+        frontier_score_entropy=(
+            0.0
+            if frontier_diversity_pressure_count == 0
+            else frontier_score_entropy_sum / frontier_diversity_pressure_count
         ),
         root_incorrect_improvement_rate=(
             0.0
@@ -3181,6 +3255,128 @@ def _update_reply_consistency_stats(
     stats["sum_student_sq"] += float(student_values.square().sum().item())
     stats["sum_teacher_sq"] += float(teacher_values.square().sum().item())
     stats["sum_product"] += float((student_values * teacher_values).sum().item())
+
+
+def _frontier_diversity_loss(
+    *,
+    initial_logits: torch.Tensor,
+    teacher_top1_candidate_index: torch.Tensor,
+    candidate_mask: torch.Tensor,
+    step_candidate_score_tensors: Sequence[torch.Tensor],
+    step_active_masks: Sequence[torch.Tensor],
+    target_entropy_fraction: float = 0.55,
+    example_weights: torch.Tensor | None = None,
+) -> torch.Tensor:
+    """Apply novelty pressure only while the teacher move is not ranked first."""
+    if not 0.0 <= target_entropy_fraction <= 1.0:
+        raise ValueError("target_entropy_fraction must be in [0.0, 1.0]")
+    if not step_candidate_score_tensors:
+        return torch.zeros((), dtype=initial_logits.dtype, device=initial_logits.device)
+    valid_candidate_count = candidate_mask.sum(dim=1)
+    initial_teacher_rank = _teacher_ranks(
+        initial_logits,
+        teacher_top1_candidate_index,
+    ).detach()
+    losses: list[torch.Tensor] = []
+    for step_logits, step_active_mask in zip(
+        step_candidate_score_tensors,
+        step_active_masks,
+        strict=True,
+    ):
+        step_teacher_rank = _teacher_ranks(
+            step_logits,
+            teacher_top1_candidate_index,
+        ).detach()
+        pressure_mask = (
+            step_active_mask
+            & (valid_candidate_count > 2)
+            & (initial_teacher_rank > 1)
+            & (step_teacher_rank > 1)
+        )
+        if not bool(pressure_mask.any().item()):
+            continue
+        entropy_fraction = _candidate_score_entropy_fraction(
+            step_logits,
+            candidate_mask,
+        )
+        per_example = torch.nn.functional.relu(
+            target_entropy_fraction - entropy_fraction
+        )
+        losses.append(
+            _masked_weighted_mean(
+                per_example,
+                pressure_mask,
+                example_weights=example_weights,
+            )
+        )
+    if not losses:
+        return torch.zeros((), dtype=initial_logits.dtype, device=initial_logits.device)
+    return torch.stack(losses).mean()
+
+
+def _summarize_frontier_diversity(
+    *,
+    initial_logits: torch.Tensor,
+    teacher_top1_candidate_index: torch.Tensor,
+    candidate_mask: torch.Tensor,
+    step_candidate_score_tensors: Sequence[torch.Tensor],
+    step_active_masks: Sequence[torch.Tensor],
+    target_entropy_fraction: float = 0.55,
+) -> dict[str, float | int]:
+    if not 0.0 <= target_entropy_fraction <= 1.0:
+        raise ValueError("target_entropy_fraction must be in [0.0, 1.0]")
+    valid_candidate_count = candidate_mask.sum(dim=1)
+    initial_teacher_rank = _teacher_ranks(
+        initial_logits,
+        teacher_top1_candidate_index,
+    ).detach()
+    active_count = 0
+    pressure_count = 0
+    low_diversity_count = 0
+    entropy_sum = 0.0
+    for step_logits, step_active_mask in zip(
+        step_candidate_score_tensors,
+        step_active_masks,
+        strict=True,
+    ):
+        active_mask = step_active_mask & (valid_candidate_count > 2)
+        if bool(active_mask.any().item()):
+            active_count += int(active_mask.sum().item())
+        step_teacher_rank = _teacher_ranks(
+            step_logits,
+            teacher_top1_candidate_index,
+        ).detach()
+        pressure_mask = active_mask & (initial_teacher_rank > 1) & (step_teacher_rank > 1)
+        if not bool(pressure_mask.any().item()):
+            continue
+        entropy_fraction = _candidate_score_entropy_fraction(
+            step_logits,
+            candidate_mask,
+        ).detach()
+        pressure_count += int(pressure_mask.sum().item())
+        low_diversity_count += int(
+            torch.sum((entropy_fraction < target_entropy_fraction) & pressure_mask).item()
+        )
+        entropy_sum += float(entropy_fraction[pressure_mask].sum().item())
+    return {
+        "active_count": active_count,
+        "pressure_count": pressure_count,
+        "low_diversity_count": low_diversity_count,
+        "entropy_sum": entropy_sum,
+    }
+
+
+def _candidate_score_entropy_fraction(
+    logits: torch.Tensor,
+    candidate_mask: torch.Tensor,
+) -> torch.Tensor:
+    masked_logits = logits.masked_fill(~candidate_mask, -1.0e9)
+    log_probs = torch.nn.functional.log_softmax(masked_logits, dim=1)
+    probs = torch.softmax(masked_logits, dim=1) * candidate_mask.to(logits.dtype)
+    safe_log_probs = log_probs.masked_fill(~candidate_mask, 0.0)
+    entropy = -(probs * safe_log_probs).sum(dim=1)
+    max_entropy = torch.log(candidate_mask.sum(dim=1).to(logits.dtype).clamp_min(1.0))
+    return entropy / max_entropy.clamp_min(1e-6)
 
 
 def _finalize_reply_consistency(stats: Mapping[str, float]) -> float | None:
