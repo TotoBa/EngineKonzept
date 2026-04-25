@@ -326,6 +326,15 @@ small margin. The intended effect is to train the residual deliberation path to
 make real corrections instead of merely relearning the already-strong root
 distribution.
 
+Stage-T2 now also has a stricter depth-alignment objective. The
+`deliberation_rank_progress_loss` compares each active inner step, plus the final
+logits, against the best teacher move score seen so far. Root-incorrect examples
+are expected to improve by a small margin; root-correct examples are penalized
+when deeper steps degrade the teacher move. Training summaries expose
+`step_rank_improved_rate`, `step_rank_degraded_rate`, and `mean_step_rank_delta`
+so deeper compute is measured as rank progress, not just as more recurrent
+activity.
+
 The Stage-T2 trainer can now also apply an explicit phase load balancer.
 When `stage2.phase_load_balance` is enabled, the trainer computes empirical
 phase weights from the current batch and reweights the per-example root

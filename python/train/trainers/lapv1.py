@@ -71,6 +71,7 @@ class LAPv1OptimizationConfig:
     deliberation_monotonicity_weight: float = 0.0
     deliberation_step_policy_weight: float = 0.0
     deliberation_improvement_weight: float = 0.0
+    deliberation_rank_progress_weight: float = 0.1
 
     def __post_init__(self) -> None:
         if self.epochs <= 0:
@@ -99,6 +100,7 @@ class LAPv1OptimizationConfig:
             "deliberation_monotonicity_weight",
             "deliberation_step_policy_weight",
             "deliberation_improvement_weight",
+            "deliberation_rank_progress_weight",
         ):
             if getattr(self, name) < 0.0:
                 raise ValueError(f"optimization.{name} must be non-negative")
@@ -503,6 +505,7 @@ class LAPv1Metrics:
     deliberation_monotonicity_loss: float
     deliberation_step_policy_loss: float
     deliberation_improvement_loss: float
+    deliberation_rank_progress_loss: float
     opponent_distill_loss: float
     root_top1_accuracy: float
     root_top3_accuracy: float
@@ -519,9 +522,12 @@ class LAPv1Metrics:
     top1_changed_rate: float
     teacher_rank_improved_rate: float
     teacher_rank_degraded_rate: float
+    step_rank_improved_rate: float
+    step_rank_degraded_rate: float
     root_incorrect_improvement_rate: float
     root_correct_degraded_rate: float
     mean_teacher_rank_delta: float
+    mean_step_rank_delta: float
     mean_inner_steps_executed: float
     step_histogram: dict[str, int]
     phase_usage: dict[str, int]
@@ -569,6 +575,10 @@ class LAPv1Metrics:
                 self.deliberation_improvement_loss,
                 6,
             ),
+            "deliberation_rank_progress_loss": round(
+                self.deliberation_rank_progress_loss,
+                6,
+            ),
             "opponent_distill_loss": round(self.opponent_distill_loss, 6),
             "root_top1_accuracy": round(self.root_top1_accuracy, 6),
             "root_top3_accuracy": round(self.root_top3_accuracy, 6),
@@ -594,6 +604,8 @@ class LAPv1Metrics:
             "top1_changed_rate": round(self.top1_changed_rate, 6),
             "teacher_rank_improved_rate": round(self.teacher_rank_improved_rate, 6),
             "teacher_rank_degraded_rate": round(self.teacher_rank_degraded_rate, 6),
+            "step_rank_improved_rate": round(self.step_rank_improved_rate, 6),
+            "step_rank_degraded_rate": round(self.step_rank_degraded_rate, 6),
             "root_incorrect_improvement_rate": round(
                 self.root_incorrect_improvement_rate,
                 6,
@@ -603,6 +615,7 @@ class LAPv1Metrics:
                 6,
             ),
             "mean_teacher_rank_delta": round(self.mean_teacher_rank_delta, 6),
+            "mean_step_rank_delta": round(self.mean_step_rank_delta, 6),
             "mean_inner_steps_executed": round(self.mean_inner_steps_executed, 6),
             "step_histogram": dict(self.step_histogram),
             "phase_usage": dict(self.phase_usage),
@@ -1233,6 +1246,8 @@ def train_lapv1(config: LAPv1TrainConfig, *, repo_root: Path) -> LAPv1TrainingRu
                 f"root_mrr={validation_metrics.initial_teacher_root_mean_reciprocal_rank:.4f} "
                 f"top1_changed={validation_metrics.top1_changed_rate:.4f} "
                 f"rank_gain={validation_metrics.mean_teacher_rank_delta:.4f} "
+                f"step_rank_gain={validation_metrics.mean_step_rank_delta:.4f} "
+                f"step_rank_degrade={validation_metrics.step_rank_degraded_rate:.4f} "
                 f"root_incorrect_gain={validation_metrics.root_incorrect_improvement_rate:.4f} "
                 f"root_correct_degrade={validation_metrics.root_correct_degraded_rate:.4f} "
                 f"mean_steps={validation_metrics.mean_inner_steps_executed:.4f} "
@@ -1836,6 +1851,7 @@ def _run_epoch(
     total_monotonicity = 0.0
     total_step_policy = 0.0
     total_improvement = 0.0
+    total_rank_progress = 0.0
     total_opponent_distill = 0.0
     correct_top1 = 0
     correct_topk = 0
@@ -1851,6 +1867,10 @@ def _run_epoch(
     top1_changed_count = 0
     teacher_rank_improved_count = 0
     teacher_rank_degraded_count = 0
+    step_rank_transition_count = 0
+    step_rank_improved_count = 0
+    step_rank_degraded_count = 0
+    step_rank_delta_sum = 0.0
     root_incorrect_examples = 0
     root_incorrect_improvement_count = 0
     root_correct_examples = 0
@@ -2077,8 +2097,22 @@ def _run_epoch(
                     step_active_masks=step_active_masks,
                     example_weights=example_weights,
                 )
+                deliberation_rank_progress_loss = _step_rank_progress_loss(
+                    initial_logits=initial_logits,
+                    final_logits=logits,
+                    teacher_top1_candidate_index=batch["teacher_top1_candidate_index"],
+                    candidate_mask=batch["candidate_mask"],
+                    step_candidate_score_tensors=step_candidate_score_tensors,
+                    step_active_masks=step_active_masks,
+                    example_weights=example_weights,
+                )
             else:
                 deliberation_improvement_loss = torch.zeros(
+                    (),
+                    dtype=logits.dtype,
+                    device=logits.device,
+                )
+                deliberation_rank_progress_loss = torch.zeros(
                     (),
                     dtype=logits.dtype,
                     device=logits.device,
@@ -2168,6 +2202,7 @@ def _run_epoch(
                 + optimization.deliberation_monotonicity_weight * deliberation_monotonicity_loss
                 + optimization.deliberation_step_policy_weight * deliberation_step_policy_loss
                 + optimization.deliberation_improvement_weight * deliberation_improvement_loss
+                + optimization.deliberation_rank_progress_weight * deliberation_rank_progress_loss
                 + opponent_distill_loss
                 + adapter_decoupling_loss
             )
@@ -2207,6 +2242,14 @@ def _run_epoch(
             initial_teacher_ranks = _teacher_ranks(
                 initial_logits,
                 batch["teacher_top1_candidate_index"],
+            )
+            step_rank_progress = _summarize_step_rank_progress(
+                initial_logits=initial_logits,
+                final_logits=logits,
+                teacher_top1_candidate_index=batch["teacher_top1_candidate_index"],
+                candidate_mask=batch["candidate_mask"],
+                step_candidate_score_tensors=step_candidate_score_tensors,
+                step_active_masks=step_active_masks,
             )
             for example_index, phase_value in enumerate(batch["phase_index"].tolist()):
                 phase_name = _phase_index_name(int(phase_value))
@@ -2264,6 +2307,7 @@ def _run_epoch(
             total_monotonicity += float(deliberation_monotonicity_loss.item()) * len(batch_examples)
             total_step_policy += float(deliberation_step_policy_loss.item()) * len(batch_examples)
             total_improvement += float(deliberation_improvement_loss.item()) * len(batch_examples)
+            total_rank_progress += float(deliberation_rank_progress_loss.item()) * len(batch_examples)
             total_opponent_distill += float(opponent_distill_loss.item()) * len(batch_examples)
             correct_top1 += int(
                 torch.sum(top1_indices == batch["teacher_top1_candidate_index"]).item()
@@ -2313,6 +2357,10 @@ def _run_epoch(
             teacher_rank_delta_sum += float(
                 torch.sum((initial_teacher_ranks - teacher_ranks).float()).item()
             )
+            step_rank_transition_count += int(step_rank_progress["transition_count"])
+            step_rank_improved_count += int(step_rank_progress["improved_count"])
+            step_rank_degraded_count += int(step_rank_progress["degraded_count"])
+            step_rank_delta_sum += float(step_rank_progress["rank_delta_sum"])
             if stage == "T2" and stage2 is not None:
                 batch_rollbacks = sum(
                     int(mask.sum().item())
@@ -2398,6 +2446,7 @@ def _run_epoch(
         deliberation_monotonicity_loss=total_monotonicity / total_examples,
         deliberation_step_policy_loss=total_step_policy / total_examples,
         deliberation_improvement_loss=total_improvement / total_examples,
+        deliberation_rank_progress_loss=total_rank_progress / total_examples,
         opponent_distill_loss=total_opponent_distill / total_examples,
         root_top1_accuracy=correct_top1 / total_examples,
         root_top3_accuracy=correct_topk / total_examples,
@@ -2420,6 +2469,16 @@ def _run_epoch(
         top1_changed_rate=top1_changed_count / total_examples,
         teacher_rank_improved_rate=teacher_rank_improved_count / total_examples,
         teacher_rank_degraded_rate=teacher_rank_degraded_count / total_examples,
+        step_rank_improved_rate=(
+            0.0
+            if step_rank_transition_count == 0
+            else step_rank_improved_count / step_rank_transition_count
+        ),
+        step_rank_degraded_rate=(
+            0.0
+            if step_rank_transition_count == 0
+            else step_rank_degraded_count / step_rank_transition_count
+        ),
         root_incorrect_improvement_rate=(
             0.0
             if root_incorrect_examples == 0
@@ -2431,6 +2490,11 @@ def _run_epoch(
             else root_correct_degraded_count / root_correct_examples
         ),
         mean_teacher_rank_delta=teacher_rank_delta_sum / total_examples,
+        mean_step_rank_delta=(
+            0.0
+            if step_rank_transition_count == 0
+            else step_rank_delta_sum / step_rank_transition_count
+        ),
         mean_inner_steps_executed=total_trace_steps / total_examples,
         step_histogram=dict(sorted(step_histogram.items(), key=lambda item: int(item[0]))),
         phase_usage=phase_usage_sorted,
@@ -3242,6 +3306,144 @@ def _improvement_over_root_loss(
             )
         )
     return torch.stack(losses).mean()
+
+
+def _step_rank_progress_loss(
+    *,
+    initial_logits: torch.Tensor,
+    final_logits: torch.Tensor,
+    teacher_top1_candidate_index: torch.Tensor,
+    candidate_mask: torch.Tensor,
+    step_candidate_score_tensors: Sequence[torch.Tensor],
+    step_active_masks: Sequence[torch.Tensor],
+    target_ce_margin: float = 0.03,
+    example_weights: torch.Tensor | None = None,
+) -> torch.Tensor:
+    """Train active inner steps to improve over the best earlier teacher score."""
+    if target_ce_margin < 0.0:
+        raise ValueError("target_ce_margin must be non-negative")
+    valid_mask = candidate_mask.sum(dim=1) > 1
+    if not bool(valid_mask.any().item()):
+        return torch.zeros((), dtype=final_logits.dtype, device=final_logits.device)
+
+    teacher = teacher_top1_candidate_index
+    root_incorrect_mask = (torch.argmax(initial_logits, dim=1) != teacher) & valid_mask
+    best_ce_so_far = torch.nn.functional.cross_entropy(
+        initial_logits,
+        teacher,
+        reduction="none",
+    ).detach()
+    losses: list[torch.Tensor] = []
+
+    def append_progress_loss(current_logits: torch.Tensor, active_mask: torch.Tensor) -> None:
+        nonlocal best_ce_so_far
+        active = active_mask & valid_mask
+        if not bool(active.any().item()):
+            return
+        current_ce = torch.nn.functional.cross_entropy(
+            current_logits,
+            teacher,
+            reduction="none",
+        )
+        required_margin = torch.where(
+            root_incorrect_mask,
+            torch.full_like(best_ce_so_far, target_ce_margin),
+            torch.zeros_like(best_ce_so_far),
+        )
+        target_ce = torch.clamp(best_ce_so_far - required_margin, min=0.0)
+        losses.append(
+            _masked_weighted_mean(
+                torch.nn.functional.relu(current_ce - target_ce),
+                active,
+                example_weights=example_weights,
+            )
+        )
+        best_ce_so_far = torch.where(
+            active,
+            torch.minimum(best_ce_so_far, current_ce.detach()),
+            best_ce_so_far,
+        )
+
+    for step_logits, step_active_mask in zip(
+        step_candidate_score_tensors,
+        step_active_masks,
+        strict=True,
+    ):
+        append_progress_loss(step_logits, step_active_mask)
+    append_progress_loss(final_logits, valid_mask)
+
+    if not losses:
+        return torch.zeros((), dtype=final_logits.dtype, device=final_logits.device)
+    return torch.stack(losses).mean()
+
+
+def _summarize_step_rank_progress(
+    *,
+    initial_logits: torch.Tensor,
+    final_logits: torch.Tensor,
+    teacher_top1_candidate_index: torch.Tensor,
+    candidate_mask: torch.Tensor,
+    step_candidate_score_tensors: Sequence[torch.Tensor],
+    step_active_masks: Sequence[torch.Tensor],
+) -> dict[str, float | int]:
+    """Summarize whether deeper steps improve teacher rank over the best prior step."""
+    valid_mask = candidate_mask.sum(dim=1) > 1
+    if not bool(valid_mask.any().item()):
+        return {
+            "transition_count": 0,
+            "improved_count": 0,
+            "degraded_count": 0,
+            "rank_delta_sum": 0.0,
+        }
+
+    best_rank_so_far = _teacher_ranks(
+        initial_logits,
+        teacher_top1_candidate_index,
+    ).detach()
+    transition_count = 0
+    improved_count = 0
+    degraded_count = 0
+    rank_delta_sum = 0.0
+
+    def update(current_logits: torch.Tensor, active_mask: torch.Tensor) -> None:
+        nonlocal best_rank_so_far
+        nonlocal transition_count
+        nonlocal improved_count
+        nonlocal degraded_count
+        nonlocal rank_delta_sum
+        active = active_mask & valid_mask
+        if not bool(active.any().item()):
+            return
+        current_rank = _teacher_ranks(
+            current_logits,
+            teacher_top1_candidate_index,
+        ).detach()
+        previous_best = best_rank_so_far
+        transition_count += int(active.sum().item())
+        improved_count += int(torch.sum((current_rank < previous_best) & active).item())
+        degraded_count += int(torch.sum((current_rank > previous_best) & active).item())
+        rank_delta_sum += float(
+            torch.sum((previous_best - current_rank).float()[active]).item()
+        )
+        best_rank_so_far = torch.where(
+            active,
+            torch.minimum(best_rank_so_far, current_rank),
+            best_rank_so_far,
+        )
+
+    for step_logits, step_active_mask in zip(
+        step_candidate_score_tensors,
+        step_active_masks,
+        strict=True,
+    ):
+        update(step_logits, step_active_mask)
+    update(final_logits, valid_mask)
+    return {
+        "transition_count": transition_count,
+        "improved_count": improved_count,
+        "degraded_count": degraded_count,
+        "rank_delta_sum": rank_delta_sum,
+    }
 
 
 def _should_apply_opponent_distill(

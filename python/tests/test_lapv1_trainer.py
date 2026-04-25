@@ -47,6 +47,8 @@ from train.trainers.lapv1 import (
     _opponent_distill_loss,
     _policy_margin_loss,
     _prepare_example,
+    _step_rank_progress_loss,
+    _summarize_step_rank_progress,
     _summarize_frontier_activity,
     _trace_policy_ce_loss,
 )
@@ -1051,6 +1053,14 @@ def test_lapv1_optimization_config_validates_log_interval_batches() -> None:
         LAPv1OptimizationConfig(log_interval_batches=0)
 
 
+def test_lapv1_optimization_config_validates_rank_progress_weight() -> None:
+    config = LAPv1OptimizationConfig(deliberation_rank_progress_weight=0.25)
+    assert config.deliberation_rank_progress_weight == 0.25
+
+    with pytest.raises(ValueError, match="deliberation_rank_progress_weight"):
+        LAPv1OptimizationConfig(deliberation_rank_progress_weight=-0.1)
+
+
 def test_lapv1_collate_clips_extreme_root_value_targets() -> None:
     example = _planner_example(
         "mate-like",
@@ -1149,6 +1159,83 @@ def test_improvement_over_root_loss_only_penalizes_root_incorrect_rows() -> None
     )
 
     assert torch.allclose(loss, torch.tensor(0.05, dtype=torch.float32), atol=1e-5)
+
+
+def test_step_rank_progress_loss_penalizes_missing_improvement_and_degradation() -> None:
+    assert torch is not None
+
+    initial_logits = torch.tensor(
+        [
+            [0.0, 1.0],
+            [2.0, 0.0],
+        ],
+        dtype=torch.float32,
+    )
+    final_logits = torch.tensor(
+        [
+            [0.0, 1.0],
+            [0.0, 2.0],
+        ],
+        dtype=torch.float32,
+    )
+    teacher_top1 = torch.tensor([0, 0], dtype=torch.long)
+    candidate_mask = torch.tensor([[True, True], [True, True]], dtype=torch.bool)
+
+    loss = _step_rank_progress_loss(
+        initial_logits=initial_logits,
+        final_logits=final_logits,
+        teacher_top1_candidate_index=teacher_top1,
+        candidate_mask=candidate_mask,
+        step_candidate_score_tensors=(),
+        step_active_masks=(),
+    )
+
+    assert loss > 0.0
+
+
+def test_step_rank_progress_loss_accepts_helpful_deeper_step() -> None:
+    assert torch is not None
+
+    initial_logits = torch.tensor([[0.0, 1.0]], dtype=torch.float32)
+    final_logits = torch.tensor([[3.0, 0.0]], dtype=torch.float32)
+    teacher_top1 = torch.tensor([0], dtype=torch.long)
+    candidate_mask = torch.tensor([[True, True]], dtype=torch.bool)
+
+    loss = _step_rank_progress_loss(
+        initial_logits=initial_logits,
+        final_logits=final_logits,
+        teacher_top1_candidate_index=teacher_top1,
+        candidate_mask=candidate_mask,
+        step_candidate_score_tensors=(),
+        step_active_masks=(),
+    )
+
+    assert torch.allclose(loss, torch.zeros((), dtype=torch.float32))
+
+
+def test_summarize_step_rank_progress_reports_improvement_and_degradation() -> None:
+    assert torch is not None
+
+    initial_logits = torch.tensor([[0.0, 1.0, 0.5]], dtype=torch.float32)
+    step_logits = (torch.tensor([[2.0, 1.0, 0.5]], dtype=torch.float32),)
+    final_logits = torch.tensor([[1.5, 2.0, 0.5]], dtype=torch.float32)
+    teacher_top1 = torch.tensor([0], dtype=torch.long)
+    candidate_mask = torch.tensor([[True, True, True]], dtype=torch.bool)
+    step_active_masks = (torch.tensor([True], dtype=torch.bool),)
+
+    stats = _summarize_step_rank_progress(
+        initial_logits=initial_logits,
+        final_logits=final_logits,
+        teacher_top1_candidate_index=teacher_top1,
+        candidate_mask=candidate_mask,
+        step_candidate_score_tensors=step_logits,
+        step_active_masks=step_active_masks,
+    )
+
+    assert stats["transition_count"] == 2
+    assert stats["improved_count"] == 1
+    assert stats["degraded_count"] == 1
+    assert stats["rank_delta_sum"] == 1.0
 
 
 def test_trace_policy_ce_loss_averages_over_step_logits() -> None:
