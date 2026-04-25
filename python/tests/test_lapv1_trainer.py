@@ -720,6 +720,7 @@ def test_train_lapv1_accepts_older_checkpoint_missing_residual_delta_net(
                 "deliberation_loop.cell.frontier_context_projection.",
                 "deliberation_loop.cell.candidate_frontier_state_projection.",
                 "deliberation_loop.cell.candidate_frontier_memory_projection.",
+                "deliberation_loop.cell.depth_condition_projection.",
                 "deliberation_loop.cell.candidate_frontier_gate_network.",
                 "deliberation_loop.cell.candidate_frontier_delta_network.",
                 "deliberation_loop.cell.candidate_interaction_network.",

@@ -6,6 +6,7 @@ pytest.importorskip("torch")
 
 from train.models.deliberation import (
     CandidateSelector,
+    DeliberationCell,
     DeliberationLoop,
     torch,
 )
@@ -222,6 +223,60 @@ def test_deliberation_loop_updates_residual_deltas_over_root_scores() -> None:
         outputs["final_candidate_scores"][valid_mask],
         reconstructed[valid_mask],
     )
+
+
+def test_deliberation_cell_uses_depth_features() -> None:
+    torch.manual_seed(7)
+    cell = DeliberationCell(state_dim=8, memory_dim=4)
+    z_t = torch.randn((2, 8), dtype=torch.float32)
+    M_t = torch.randn((2, 3, 4), dtype=torch.float32)
+    root_scores = torch.tensor(
+        [[0.7, 0.3, -0.2], [0.5, -0.1, -1.0]],
+        dtype=torch.float32,
+    )
+    delta_scores = torch.zeros_like(root_scores)
+    refined_reply_signals = torch.tensor(
+        [[0.1, -0.2, 0.0], [0.05, -0.1, 0.0]],
+        dtype=torch.float32,
+    )
+    candidate_mask = torch.tensor(
+        [[True, True, True], [True, True, False]],
+        dtype=torch.bool,
+    )
+    candidate_update_mask = torch.tensor(
+        [[True, True, False], [True, False, False]],
+        dtype=torch.bool,
+    )
+    candidate_frontier_states = torch.randn((2, 3, 8), dtype=torch.float32)
+    candidate_frontier_memory = torch.randn((2, 3, 4), dtype=torch.float32)
+
+    early_outputs = cell(
+        z_t,
+        M_t,
+        root_scores,
+        delta_scores,
+        refined_reply_signals,
+        candidate_update_mask,
+        candidate_mask,
+        candidate_frontier_states,
+        candidate_frontier_memory,
+        torch.tensor([[0.0, 1.0], [0.0, 1.0]], dtype=torch.float32),
+    )
+    late_outputs = cell(
+        z_t,
+        M_t,
+        root_scores,
+        delta_scores,
+        refined_reply_signals,
+        candidate_update_mask,
+        candidate_mask,
+        candidate_frontier_states,
+        candidate_frontier_memory,
+        torch.tensor([[1.0, 0.0], [1.0, 0.0]], dtype=torch.float32),
+    )
+
+    assert not torch.allclose(early_outputs[0], late_outputs[0])
+    assert not torch.allclose(early_outputs[2], late_outputs[2])
 
 
 def test_candidate_selector_returns_top_k_indices() -> None:

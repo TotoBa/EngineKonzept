@@ -215,6 +215,13 @@ interaction term. Each candidate sees a score-weighted frontier summary and
 can update against that shared context without expanding a board tree or
 switching to classical search.
 
+The recurrent cell now also receives explicit normalized depth features:
+current inner-step position and remaining inner-step budget. A learned depth
+projection conditions the latent update and candidate residual update so early
+steps can learn exploratory corrections while late steps can learn
+consolidation, instead of forcing all step roles to be inferred from memory
+state alone.
+
 ### Bounded Recurrent Deliberation Loop
 
 The deliberation loop is the central runtime mechanism.

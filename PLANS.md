@@ -478,6 +478,10 @@ stays observably distinct from classical search.
 - wrapper model and staged trainer support (`T1` static heads, `T2` deliberation-on)
 - runtime-facing LAPv1 agent contract and benchmark-ready arena template
 - migration plan for which older planner arms stay as references vs. deprecate
+- LAPv2 depth-alignment refinements documented in
+  `docs/architecture/lapv2-depth-alignment.md`, including step-rank progress,
+  learned step utility, depth-conditioned recurrent updates, guarded frontier
+  diversity, and external-hard validation slices.
 
 ## Exit criteria
 - LAPv1 reaches a prepared-and-testable state without disturbing existing runtime paths

@@ -19,6 +19,11 @@ Step 2 is implemented in the trainer:
 - `step_utility_continue_rate`
 - `step_utility_predicted_continue_rate`
 
+Step 3 is implemented in the deliberation model:
+
+- `DeliberationCell.depth_condition_projection`
+- per-step normalized depth-position and remaining-budget features
+
 The current external-focus runs show a consistent pattern: internal LAPv2
 metrics keep improving, but arena strength against `stockfish18_skill_00` and
 `vice_v2` does not move reliably. The next work therefore targets the learned
@@ -61,10 +66,12 @@ eventually moves the external arena numbers.
    - Make sharpness/halting learn "continue because the next step helps", not
      just "continue because the position looks complex".
 
-3. Add depth-conditioned update control.
+3. Add depth-conditioned update control. **Implemented.**
    - Give the recurrent cell an explicit learned depth embedding.
    - Let early steps explore and later steps consolidate without relying on
      implicit memory state alone.
+   - Keep checkpoint loading compatible by treating the new depth projection as
+     a fresh-initialized LAPv2-compatible prefix.
 
 4. Make frontier diversity a guarded objective.
    - Penalize premature collapse when all frontier slots chase the same move.

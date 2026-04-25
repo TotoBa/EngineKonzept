@@ -66,6 +66,7 @@ if torch is not None and nn is not None:
             self.memory_dim = memory_dim
             self.candidate_update_scale = candidate_update_scale
             self.memory_projection = nn.Linear(memory_dim, state_dim)
+            self.depth_condition_projection = nn.Linear(2, state_dim)
             self.state_cell = nn.GRUCell(state_dim * 3, state_dim)
             self.memory_update = nn.Linear(state_dim + memory_dim, memory_dim)
             self.state_norm = nn.LayerNorm(state_dim)
@@ -109,9 +110,13 @@ if torch is not None and nn is not None:
             candidate_mask: torch.Tensor,
             candidate_frontier_states: torch.Tensor,
             candidate_frontier_memory: torch.Tensor,
+            depth_features: torch.Tensor,
         ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
             """Update latent root, rolling memory slots, and residual candidate deltas."""
+            if depth_features.shape != (z_t.shape[0], 2):
+                raise ValueError("depth_features must have shape (batch, 2)")
             memory_summary = M_t.mean(dim=1)
+            depth_condition = self.depth_condition_projection(depth_features)
             candidate_scores = (root_scores + delta_scores).masked_fill(
                 ~candidate_mask,
                 0.0,
@@ -160,7 +165,9 @@ if torch is not None and nn is not None:
             state_input = torch.cat(
                 [
                     z_t,
-                    self.memory_projection(memory_summary) + frontier_context,
+                    self.memory_projection(memory_summary)
+                    + frontier_context
+                    + depth_condition,
                     torch.cat(
                         [
                             candidate_summary.expand(-1, self.state_dim // 2),
@@ -176,7 +183,15 @@ if torch is not None and nn is not None:
                 self.memory_update(torch.cat([memory_summary, z_next], dim=1))
             ).unsqueeze(1)
             M_next = torch.cat([new_memory_slot, M_t[:, :-1, :]], dim=1)
-            expanded_state = z_next.unsqueeze(1).expand(-1, root_scores.shape[1], -1)
+            expanded_depth_condition = depth_condition.unsqueeze(1).expand(
+                -1,
+                root_scores.shape[1],
+                -1,
+            )
+            expanded_state = (
+                z_next.unsqueeze(1).expand(-1, root_scores.shape[1], -1)
+                + expanded_depth_condition
+            )
             expanded_memory = self.memory_projection(memory_summary).unsqueeze(1).expand_as(
                 expanded_state
             )
@@ -954,6 +969,13 @@ if torch is not None and nn is not None:
                     candidate_mask,
                     candidate_frontier_states_step,
                     candidate_frontier_memory_step,
+                    _step_depth_features(
+                        batch_size=z_root.shape[0],
+                        step_index=step_index,
+                        max_inner_steps=self.max_inner_steps,
+                        dtype=z_root.dtype,
+                        device=z_root.device,
+                    ),
                 )
                 selected_candidate_interaction = candidate_interaction.gather(
                     1,
@@ -1209,6 +1231,24 @@ else:  # pragma: no cover - exercised when torch is absent
             raise RuntimeError(
                 "PyTorch is required for DeliberationLoop. Install the 'train' extra or torch."
             )
+
+
+def _step_depth_features(
+    *,
+    batch_size: int,
+    step_index: int,
+    max_inner_steps: int,
+    dtype: torch.dtype,
+    device: torch.device,
+) -> torch.Tensor:
+    """Return normalized current-depth and remaining-budget features for one step."""
+    denominator = float(max(max_inner_steps - 1, 1))
+    depth_position = float(step_index) / denominator
+    depth_remaining = float(max(max_inner_steps - step_index - 1, 0)) / denominator
+    features = torch.empty((batch_size, 2), dtype=dtype, device=device)
+    features[:, 0] = depth_position
+    features[:, 1] = depth_remaining
+    return features
 
 
 def _scatter_candidate_updates(
